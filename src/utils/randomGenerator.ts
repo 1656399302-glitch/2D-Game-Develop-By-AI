@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { PlacedModule, ModuleType, Connection, MODULE_SIZES, MODULE_PORT_CONFIGS, Port } from '../types';
+import { PlacedModule, ModuleType, Connection, MODULE_SIZES, MODULE_PORT_CONFIGS, Port, PortType } from '../types';
 import { calculateConnectionPath } from './connectionEngine';
 
 export interface RandomGeneratorConfig {
@@ -20,7 +20,7 @@ export const DEFAULT_CONFIG: RandomGeneratorConfig = {
   padding: 100,
 };
 
-// Module types available for random generation
+// Module types available for random generation - now includes new multi-port modules
 const AVAILABLE_MODULE_TYPES: ModuleType[] = [
   'core-furnace',
   'energy-pipe',
@@ -29,6 +29,8 @@ const AVAILABLE_MODULE_TYPES: ModuleType[] = [
   'shield-shell',
   'trigger-switch',
   'output-array',
+  'amplifier-crystal',
+  'stabilizer-core',
 ];
 
 /**
@@ -55,19 +57,41 @@ const distanceBetween = (a: PlacedModule, b: PlacedModule): number => {
 
 /**
  * Get default ports for a module type
+ * Supports both single-port (backward compatible) and multi-port configurations
  */
 const getDefaultPorts = (type: ModuleType): Port[] => {
   const config = MODULE_PORT_CONFIGS[type];
   if (!config) {
+    // Fallback for unknown types - default single port
     return [
-      { id: `${type}-input`, type: 'input', position: { x: 25, y: 40 } },
-      { id: `${type}-output`, type: 'output', position: { x: 75, y: 40 } },
+      { id: `${type}-input-0`, type: 'input' as PortType, position: { x: 25, y: 40 } },
+      { id: `${type}-output-0`, type: 'output' as PortType, position: { x: 75, y: 40 } },
     ];
   }
-  return [
-    { id: `${type}-input`, type: 'input', position: config.input },
-    { id: `${type}-output`, type: 'output', position: config.output },
-  ];
+  
+  const ports: Port[] = [];
+  
+  // Handle input ports - can be single or array
+  const inputConfig = config.input;
+  if (Array.isArray(inputConfig)) {
+    inputConfig.forEach((pos, idx) => {
+      ports.push({ id: `${type}-input-${idx}`, type: 'input' as PortType, position: pos });
+    });
+  } else {
+    ports.push({ id: `${type}-input-0`, type: 'input' as PortType, position: inputConfig });
+  }
+  
+  // Handle output ports - can be single or array
+  const outputConfig = config.output;
+  if (Array.isArray(outputConfig)) {
+    outputConfig.forEach((pos, idx) => {
+      ports.push({ id: `${type}-output-${idx}`, type: 'output' as PortType, position: pos });
+    });
+  } else {
+    ports.push({ id: `${type}-output-0`, type: 'output' as PortType, position: outputConfig });
+  }
+  
+  return ports;
 };
 
 /**
@@ -214,7 +238,7 @@ const findValidModulePositions = (
 
 /**
  * Create connections between modules
- * Ensures at least one connection if there are 2+ modules
+ * Supports multi-port modules by finding compatible input/output port pairs
  */
 const createConnections = (modules: PlacedModule[]): Connection[] => {
   if (modules.length < 2) return [];
@@ -225,12 +249,9 @@ const createConnections = (modules: PlacedModule[]): Connection[] => {
   const firstModule = modules[0];
   const secondModule = modules[1];
   
-  // Find compatible ports (one input, one output)
-  const firstPorts = firstModule.ports;
-  const secondPorts = secondModule.ports;
-  
-  const firstOutput = firstPorts.find((p) => p.type === 'output') || firstPorts[0];
-  const secondInput = secondPorts.find((p) => p.type === 'input') || secondPorts[0];
+  // Find compatible ports (one output, one input) with specific port IDs
+  const firstOutput = firstModule.ports.find((p) => p.type === 'output') || firstModule.ports[0];
+  const secondInput = secondModule.ports.find((p) => p.type === 'input') || secondModule.ports[0];
   
   const pathData = calculateConnectionPath(
     modules,
@@ -256,6 +277,7 @@ const createConnections = (modules: PlacedModule[]): Connection[] => {
         const moduleA = modules[i];
         const moduleB = modules[j];
         
+        // Find compatible ports with specific IDs
         const portA = moduleA.ports.find((p) => p.type === 'output') || moduleA.ports[0];
         const portB = moduleB.ports.find((p) => p.type === 'input') || moduleB.ports[0];
         
@@ -307,7 +329,7 @@ export const generateRandomMachine = (
   // Ensure at least 2 modules for valid connections
   const actualCount = Math.max(2, moduleCount);
   
-  // Select random module types
+  // Select random module types from all available (including new multi-port modules)
   const moduleTypes: ModuleType[] = [];
   for (let i = 0; i < actualCount; i++) {
     moduleTypes.push(AVAILABLE_MODULE_TYPES[Math.floor(Math.random() * AVAILABLE_MODULE_TYPES.length)]);
@@ -352,13 +374,24 @@ export const validateGeneratedMachine = (
     errors.push(`Machine has ${modules.length} modules but no connections`);
   }
   
-  // Validate connections reference valid modules
+  // Validate connections reference valid modules and ports
   for (const conn of connections) {
     const sourceValid = modules.some((m) => m.instanceId === conn.sourceModuleId);
     const targetValid = modules.some((m) => m.instanceId === conn.targetModuleId);
     
     if (!sourceValid || !targetValid) {
       errors.push(`Connection references invalid module`);
+    }
+    
+    // Verify port IDs exist on the referenced modules
+    const sourceModule = modules.find((m) => m.instanceId === conn.sourceModuleId);
+    const targetModule = modules.find((m) => m.instanceId === conn.targetModuleId);
+    
+    if (sourceModule && !sourceModule.ports.some((p) => p.id === conn.sourcePortId)) {
+      errors.push(`Connection references invalid source port: ${conn.sourcePortId}`);
+    }
+    if (targetModule && !targetModule.ports.some((p) => p.id === conn.targetPortId)) {
+      errors.push(`Connection references invalid target port: ${conn.targetPortId}`);
     }
   }
   

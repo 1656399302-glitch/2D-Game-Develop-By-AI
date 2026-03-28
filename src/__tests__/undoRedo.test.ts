@@ -168,9 +168,13 @@ describe('Undo/Redo System', () => {
       const module1 = useMachineStore.getState().modules[0];
       const module2 = useMachineStore.getState().modules[1];
       
+      // Get actual port IDs from the modules (format: ${type}-output-0, ${type}-input-0)
+      const sourcePortId = module1.ports.find(p => p.type === 'output')?.id || `${module1.type}-output-0`;
+      const targetPortId = module2.ports.find(p => p.type === 'input')?.id || `${module2.type}-input-0`;
+      
       // Create connection
-      store.startConnection(module1.instanceId, `${module1.type}-output`);
-      store.completeConnection(module2.instanceId, `${module2.type}-input`);
+      store.startConnection(module1.instanceId, sourcePortId);
+      store.completeConnection(module2.instanceId, targetPortId);
       
       expect(useMachineStore.getState().connections.length).toBe(1);
       

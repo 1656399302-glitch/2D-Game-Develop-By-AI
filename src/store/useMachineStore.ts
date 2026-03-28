@@ -126,19 +126,43 @@ const debouncedAutoSave = (
   }, AUTO_SAVE_DEBOUNCE);
 };
 
+/**
+ * Get default ports for a module type
+ * Supports both single-port (backward compatible) and multi-port configurations
+ */
 const getDefaultPorts = (type: ModuleType): Port[] => {
   const config = MODULE_PORT_CONFIGS[type];
   if (!config) {
-    // Fallback for unknown types
+    // Fallback for unknown types - default single port
     return [
-      { id: `${type}-input`, type: 'input' as PortType, position: { x: 25, y: 40 } },
-      { id: `${type}-output`, type: 'output' as PortType, position: { x: 75, y: 40 } },
+      { id: `${type}-input-0`, type: 'input' as PortType, position: { x: 25, y: 40 } },
+      { id: `${type}-output-0`, type: 'output' as PortType, position: { x: 75, y: 40 } },
     ];
   }
-  return [
-    { id: `${type}-input`, type: 'input' as PortType, position: config.input },
-    { id: `${type}-output`, type: 'output' as PortType, position: config.output },
-  ];
+  
+  const ports: Port[] = [];
+  
+  // Handle input ports - can be single or array
+  const inputConfig = config.input;
+  if (Array.isArray(inputConfig)) {
+    inputConfig.forEach((pos, idx) => {
+      ports.push({ id: `${type}-input-${idx}`, type: 'input' as PortType, position: pos });
+    });
+  } else {
+    ports.push({ id: `${type}-input-0`, type: 'input' as PortType, position: inputConfig });
+  }
+  
+  // Handle output ports - can be single or array
+  const outputConfig = config.output;
+  if (Array.isArray(outputConfig)) {
+    outputConfig.forEach((pos, idx) => {
+      ports.push({ id: `${type}-output-${idx}`, type: 'output' as PortType, position: pos });
+    });
+  } else {
+    ports.push({ id: `${type}-output-0`, type: 'output' as PortType, position: outputConfig });
+  }
+  
+  return ports;
 };
 
 const snapToGrid = (value: number, gridSize: number = GRID_SIZE): number => {

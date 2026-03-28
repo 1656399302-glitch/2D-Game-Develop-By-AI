@@ -42,6 +42,9 @@ const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
   'shield-shell': ['protective', 'stable'],
   'trigger-switch': ['explosive', 'amplifying'],
   'output-array': ['arcane', 'resonance'],
+  // New multi-port modules
+  'amplifier-crystal': ['arcane', 'amplifying'],
+  'stabilizer-core': ['balancing', 'stable'],
 };
 
 const DESCRIPTIONS = [

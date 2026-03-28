@@ -9,6 +9,8 @@ import { RuneNodeSVG } from './RuneNode';
 import { ShieldShellSVG } from './ShieldShell';
 import { TriggerSwitchSVG } from './TriggerSwitch';
 import { OutputArraySVG } from './OutputArray';
+import { AmplifierCrystalSVG } from './AmplifierCrystal';
+import { StabilizerCoreSVG } from './StabilizerCore';
 
 interface ModuleRendererProps {
   module: PlacedModule;
@@ -111,10 +113,29 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
         return <TriggerSwitchSVG {...props} />;
       case 'output-array':
         return <OutputArraySVG {...props} />;
+      case 'amplifier-crystal':
+        return <AmplifierCrystalSVG {...props} />;
+      case 'stabilizer-core':
+        return <StabilizerCoreSVG {...props} />;
       default:
         return <rect width={size.width} height={size.height} fill="#333" />;
     }
   };
+  
+  // Get port label with index for multi-port modules
+  const getPortLabel = (port: Port, index: number) => {
+    if (port.type === 'input') {
+      const inputCount = module.ports.filter(p => p.type === 'input').length;
+      return inputCount > 1 ? `IN${index + 1}` : 'IN';
+    } else {
+      const outputCount = module.ports.filter(p => p.type === 'output').length;
+      return outputCount > 1 ? `OUT${index + 1}` : 'OUT';
+    }
+  };
+  
+  // Group ports by type for proper labeling
+  const inputPorts = module.ports.filter(p => p.type === 'input');
+  const outputPorts = module.ports.filter(p => p.type === 'output');
   
   return (
     <g
@@ -143,8 +164,8 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
       {/* Module SVG content */}
       {renderModuleSVG()}
       
-      {/* Ports */}
-      {module.ports.map((port) => {
+      {/* Input Ports */}
+      {inputPorts.map((port, idx) => {
         const localPos = {
           x: port.position.x,
           y: port.position.y,
@@ -162,17 +183,17 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
             {/* Port glow */}
             <circle
               r="10"
-              fill={port.type === 'input' ? '#22c55e20' : '#00d4ff20'}
+              fill="#22c55e20"
               className="transition-all duration-200"
             />
             
-            {/* Port circle */}
+            {/* Port circle - increased radius for visibility (6px default, 8px hover) */}
             <circle
               r="6"
-              fill={port.type === 'input' ? '#22c55e' : '#00d4ff'}
+              fill="#22c55e"
               stroke="#fff"
               strokeWidth="1"
-              className="transition-all duration-200"
+              className="transition-all duration-200 hover:opacity-90"
             />
             
             {/* Port inner dot */}
@@ -184,13 +205,66 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
             
             {/* Port label */}
             <text
-              y="-12"
+              y="-14"
               textAnchor="middle"
-              fill={port.type === 'input' ? '#22c55e' : '#00d4ff'}
+              fill="#22c55e"
               fontSize="8"
               fontWeight="bold"
             >
-              {port.type === 'input' ? 'IN' : 'OUT'}
+              {getPortLabel(port, idx)}
+            </text>
+          </g>
+        );
+      })}
+      
+      {/* Output Ports */}
+      {outputPorts.map((port, idx) => {
+        const localPos = {
+          x: port.position.x,
+          y: port.position.y,
+        };
+        
+        return (
+          <g
+            key={port.id}
+            transform={`translate(${localPos.x}, ${localPos.y})`}
+            onMouseDown={(e) => handlePortMouseDown(port, e)}
+            onMouseUp={(e) => handlePortMouseUp(port, e)}
+            style={{ cursor: 'crosshair' }}
+            className="port-group"
+          >
+            {/* Port glow */}
+            <circle
+              r="10"
+              fill="#00d4ff20"
+              className="transition-all duration-200"
+            />
+            
+            {/* Port circle - increased radius for visibility (6px default, 8px hover) */}
+            <circle
+              r="6"
+              fill="#00d4ff"
+              stroke="#fff"
+              strokeWidth="1"
+              className="transition-all duration-200 hover:opacity-90"
+            />
+            
+            {/* Port inner dot */}
+            <circle
+              r="2"
+              fill="#fff"
+              className="transition-all duration-200"
+            />
+            
+            {/* Port label */}
+            <text
+              y="-14"
+              textAnchor="middle"
+              fill="#00d4ff"
+              fontSize="8"
+              fontWeight="bold"
+            >
+              {getPortLabel(port, idx)}
             </text>
           </g>
         );

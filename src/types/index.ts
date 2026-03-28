@@ -1,5 +1,5 @@
 // Module Types
-export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array';
+export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array' | 'amplifier-crystal' | 'stabilizer-core';
 export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output';
 export type PortType = 'input' | 'output';
 
@@ -18,6 +18,10 @@ export interface ModuleDefinition {
   baseAttributes: ModuleAttributes;
   defaultWidth: number;
   defaultHeight: number;
+  portConfig: {
+    inputs: { x: number; y: number }[];
+    outputs: { x: number; y: number }[];
+  };
 }
 
 export interface ModuleAttributes {
@@ -144,15 +148,51 @@ export const MODULE_SIZES: Record<ModuleType, { width: number; height: number }>
   'shield-shell': { width: 100, height: 60 },
   'trigger-switch': { width: 60, height: 100 },
   'output-array': { width: 80, height: 80 },
+  'amplifier-crystal': { width: 80, height: 80 },
+  'stabilizer-core': { width: 80, height: 80 },
 };
 
-// Default port configurations
-export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: { x: number; y: number }; output: { x: number; y: number } }> = {
-  'core-furnace': { input: { x: 25, y: 50 }, output: { x: 75, y: 50 } },
-  'energy-pipe': { input: { x: 0, y: 25 }, output: { x: 100, y: 25 } },
-  'gear': { input: { x: 50, y: 0 }, output: { x: 50, y: 100 } },
-  'rune-node': { input: { x: 0, y: 40 }, output: { x: 100, y: 40 } },
-  'shield-shell': { input: { x: 20, y: 50 }, output: { x: 80, y: 50 } },
-  'trigger-switch': { input: { x: 50, y: 0 }, output: { x: 50, y: 100 } },
-  'output-array': { input: { x: 0, y: 40 }, output: { x: 80, y: 40 } },
+// Port position configuration - supports single position or array for multi-port modules
+type SinglePortConfig = { x: number; y: number };
+type MultiPortConfig = { x: number; y: number }[];
+type PortConfig = SinglePortConfig | MultiPortConfig;
+
+export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: PortConfig; output: PortConfig }> = {
+  'core-furnace': { 
+    input: { x: 25, y: 50 }, 
+    output: { x: 75, y: 50 } 
+  },
+  'energy-pipe': { 
+    input: { x: 0, y: 25 }, 
+    output: { x: 100, y: 25 } 
+  },
+  'gear': { 
+    input: { x: 50, y: 0 }, 
+    output: { x: 50, y: 100 } 
+  },
+  'rune-node': { 
+    input: { x: 0, y: 40 }, 
+    output: { x: 100, y: 40 } 
+  },
+  'shield-shell': { 
+    input: { x: 20, y: 50 }, 
+    output: { x: 80, y: 50 } 
+  },
+  'trigger-switch': { 
+    input: { x: 50, y: 0 }, 
+    output: { x: 50, y: 100 } 
+  },
+  'output-array': { 
+    input: { x: 0, y: 40 }, 
+    output: { x: 80, y: 40 } 
+  },
+  // Multi-port modules
+  'amplifier-crystal': { 
+    input: { x: 0, y: 40 }, 
+    output: [{ x: 80, y: 20 }, { x: 80, y: 60 }] // 1 input, 2 outputs (40px apart)
+  },
+  'stabilizer-core': { 
+    input: [{ x: 0, y: 25 }, { x: 0, y: 55 }], // 2 inputs (30px apart)
+    output: { x: 80, y: 40 } 
+  },
 };

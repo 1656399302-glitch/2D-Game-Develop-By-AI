@@ -54,13 +54,26 @@ const MODULE_CATALOG: ModuleInfo[] = [
     category: 'output',
     description: 'Final terminus for energy circuits. Projects arcane beams and resonance.',
   },
+  // New multi-port modules
+  {
+    type: 'amplifier-crystal',
+    name: 'Amplifier Crystal',
+    category: 'rune',
+    description: 'Prismatic energy amplifier with 1 input and 2 outputs. Splits and amplifies arcane power.',
+  },
+  {
+    type: 'stabilizer-core',
+    name: 'Stabilizer Core',
+    category: 'core',
+    description: 'Harmonic stabilization matrix with 2 inputs and 1 output. Balances energy fluctuations.',
+  },
 ];
 
 const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   core: '#00d4ff',
   pipe: '#7c3aed',
   gear: '#f59e0b',
-  rune: '#9333ea',
+  rune: '#a855f7',
   shield: '#22c55e',
   trigger: '#ef4444',
   output: '#fbbf24',
@@ -302,6 +315,53 @@ function ModuleIcon({ type }: { type: ModuleType }) {
         <path d="M22,16 L28,14 L28,18 Z" fill="#fbbf24"/>
         {/* Receptor */}
         <ellipse cx="5" cy="16" rx="3" ry="5" fill="#2d2d2d" stroke="#f59e0b" strokeWidth="1"/>
+      </svg>
+    ),
+    'amplifier-crystal': (
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        {/* Diamond shape */}
+        <polygon
+          points="16,2 28,16 16,30 4,16"
+          fill="#2d1b4e"
+          stroke="#a855f7"
+          strokeWidth="1.5"
+        />
+        {/* Inner facets */}
+        <line x1="16" y1="2" x2="16" y2="30" stroke="#c084fc" strokeWidth="0.5" opacity="0.6"/>
+        <line x1="4" y1="16" x2="28" y2="16" stroke="#c084fc" strokeWidth="0.5" opacity="0.6"/>
+        {/* Core */}
+        <circle cx="16" cy="16" r="4" fill="#9333ea"/>
+        <circle cx="16" cy="16" r="2" fill="#c084fc"/>
+        {/* Output indicators */}
+        <circle cx="28" cy="10" r="2" fill="#a855f7"/>
+        <circle cx="28" cy="22" r="2" fill="#a855f7"/>
+        {/* Input indicator */}
+        <circle cx="4" cy="16" r="2" fill="#22c55e"/>
+      </svg>
+    ),
+    'stabilizer-core': (
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        {/* Octagon shape */}
+        <polygon
+          points="16,2 24,4 28,12 28,20 24,28 8,28 4,20 4,12 8,4"
+          fill="#064e3b"
+          stroke="#22c55e"
+          strokeWidth="1.5"
+        />
+        {/* Concentric rings */}
+        <circle cx="16" cy="16" r="10" fill="none" stroke="#4ade80" strokeWidth="1" opacity="0.6"/>
+        <circle cx="16" cy="16" r="6" fill="none" stroke="#86efac" strokeWidth="1" opacity="0.8"/>
+        {/* Center hub */}
+        <circle cx="16" cy="16" r="3" fill="#22c55e"/>
+        <circle cx="16" cy="16" r="1.5" fill="#fff"/>
+        {/* Cross symbol */}
+        <rect x="14" y="8" width="4" height="16" rx="1" fill="#4ade80" opacity="0.5"/>
+        <rect x="8" y="14" width="16" height="4" rx="1" fill="#4ade80" opacity="0.5"/>
+        {/* Input indicators */}
+        <circle cx="4" cy="10" r="1.5" fill="#22c55e"/>
+        <circle cx="4" cy="22" r="1.5" fill="#22c55e"/>
+        {/* Output indicator */}
+        <circle cx="28" cy="16" r="1.5" fill="#4ade80"/>
       </svg>
     ),
   };

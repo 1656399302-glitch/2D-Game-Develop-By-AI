@@ -13,6 +13,7 @@ export function EnergyPath({ connection, isSelected, isActive, onClick }: Energy
   const pathRef = useRef<SVGPathElement>(null);
   const glowRef = useRef<SVGPathElement>(null);
   const particleRef = useRef<SVGCircleElement>(null);
+  const secondaryGlowRef = useRef<SVGPathElement>(null);
   
   useEffect(() => {
     if (!particleRef.current || !pathRef.current || !isActive) {
@@ -24,6 +25,10 @@ export function EnergyPath({ connection, isSelected, isActive, onClick }: Energy
         gsap.killTweensOf(glowRef.current);
         gsap.set(glowRef.current, { opacity: 0.2 });
       }
+      if (secondaryGlowRef.current) {
+        gsap.killTweensOf(secondaryGlowRef.current);
+        gsap.set(secondaryGlowRef.current, { opacity: 0.1 });
+      }
       return;
     }
     
@@ -33,31 +38,46 @@ export function EnergyPath({ connection, isSelected, isActive, onClick }: Energy
         attr: { r: 4 },
       });
       
+      // Enhanced pulse animation with 0.8s duration (updated from 1s)
       gsap.to(particleRef.current, {
         attr: { r: 6 },
-        duration: 0.3,
+        duration: 0.4, // Half of 0.8s for yoyo
         yoyo: true,
         repeat: -1,
+        ease: 'power1.inOut',
       });
       
       // Use motionPath plugin if available
       gsap.set(particleRef.current, { opacity: 1 });
       
-      // Simple animation along the path using dashoffset
+      // Opacity pulse with 0.8s duration
       gsap.to(particleRef.current, {
         opacity: 0.5,
-        duration: 0.5,
+        duration: 0.4, // Half of 0.8s for yoyo
         yoyo: true,
         repeat: -1,
+        ease: 'power1.inOut',
       });
       
-      // Glow pulse
+      // Primary glow pulse with 0.8s duration and stdDeviation=4
       if (glowRef.current) {
         gsap.to(glowRef.current, {
           opacity: 0.6,
+          duration: 0.4, // Half of 0.8s for yoyo
+          yoyo: true,
+          repeat: -1,
+          ease: 'power1.inOut',
+        });
+      }
+      
+      // Secondary glow layer at 50% opacity for depth
+      if (secondaryGlowRef.current) {
+        gsap.to(secondaryGlowRef.current, {
+          opacity: 0.25,
           duration: 0.5,
           yoyo: true,
           repeat: -1,
+          ease: 'power1.inOut',
         });
       }
     });
@@ -67,7 +87,18 @@ export function EnergyPath({ connection, isSelected, isActive, onClick }: Energy
   
   return (
     <g onClick={onClick} style={{ cursor: 'pointer' }}>
-      {/* Glow effect layer */}
+      {/* Secondary glow layer at 50% opacity for depth */}
+      <path
+        ref={secondaryGlowRef}
+        d={connection.pathData}
+        fill="none"
+        stroke="#00ffcc"
+        strokeWidth="12"
+        opacity="0.1"
+        strokeLinecap="round"
+      />
+      
+      {/* Primary glow effect layer - enhanced stdDeviation=4 during active state */}
       <path
         ref={glowRef}
         d={connection.pathData}
@@ -135,7 +166,7 @@ export function EnergyPath({ connection, isSelected, isActive, onClick }: Energy
           <animate
             attributeName="fill"
             values="#00ffcc;#00d4ff;#00ffcc"
-            dur="1s"
+            dur="0.8s"
             repeatCount="indefinite"
           />
         )}
