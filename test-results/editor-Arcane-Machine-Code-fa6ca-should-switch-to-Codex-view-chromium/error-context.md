@@ -1,0 +1,45 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "⚙ ARCANE MACHINE CODEX ⚙" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - button "Editor" [ref=e8] [cursor=pointer]
+        - button "Codex" [active] [ref=e9] [cursor=pointer]
+  - generic [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - heading "Machine Codex" [level=2] [ref=e16]
+          - paragraph [ref=e17]: 0 machines recorded
+        - generic [ref=e18]:
+          - generic [ref=e20]: "0"
+          - generic [ref=e22]: "0"
+          - generic [ref=e24]: "0"
+          - generic [ref=e26]: "0"
+          - generic [ref=e28]: "0"
+      - generic [ref=e29]:
+        - textbox "Search by name, ID, or tag..." [ref=e31]
+        - combobox [ref=e32]:
+          - option "Newest" [selected]
+          - option "Oldest"
+          - option "Rarity"
+          - option "Name"
+        - combobox [ref=e33]:
+          - option "All Rarities" [selected]
+          - option "Common"
+          - option "Uncommon"
+          - option "Rare"
+          - option "Epic"
+          - option "Legendary"
+    - generic [ref=e35]:
+      - generic [ref=e36]: 📖
+      - heading "No Machines Recorded" [level=3] [ref=e37]
+      - paragraph [ref=e38]: Build a machine in the Editor and save it to the Codex
+  - contentinfo [ref=e39]:
+    - generic [ref=e40]: "Modules: 0 | Connections: 0"
+    - generic [ref=e41]: Press R to rotate | Delete to remove | Ctrl+Z/Y for undo/redo
+    - generic [ref=e42]: "Grid: ON"
+```

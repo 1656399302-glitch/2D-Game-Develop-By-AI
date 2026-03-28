@@ -1,0 +1,132 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "⚙ ARCANE MACHINE CODEX ⚙" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - button "Editor" [ref=e8] [cursor=pointer]
+        - button "Codex" [ref=e9] [cursor=pointer]
+    - generic [ref=e10]:
+      - button "▶ Activate Machine" [ref=e11] [cursor=pointer]
+      - button "📖 Save to Codex" [ref=e12] [cursor=pointer]
+      - button "📤 Export" [ref=e13] [cursor=pointer]
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - heading "MODULE PALETTE" [level=2] [ref=e17]
+        - paragraph [ref=e18]: Drag or click to add
+      - generic [ref=e20]:
+        - generic [ref=e22]:
+          - img [ref=e24]
+          - generic [ref=e28]:
+            - heading "Core Furnace" [level=3] [ref=e29]
+            - paragraph [ref=e30]: The heart of the machine. Generates and amplifies arcane energy.
+            - generic [ref=e32]: core
+        - generic [ref=e34]:
+          - img [ref=e36]
+          - generic [ref=e38]:
+            - heading "Energy Pipe" [level=3] [ref=e39]
+            - paragraph [ref=e40]: Transports energy between modules. Essential for connections.
+            - generic [ref=e42]: pipe
+        - generic [ref=e44]:
+          - img [ref=e46]
+          - generic [ref=e51]:
+            - heading "Gear Assembly" [level=3] [ref=e52]
+            - paragraph [ref=e53]: Mechanical component that provides stability and balanced power.
+            - generic [ref=e55]: gear
+        - generic [ref=e57]:
+          - img [ref=e59]
+          - generic [ref=e64]:
+            - heading "Rune Node" [level=3] [ref=e65]
+            - paragraph [ref=e66]: Channels arcane power. Amplifies energy throughput.
+            - generic [ref=e68]: rune
+        - generic [ref=e70]:
+          - img [ref=e72]
+          - generic [ref=e75]:
+            - heading "Shield Shell" [level=3] [ref=e76]
+            - paragraph [ref=e77]: Protective barrier module. Increases system stability.
+            - generic [ref=e79]: shield
+        - generic [ref=e81]:
+          - img [ref=e83]
+          - generic [ref=e88]:
+            - heading "Trigger Switch" [level=3] [ref=e89]
+            - paragraph [ref=e90]: Activation mechanism. Controls energy release timing.
+            - generic [ref=e92]: trigger
+      - paragraph [ref=e94]: "Total: 6 module types"
+    - generic [ref=e95]:
+      - generic [ref=e96]:
+        - img [ref=e97]:
+          - generic [ref=e102]:
+            - generic [ref=e116]: IN
+            - generic [ref=e121]: OUT
+        - generic [ref=e122]: "Zoom: 100%"
+      - generic [ref=e123]:
+        - heading "PROPERTIES" [level=2] [ref=e125]
+        - generic [ref=e126]:
+          - generic [ref=e127]:
+            - heading "Machine Overview" [level=3] [ref=e128]
+            - generic [ref=e129]:
+              - generic [ref=e130]:
+                - generic [ref=e131]:
+                  - generic [ref=e132]: Name
+                  - generic [ref=e133]: Common
+                - paragraph [ref=e134]: Radiant Conduit Ancient
+              - generic [ref=e135]:
+                - generic [ref=e137]:
+                  - generic [ref=e138]: Stability
+                  - generic [ref=e139]: 50%
+                - generic [ref=e143]:
+                  - generic [ref=e144]: Power
+                  - generic [ref=e145]: 35%
+                - generic [ref=e149]:
+                  - generic [ref=e150]: Energy
+                  - generic [ref=e151]: 20%
+                - generic [ref=e155]:
+                  - generic [ref=e156]: Failure
+                  - generic [ref=e157]: 50%
+              - generic [ref=e160]:
+                - text: Tags
+                - generic [ref=e161]:
+                  - generic [ref=e162]: arcane
+                  - generic [ref=e163]: fire
+              - generic [ref=e164]:
+                - text: Description
+                - paragraph [ref=e165]: The core hums with contained potential, ready to be unleashed.
+          - generic [ref=e166]:
+            - heading "Selected Module" [level=3] [ref=e167]
+            - generic [ref=e168]:
+              - generic [ref=e169]:
+                - text: Type
+                - paragraph [ref=e170]: Core Furnace
+              - generic [ref=e171]:
+                - generic [ref=e172]:
+                  - text: Position X
+                  - paragraph [ref=e173]: "600"
+                - generic [ref=e174]:
+                  - text: Position Y
+                  - paragraph [ref=e175]: "320"
+              - generic [ref=e176]:
+                - text: Rotation
+                - paragraph [ref=e177]: 0°
+              - generic [ref=e178]:
+                - text: Ports
+                - generic [ref=e179]:
+                  - generic [ref=e180]: IN
+                  - generic [ref=e181]: OUT
+              - generic [ref=e182]:
+                - button "↻ Rotate" [ref=e183] [cursor=pointer]
+                - button "🗑 Delete" [ref=e184] [cursor=pointer]
+          - generic [ref=e185]:
+            - heading "Canvas Controls" [level=3] [ref=e186]
+            - generic [ref=e187]:
+              - 'button "Grid: ON" [ref=e188] [cursor=pointer]'
+              - button "Reset View" [ref=e189] [cursor=pointer]
+              - button "Clear Canvas" [ref=e190] [cursor=pointer]
+        - paragraph [ref=e192]: "ID: EC4AB018"
+  - contentinfo [ref=e193]:
+    - generic [ref=e194]: "Modules: 1 | Connections: 0"
+    - generic [ref=e195]: Press R to rotate | Delete to remove | Ctrl+Z/Y for undo/redo
+    - generic [ref=e196]: "Grid: ON"
+```

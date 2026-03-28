@@ -1,0 +1,107 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "⚙ ARCANE MACHINE CODEX ⚙" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - button "Editor" [ref=e8] [cursor=pointer]
+        - button "Codex" [ref=e9] [cursor=pointer]
+    - generic [ref=e10]:
+      - button "▶ Activate Machine" [disabled] [ref=e11]
+      - button "📖 Save to Codex" [disabled] [ref=e12]
+      - button "📤 Export" [disabled] [ref=e13]
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - heading "MODULE PALETTE" [level=2] [ref=e17]
+        - paragraph [ref=e18]: Drag or click to add
+      - generic [ref=e20]:
+        - generic [ref=e22]:
+          - img [ref=e24]
+          - generic [ref=e28]:
+            - heading "Core Furnace" [level=3] [ref=e29]
+            - paragraph [ref=e30]: The heart of the machine. Generates and amplifies arcane energy.
+            - generic [ref=e32]: core
+        - generic [ref=e34]:
+          - img [ref=e36]
+          - generic [ref=e38]:
+            - heading "Energy Pipe" [level=3] [ref=e39]
+            - paragraph [ref=e40]: Transports energy between modules. Essential for connections.
+            - generic [ref=e42]: pipe
+        - generic [ref=e44]:
+          - img [ref=e46]
+          - generic [ref=e51]:
+            - heading "Gear Assembly" [level=3] [ref=e52]
+            - paragraph [ref=e53]: Mechanical component that provides stability and balanced power.
+            - generic [ref=e55]: gear
+        - generic [ref=e57]:
+          - img [ref=e59]
+          - generic [ref=e64]:
+            - heading "Rune Node" [level=3] [ref=e65]
+            - paragraph [ref=e66]: Channels arcane power. Amplifies energy throughput.
+            - generic [ref=e68]: rune
+        - generic [ref=e70]:
+          - img [ref=e72]
+          - generic [ref=e75]:
+            - heading "Shield Shell" [level=3] [ref=e76]
+            - paragraph [ref=e77]: Protective barrier module. Increases system stability.
+            - generic [ref=e79]: shield
+        - generic [ref=e81]:
+          - img [ref=e83]
+          - generic [ref=e88]:
+            - heading "Trigger Switch" [level=3] [ref=e89]
+            - paragraph [ref=e90]: Activation mechanism. Controls energy release timing.
+            - generic [ref=e92]: trigger
+      - paragraph [ref=e94]: "Total: 6 module types"
+    - generic [ref=e95]:
+      - generic [ref=e96]:
+        - img [ref=e97]
+        - generic [ref=e100]: "Zoom: 100%"
+        - generic:
+          - generic:
+            - paragraph: Drag modules from the left panel
+            - paragraph: or click on a module type to add it
+      - generic [ref=e101]:
+        - heading "PROPERTIES" [level=2] [ref=e103]
+        - generic [ref=e104]:
+          - generic [ref=e105]:
+            - heading "Machine Overview" [level=3] [ref=e106]
+            - generic [ref=e107]:
+              - generic [ref=e108]:
+                - generic [ref=e109]:
+                  - generic [ref=e110]: Name
+                  - generic [ref=e111]: Common
+                - paragraph [ref=e112]: Unnamed Machine
+              - generic [ref=e113]:
+                - generic [ref=e115]:
+                  - generic [ref=e116]: Stability
+                  - generic [ref=e117]: 50%
+                - generic [ref=e121]:
+                  - generic [ref=e122]: Power
+                  - generic [ref=e123]: 10%
+                - generic [ref=e127]:
+                  - generic [ref=e128]: Energy
+                  - generic [ref=e129]: 5%
+                - generic [ref=e133]:
+                  - generic [ref=e134]: Failure
+                  - generic [ref=e135]: 50%
+              - generic [ref=e138]:
+                - text: Tags
+                - generic [ref=e140]: stable
+              - generic [ref=e141]:
+                - text: Description
+                - paragraph [ref=e142]: An empty blueprint awaiting form.
+          - generic [ref=e143]:
+            - heading "Canvas Controls" [level=3] [ref=e144]
+            - generic [ref=e145]:
+              - 'button "Grid: ON" [ref=e146] [cursor=pointer]'
+              - button "Reset View" [ref=e147] [cursor=pointer]
+              - button "Clear Canvas" [ref=e148] [cursor=pointer]
+        - paragraph [ref=e150]: "ID: MC-0000"
+  - contentinfo [ref=e151]:
+    - generic [ref=e152]: "Modules: 0 | Connections: 0"
+    - generic [ref=e153]: Press R to rotate | Delete to remove | Ctrl+Z/Y for undo/redo
+    - generic [ref=e154]: "Grid: ON"
+```
