@@ -28,7 +28,6 @@ function App() {
   const loadMachine = useMachineStore((state) => state.loadMachine);
   const setMachineState = useMachineStore((state) => state.setMachineState);
   const setShowActivation = useMachineStore((state) => state.setShowActivation);
-  const hasLoadedSavedState = useMachineStore((state) => state.hasLoadedSavedState);
   const markStateAsLoaded = useMachineStore((state) => state.markStateAsLoaded);
   
   const addEntry = useCodexStore((state) => state.addEntry);
@@ -168,8 +167,11 @@ function App() {
         <ActivationOverlay onComplete={handleActivationComplete} />
       )}
       
-      {/* Load Prompt Modal */}
-      {showLoadPrompt && hasLoadedSavedState && (
+      {/* Load Prompt Modal - FIX: Removed hasLoadedSavedState check because it starts as false
+          and can only become true after user interaction, creating a chicken-and-egg problem.
+          The hasLoadedSavedState flag remains in the store and is set by markStateAsLoaded() 
+          after user clicks Resume/Start Fresh to prevent modal re-appearance on subsequent re-renders. */}
+      {showLoadPrompt && (
         <LoadPromptModal />
       )}
       
