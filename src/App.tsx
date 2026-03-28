@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Canvas } from './components/Editor/Canvas';
 import { ModulePanel } from './components/Editor/ModulePanel';
 import { PropertiesPanel } from './components/Editor/PropertiesPanel';
+import { Toolbar } from './components/Editor/Toolbar';
 import { CodexView } from './components/Codex/CodexView';
 import { ExportModal } from './components/Export/ExportModal';
 import { ActivationOverlay } from './components/Preview/ActivationOverlay';
@@ -158,6 +159,9 @@ function App() {
           </div>
         )}
       </header>
+      
+      {/* Editor Toolbar - Contains test mode buttons and undo/redo */}
+      {viewMode === 'editor' && <Toolbar />}
       
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">

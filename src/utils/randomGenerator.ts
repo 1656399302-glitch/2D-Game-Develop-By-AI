@@ -95,18 +95,61 @@ const isValidPosition = (
 
 /**
  * Generate a random position within bounds, ensuring minimum spacing
+ * Uses a grid-based approach for more reliable placement
  */
 const findValidPosition = (
   moduleType: ModuleType,
   existingModules: PlacedModule[],
   config: RandomGeneratorConfig,
-  maxAttempts: number = 100
+  maxAttempts: number = 500
 ): { x: number; y: number } | null => {
   const size = MODULE_SIZES[moduleType];
+  const usableWidth = config.canvasWidth - size.width - 2 * config.padding;
+  const usableHeight = config.canvasHeight - size.height - 2 * config.padding;
   
+  // First, try grid-based placement for reliable spacing
+  const gridSpacing = config.minSpacing * 1.2; // Slightly more than minimum to ensure spacing
+  const cols = Math.floor(usableWidth / gridSpacing);
+  const rows = Math.floor(usableHeight / gridSpacing);
+  
+  // Create list of potential grid positions
+  const gridPositions: { x: number; y: number }[] = [];
+  for (let col = 0; col < cols; col++) {
+    for (let row = 0; row < rows; row++) {
+      const x = config.padding + col * gridSpacing + Math.random() * 20;
+      const y = config.padding + row * gridSpacing + Math.random() * 20;
+      gridPositions.push({ x, y });
+    }
+  }
+  
+  // Shuffle grid positions
+  for (let i = gridPositions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [gridPositions[i], gridPositions[j]] = [gridPositions[j], gridPositions[i]];
+  }
+  
+  // Try grid positions first
+  for (const pos of gridPositions) {
+    const candidateModule: PlacedModule = {
+      id: uuidv4(),
+      instanceId: uuidv4(),
+      type: moduleType,
+      x: pos.x,
+      y: pos.y,
+      rotation: 0,
+      scale: 1,
+      ports: getDefaultPorts(moduleType),
+    };
+    
+    if (isValidPosition(candidateModule, existingModules, config.minSpacing)) {
+      return pos;
+    }
+  }
+  
+  // Fallback to random attempts
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const x = config.padding + Math.random() * (config.canvasWidth - size.width - 2 * config.padding);
-    const y = config.padding + Math.random() * (config.canvasHeight - size.height - 2 * config.padding);
+    const x = config.padding + Math.random() * usableWidth;
+    const y = config.padding + Math.random() * usableHeight;
     
     const candidateModule: PlacedModule = {
       id: uuidv4(),
@@ -135,10 +178,16 @@ const findValidModulePositions = (
   config: RandomGeneratorConfig
 ): PlacedModule[] => {
   const modules: PlacedModule[] = [];
-  const maxAttempts = 100;
   
-  for (const type of moduleTypes) {
-    const position = findValidPosition(type, modules, config, maxAttempts);
+  // Sort modules by size (larger modules first) for better placement
+  const sortedTypes = [...moduleTypes].sort((a, b) => {
+    const sizeA = MODULE_SIZES[a].width * MODULE_SIZES[a].height;
+    const sizeB = MODULE_SIZES[b].width * MODULE_SIZES[b].height;
+    return sizeB - sizeA;
+  });
+  
+  for (const type of sortedTypes) {
+    const position = findValidPosition(type, modules, config, 500);
     
     if (position) {
       modules.push({
@@ -152,9 +201,8 @@ const findValidModulePositions = (
         ports: getDefaultPorts(type),
       });
     } else {
-      // Try to find a position that works by adjusting the position
-      // This is a fallback for when we can't find a valid spot
-      console.warn(`Could not place module of type ${type} after ${maxAttempts} attempts, skipping`);
+      // If we can't place a module, skip it rather than placing it incorrectly
+      console.warn(`Could not place module of type ${type}, skipping`);
     }
   }
   
@@ -248,7 +296,7 @@ export const generateRandomMachine = (
 ): { modules: PlacedModule[]; connections: Connection[] } => {
   const finalConfig: RandomGeneratorConfig = { ...DEFAULT_CONFIG, ...config };
   
-  // Determine number of modules
+  // Determine number of modules - use fewer for better spacing
   const moduleCount = Math.floor(
     Math.random() * (finalConfig.maxModules - finalConfig.minModules + 1)
   ) + finalConfig.minModules;
