@@ -8,6 +8,8 @@ export function Toolbar() {
   const history = useMachineStore((state) => state.history);
   const historyIndex = useMachineStore((state) => state.historyIndex);
   const clearCanvas = useMachineStore((state) => state.clearCanvas);
+  const activateFailureMode = useMachineStore((state) => state.activateFailureMode);
+  const activateOverloadMode = useMachineStore((state) => state.activateOverloadMode);
   
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
@@ -25,8 +27,26 @@ export function Toolbar() {
         </span>
       </div>
       
-      {/* Center - tools could go here */}
-      <div className="flex-1" />
+      {/* Center - Test Mode buttons */}
+      <div className="flex-1 flex justify-center">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={activateFailureMode}
+            className="px-3 py-1 text-xs rounded bg-[#7f1d1d] text-[#fca5a5] hover:bg-[#991b1b] hover:text-[#fecaca] border border-[#ef4444]/50 transition-colors"
+            title="Test Failure Mode - 机器故障测试"
+          >
+            ⚠ 测试故障
+          </button>
+          
+          <button
+            onClick={activateOverloadMode}
+            className="px-3 py-1 text-xs rounded bg-[#78350f] text-[#fdba74] hover:bg-[#92400e] hover:text-[#fed7aa] border border-[#f97316]/50 transition-colors"
+            title="Test Overload Mode - 过载测试"
+          >
+            ⚡ 测试过载
+          </button>
+        </div>
+      </div>
       
       {/* Right side - actions */}
       <div className="flex items-center gap-2">

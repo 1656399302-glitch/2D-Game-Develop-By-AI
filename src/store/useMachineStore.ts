@@ -51,6 +51,8 @@ interface MachineStore {
   
   // Machine state
   setMachineState: (state: MachineState) => void;
+  activateFailureMode: () => void;
+  activateOverloadMode: () => void;
   
   // Grid
   toggleGrid: () => void;
@@ -68,6 +70,7 @@ interface MachineStore {
 }
 
 const GRID_SIZE = 20;
+const AUTO_RETURN_DELAY = 3500; // 3.5 seconds for failure/overload modes
 
 const getDefaultPorts = (type: ModuleType): Port[] => {
   const config = MODULE_PORT_CONFIGS[type];
@@ -323,6 +326,22 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   setMachineState: (state) => {
     set({ machineState: state });
+  },
+
+  activateFailureMode: () => {
+    set({ machineState: 'failure' });
+    // Auto-return to idle after 3.5 seconds
+    setTimeout(() => {
+      set({ machineState: 'idle' });
+    }, AUTO_RETURN_DELAY);
+  },
+
+  activateOverloadMode: () => {
+    set({ machineState: 'overload' });
+    // Auto-return to idle after 3.5 seconds
+    setTimeout(() => {
+      set({ machineState: 'idle' });
+    }, AUTO_RETURN_DELAY);
   },
 
   toggleGrid: () => {
