@@ -110,7 +110,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   gridEnabled: true,
 
   addModule: (type, x, y) => {
-    const { gridEnabled, saveToHistory } = get();
+    const { gridEnabled } = get();
     const { width, height } = getModuleSize(type);
     
     const newModule: PlacedModule = {
@@ -124,16 +124,18 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       ports: getDefaultPorts(type),
     };
     
-    saveToHistory();
+    // First, set the new state
     set((state) => ({
       modules: [...state.modules, newModule],
       selectedModuleId: newModule.instanceId,
     }));
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
   },
 
   removeModule: (instanceId) => {
-    const { saveToHistory } = get();
-    saveToHistory();
+    // First, set the new state
     set((state) => {
       const newModules = state.modules.filter((m) => m.instanceId !== instanceId);
       const moduleIds = new Set(newModules.map((m) => m.instanceId));
@@ -146,6 +148,9 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         selectedModuleId: state.selectedModuleId === instanceId ? null : state.selectedModuleId,
       };
     });
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
   },
 
   updateModulePosition: (instanceId, x, y) => {
@@ -177,16 +182,19 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       ),
       connections: updatedConnections,
     }));
+    // NOTE: Position changes don't save to history (too noisy - happens on every drag)
   },
 
   updateModuleRotation: (instanceId, rotation) => {
-    const { saveToHistory } = get();
-    saveToHistory();
+    // First, set the new state
     set((state) => ({
       modules: state.modules.map((m) =>
         m.instanceId === instanceId ? { ...m, rotation: (m.rotation + rotation) % 360 } : m
       ),
     }));
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
   },
 
   selectModule: (instanceId) => {
@@ -219,7 +227,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   completeConnection: (targetModuleId, targetPortId) => {
-    const { connectionStart, modules, connections, saveToHistory } = get();
+    const { connectionStart, modules, connections } = get();
     if (!connectionStart) return;
 
     // Validate connection
@@ -276,13 +284,16 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       pathData,
     };
 
-    saveToHistory();
+    // First, set the new state
     set((state) => ({
       connections: [...state.connections, newConnection],
       isConnecting: false,
       connectionStart: null,
       connectionPreview: null,
     }));
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
   },
 
   cancelConnection: () => {
@@ -290,12 +301,14 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   removeConnection: (connectionId) => {
-    const { saveToHistory } = get();
-    saveToHistory();
+    // First, set the new state
     set((state) => ({
       connections: state.connections.filter((c) => c.id !== connectionId),
       selectedConnectionId: state.selectedConnectionId === connectionId ? null : state.selectedConnectionId,
     }));
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
   },
 
   setViewport: (viewport) => {
@@ -358,14 +371,16 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   clearCanvas: () => {
-    const { saveToHistory } = get();
-    saveToHistory();
+    // First, set the new state
     set({
       modules: [],
       connections: [],
       selectedModuleId: null,
       selectedConnectionId: null,
     });
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
   },
 
   loadMachine: (modules, connections) => {
