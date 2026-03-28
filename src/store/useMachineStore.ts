@@ -14,6 +14,7 @@ import {
   GeneratedAttributes,
 } from '../types';
 import { calculateConnectionPath } from '../utils/connectionEngine';
+import { saveCanvasState, loadCanvasState, clearCanvasState } from '../utils/localStorage';
 
 interface MachineStore {
   // State
@@ -34,6 +35,7 @@ interface MachineStore {
   generatedAttributes: GeneratedAttributes | null;
   randomForgeToastVisible: boolean;
   randomForgeToastMessage: string;
+  hasLoadedSavedState: boolean;
 
   // Actions
   addModule: (type: ModuleType, x: number, y: number) => void;
@@ -86,6 +88,11 @@ interface MachineStore {
   setGeneratedAttributes: (attributes: GeneratedAttributes | null) => void;
   showRandomForgeToast: (message: string) => void;
   hideRandomForgeToast: () => void;
+  
+  // Persistence
+  restoreSavedState: () => void;
+  startFresh: () => void;
+  markStateAsLoaded: () => void;
 }
 
 const GRID_SIZE = 20;
@@ -94,6 +101,30 @@ const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.0;
 const ZOOM_STEP = 0.1;
 const DUPLICATE_OFFSET = 20;
+const AUTO_SAVE_DEBOUNCE = 500; // 500ms debounce for auto-save
+
+// Debounce helper
+let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const debouncedAutoSave = (
+  modules: PlacedModule[],
+  connections: Connection[],
+  viewport: ViewportState,
+  gridEnabled: boolean
+) => {
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout);
+  }
+  autoSaveTimeout = setTimeout(() => {
+    saveCanvasState({
+      modules,
+      connections,
+      viewport,
+      gridEnabled,
+      savedAt: Date.now(),
+    });
+  }, AUTO_SAVE_DEBOUNCE);
+};
 
 const getDefaultPorts = (type: ModuleType): Port[] => {
   const config = MODULE_PORT_CONFIGS[type];
@@ -139,6 +170,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   generatedAttributes: null,
   randomForgeToastVisible: false,
   randomForgeToastMessage: '',
+  hasLoadedSavedState: false,
 
   addModule: (type, x, y) => {
     const { gridEnabled } = get();
@@ -157,11 +189,21 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     };
     
     // First, set the new state
-    set((state) => ({
-      modules: [...state.modules, newModule],
-      selectedModuleId: newModule.instanceId,
-      generatedAttributes: null, // Clear generated attributes when manually adding
-    }));
+    set((state) => {
+      const newState = {
+        modules: [...state.modules, newModule],
+        selectedModuleId: newModule.instanceId,
+        generatedAttributes: null, // Clear generated attributes when manually adding
+      };
+      
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return newState;
+    });
     
     // THEN save to history (captures the new state)
     get().saveToHistory();
@@ -175,6 +217,13 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       const newConnections = state.connections.filter(
         (c) => moduleIds.has(c.sourceModuleId) && moduleIds.has(c.targetModuleId)
       );
+      
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
       return {
         modules: newModules,
         connections: newConnections,
@@ -209,22 +258,38 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       return conn;
     });
 
-    set((state) => ({
-      modules: state.modules.map((m) =>
-        m.instanceId === instanceId ? { ...m, x: newX, y: newY } : m
-      ),
-      connections: updatedConnections,
-    }));
+    set((_state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        modules: get().modules.map((m) =>
+          m.instanceId === instanceId ? { ...m, x: newX, y: newY } : m
+        ),
+        connections: updatedConnections,
+      };
+    });
     // NOTE: Position changes don't save to history (too noisy - happens on every drag)
   },
 
   updateModuleRotation: (instanceId, rotation) => {
     // First, set the new state
-    set((state) => ({
-      modules: state.modules.map((m) =>
-        m.instanceId === instanceId ? { ...m, rotation: (m.rotation + rotation) % 360 } : m
-      ),
-    }));
+    set((_state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        modules: get().modules.map((m) =>
+          m.instanceId === instanceId ? { ...m, rotation: (m.rotation + rotation) % 360 } : m
+        ),
+      };
+    });
     
     // THEN save to history (captures the new state)
     get().saveToHistory();
@@ -233,20 +298,36 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   updateModuleScale: (instanceId, scale) => {
     // Clamp scale between 0.5 and 2.0
     const clampedScale = Math.max(0.5, Math.min(2.0, scale));
-    set((state) => ({
-      modules: state.modules.map((m) =>
-        m.instanceId === instanceId ? { ...m, scale: clampedScale } : m
-      ),
-    }));
+    set((_state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        modules: get().modules.map((m) =>
+          m.instanceId === instanceId ? { ...m, scale: clampedScale } : m
+        ),
+      };
+    });
   },
 
   updateModuleFlip: (instanceId) => {
     // First, set the new state
-    set((state) => ({
-      modules: state.modules.map((m) =>
-        m.instanceId === instanceId ? { ...m, flipped: !m.flipped } : m
-      ),
-    }));
+    set((_state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        modules: get().modules.map((m) =>
+          m.instanceId === instanceId ? { ...m, flipped: !m.flipped } : m
+        ),
+      };
+    });
     
     // THEN save to history (captures the new state)
     get().saveToHistory();
@@ -287,11 +368,19 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     };
 
     // First, set the new state
-    set((state) => ({
-      modules: [...state.modules, newModule],
-      selectedModuleId: newModule.instanceId,
-      generatedAttributes: null, // Clear generated attributes when manually adding
-    }));
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        modules: [...state.modules, newModule],
+        selectedModuleId: newModule.instanceId,
+        generatedAttributes: null, // Clear generated attributes when manually adding
+      };
+    });
     
     // THEN save to history (captures the new state)
     get().saveToHistory();
@@ -386,12 +475,20 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     };
 
     // First, set the new state
-    set((state) => ({
-      connections: [...state.connections, newConnection],
-      isConnecting: false,
-      connectionStart: null,
-      connectionPreview: null,
-    }));
+    set((_state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        connections: [...get().connections, newConnection],
+        isConnecting: false,
+        connectionStart: null,
+        connectionPreview: null,
+      };
+    });
     
     // THEN save to history (captures the new state)
     get().saveToHistory();
@@ -403,10 +500,18 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   removeConnection: (connectionId) => {
     // First, set the new state
-    set((state) => ({
-      connections: state.connections.filter((c) => c.id !== connectionId),
-      selectedConnectionId: state.selectedConnectionId === connectionId ? null : state.selectedConnectionId,
-    }));
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        connections: state.connections.filter((c) => c.id !== connectionId),
+        selectedConnectionId: state.selectedConnectionId === connectionId ? null : state.selectedConnectionId,
+      };
+    });
     
     // THEN save to history (captures the new state)
     get().saveToHistory();
@@ -417,31 +522,71 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   setViewport: (viewport) => {
-    set((state) => ({
-      viewport: { ...state.viewport, ...viewport },
-    }));
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport: currentViewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
+      }, 0);
+      
+      return {
+        viewport: { ...state.viewport, ...viewport },
+      };
+    });
   },
 
   resetViewport: () => {
-    set({ viewport: { x: 0, y: 0, zoom: 1 } });
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return { viewport: { x: 0, y: 0, zoom: 1 }, gridEnabled: state.gridEnabled };
+    });
   },
 
   zoomIn: () => {
     const { viewport } = get();
     const newZoom = Math.min(MAX_ZOOM, viewport.zoom + ZOOM_STEP);
-    set({ viewport: { ...viewport, zoom: newZoom } });
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport: currentViewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
+      }, 0);
+      
+      return { viewport: { ...viewport, zoom: newZoom }, gridEnabled: state.gridEnabled };
+    });
   },
 
   zoomOut: () => {
     const { viewport } = get();
     const newZoom = Math.max(MIN_ZOOM, viewport.zoom - ZOOM_STEP);
-    set({ viewport: { ...viewport, zoom: newZoom } });
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport: currentViewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
+      }, 0);
+      
+      return { viewport: { ...viewport, zoom: newZoom }, gridEnabled: state.gridEnabled };
+    });
   },
 
   zoomToFit: () => {
     const { modules } = get();
     if (modules.length === 0) {
-      set({ viewport: { x: 0, y: 0, zoom: 1 } });
+      set((state) => {
+        // Trigger auto-save after state update
+        setTimeout(() => {
+          const { modules, connections, viewport, gridEnabled } = get();
+          debouncedAutoSave(modules, connections, viewport, gridEnabled);
+        }, 0);
+        
+        return { viewport: { x: 0, y: 0, zoom: 1 }, gridEnabled: state.gridEnabled };
+      });
       return;
     }
 
@@ -475,7 +620,15 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const newX = viewportWidth / 2 - centerX * newZoom;
     const newY = viewportHeight / 2 - centerY * newZoom;
 
-    set({ viewport: { x: newX, y: newY, zoom: newZoom } });
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport: currentViewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
+      }, 0);
+      
+      return { viewport: { x: newX, y: newY, zoom: newZoom }, gridEnabled: state.gridEnabled };
+    });
   },
 
   setMachineState: (state) => {
@@ -503,7 +656,15 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   toggleGrid: () => {
-    set((state) => ({ gridEnabled: !state.gridEnabled }));
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return { gridEnabled: !state.gridEnabled };
+    });
   },
 
   undo: () => {
@@ -516,6 +677,12 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         connections: prevState.connections,
         historyIndex: historyIndex - 1,
       });
+      
+      // Trigger auto-save after undo
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
     }
   },
 
@@ -529,6 +696,12 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         connections: nextState.connections,
         historyIndex: historyIndex + 1,
       });
+      
+      // Trigger auto-save after redo
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
     }
   },
 
@@ -548,7 +721,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   clearCanvas: () => {
-    // First, set the new state
+    // Set cleared state (preserving history for undo)
     set({
       modules: [],
       connections: [],
@@ -557,8 +730,11 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       generatedAttributes: null,
     });
     
-    // THEN save to history (captures the new state)
+    // Save cleared state to history (enables undo to restore previous state)
     get().saveToHistory();
+    
+    // Clear persisted state
+    clearCanvasState();
   },
 
   loadMachine: (modules, connections) => {
@@ -571,6 +747,12 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       historyIndex: 0,
       generatedAttributes: null, // Don't carry over attributes from previous machine
     });
+    
+    // Trigger auto-save after load
+    setTimeout(() => {
+      const { modules, connections, viewport, gridEnabled } = get();
+      debouncedAutoSave(modules, connections, viewport, gridEnabled);
+    }, 0);
   },
 
   setGeneratedAttributes: (attributes) => {
@@ -587,5 +769,45 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   hideRandomForgeToast: () => {
     set({ randomForgeToastVisible: false });
+  },
+  
+  // Persistence methods
+  restoreSavedState: () => {
+    const savedState = loadCanvasState();
+    if (savedState) {
+      set({
+        modules: savedState.modules,
+        connections: savedState.connections,
+        viewport: savedState.viewport || { x: 0, y: 0, zoom: 1 },
+        gridEnabled: savedState.gridEnabled ?? true,
+        selectedModuleId: null,
+        selectedConnectionId: null,
+        history: initialHistory,
+        historyIndex: 0,
+        hasLoadedSavedState: true,
+      });
+    } else {
+      set({ hasLoadedSavedState: true });
+    }
+  },
+  
+  startFresh: () => {
+    clearCanvasState();
+    set({
+      modules: [],
+      connections: [],
+      selectedModuleId: null,
+      selectedConnectionId: null,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      gridEnabled: true,
+      history: initialHistory,
+      historyIndex: 0,
+      generatedAttributes: null,
+      hasLoadedSavedState: true,
+    });
+  },
+  
+  markStateAsLoaded: () => {
+    set({ hasLoadedSavedState: true });
   },
 }));
