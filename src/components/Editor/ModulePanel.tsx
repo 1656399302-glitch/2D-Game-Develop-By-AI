@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
+import { generateRandomMachine } from '../../utils/randomGenerator';
+import { generateAttributes } from '../../utils/attributeGenerator';
 import { ModuleType, ModuleCategory } from '../../types';
 
 interface ModuleInfo {
@@ -66,6 +68,10 @@ const CATEGORY_COLORS: Record<ModuleCategory, string> = {
 
 export function ModulePanel() {
   const addModule = useMachineStore((state) => state.addModule);
+  const loadMachine = useMachineStore((state) => state.loadMachine);
+  const setGeneratedAttributes = useMachineStore((state) => state.setGeneratedAttributes);
+  const showRandomForgeToast = useMachineStore((state) => state.showRandomForgeToast);
+  const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const viewport = useMachineStore((state) => state.viewport);
   
   const handleDragStart = useCallback((e: React.DragEvent, moduleType: ModuleType) => {
@@ -80,6 +86,30 @@ export function ModulePanel() {
     addModule(moduleType, x, y);
   }, [addModule, viewport]);
   
+  const handleRandomForge = useCallback(() => {
+    // Generate random machine
+    const { modules, connections } = generateRandomMachine({
+      canvasWidth: 800,
+      canvasHeight: 600,
+      minSpacing: 80,
+    });
+    
+    // Generate attributes for the random machine
+    const attributes = generateAttributes(modules, connections);
+    
+    // Load the generated machine into the canvas
+    loadMachine(modules, connections);
+    
+    // Store the generated attributes
+    setGeneratedAttributes(attributes);
+    
+    // Save to history so undo works
+    saveToHistory();
+    
+    // Show success toast
+    showRandomForgeToast(`✨ ${attributes.name} Forged!`);
+  }, [loadMachine, setGeneratedAttributes, saveToHistory, showRandomForgeToast]);
+  
   return (
     <div className="w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden">
       {/* Header */}
@@ -88,6 +118,30 @@ export function ModulePanel() {
           MODULE PALETTE
         </h2>
         <p className="text-xs text-[#4a5568] mt-1">Drag or click to add</p>
+      </div>
+      
+      {/* Random Forge Button */}
+      <div className="p-3 border-b border-[#1e2a42] bg-gradient-to-r from-[#1a1a2e] to-[#121826]">
+        <button
+          onClick={handleRandomForge}
+          className="w-full px-4 py-3 rounded-lg font-bold text-sm 
+                     bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] 
+                     text-white 
+                     hover:from-[#8b5cf6] hover:to-[#7c3aed]
+                     border border-[#a78bfa]/50
+                     shadow-lg shadow-purple-900/30
+                     transition-all duration-200
+                     flex items-center justify-center gap-2
+                     hover:scale-[1.02] active:scale-[0.98]
+                     animate-pulse-subtle"
+          title="Generate a random machine with 2-6 modules"
+        >
+          <span className="text-lg">🎲</span>
+          <span>Random Forge</span>
+        </button>
+        <p className="text-[10px] text-[#6b7280] mt-2 text-center">
+          Creates 2-6 random modules with connections
+        </p>
       </div>
       
       {/* Module List */}
@@ -99,7 +153,7 @@ export function ModulePanel() {
               draggable
               onDragStart={(e) => handleDragStart(e, module.type)}
               onClick={() => handleClick(module.type)}
-              className="arcane-card cursor-grab active:cursor-grabbing group"
+              className="arcane-card cursor-grab active:cursor-grabbing group relative"
               style={{ borderLeftColor: CATEGORY_COLORS[module.category], borderLeftWidth: '3px' }}
             >
               <div className="flex items-start gap-3">
@@ -149,6 +203,21 @@ export function ModulePanel() {
           Total: {MODULE_CATALOG.length} module types
         </p>
       </div>
+      
+      <style>{`
+        @keyframes pulse-subtle {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+          }
+          50% {
+            box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+          }
+        }
+        
+        .animate-pulse-subtle {
+          animation: pulse-subtle 2s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

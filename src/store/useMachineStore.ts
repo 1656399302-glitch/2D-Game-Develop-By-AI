@@ -11,6 +11,7 @@ import {
   PortType,
   MODULE_SIZES,
   MODULE_PORT_CONFIGS,
+  GeneratedAttributes,
 } from '../types';
 import { calculateConnectionPath } from '../utils/connectionEngine';
 
@@ -30,6 +31,9 @@ interface MachineStore {
   historyIndex: number;
   gridEnabled: boolean;
   connectionError: string | null;
+  generatedAttributes: GeneratedAttributes | null;
+  randomForgeToastVisible: boolean;
+  randomForgeToastMessage: string;
 
   // Actions
   addModule: (type: ModuleType, x: number, y: number) => void;
@@ -77,6 +81,11 @@ interface MachineStore {
   
   // Load
   loadMachine: (modules: PlacedModule[], connections: Connection[]) => void;
+  
+  // Random Forge
+  setGeneratedAttributes: (attributes: GeneratedAttributes | null) => void;
+  showRandomForgeToast: (message: string) => void;
+  hideRandomForgeToast: () => void;
 }
 
 const GRID_SIZE = 20;
@@ -127,6 +136,9 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   historyIndex: 0,
   gridEnabled: true,
   connectionError: null,
+  generatedAttributes: null,
+  randomForgeToastVisible: false,
+  randomForgeToastMessage: '',
 
   addModule: (type, x, y) => {
     const { gridEnabled } = get();
@@ -148,6 +160,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     set((state) => ({
       modules: [...state.modules, newModule],
       selectedModuleId: newModule.instanceId,
+      generatedAttributes: null, // Clear generated attributes when manually adding
     }));
     
     // THEN save to history (captures the new state)
@@ -277,6 +290,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     set((state) => ({
       modules: [...state.modules, newModule],
       selectedModuleId: newModule.instanceId,
+      generatedAttributes: null, // Clear generated attributes when manually adding
     }));
     
     // THEN save to history (captures the new state)
@@ -540,6 +554,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       connections: [],
       selectedModuleId: null,
       selectedConnectionId: null,
+      generatedAttributes: null,
     });
     
     // THEN save to history (captures the new state)
@@ -554,6 +569,23 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       selectedConnectionId: null,
       history: initialHistory,
       historyIndex: 0,
+      generatedAttributes: null, // Don't carry over attributes from previous machine
     });
+  },
+
+  setGeneratedAttributes: (attributes) => {
+    set({ generatedAttributes: attributes });
+  },
+
+  showRandomForgeToast: (message) => {
+    set({ randomForgeToastVisible: true, randomForgeToastMessage: message });
+    // Auto-hide after 2.5 seconds
+    setTimeout(() => {
+      set({ randomForgeToastVisible: false });
+    }, 2500);
+  },
+
+  hideRandomForgeToast: () => {
+    set({ randomForgeToastVisible: false });
   },
 }));

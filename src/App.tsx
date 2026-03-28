@@ -7,6 +7,7 @@ import { CodexView } from './components/Codex/CodexView';
 import { ExportModal } from './components/Export/ExportModal';
 import { ActivationOverlay } from './components/Preview/ActivationOverlay';
 import { ConnectionErrorToast } from './components/Connections/ConnectionErrorToast';
+import { RandomForgeToast } from './components/UI/RandomForgeToast';
 import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -153,8 +154,9 @@ function App() {
         <ActivationOverlay onComplete={handleActivationComplete} />
       )}
       
-      {/* Connection Error Toast */}
+      {/* Toast Notifications */}
       <ConnectionErrorToast />
+      <RandomForgeToast />
     </div>
   );
 }
