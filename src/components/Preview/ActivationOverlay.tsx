@@ -17,14 +17,16 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const modules = useMachineStore((state) => state.modules);
   const machineState = useMachineStore((state) => state.machineState);
   const setMachineState = useMachineStore((state) => state.setMachineState);
+  const setShowActivation = useMachineStore((state) => state.setShowActivation);
   
   // Get activation order based on connections
   const activationOrder = getConnectionFlowOrder(modules, []);
   
   const handleSkip = useCallback(() => {
     setMachineState('idle');
+    setShowActivation(false);
     onComplete();
-  }, [setMachineState, onComplete]);
+  }, [setMachineState, setShowActivation, onComplete]);
   
   // Effect to handle failure/overload modes
   useEffect(() => {
@@ -109,6 +111,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           setProgress(100);
           setTimeout(() => {
             setMachineState('idle');
+            setShowActivation(false);
             onComplete();
           }, 300);
         }
@@ -124,7 +127,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [phase, activationOrder, setMachineState, onComplete, progress, machineState]);
+  }, [phase, activationOrder, setMachineState, setShowActivation, onComplete, progress, machineState]);
   
   // Determine border color based on phase
   const getBorderColor = () => {
@@ -138,13 +141,13 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     }
   };
   
-  // Determine title based on phase
+  // Determine title based on phase - FIXED: Correct Chinese text for failure/overload
   const getTitle = () => {
     switch (phase) {
       case 'failure':
-        return '⚠ 系统过载';
+        return '⚠ 机器故障'; // FIXED: Was '⚠ 系统过载'
       case 'overload':
-        return '⚡ 临界警告';
+        return '⚡ 系统过载'; // FIXED: Was '⚡ 临界警告'
       case 'charging':
         return '⚡ CHARGING SYSTEM';
       case 'active':

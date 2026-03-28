@@ -15,12 +15,13 @@ type ViewMode = 'editor' | 'codex';
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('editor');
   const [showExport, setShowExport] = useState(false);
-  const [showActivation, setShowActivation] = useState(false);
   
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
+  const showActivation = useMachineStore((state) => state.showActivation);
   const loadMachine = useMachineStore((state) => state.loadMachine);
   const setMachineState = useMachineStore((state) => state.setMachineState);
+  const setShowActivation = useMachineStore((state) => state.setShowActivation);
   
   const addEntry = useCodexStore((state) => state.addEntry);
   
@@ -42,12 +43,12 @@ function App() {
     }
     setShowActivation(true);
     setMachineState('charging');
-  }, [modules, setMachineState]);
+  }, [modules, setMachineState, setShowActivation]);
   
   const handleActivationComplete = useCallback(() => {
     setShowActivation(false);
     setMachineState('idle');
-  }, [setMachineState]);
+  }, [setMachineState, setShowActivation]);
   
   // Keyboard shortcuts
   useEffect(() => {

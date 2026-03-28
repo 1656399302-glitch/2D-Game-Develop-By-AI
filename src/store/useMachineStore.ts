@@ -25,6 +25,7 @@ interface MachineStore {
   connectionPreview: { x: number; y: number } | null;
   viewport: ViewportState;
   machineState: MachineState;
+  showActivation: boolean;
   history: HistoryState[];
   historyIndex: number;
   gridEnabled: boolean;
@@ -51,6 +52,7 @@ interface MachineStore {
   
   // Machine state
   setMachineState: (state: MachineState) => void;
+  setShowActivation: (show: boolean) => void;
   activateFailureMode: () => void;
   activateOverloadMode: () => void;
   
@@ -108,6 +110,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   connectionPreview: null,
   viewport: { x: 0, y: 0, zoom: 1 },
   machineState: 'idle',
+  showActivation: false,
   history: initialHistory,
   historyIndex: 0,
   gridEnabled: true,
@@ -328,19 +331,23 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     set({ machineState: state });
   },
 
+  setShowActivation: (show) => {
+    set({ showActivation: show });
+  },
+
   activateFailureMode: () => {
-    set({ machineState: 'failure' });
+    set({ machineState: 'failure', showActivation: true });
     // Auto-return to idle after 3.5 seconds
     setTimeout(() => {
-      set({ machineState: 'idle' });
+      set({ machineState: 'idle', showActivation: false });
     }, AUTO_RETURN_DELAY);
   },
 
   activateOverloadMode: () => {
-    set({ machineState: 'overload' });
+    set({ machineState: 'overload', showActivation: true });
     // Auto-return to idle after 3.5 seconds
     setTimeout(() => {
-      set({ machineState: 'idle' });
+      set({ machineState: 'idle', showActivation: false });
     }, AUTO_RETURN_DELAY);
   },
 
