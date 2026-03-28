@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Canvas } from './components/Editor/Canvas';
 import { ModulePanel } from './components/Editor/ModulePanel';
 import { PropertiesPanel } from './components/Editor/PropertiesPanel';
@@ -6,8 +6,10 @@ import { Toolbar } from './components/Editor/Toolbar';
 import { CodexView } from './components/Codex/CodexView';
 import { ExportModal } from './components/Export/ExportModal';
 import { ActivationOverlay } from './components/Preview/ActivationOverlay';
+import { ConnectionErrorToast } from './components/Connections/ConnectionErrorToast';
 import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { generateAttributes } from './utils/attributeGenerator';
 
 type ViewMode = 'editor' | 'codex';
@@ -24,6 +26,9 @@ function App() {
   const setShowActivation = useMachineStore((state) => state.setShowActivation);
   
   const addEntry = useCodexStore((state) => state.addEntry);
+  
+  // Use keyboard shortcuts hook
+  useKeyboardShortcuts({ enabled: viewMode === 'editor' });
   
   const handleSaveToCodex = useCallback(() => {
     if (modules.length === 0) {
@@ -49,58 +54,6 @@ function App() {
     setShowActivation(false);
     setMachineState('idle');
   }, [setMachineState, setShowActivation]);
-  
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (viewMode !== 'editor') return;
-      
-      // Delete selected
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const { selectedModuleId, selectedConnectionId, deleteSelected } = useMachineStore.getState();
-        if (selectedModuleId || selectedConnectionId) {
-          e.preventDefault();
-          deleteSelected();
-        }
-      }
-      
-      // Rotate with R
-      if (e.key === 'r' || e.key === 'R') {
-        const { selectedModuleId, updateModuleRotation } = useMachineStore.getState();
-        if (selectedModuleId) {
-          e.preventDefault();
-          updateModuleRotation(selectedModuleId, 90);
-        }
-      }
-      
-      // Undo with Ctrl+Z
-      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        useMachineStore.getState().undo();
-      }
-      
-      // Redo with Ctrl+Y or Ctrl+Shift+Z
-      if ((e.key === 'y' && (e.ctrlKey || e.metaKey)) || 
-          (e.key === 'z' && (e.ctrlKey || e.metaKey) && e.shiftKey)) {
-        e.preventDefault();
-        useMachineStore.getState().redo();
-      }
-      
-      // Escape to cancel connection or deselect
-      if (e.key === 'Escape') {
-        const { cancelConnection, selectModule, selectConnection } = useMachineStore.getState();
-        if (useMachineStore.getState().isConnecting) {
-          cancelConnection();
-        } else {
-          selectModule(null);
-          selectConnection(null);
-        }
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode]);
   
   return (
     <div className="w-screen h-screen flex flex-col bg-[#0a0e17] overflow-hidden">
@@ -161,7 +114,7 @@ function App() {
         )}
       </header>
       
-      {/* Editor Toolbar - Contains test mode buttons and undo/redo */}
+      {/* Editor Toolbar - Contains test mode buttons, zoom controls, and undo/redo */}
       {viewMode === 'editor' && <Toolbar />}
       
       {/* Main Content */}
@@ -187,7 +140,7 @@ function App() {
       {/* Footer */}
       <footer className="h-8 flex items-center justify-between px-4 border-t border-[#1e2a42] bg-[#0a0e17] text-xs text-[#4a5568]">
         <span>Modules: {modules.length} | Connections: {connections.length}</span>
-        <span>Press R to rotate | Delete to remove | Ctrl+Z/Y for undo/redo</span>
+        <span>Press R to rotate | F to flip | Del to remove | Ctrl+Z/Y for undo/redo</span>
         <span>Grid: {useMachineStore.getState().gridEnabled ? 'ON' : 'OFF'}</span>
       </footer>
       
@@ -199,6 +152,9 @@ function App() {
       {showActivation && (
         <ActivationOverlay onComplete={handleActivationComplete} />
       )}
+      
+      {/* Connection Error Toast */}
+      <ConnectionErrorToast />
     </div>
   );
 }

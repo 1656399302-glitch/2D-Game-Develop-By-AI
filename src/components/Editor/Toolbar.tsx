@@ -3,6 +3,7 @@ import { useMachineStore } from '../../store/useMachineStore';
 export function Toolbar() {
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
+  const viewport = useMachineStore((state) => state.viewport);
   const undo = useMachineStore((state) => state.undo);
   const redo = useMachineStore((state) => state.redo);
   const history = useMachineStore((state) => state.history);
@@ -10,9 +11,21 @@ export function Toolbar() {
   const clearCanvas = useMachineStore((state) => state.clearCanvas);
   const activateFailureMode = useMachineStore((state) => state.activateFailureMode);
   const activateOverloadMode = useMachineStore((state) => state.activateOverloadMode);
+  const zoomIn = useMachineStore((state) => state.zoomIn);
+  const zoomOut = useMachineStore((state) => state.zoomOut);
+  const resetViewport = useMachineStore((state) => state.resetViewport);
+  const zoomToFit = useMachineStore((state) => state.zoomToFit);
+  const selectedModuleId = useMachineStore((state) => state.selectedModuleId);
+  const duplicateModule = useMachineStore((state) => state.duplicateModule);
   
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+  
+  const handleDuplicate = () => {
+    if (selectedModuleId) {
+      duplicateModule(selectedModuleId);
+    }
+  };
   
   return (
     <div className="flex items-center gap-4 px-4 py-2 bg-[#121826] border-b border-[#1e2a42]">
@@ -50,40 +63,112 @@ export function Toolbar() {
       
       {/* Right side - actions */}
       <div className="flex items-center gap-2">
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1 mr-2">
+          <button
+            onClick={zoomOut}
+            className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
+            title="Zoom Out (-)"
+            aria-label="Zoom Out"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="6" cy="6" r="5" />
+              <path d="M4 6h4" />
+            </svg>
+          </button>
+          
+          <span className="text-xs text-[#4a5568] w-10 text-center">
+            {Math.round(viewport.zoom * 100)}%
+          </span>
+          
+          <button
+            onClick={zoomIn}
+            className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
+            title="Zoom In (+)"
+            aria-label="Zoom In"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="6" cy="6" r="5" />
+              <path d="M6 4v4M4 6h4" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={resetViewport}
+            className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
+            title="Reset Zoom (0)"
+            aria-label="Reset Zoom"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="2" y="2" width="10" height="10" rx="1" />
+              <circle cx="7" cy="7" r="2" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={zoomToFit}
+            className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
+            title="Fit All (Shift+0)"
+            aria-label="Fit All"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 5V2h3M9 2h3v3M12 9v3H9M5 12H2V9" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="w-px h-4 bg-[#1e2a42] mx-1" />
+        
+        {/* Duplicate button */}
+        <button
+          onClick={handleDuplicate}
+          disabled={!selectedModuleId}
+          className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
+          title="Duplicate (Ctrl+D)"
+          aria-label="Duplicate Module"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="4" y="4" width="8" height="8" rx="1" />
+            <path d="M2 10V2h8" />
+          </svg>
+        </button>
+        
         <button
           onClick={undo}
           disabled={!canUndo}
-          className="p-2 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
           title="Undo (Ctrl+Z)"
+          aria-label="Undo"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M3 8h7a3 3 0 0 1 0 6H8" />
-            <path d="M6 5L3 8l3 3" />
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 7h6a3 3 0 0 1 0 6H6" />
+            <path d="M5 4L3 7l2 3" />
           </svg>
         </button>
         
         <button
           onClick={redo}
           disabled={!canRedo}
-          className="p-2 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
           title="Redo (Ctrl+Y)"
+          aria-label="Redo"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M13 8H6a3 3 0 0 0 0 6h2" />
-            <path d="M10 5l3 3-3 3" />
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M11 7H5a3 3 0 0 0 0 6h3" />
+            <path d="M9 4l2 3-2 3" />
           </svg>
         </button>
         
-        <span className="text-xs text-[#4a5568] mx-2">
+        <span className="text-xs text-[#4a5568] mx-1">
           {historyIndex + 1}/{history.length || 1}
         </span>
         
-        <div className="w-px h-4 bg-[#1e2a42] mx-2" />
+        <div className="w-px h-4 bg-[#1e2a42] mx-1" />
         
         <button
           onClick={clearCanvas}
           disabled={modules.length === 0}
-          className="px-3 py-1 text-xs rounded bg-[#1e2a42] text-[#9ca3af] hover:text-[#ef4444] hover:bg-[#7f1d1d]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="px-2 py-1 text-xs rounded bg-[#1e2a42] text-[#9ca3af] hover:text-[#ef4444] hover:bg-[#7f1d1d]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           Clear All
         </button>

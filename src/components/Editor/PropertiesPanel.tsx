@@ -13,6 +13,8 @@ export function PropertiesPanel() {
   const selectedModuleId = useMachineStore((state) => state.selectedModuleId);
   const selectedConnectionId = useMachineStore((state) => state.selectedConnectionId);
   const updateModuleRotation = useMachineStore((state) => state.updateModuleRotation);
+  const updateModuleScale = useMachineStore((state) => state.updateModuleScale);
+  const updateModuleFlip = useMachineStore((state) => state.updateModuleFlip);
   const removeModule = useMachineStore((state) => state.removeModule);
   const removeConnection = useMachineStore((state) => state.removeConnection);
   const clearCanvas = useMachineStore((state) => state.clearCanvas);
@@ -33,6 +35,12 @@ export function PropertiesPanel() {
   }, [modules, connections]);
   
   const moduleInfo = selectedModule ? MODULE_INFO[selectedModule.type] : null;
+  
+  const handleScaleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (selectedModule) {
+      updateModuleScale(selectedModule.instanceId, parseFloat(e.target.value));
+    }
+  };
   
   return (
     <div className="w-72 bg-[#121826] border-l border-[#1e2a42] flex flex-col overflow-hidden">
@@ -128,6 +136,42 @@ export function PropertiesPanel() {
                 <p className="text-sm text-white">{selectedModule.rotation}°</p>
               </div>
               
+              {/* Scale Slider */}
+              <div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-[#4a5568]">Scale</span>
+                  <span className="text-xs text-white">{selectedModule.scale.toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  value={selectedModule.scale}
+                  onChange={handleScaleChange}
+                  className="w-full h-2 bg-[#1e2a42] rounded-lg appearance-none cursor-pointer mt-1
+                    [&::-webkit-slider-thumb]:appearance-none
+                    [&::-webkit-slider-thumb]:w-3
+                    [&::-webkit-slider-thumb]:h-3
+                    [&::-webkit-slider-thumb]:rounded-full
+                    [&::-webkit-slider-thumb]:bg-[#00d4ff]
+                    [&::-webkit-slider-thumb]:cursor-pointer
+                    [&::-webkit-slider-thumb]:transition-transform
+                    [&::-webkit-slider-thumb]:hover:scale-125
+                    [&::-moz-range-thumb]:w-3
+                    [&::-moz-range-thumb]:h-3
+                    [&::-moz-range-thumb]:rounded-full
+                    [&::-moz-range-thumb]:bg-[#00d4ff]
+                    [&::-moz-range-thumb]:border-0
+                    [&::-moz-range-thumb]:cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-[#4a5568] mt-0.5">
+                  <span>0.5x</span>
+                  <span>1.0x</span>
+                  <span>2.0x</span>
+                </div>
+              </div>
+              
               <div>
                 <span className="text-xs text-[#4a5568]">Ports</span>
                 <div className="flex gap-2 mt-1">
@@ -152,15 +196,26 @@ export function PropertiesPanel() {
                   onClick={() => updateModuleRotation(selectedModule.instanceId, 90)}
                   className="flex-1 arcane-button-secondary text-xs py-1.5"
                 >
-                  ↻ Rotate
+                  ↻ Rotate (R)
                 </button>
                 <button
-                  onClick={() => removeModule(selectedModule.instanceId)}
-                  className="flex-1 arcane-button-danger text-xs py-1.5"
+                  onClick={() => updateModuleFlip(selectedModule.instanceId)}
+                  className={`flex-1 text-xs py-1.5 border transition-colors ${
+                    selectedModule.flipped
+                      ? 'bg-[#00d4ff]/20 border-[#00d4ff] text-[#00d4ff]'
+                      : 'arcane-button-secondary'
+                  }`}
                 >
-                  🗑 Delete
+                  ⇆ Flip (F)
                 </button>
               </div>
+              
+              <button
+                onClick={() => removeModule(selectedModule.instanceId)}
+                className="w-full arcane-button-danger text-xs py-1.5"
+              >
+                🗑 Delete (Del)
+              </button>
             </div>
           </div>
         )}
@@ -225,6 +280,49 @@ export function PropertiesPanel() {
             >
               Clear Canvas
             </button>
+          </div>
+          
+          {/* Keyboard Shortcuts Reference */}
+          <div className="mt-4 p-3 bg-[#0a0e17] rounded-lg border border-[#1e2a42]">
+            <p className="text-xs text-[#4a5568] mb-2">Keyboard Shortcuts:</p>
+            <div className="space-y-1 text-[10px] text-[#4a5568]">
+              <div className="flex justify-between">
+                <span>R</span>
+                <span className="text-[#9ca3af]">Rotate 90°</span>
+              </div>
+              <div className="flex justify-between">
+                <span>F</span>
+                <span className="text-[#9ca3af]">Flip Horizontal</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Del</span>
+                <span className="text-[#9ca3af]">Delete</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Esc</span>
+                <span className="text-[#9ca3af]">Deselect</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ctrl+D</span>
+                <span className="text-[#9ca3af]">Duplicate</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ctrl+Z/Y</span>
+                <span className="text-[#9ca3af]">Undo/Redo</span>
+              </div>
+              <div className="flex justify-between">
+                <span>+/-</span>
+                <span className="text-[#9ca3af]">Zoom</span>
+              </div>
+              <div className="flex justify-between">
+                <span>0</span>
+                <span className="text-[#9ca3af]">Reset Zoom</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Shift+0</span>
+                <span className="text-[#9ca3af]">Fit All</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

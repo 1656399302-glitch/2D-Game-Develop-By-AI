@@ -138,6 +138,7 @@ const findValidPosition = (
       y: pos.y,
       rotation: 0,
       scale: 1,
+      flipped: false,
       ports: getDefaultPorts(moduleType),
     };
     
@@ -159,6 +160,7 @@ const findValidPosition = (
       y,
       rotation: 0,
       scale: 1,
+      flipped: false,
       ports: getDefaultPorts(moduleType),
     };
     
@@ -198,6 +200,7 @@ const findValidModulePositions = (
         y: position.y,
         rotation: 0,
         scale: 1,
+        flipped: false,
         ports: getDefaultPorts(type),
       });
     } else {

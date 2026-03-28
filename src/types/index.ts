@@ -34,6 +34,7 @@ export interface PlacedModule {
   y: number;
   rotation: number;
   scale: number;
+  flipped: boolean;
   ports: Port[];
 }
 

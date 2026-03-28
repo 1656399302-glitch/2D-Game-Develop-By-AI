@@ -29,15 +29,19 @@ interface MachineStore {
   history: HistoryState[];
   historyIndex: number;
   gridEnabled: boolean;
+  connectionError: string | null;
 
   // Actions
   addModule: (type: ModuleType, x: number, y: number) => void;
   removeModule: (instanceId: string) => void;
   updateModulePosition: (instanceId: string, x: number, y: number) => void;
   updateModuleRotation: (instanceId: string, rotation: number) => void;
+  updateModuleScale: (instanceId: string, scale: number) => void;
+  updateModuleFlip: (instanceId: string) => void;
   selectModule: (instanceId: string | null) => void;
   selectConnection: (connectionId: string | null) => void;
   deleteSelected: () => void;
+  duplicateModule: (instanceId: string) => void;
   
   // Connection actions
   startConnection: (moduleId: string, portId: string) => void;
@@ -45,10 +49,14 @@ interface MachineStore {
   completeConnection: (targetModuleId: string, targetPortId: string) => void;
   cancelConnection: () => void;
   removeConnection: (connectionId: string) => void;
+  setConnectionError: (error: string | null) => void;
   
   // Viewport actions
   setViewport: (viewport: Partial<ViewportState>) => void;
   resetViewport: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomToFit: () => void;
   
   // Machine state
   setMachineState: (state: MachineState) => void;
@@ -73,6 +81,10 @@ interface MachineStore {
 
 const GRID_SIZE = 20;
 const AUTO_RETURN_DELAY = 3500; // 3.5 seconds for failure/overload modes
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 2.0;
+const ZOOM_STEP = 0.1;
+const DUPLICATE_OFFSET = 20;
 
 const getDefaultPorts = (type: ModuleType): Port[] => {
   const config = MODULE_PORT_CONFIGS[type];
@@ -114,6 +126,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   history: initialHistory,
   historyIndex: 0,
   gridEnabled: true,
+  connectionError: null,
 
   addModule: (type, x, y) => {
     const { gridEnabled } = get();
@@ -127,6 +140,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       y: gridEnabled ? snapToGrid(y - height / 2) : y - height / 2,
       rotation: 0,
       scale: 1,
+      flipped: false,
       ports: getDefaultPorts(type),
     };
     
@@ -203,6 +217,28 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     get().saveToHistory();
   },
 
+  updateModuleScale: (instanceId, scale) => {
+    // Clamp scale between 0.5 and 2.0
+    const clampedScale = Math.max(0.5, Math.min(2.0, scale));
+    set((state) => ({
+      modules: state.modules.map((m) =>
+        m.instanceId === instanceId ? { ...m, scale: clampedScale } : m
+      ),
+    }));
+  },
+
+  updateModuleFlip: (instanceId) => {
+    // First, set the new state
+    set((state) => ({
+      modules: state.modules.map((m) =>
+        m.instanceId === instanceId ? { ...m, flipped: !m.flipped } : m
+      ),
+    }));
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
+  },
+
   selectModule: (instanceId) => {
     set({ selectedModuleId: instanceId, selectedConnectionId: null });
   },
@@ -220,11 +256,39 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     }
   },
 
+  duplicateModule: (instanceId) => {
+    const { modules } = get();
+    const moduleToDuplicate = modules.find((m) => m.instanceId === instanceId);
+    if (!moduleToDuplicate) return;
+
+    const newModule: PlacedModule = {
+      ...moduleToDuplicate,
+      id: uuidv4(),
+      instanceId: uuidv4(),
+      x: moduleToDuplicate.x + DUPLICATE_OFFSET,
+      y: moduleToDuplicate.y + DUPLICATE_OFFSET,
+      ports: moduleToDuplicate.ports.map((p) => ({
+        ...p,
+        id: `${moduleToDuplicate.type}-${p.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      })),
+    };
+
+    // First, set the new state
+    set((state) => ({
+      modules: [...state.modules, newModule],
+      selectedModuleId: newModule.instanceId,
+    }));
+    
+    // THEN save to history (captures the new state)
+    get().saveToHistory();
+  },
+
   startConnection: (moduleId, portId) => {
     set({
       isConnecting: true,
       connectionStart: { moduleId, portId },
       connectionPreview: null,
+      connectionError: null,
     });
   },
 
@@ -253,9 +317,18 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       return;
     }
 
-    // Can't connect same type ports
+    // Can't connect same type ports - show error
     if (sourcePort.type === targetPort.type) {
-      set({ isConnecting: false, connectionStart: null, connectionPreview: null });
+      set({ 
+        isConnecting: false, 
+        connectionStart: null, 
+        connectionPreview: null,
+        connectionError: '连接类型冲突 - 不能连接相同类型的端口',
+      });
+      // Clear error after 2 seconds
+      setTimeout(() => {
+        set({ connectionError: null });
+      }, 2000);
       return;
     }
 
@@ -269,7 +342,15 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     );
 
     if (exists) {
-      set({ isConnecting: false, connectionStart: null, connectionPreview: null });
+      set({ 
+        isConnecting: false, 
+        connectionStart: null, 
+        connectionPreview: null,
+        connectionError: '连接已存在',
+      });
+      setTimeout(() => {
+        set({ connectionError: null });
+      }, 2000);
       return;
     }
 
@@ -303,7 +384,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   cancelConnection: () => {
-    set({ isConnecting: false, connectionStart: null, connectionPreview: null });
+    set({ isConnecting: false, connectionStart: null, connectionPreview: null, connectionError: null });
   },
 
   removeConnection: (connectionId) => {
@@ -317,6 +398,10 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     get().saveToHistory();
   },
 
+  setConnectionError: (error) => {
+    set({ connectionError: error });
+  },
+
   setViewport: (viewport) => {
     set((state) => ({
       viewport: { ...state.viewport, ...viewport },
@@ -325,6 +410,58 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   resetViewport: () => {
     set({ viewport: { x: 0, y: 0, zoom: 1 } });
+  },
+
+  zoomIn: () => {
+    const { viewport } = get();
+    const newZoom = Math.min(MAX_ZOOM, viewport.zoom + ZOOM_STEP);
+    set({ viewport: { ...viewport, zoom: newZoom } });
+  },
+
+  zoomOut: () => {
+    const { viewport } = get();
+    const newZoom = Math.max(MIN_ZOOM, viewport.zoom - ZOOM_STEP);
+    set({ viewport: { ...viewport, zoom: newZoom } });
+  },
+
+  zoomToFit: () => {
+    const { modules } = get();
+    if (modules.length === 0) {
+      set({ viewport: { x: 0, y: 0, zoom: 1 } });
+      return;
+    }
+
+    // Calculate bounding box of all modules
+    const PADDING = 50;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    modules.forEach((module) => {
+      const size = getModuleSize(module.type);
+      minX = Math.min(minX, module.x);
+      minY = Math.min(minY, module.y);
+      maxX = Math.max(maxX, module.x + size.width);
+      maxY = Math.max(maxY, module.y + size.height);
+    });
+
+    const contentWidth = maxX - minX + PADDING * 2;
+    const contentHeight = maxY - minY + PADDING * 2;
+
+    // Get viewport size (assuming 800x600 as default canvas size)
+    const viewportWidth = 800;
+    const viewportHeight = 600;
+
+    // Calculate zoom to fit
+    const zoomX = viewportWidth / contentWidth;
+    const zoomY = viewportHeight / contentHeight;
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(zoomX, zoomY)));
+
+    // Calculate offset to center content
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const newX = viewportWidth / 2 - centerX * newZoom;
+    const newY = viewportHeight / 2 - centerY * newZoom;
+
+    set({ viewport: { x: newX, y: newY, zoom: newZoom } });
   },
 
   setMachineState: (state) => {

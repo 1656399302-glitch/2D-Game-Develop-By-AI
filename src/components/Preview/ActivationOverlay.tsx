@@ -8,6 +8,10 @@ interface ActivationOverlayProps {
 
 type Phase = 'charging' | 'active' | 'complete' | 'failure' | 'overload';
 
+// Shake intensity constants (in pixels)
+const FAILURE_SHAKE_INTENSITY = 8;
+const OVERLOAD_SHAKE_INTENSITY = 4;
+
 export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const [phase, setPhase] = useState<Phase>('charging');
   const [progress, setProgress] = useState(0);
@@ -177,12 +181,30 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     }
   };
   
+  // Get shake animation CSS based on phase
+  const getShakeAnimation = () => {
+    if (phase === 'failure') {
+      return `failureShake ${1000 / FAILURE_SHAKE_INTENSITY}s linear infinite`;
+    }
+    if (phase === 'overload') {
+      return `overloadShake ${1000 / OVERLOAD_SHAKE_INTENSITY}s ease-in-out infinite`;
+    }
+    return 'none';
+  };
+  
   return (
     <div 
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ${phase === 'failure' ? 'failure-mode' : ''} ${phase === 'overload' ? 'overload-mode' : ''}`}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ${
+        phase === 'failure' ? 'failure-mode' : ''
+      } ${phase === 'overload' ? 'overload-mode' : ''}`}
+      style={{
+        animation: getShakeAnimation(),
+      }}
     >
       <div 
-        className={`relative w-96 bg-[#121826] border-2 ${getBorderColor()} rounded-xl p-6 shadow-2xl ${phase === 'failure' ? 'shadow-[#ff3355]/20' : phase === 'overload' ? 'shadow-[#ff6b35]/20' : 'shadow-[#00d4ff]/20'}`}
+        className={`relative w-96 bg-[#121826] border-2 ${getBorderColor()} rounded-xl p-6 shadow-2xl ${
+          phase === 'failure' ? 'shadow-[#ff3355]/20' : phase === 'overload' ? 'shadow-[#ff6b35]/20' : 'shadow-[#00d4ff]/20'
+        }`}
         style={{
           opacity: flicker && (phase === 'failure' || phase === 'overload') ? 0.7 : 1,
         }}
@@ -262,6 +284,11 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
               <p>• 模块协调失败</p>
               <p>• 紧急停机协议已启动</p>
             </div>
+            <div className="mt-2 pt-2 border-t border-[#ff3355]/30">
+              <p className="text-[10px] text-[#ff3355]/70">
+                Shake Intensity: {FAILURE_SHAKE_INTENSITY}px
+              </p>
+            </div>
           </div>
         )}
         
@@ -275,6 +302,11 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
               <p>• 能量输出超出安全阈值</p>
               <p>• 过载保护机制已激活</p>
               <p>• 系统将自动重启</p>
+            </div>
+            <div className="mt-2 pt-2 border-t border-[#ff6b35]/30">
+              <p className="text-[10px] text-[#ff6b35]/70">
+                Shake Intensity: {OVERLOAD_SHAKE_INTENSITY}px
+              </p>
             </div>
           </div>
         )}
@@ -355,11 +387,33 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           0%, 100% { opacity: 0.1; }
           50% { opacity: 0.2; }
         }
+        
+        /* Enhanced shake animations with configurable intensity */
+        @keyframes failureShake {
+          0%, 100% { transform: translate(0, 0); }
+          10% { transform: translate(-${FAILURE_SHAKE_INTENSITY}px, ${FAILURE_SHAKE_INTENSITY}px); }
+          20% { transform: translate(${FAILURE_SHAKE_INTENSITY}px, -${FAILURE_SHAKE_INTENSITY}px); }
+          30% { transform: translate(-${FAILURE_SHAKE_INTENSITY}px, 0); }
+          40% { transform: translate(${FAILURE_SHAKE_INTENSITY}px, ${FAILURE_SHAKE_INTENSITY}px); }
+          50% { transform: translate(0, -${FAILURE_SHAKE_INTENSITY}px); }
+          60% { transform: translate(-${FAILURE_SHAKE_INTENSITY}px, ${FAILURE_SHAKE_INTENSITY}px); }
+          70% { transform: translate(${FAILURE_SHAKE_INTENSITY}px, 0); }
+          80% { transform: translate(-${FAILURE_SHAKE_INTENSITY}px, -${FAILURE_SHAKE_INTENSITY}px); }
+          90% { transform: translate(${FAILURE_SHAKE_INTENSITY}px, ${FAILURE_SHAKE_INTENSITY}px); }
+        }
+        
+        @keyframes overloadShake {
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(-${OVERLOAD_SHAKE_INTENSITY}px, ${OVERLOAD_SHAKE_INTENSITY}px); }
+          50% { transform: translate(${OVERLOAD_SHAKE_INTENSITY}px, -${OVERLOAD_SHAKE_INTENSITY}px); }
+          75% { transform: translate(-${OVERLOAD_SHAKE_INTENSITY}px, -${OVERLOAD_SHAKE_INTENSITY}px); }
+        }
+        
         .failure-mode {
-          animation: screenShake 0.1s ease-in-out infinite;
+          animation: failureShake ${1000 / FAILURE_SHAKE_INTENSITY}s linear infinite;
         }
         .overload-mode {
-          animation: screenPulse 0.5s ease-in-out infinite;
+          animation: overloadShake ${1000 / OVERLOAD_SHAKE_INTENSITY}s ease-in-out infinite;
         }
         @keyframes screenShake {
           0%, 100% { transform: translateX(0); }
