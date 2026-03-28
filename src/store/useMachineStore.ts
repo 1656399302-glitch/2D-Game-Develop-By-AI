@@ -9,6 +9,8 @@ import {
   MachineState,
   HistoryState,
   PortType,
+  MODULE_SIZES,
+  MODULE_PORT_CONFIGS,
 } from '../types';
 import { calculateConnectionPath } from '../utils/connectionEngine';
 
@@ -68,16 +70,14 @@ interface MachineStore {
 const GRID_SIZE = 20;
 
 const getDefaultPorts = (type: ModuleType): Port[] => {
-  const portConfigs: Record<ModuleType, { input: { x: number; y: number }; output: { x: number; y: number } }> = {
-    'core-furnace': { input: { x: 25, y: 50 }, output: { x: 75, y: 50 } },
-    'energy-pipe': { input: { x: 0, y: 25 }, output: { x: 100, y: 25 } },
-    'gear': { input: { x: 50, y: 0 }, output: { x: 50, y: 100 } },
-    'rune-node': { input: { x: 0, y: 40 }, output: { x: 100, y: 40 } },
-    'shield-shell': { input: { x: 20, y: 50 }, output: { x: 80, y: 50 } },
-    'trigger-switch': { input: { x: 50, y: 0 }, output: { x: 50, y: 100 } },
-  };
-  
-  const config = portConfigs[type];
+  const config = MODULE_PORT_CONFIGS[type];
+  if (!config) {
+    // Fallback for unknown types
+    return [
+      { id: `${type}-input`, type: 'input' as PortType, position: { x: 25, y: 40 } },
+      { id: `${type}-output`, type: 'output' as PortType, position: { x: 75, y: 40 } },
+    ];
+  }
   return [
     { id: `${type}-input`, type: 'input' as PortType, position: config.input },
     { id: `${type}-output`, type: 'output' as PortType, position: config.output },
@@ -89,16 +89,11 @@ const snapToGrid = (value: number, gridSize: number = GRID_SIZE): number => {
 };
 
 const getModuleSize = (type: ModuleType): { width: number; height: number } => {
-  const sizes: Record<ModuleType, { width: number; height: number }> = {
-    'core-furnace': { width: 100, height: 100 },
-    'energy-pipe': { width: 120, height: 50 },
-    'gear': { width: 80, height: 80 },
-    'rune-node': { width: 80, height: 80 },
-    'shield-shell': { width: 100, height: 60 },
-    'trigger-switch': { width: 60, height: 100 },
-  };
-  return sizes[type];
+  return MODULE_SIZES[type] || { width: 80, height: 80 };
 };
+
+// Initialize with empty state in history
+const initialHistory: HistoryState[] = [{ modules: [], connections: [] }];
 
 export const useMachineStore = create<MachineStore>((set, get) => ({
   modules: [],
@@ -110,8 +105,8 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   connectionPreview: null,
   viewport: { x: 0, y: 0, zoom: 1 },
   machineState: 'idle',
-  history: [],
-  historyIndex: -1,
+  history: initialHistory,
+  historyIndex: 0,
   gridEnabled: true,
 
   addModule: (type, x, y) => {
@@ -295,6 +290,8 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   removeConnection: (connectionId) => {
+    const { saveToHistory } = get();
+    saveToHistory();
     set((state) => ({
       connections: state.connections.filter((c) => c.id !== connectionId),
       selectedConnectionId: state.selectedConnectionId === connectionId ? null : state.selectedConnectionId,
@@ -321,6 +318,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   undo: () => {
     const { historyIndex, history } = get();
+    // Undo is possible if there's a previous state to restore
     if (historyIndex > 0) {
       const prevState = history[historyIndex - 1];
       set({
@@ -333,6 +331,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   redo: () => {
     const { historyIndex, history } = get();
+    // Redo is possible if there's a future state
     if (historyIndex < history.length - 1) {
       const nextState = history[historyIndex + 1];
       set({
@@ -345,6 +344,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   saveToHistory: () => {
     const { modules, connections, history, historyIndex } = get();
+    // When taking a new action, truncate any redo history
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push({ modules: [...modules], connections: [...connections] });
     // Keep only last 50 states
@@ -374,8 +374,8 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       connections,
       selectedModuleId: null,
       selectedConnectionId: null,
-      history: [],
-      historyIndex: -1,
+      history: initialHistory,
+      historyIndex: 0,
     });
   },
 }));

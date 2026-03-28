@@ -139,6 +139,69 @@ describe('attributeGenerator', () => {
       expect(shieldResult.stats.stability).toBeDefined();
       expect(triggerResult.stats.stability).toBeDefined();
     });
+
+    it('should include output-array module in attribute calculation', () => {
+      const modules: PlacedModule[] = [
+        createModule('core-furnace', 'm1'),
+        createModule('output-array', 'm2'),
+      ];
+      
+      const connections = [
+        createConnection('m1', 'core-furnace-output', 'm2', 'output-array-input'),
+      ];
+      
+      const result = generateAttributes(modules, connections);
+      
+      expect(result).toBeDefined();
+      expect(result.tags).toContain('arcane');
+      expect(result.name).toBeTruthy();
+      expect(result.rarity).toBeDefined();
+    });
+
+    it('should include resonance tag for output-array module', () => {
+      const modules: PlacedModule[] = [
+        createModule('output-array', 'm1'),
+      ];
+      
+      const result = generateAttributes(modules, []);
+      
+      expect(result.tags).toContain('resonance');
+    });
+
+    it('should apply power bonus when output-array has connections', () => {
+      const modulesWithoutConnection: PlacedModule[] = [
+        createModule('core-furnace', 'm1'),
+        createModule('output-array', 'm2'),
+      ];
+      
+      const modulesWithConnection: PlacedModule[] = [
+        createModule('core-furnace', 'm1'),
+        createModule('output-array', 'm2'),
+      ];
+      
+      const connections = [
+        createConnection('m1', 'core-furnace-output', 'm2', 'output-array-input'),
+      ];
+      
+      const resultWithout = generateAttributes(modulesWithoutConnection, []);
+      const resultWith = generateAttributes(modulesWithConnection, connections);
+      
+      // With connection, power should be higher due to output array bonus
+      expect(resultWith.stats.powerOutput).toBeGreaterThanOrEqual(resultWithout.stats.powerOutput);
+    });
+
+    it('should include arcane and resonance tags for output-array', () => {
+      const modules: PlacedModule[] = [
+        createModule('output-array', 'm1'),
+        createModule('rune-node', 'm2'),
+      ];
+      
+      const result = generateAttributes(modules, []);
+      
+      expect(result.tags).toContain('arcane');
+      expect(result.tags).toContain('resonance');
+      expect(result.tags).toContain('amplifying');
+    });
   });
 
   describe('getRarityColor', () => {

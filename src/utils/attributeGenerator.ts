@@ -10,7 +10,8 @@ const PREFIXES = [
 const TYPES = [
   'Amplifier', 'Resonator', 'Converter', 'Disperser', 'Conduit', 'Engine',
   'Chamber', 'Matrix', 'Core', 'Actuator', 'Modulator', 'Capacitor', 'Reactor',
-  'Distillator', 'Synchronizer', 'Harmonizer', 'Extractor', 'Infuser', 'Projector'
+  'Distillator', 'Synchronizer', 'Harmonizer', 'Extractor', 'Infuser', 'Projector',
+  'Projector', 'Emissor', 'Resonator', 'Phaser'
 ];
 
 const SUFFIXES = [
@@ -30,6 +31,7 @@ const TAG_EFFECTS: Record<AttributeTag, { stability: number; power: number; ener
   balancing: { stability: 10, power: 5, energy: -5 },
   explosive: { stability: -15, power: 30, energy: 20 },
   stable: { stability: 15, power: 0, energy: 0 },
+  resonance: { stability: 0, power: 20, energy: 5 },
 };
 
 const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
@@ -39,6 +41,7 @@ const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
   'rune-node': ['arcane', 'amplifying'],
   'shield-shell': ['protective', 'stable'],
   'trigger-switch': ['explosive', 'amplifying'],
+  'output-array': ['arcane', 'resonance'],
 };
 
 const DESCRIPTIONS = [
@@ -50,6 +53,8 @@ const DESCRIPTIONS = [
   'Energy crackles along its surface, awaiting release through the proper sequence.',
   'A testament to the fusion of mechanical ingenuity and arcane mastery.',
   'The core hums with contained potential, ready to be unleashed.',
+  'Arcane resonance patterns weave through this remarkable apparatus.',
+  'Power converges at the focal point, prepared for ultimate projection.',
 ];
 
 function randomChoice<T>(arr: T[]): T {
@@ -87,6 +92,12 @@ function calculateStats(modules: PlacedModule[], connections: Connection[]): Mac
   const connectionBonus = connections.length * 2;
   totalPower += connectionBonus;
   totalStability += Math.floor(connections.length * 0.5);
+  
+  // Output array bonus for having a complete circuit
+  const hasOutputArray = modules.some((m) => m.type === 'output-array');
+  if (hasOutputArray && connections.length > 0) {
+    totalPower += 10; // Bonus for having output terminus
+  }
   
   // Normalize stats
   const stability = Math.max(0, Math.min(100, totalStability));
@@ -136,7 +147,7 @@ function generateName(): string {
   return `${prefix} ${type} ${suffix}`;
 }
 
-function generateDescription(stats: MachineStats): string {
+function generateDescription(stats: MachineStats, modules: PlacedModule[]): string {
   let desc = randomChoice(DESCRIPTIONS);
   
   // Add stats flavor
@@ -144,6 +155,12 @@ function generateDescription(stats: MachineStats): string {
     desc += ' Warning: System instability detected.';
   } else if (stats.stability > 80) {
     desc += ' Operating within nominal parameters.';
+  }
+  
+  // Check for output array
+  const hasOutputArray = modules.some((m) => m.type === 'output-array');
+  if (hasOutputArray) {
+    desc += ' Output array projects focused arcane beams.';
   }
   
   return desc;
@@ -170,7 +187,7 @@ export function generateAttributes(
   const stats = calculateStats(modules, connections);
   const rarity = calculateRarity(moduleCount, connectionCount);
   const name = generateName();
-  const description = generateDescription(stats);
+  const description = generateDescription(stats, modules);
   
   return {
     name,

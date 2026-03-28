@@ -46,6 +46,12 @@ const MODULE_CATALOG: ModuleInfo[] = [
     category: 'trigger',
     description: 'Activation mechanism. Controls energy release timing.',
   },
+  {
+    type: 'output-array',
+    name: 'Output Array',
+    category: 'output',
+    description: 'Final terminus for energy circuits. Projects arcane beams and resonance.',
+  },
 ];
 
 const CATEGORY_COLORS: Record<ModuleCategory, string> = {
@@ -55,6 +61,7 @@ const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   rune: '#9333ea',
   shield: '#22c55e',
   trigger: '#ef4444',
+  output: '#fbbf24',
 };
 
 export function ModulePanel() {
@@ -214,6 +221,18 @@ function ModuleIcon({ type }: { type: ModuleType }) {
         <rect x="11" y="18" width="10" height="8" rx="2" fill="#2d2d2d" stroke="#f87171" strokeWidth="1"/>
         <circle cx="16" cy="22" r="3" fill="#dc2626" stroke="#ef4444" strokeWidth="1"/>
         <rect x="11" y="6" width="10" height="8" rx="1" fill="#2d2d2d" stroke="#f87171" strokeWidth="1"/>
+      </svg>
+    ),
+    'output-array': (
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="14" fill="#1a1a2e" stroke="#fbbf24" strokeWidth="1.5"/>
+        <circle cx="16" cy="16" r="10" fill="#2d2d2d" stroke="#f59e0b" strokeWidth="1"/>
+        <circle cx="16" cy="16" r="5" fill="#f59e0b" opacity="0.6"/>
+        <circle cx="16" cy="16" r="2" fill="#fef3c7"/>
+        {/* Energy beam */}
+        <path d="M22,16 L28,14 L28,18 Z" fill="#fbbf24"/>
+        {/* Receptor */}
+        <ellipse cx="5" cy="16" rx="3" ry="5" fill="#2d2d2d" stroke="#f59e0b" strokeWidth="1"/>
       </svg>
     ),
   };

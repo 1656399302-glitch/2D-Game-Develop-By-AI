@@ -1,6 +1,6 @@
 // Module Types
-export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch';
-export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger';
+export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array';
+export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output';
 export type PortType = 'input' | 'output';
 
 export interface Port {
@@ -48,7 +48,7 @@ export interface Connection {
 
 // Attribute Generation
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type AttributeTag = 'fire' | 'lightning' | 'arcane' | 'void' | 'mechanical' | 'protective' | 'amplifying' | 'balancing' | 'explosive' | 'stable';
+export type AttributeTag = 'fire' | 'lightning' | 'arcane' | 'void' | 'mechanical' | 'protective' | 'amplifying' | 'balancing' | 'explosive' | 'stable' | 'resonance';
 
 export interface MachineStats {
   stability: number;
@@ -133,3 +133,25 @@ export interface DragEvent {
   x: number;
   y: number;
 }
+
+// Module size definitions
+export const MODULE_SIZES: Record<ModuleType, { width: number; height: number }> = {
+  'core-furnace': { width: 100, height: 100 },
+  'energy-pipe': { width: 120, height: 50 },
+  'gear': { width: 80, height: 80 },
+  'rune-node': { width: 80, height: 80 },
+  'shield-shell': { width: 100, height: 60 },
+  'trigger-switch': { width: 60, height: 100 },
+  'output-array': { width: 80, height: 80 },
+};
+
+// Default port configurations
+export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: { x: number; y: number }; output: { x: number; y: number } }> = {
+  'core-furnace': { input: { x: 25, y: 50 }, output: { x: 75, y: 50 } },
+  'energy-pipe': { input: { x: 0, y: 25 }, output: { x: 100, y: 25 } },
+  'gear': { input: { x: 50, y: 0 }, output: { x: 50, y: 100 } },
+  'rune-node': { input: { x: 0, y: 40 }, output: { x: 100, y: 40 } },
+  'shield-shell': { input: { x: 20, y: 50 }, output: { x: 80, y: 50 } },
+  'trigger-switch': { input: { x: 50, y: 0 }, output: { x: 50, y: 100 } },
+  'output-array': { input: { x: 0, y: 40 }, output: { x: 80, y: 40 } },
+};

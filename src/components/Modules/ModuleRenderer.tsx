@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { gsap } from 'gsap';
-import { PlacedModule, Port, MachineState } from '../../types';
+import { PlacedModule, Port, MachineState, MODULE_SIZES } from '../../types';
 import { useMachineStore } from '../../store/useMachineStore';
 import { CoreFurnaceSVG } from './CoreFurnace';
 import { EnergyPipeSVG } from './EnergyPipe';
@@ -8,6 +8,7 @@ import { GearSVG } from './Gear';
 import { RuneNodeSVG } from './RuneNode';
 import { ShieldShellSVG } from './ShieldShell';
 import { TriggerSwitchSVG } from './TriggerSwitch';
+import { OutputArraySVG } from './OutputArray';
 
 interface ModuleRendererProps {
   module: PlacedModule;
@@ -15,15 +16,6 @@ interface ModuleRendererProps {
   machineState: MachineState;
   onMouseDown: (e: React.MouseEvent) => void;
 }
-
-const MODULE_SIZES: Record<string, { width: number; height: number }> = {
-  'core-furnace': { width: 100, height: 100 },
-  'energy-pipe': { width: 120, height: 50 },
-  'gear': { width: 80, height: 80 },
-  'rune-node': { width: 80, height: 80 },
-  'shield-shell': { width: 100, height: 60 },
-  'trigger-switch': { width: 60, height: 100 },
-};
 
 export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }: ModuleRendererProps) {
   const groupRef = useRef<SVGGElement>(null);
@@ -117,6 +109,8 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
         return <ShieldShellSVG {...props} />;
       case 'trigger-switch':
         return <TriggerSwitchSVG {...props} />;
+      case 'output-array':
+        return <OutputArraySVG {...props} />;
       default:
         return <rect width={size.width} height={size.height} fill="#333" />;
     }
