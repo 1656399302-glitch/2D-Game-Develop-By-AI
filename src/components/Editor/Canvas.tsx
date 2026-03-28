@@ -1,8 +1,9 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { ModuleRenderer } from '../Modules/ModuleRenderer';
 import { EnergyPath } from '../Connections/EnergyPath';
 import { ConnectionPreview } from '../Connections/ConnectionPreview';
+import { calculateShakeOffset } from '../../utils/activationChoreographer';
 
 export function Canvas() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -11,6 +12,11 @@ export function Canvas() {
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [draggingModule, setDraggingModule] = useState<string | null>(null);
+  
+  // Camera shake state
+  const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
+  const shakeStartTimeRef = useRef<number | null>(null);
+  const shakeAnimationRef = useRef<number | null>(null);
   
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
@@ -30,6 +36,60 @@ export function Canvas() {
   const updateConnectionPreview = useMachineStore((state) => state.updateConnectionPreview);
   const cancelConnection = useMachineStore((state) => state.cancelConnection);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
+  
+  // Camera shake parameters based on machine state
+  const shakeParams = {
+    charging: { duration: 150, magnitude: 4 },
+    active: { duration: 150, magnitude: 4 },
+    overload: { duration: 300, magnitude: 8 },
+    failure: { duration: 300, magnitude: 8 },
+    shutdown: { duration: 0, magnitude: 0 },
+    idle: { duration: 0, magnitude: 0 },
+  };
+  
+  // Camera shake effect
+  useEffect(() => {
+    const params = shakeParams[machineState];
+    
+    if (params.duration === 0) {
+      // Reset shake
+      setShakeOffset({ x: 0, y: 0 });
+      if (shakeAnimationRef.current) {
+        cancelAnimationFrame(shakeAnimationRef.current);
+        shakeAnimationRef.current = null;
+      }
+      shakeStartTimeRef.current = null;
+      return;
+    }
+    
+    // Start shake animation
+    shakeStartTimeRef.current = performance.now();
+    
+    const animate = (currentTime: number) => {
+      if (shakeStartTimeRef.current === null) return;
+      
+      const elapsed = currentTime - shakeStartTimeRef.current;
+      const offset = calculateShakeOffset(elapsed, params.magnitude, params.duration);
+      
+      setShakeOffset({ x: offset.x, y: offset.y });
+      
+      if (!offset.isComplete) {
+        shakeAnimationRef.current = requestAnimationFrame(animate);
+      } else {
+        setShakeOffset({ x: 0, y: 0 });
+        shakeStartTimeRef.current = null;
+        shakeAnimationRef.current = null;
+      }
+    };
+    
+    shakeAnimationRef.current = requestAnimationFrame(animate);
+    
+    return () => {
+      if (shakeAnimationRef.current) {
+        cancelAnimationFrame(shakeAnimationRef.current);
+      }
+    };
+  }, [machineState]);
   
   const getCanvasCoordinates = useCallback((clientX: number, clientY: number) => {
     if (!svgRef.current) return { x: 0, y: 0 };
@@ -125,11 +185,6 @@ export function Canvas() {
     selectModule(instanceId);
   }, [selectModule]);
   
-  // Handle connection click
-  const handleConnectionClick = useCallback((connectionId: string) => {
-    selectConnection(connectionId);
-  }, [selectConnection]);
-  
   // Grid pattern
   const gridSize = 20;
   const gridOpacity = 0.3;
@@ -203,8 +258,12 @@ export function Canvas() {
           />
         )}
         
-        {/* Content group with transform */}
-        <g transform={`translate(${viewport.x}, ${viewport.y}) scale(${viewport.zoom})`}>
+        {/* Content group with transform - includes viewport and camera shake */}
+        <g 
+          id="canvas-content"
+          transform={`translate(${viewport.x + shakeOffset.x}, ${viewport.y + shakeOffset.y}) scale(${viewport.zoom})`}
+          style={{ willChange: 'transform' }}
+        >
           {/* Connections layer */}
           <g id="connections-layer">
             {connections.map((connection) => (
@@ -213,7 +272,7 @@ export function Canvas() {
                 connection={connection}
                 isSelected={connection.id === selectedConnectionId}
                 isActive={machineState !== 'idle'}
-                onClick={() => handleConnectionClick(connection.id)}
+                machineState={machineState}
               />
             ))}
             

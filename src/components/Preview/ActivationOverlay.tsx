@@ -1,32 +1,94 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
-import { getConnectionFlowOrder } from '../../utils/connectionEngine';
+import { getRarityColor } from '../../utils/activationChoreographer';
+import { Rarity } from '../../types';
 
 interface ActivationOverlayProps {
   onComplete: () => void;
 }
 
-type Phase = 'charging' | 'active' | 'complete' | 'failure' | 'overload';
+type Phase = 'charging' | 'activating' | 'online' | 'failure' | 'overload';
 
 // Shake intensity constants (in pixels)
 const FAILURE_SHAKE_INTENSITY = 8;
-const OVERLOAD_SHAKE_INTENSITY = 4;
+const OVERLOAD_SHAKE_INTENSITY = 8;
+const NORMAL_SHAKE_INTENSITY = 4;
+
+// Overload vignette
+const VIGNETTE_TARGET_OPACITY = 0.4;
+const VIGNETTE_ANIMATION_DURATION = 200;
+
+// Flicker interval
+const FLICKER_INTERVAL = 50;
 
 export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const [phase, setPhase] = useState<Phase>('charging');
   const [progress, setProgress] = useState(0);
   const [currentModuleIndex, setCurrentModuleIndex] = useState(-1);
   const [flicker, setFlicker] = useState(false);
+  const [vignetteOpacity, setVignetteOpacity] = useState(0);
+  const [sparks, setSparks] = useState<{ id: number; x: number; y: number; vx: number; vy: number }[]>([]);
+  
+  const flickerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sparkAnimationRef = useRef<number | null>(null);
   
   const modules = useMachineStore((state) => state.modules);
   const machineState = useMachineStore((state) => state.machineState);
   const setMachineState = useMachineStore((state) => state.setMachineState);
   const setShowActivation = useMachineStore((state) => state.setShowActivation);
+  const generatedAttributes = useMachineStore((state) => state.generatedAttributes);
   
-  // Get activation order based on connections
-  const activationOrder = getConnectionFlowOrder(modules, []);
+  // Get rarity from generated attributes or default to common
+  const rarity: Rarity = generatedAttributes?.rarity || 'common';
+  const rarityColor = getRarityColor(rarity);
+  
+  // Calculate phase from progress
+  // Phase is calculated dynamically from progress
+  
+  // Generate sparks for overload effect
+  const generateSparks = useCallback(() => {
+    const newSparks = Array.from({ length: 8 }, (_, i) => ({
+      id: i,
+      x: 50 + (Math.random() - 0.5) * 20,
+      y: 50 + (Math.random() - 0.5) * 20,
+      vx: (Math.random() - 0.5) * 2,
+      vy: Math.random() * -2 - 1, // upward with gravity
+    }));
+    setSparks(newSparks);
+    
+    // Animate sparks
+    const startTime = performance.now();
+    const animateSparks = (time: number) => {
+      const elapsed = time - startTime;
+      if (elapsed > 500) {
+        setSparks([]);
+        return;
+      }
+      
+      setSparks((prev) =>
+        prev.map((spark) => ({
+          ...spark,
+          x: spark.x + spark.vx,
+          y: spark.y + spark.vy + (elapsed / 500) * 2, // add gravity
+          vy: spark.vy + 0.1, // gravity acceleration
+        }))
+      );
+      
+      sparkAnimationRef.current = requestAnimationFrame(animateSparks);
+    };
+    
+    sparkAnimationRef.current = requestAnimationFrame(animateSparks);
+  }, []);
   
   const handleSkip = useCallback(() => {
+    // Clean up intervals
+    if (flickerIntervalRef.current) {
+      clearInterval(flickerIntervalRef.current);
+    }
+    if (sparkAnimationRef.current) {
+      cancelAnimationFrame(sparkAnimationRef.current);
+    }
+    
     setMachineState('idle');
     setShowActivation(false);
     onComplete();
@@ -37,24 +99,47 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     if (machineState === 'failure') {
       setPhase('failure');
       setProgress(100);
-      // Start flicker effect
-      const flickerInterval = setInterval(() => {
-        setFlicker((prev) => !prev);
-      }, 150);
+      setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
       
-      return () => clearInterval(flickerInterval);
+      // Start flicker effect at ~50ms intervals
+      flickerIntervalRef.current = setInterval(() => {
+        setFlicker((prev) => !prev);
+      }, FLICKER_INTERVAL);
+      
+      // Generate initial sparks
+      generateSparks();
+      
+      return () => {
+        if (flickerIntervalRef.current) {
+          clearInterval(flickerIntervalRef.current);
+        }
+        if (sparkAnimationRef.current) {
+          cancelAnimationFrame(sparkAnimationRef.current);
+        }
+      };
     } else if (machineState === 'overload') {
       setPhase('overload');
       setProgress(100);
+      setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
       
-      // Pulsing effect for overload
-      const pulseInterval = setInterval(() => {
+      // Pulsing effect for overload at ~50ms intervals
+      flickerIntervalRef.current = setInterval(() => {
         setFlicker((prev) => !prev);
-      }, 300);
+      }, FLICKER_INTERVAL);
       
-      return () => clearInterval(pulseInterval);
+      // Generate initial sparks
+      generateSparks();
+      
+      return () => {
+        if (flickerIntervalRef.current) {
+          clearInterval(flickerIntervalRef.current);
+        }
+        if (sparkAnimationRef.current) {
+          cancelAnimationFrame(sparkAnimationRef.current);
+        }
+      };
     }
-  }, [machineState]);
+  }, [machineState, generateSparks]);
   
   // Normal activation flow
   useEffect(() => {
@@ -64,10 +149,11 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     
     setMachineState('charging');
     
-    // Charging phase - 1 second
-    const chargingDuration = 1000;
-    const activeDuration = 3000;
-    const completeDuration = 500;
+    // Timing based on spec: CHARGING (0-30%), ACTIVATING (30-80%), ONLINE (80-100%)
+    // Total activation time for 4-module machine should be <2 seconds
+    const chargingDuration = 600; // 0-30% in ~600ms
+    const activatingDuration = 1000; // 30-80% in ~1000ms
+    const onlineDuration = 400; // 80-100% in ~400ms
     
     let startTime = Date.now();
     let animationFrame: number;
@@ -77,39 +163,40 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       
       if (phase === 'charging') {
         const progressPercent = Math.min(elapsed / chargingDuration, 1);
-        setProgress(progressPercent * 33);
+        setProgress(progressPercent * 30);
         
         if (progressPercent >= 1) {
-          setPhase('active');
+          setPhase('activating');
           setMachineState('active');
           startTime = Date.now();
           
           // Stagger module animations
-          activationOrder.forEach((_, index) => {
+          const moduleInterval = activatingDuration / (modules.length || 1);
+          modules.forEach((_, index) => {
             setTimeout(() => {
               setCurrentModuleIndex(index);
-            }, index * (activeDuration / (activationOrder.length || 1)) * 0.5);
+            }, index * moduleInterval * 0.5);
           });
         }
-      } else if (phase === 'active') {
-        const progressPercent = Math.min(elapsed / activeDuration, 1);
-        setProgress(33 + progressPercent * 33);
+      } else if (phase === 'activating') {
+        const progressPercent = Math.min(elapsed / activatingDuration, 1);
+        setProgress(30 + progressPercent * 50); // 30-80%
         
         // Cycle through modules
-        if (activationOrder.length > 0) {
-          const moduleProgress = (elapsed / activeDuration) * activationOrder.length;
-          setCurrentModuleIndex(Math.min(Math.floor(moduleProgress), activationOrder.length - 1));
+        if (modules.length > 0) {
+          const moduleProgress = (elapsed / activatingDuration) * modules.length;
+          setCurrentModuleIndex(Math.min(Math.floor(moduleProgress), modules.length - 1));
         }
         
         if (progressPercent >= 1) {
-          setPhase('complete');
+          setPhase('online');
           setMachineState('shutdown');
           startTime = Date.now();
-          setProgress(66);
+          setProgress(80);
         }
-      } else if (phase === 'complete') {
-        const progressPercent = Math.min(elapsed / completeDuration, 1);
-        setProgress(66 + progressPercent * 34);
+      } else if (phase === 'online') {
+        const progressPercent = Math.min(elapsed / onlineDuration, 1);
+        setProgress(80 + progressPercent * 20); // 80-100%
         
         if (progressPercent >= 1) {
           setProgress(100);
@@ -131,7 +218,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [phase, activationOrder, setMachineState, setShowActivation, onComplete, progress, machineState]);
+  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState]);
   
   // Determine border color based on phase
   const getBorderColor = () => {
@@ -141,25 +228,25 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       case 'overload':
         return 'border-[#ff6b35]';
       default:
-        return 'border-[#00d4ff]';
+        return `border-[${rarityColor}]`;
     }
   };
   
-  // Determine title based on phase - FIXED: Correct Chinese text for failure/overload
+  // Determine title based on phase - Using spec text
   const getTitle = () => {
     switch (phase) {
       case 'failure':
-        return '⚠ 机器故障'; // FIXED: Was '⚠ 系统过载'
+        return '⚠ SYSTEM FAILURE';
       case 'overload':
-        return '⚡ 系统过载'; // FIXED: Was '⚡ 临界警告'
+        return '⚡ CRITICAL OVERLOAD';
       case 'charging':
-        return '⚡ CHARGING SYSTEM';
-      case 'active':
-        return '⚙ ACTIVATING MACHINE';
-      case 'complete':
-        return '✓ ACTIVATION COMPLETE';
+        return 'CHARGING';
+      case 'activating':
+        return 'ACTIVATING';
+      case 'online':
+        return 'ONLINE';
       default:
-        return '⚡ CHARGING SYSTEM';
+        return 'CHARGING';
     }
   };
   
@@ -167,14 +254,14 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const getSubtitle = () => {
     switch (phase) {
       case 'failure':
-        return '机器故障 - 系统紧急关闭中...';
+        return 'Machine failure detected - emergency shutdown';
       case 'overload':
-        return '能量过载 - 临界警告触发!';
+        return 'Energy output exceeded - critical warning';
       case 'charging':
         return 'Initializing energy flow...';
-      case 'active':
-        return `${currentModuleIndex + 1} / ${activationOrder.length} modules engaged`;
-      case 'complete':
+      case 'activating':
+        return `${currentModuleIndex + 1} / ${modules.length} modules engaged`;
+      case 'online':
         return 'Machine ready for operation';
       default:
         return 'Initializing energy flow...';
@@ -189,6 +276,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     if (phase === 'overload') {
       return `overloadShake ${1000 / OVERLOAD_SHAKE_INTENSITY}s ease-in-out infinite`;
     }
+    if (phase === 'activating' || phase === 'charging') {
+      return `normalShake ${1000 / NORMAL_SHAKE_INTENSITY}s ease-in-out infinite`;
+    }
     return 'none';
   };
   
@@ -201,12 +291,37 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         animation: getShakeAnimation(),
       }}
     >
+      {/* Red vignette for overload/failure */}
+      {phase === 'failure' || phase === 'overload' ? (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(ellipse at center, transparent 30%, rgba(255, 51, 85, ${vignetteOpacity}) 100%)`,
+            transition: `opacity ${VIGNETTE_ANIMATION_DURATION}ms ease-out`,
+          }}
+        />
+      ) : null}
+      
+      {/* Sparks for overload */}
+      {phase === 'overload' && sparks.map((spark) => (
+        <div
+          key={spark.id}
+          className="absolute w-2 h-2 rounded-full bg-[#ffd700] pointer-events-none"
+          style={{
+            left: `calc(50% + ${spark.x}vw)`,
+            top: `calc(50% + ${spark.y}vh)`,
+            boxShadow: '0 0 10px #ffd700',
+          }}
+        />
+      ))}
+      
       <div 
         className={`relative w-96 bg-[#121826] border-2 ${getBorderColor()} rounded-xl p-6 shadow-2xl ${
-          phase === 'failure' ? 'shadow-[#ff3355]/20' : phase === 'overload' ? 'shadow-[#ff6b35]/20' : 'shadow-[#00d4ff]/20'
+          phase === 'failure' ? 'shadow-[#ff3355]/20' : phase === 'overload' ? 'shadow-[#ff6b35]/20' : `shadow-[${rarityColor}]/20`
         }`}
         style={{
-          opacity: flicker && (phase === 'failure' || phase === 'overload') ? 0.7 : 1,
+          opacity: flicker && (phase === 'failure' || phase === 'overload') ? 0.6 : 1,
+          transition: `opacity ${FLICKER_INTERVAL}ms`,
         }}
       >
         {/* Close button */}
@@ -220,9 +335,15 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         {/* Title */}
         <div className="text-center mb-6">
           <h2 
-            className={`text-xl font-bold mb-1 ${phase === 'failure' ? 'text-[#ff3355]' : phase === 'overload' ? 'text-[#ff6b35]' : 'text-[#00d4ff]'}`}
+            className={`text-xl font-bold mb-1 ${
+              phase === 'failure' ? 'text-[#ff3355]' : 
+              phase === 'overload' ? 'text-[#ff6b35]' : 
+              `text-[${rarityColor}]`
+            }`}
             style={{
-              animation: phase === 'failure' ? 'shake 0.5s ease-in-out infinite' : phase === 'overload' ? 'pulseGlow 0.3s ease-in-out infinite' : 'none',
+              animation: phase === 'failure' ? 'shake 0.5s ease-in-out infinite' : 
+                         phase === 'overload' ? 'pulseGlow 0.3s ease-in-out infinite' : 
+                         'none',
             }}
           >
             {getTitle()}
@@ -240,7 +361,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
                 ? 'bg-gradient-to-r from-[#ff3355] to-[#ff6b35]' 
                 : phase === 'overload'
                 ? 'bg-gradient-to-r from-[#ff6b35] to-[#ffd700]'
-                : 'bg-gradient-to-r from-[#00d4ff] to-[#00ffcc]'
+                : phase === 'online'
+                ? `bg-gradient-to-r from-[${rarityColor}] to-[#00ffcc]`
+                : `bg-gradient-to-r from-[${rarityColor}] to-[#00d4ff]`
             }`}
             style={{ width: `${progress}%` }}
           />
@@ -254,20 +377,20 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           />
         </div>
         
-        {/* Phase indicators */}
+        {/* Phase indicators with rarity color */}
         {phase !== 'failure' && phase !== 'overload' && (
           <div className="flex justify-between text-xs">
-            <div className={`flex items-center gap-1 ${progress >= 0 ? 'text-[#00d4ff]' : 'text-[#4a5568]'}`}>
-              <span className={`w-2 h-2 rounded-full ${progress >= 0 ? 'bg-[#00d4ff]' : 'bg-[#4a5568]'}`} />
+            <div className={`flex items-center gap-1 ${progress >= 0 ? `text-[${rarityColor}]` : 'text-[#4a5568]'}`}>
+              <span className={`w-2 h-2 rounded-full ${progress >= 0 ? `bg-[${rarityColor}]` : 'bg-[#4a5568]'}`} />
               Charging
             </div>
-            <div className={`flex items-center gap-1 ${progress >= 33 ? 'text-[#00ffcc]' : 'text-[#4a5568]'}`}>
-              <span className={`w-2 h-2 rounded-full ${progress >= 33 ? 'bg-[#00ffcc]' : 'bg-[#4a5568]'}`} />
-              Active
+            <div className={`flex items-center gap-1 ${progress >= 30 ? 'text-[#00ffcc]' : 'text-[#4a5568]'}`}>
+              <span className={`w-2 h-2 rounded-full ${progress >= 30 ? 'bg-[#00ffcc]' : 'bg-[#4a5568]'}`} />
+              Activating
             </div>
-            <div className={`flex items-center gap-1 ${progress >= 66 ? 'text-[#22c55e]' : 'text-[#4a5568]'}`}>
-              <span className={`w-2 h-2 rounded-full ${progress >= 66 ? 'bg-[#22c55e]' : 'bg-[#4a5568]'}`} />
-              Complete
+            <div className={`flex items-center gap-1 ${progress >= 80 ? 'text-[#22c55e]' : 'text-[#4a5568]'}`}>
+              <span className={`w-2 h-2 rounded-full ${progress >= 80 ? 'bg-[#22c55e]' : 'bg-[#4a5568]'}`} />
+              Online
             </div>
           </div>
         )}
@@ -277,17 +400,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           <div className="mt-4 p-3 bg-[#7f1d1d]/30 rounded-lg border border-[#ff3355]/30">
             <div className="flex items-center gap-2 text-[#ff3355]">
               <span className="text-xl">⚠</span>
-              <span className="text-sm font-medium">系统检测到致命故障</span>
+              <span className="text-sm font-medium">System failure detected</span>
             </div>
             <div className="mt-2 text-xs text-[#9ca3af]">
-              <p>• 能量回路中断</p>
-              <p>• 模块协调失败</p>
-              <p>• 紧急停机协议已启动</p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-[#ff3355]/30">
-              <p className="text-[10px] text-[#ff3355]/70">
-                Shake Intensity: {FAILURE_SHAKE_INTENSITY}px
-              </p>
+              <p>• Energy circuit interrupted</p>
+              <p>• Module coordination failed</p>
+              <p>• Emergency shutdown activated</p>
             </div>
           </div>
         )}
@@ -296,39 +414,33 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           <div className="mt-4 p-3 bg-[#78350f]/30 rounded-lg border border-[#ff6b35]/30">
             <div className="flex items-center gap-2 text-[#ff6b35]">
               <span className="text-xl">⚡</span>
-              <span className="text-sm font-medium">能量临界警告</span>
+              <span className="text-sm font-medium">Critical energy warning</span>
             </div>
             <div className="mt-2 text-xs text-[#9ca3af]">
-              <p>• 能量输出超出安全阈值</p>
-              <p>• 过载保护机制已激活</p>
-              <p>• 系统将自动重启</p>
-            </div>
-            <div className="mt-2 pt-2 border-t border-[#ff6b35]/30">
-              <p className="text-[10px] text-[#ff6b35]/70">
-                Shake Intensity: {OVERLOAD_SHAKE_INTENSITY}px
-              </p>
+              <p>• Energy output exceeded safe threshold</p>
+              <p>• Overload protection activated</p>
+              <p>• System will auto-restart</p>
             </div>
           </div>
         )}
         
         {/* Module status */}
-        {phase === 'active' && activationOrder.length > 0 && (
+        {phase === 'activating' && modules.length > 0 && (
           <div className="mt-4 p-3 bg-[#0a0e17] rounded-lg">
             <p className="text-xs text-[#4a5568] mb-2">Module Status:</p>
             <div className="flex flex-wrap gap-1">
-              {activationOrder.map((moduleId, index) => {
-                const module = modules.find((m) => m.instanceId === moduleId);
+              {modules.map((mod, index) => {
                 const isActive = index <= currentModuleIndex;
                 return (
                   <span
-                    key={moduleId}
+                    key={mod.instanceId}
                     className={`text-xs px-2 py-1 rounded ${
                       isActive
-                        ? 'bg-[#00d4ff]/20 text-[#00d4ff]'
+                        ? `bg-[${rarityColor}]/20 text-[${rarityColor}]`
                         : 'bg-[#1e2a42] text-[#4a5568]'
                     }`}
                   >
-                    {module?.type.split('-').map(w => w[0].toUpperCase()).join('') || '??'}
+                    {mod.type.split('-').map(w => w[0].toUpperCase()).join('') || '??'}
                   </span>
                 );
               })}
@@ -343,7 +455,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       </div>
       
       {/* Screen flash effect on complete */}
-      {phase === 'complete' && (
+      {phase === 'online' && (
         <div
           className="fixed inset-0 bg-white pointer-events-none"
           style={{
@@ -388,6 +500,14 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           50% { opacity: 0.2; }
         }
         
+        /* Normal shake animation */
+        @keyframes normalShake {
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(-${NORMAL_SHAKE_INTENSITY}px, ${NORMAL_SHAKE_INTENSITY}px); }
+          50% { transform: translate(${NORMAL_SHAKE_INTENSITY}px, -${NORMAL_SHAKE_INTENSITY}px); }
+          75% { transform: translate(-${NORMAL_SHAKE_INTENSITY}px, -${NORMAL_SHAKE_INTENSITY}px); }
+        }
+        
         /* Enhanced shake animations with configurable intensity */
         @keyframes failureShake {
           0%, 100% { transform: translate(0, 0); }
@@ -415,15 +535,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         .overload-mode {
           animation: overloadShake ${1000 / OVERLOAD_SHAKE_INTENSITY}s ease-in-out infinite;
         }
-        @keyframes screenShake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-2px); }
-          75% { transform: translateX(2px); }
-        }
-        @keyframes screenPulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.01); }
-        }
+        
         .failure-close:hover {
           background: #7f1d1d !important;
           color: #ff3355 !important;

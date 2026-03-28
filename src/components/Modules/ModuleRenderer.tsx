@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { gsap } from 'gsap';
 import { PlacedModule, Port, MachineState, MODULE_SIZES } from '../../types';
 import { useMachineStore } from '../../store/useMachineStore';
@@ -21,10 +21,40 @@ interface ModuleRendererProps {
 
 export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }: ModuleRendererProps) {
   const groupRef = useRef<SVGGElement>(null);
+  const glowRef = useRef<SVGCircleElement>(null);
   const startConnection = useMachineStore((state) => state.startConnection);
   const completeConnection = useMachineStore((state) => state.completeConnection);
   
+  // Track activation glow state
+  const [showActivationGlow, setShowActivationGlow] = useState(false);
+  
   const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+  
+  // Module accent colors based on type
+  const getModuleAccentColor = () => {
+    switch (module.type) {
+      case 'core-furnace':
+        return '#ff6b35';
+      case 'energy-pipe':
+        return '#00d4ff';
+      case 'gear':
+        return '#ffd700';
+      case 'rune-node':
+        return '#a855f7';
+      case 'shield-shell':
+        return '#22c55e';
+      case 'trigger-switch':
+        return '#ff3355';
+      case 'output-array':
+        return '#00ffcc';
+      case 'amplifier-crystal':
+        return '#9333ea';
+      case 'stabilizer-core':
+        return '#22c55e';
+      default:
+        return '#00d4ff';
+    }
+  };
   
   // GSAP animations based on machine state
   useEffect(() => {
@@ -78,6 +108,44 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
     return () => ctx.revert();
   }, [machineState]);
   
+  // Module activation glow effect
+  useEffect(() => {
+    if (!glowRef.current) return;
+    
+    if (showActivationGlow) {
+      // Animate glow expansion
+      const ctx = gsap.context(() => {
+        // Reset to initial state
+        gsap.set(glowRef.current, {
+          attr: { r: 0 },
+          opacity: 0.8,
+        });
+        
+        // Animate expansion with ease-out
+        gsap.to(glowRef.current, {
+          attr: { r: 60 },
+          opacity: 0,
+          duration: 0.3, // 300ms
+          ease: 'power2.out',
+        });
+      });
+      
+      // Clean up after animation
+      const timeout = setTimeout(() => {
+        setShowActivationGlow(false);
+      }, 350); // 300ms + 50ms tolerance
+      
+      return () => {
+        ctx.revert();
+        clearTimeout(timeout);
+      };
+    } else {
+      // Hide glow immediately
+      gsap.set(glowRef.current, { opacity: 0 });
+    }
+  }, [showActivationGlow]);
+  
+  // Handle port mouse down
   const handlePortMouseDown = useCallback((port: Port, e: React.MouseEvent) => {
     e.stopPropagation();
     if (port.type === 'output') {
@@ -85,6 +153,7 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
     }
   }, [module.instanceId, startConnection]);
   
+  // Handle port mouse up
   const handlePortMouseUp = useCallback((port: Port, e: React.MouseEvent) => {
     e.stopPropagation();
     if (port.type === 'input') {
@@ -137,6 +206,10 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
   const inputPorts = module.ports.filter(p => p.type === 'input');
   const outputPorts = module.ports.filter(p => p.type === 'output');
   
+  // Calculate center for glow
+  const centerX = size.width / 2;
+  const centerY = size.height / 2;
+  
   return (
     <g
       ref={groupRef}
@@ -145,6 +218,18 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
       style={{ cursor: 'move' }}
       className={`module-group ${isSelected ? 'module-selected' : ''}`}
     >
+      {/* Activation glow - radial gradient expanding from module center */}
+      <circle
+        ref={glowRef}
+        cx={centerX}
+        cy={centerY}
+        r="0"
+        fill={getModuleAccentColor()}
+        opacity="0"
+        filter="url(#glow)"
+        style={{ pointerEvents: 'none' }}
+      />
+      
       {/* Selection indicator */}
       {isSelected && (
         <rect
