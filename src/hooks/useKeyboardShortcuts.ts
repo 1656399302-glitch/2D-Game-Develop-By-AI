@@ -15,14 +15,17 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     // Don't handle shortcuts when typing in input fields (unless explicitly allowed)
     if (excludeWhenInputFocused) {
       const target = e.target as HTMLElement;
-      const isInputField = 
-        target.tagName === 'INPUT' || 
-        target.tagName === 'TEXTAREA' || 
-        target.isContentEditable ||
-        target.closest('input') ||
-        target.closest('textarea');
-      
-      if (isInputField) return;
+      // Guard against null target or target without closest method
+      if (target && typeof target.closest === 'function') {
+        const isInputField = 
+          target.tagName === 'INPUT' || 
+          target.tagName === 'TEXTAREA' || 
+          target.isContentEditable ||
+          target.closest('input') ||
+          target.closest('textarea');
+        
+        if (isInputField) return;
+      }
     }
 
     const store = useMachineStore.getState();
