@@ -125,16 +125,28 @@ export interface HistoryState {
 }
 
 // Export Types
+export type ExportResolution = '1x' | '2x' | '4x';
+export type ExportAspectRatio = 'default' | 'square' | 'portrait' | 'landscape';
+
 export interface ExportOptions {
   format: 'svg' | 'png' | 'poster';
   width?: number;
   height?: number;
-  scale?: number;
+  scale?: ExportResolution;
   includeBackground?: boolean;
   backgroundColor?: string;
   borderStyle?: 'simple' | 'ornate' | 'minimal';
   includeStats?: boolean;
   includeDescription?: boolean;
+  transparentBackground?: boolean;
+  aspectRatio?: ExportAspectRatio;
+}
+
+// Extended export options for enhanced export modal
+export interface EnhancedExportOptions extends ExportOptions {
+  resolution?: ExportResolution;
+  transparentBackground?: boolean;
+  aspectRatio?: ExportAspectRatio;
 }
 
 // Event Types
@@ -245,4 +257,19 @@ export const MODULE_ACCENT_COLORS: Record<ModuleType, string> = {
   'resonance-chamber': '#06b6d4',
   'fire-crystal': '#f97316',
   'lightning-conductor': '#eab308',
+};
+
+// Resolution dimensions for export
+export const RESOLUTION_DIMS: Record<ExportResolution, { base: number; scaled: number }> = {
+  '1x': { base: 400, scaled: 400 },
+  '2x': { base: 400, scaled: 800 },
+  '4x': { base: 400, scaled: 1600 },
+};
+
+// Aspect ratio dimensions for poster export
+export const ASPECT_RATIO_DIMS: Record<ExportAspectRatio, { width: number; height: number }> = {
+  'default': { width: 600, height: 800 },
+  'square': { width: 600, height: 600 },
+  'portrait': { width: 600, height: 800 },
+  'landscape': { width: 800, height: 600 },
 };

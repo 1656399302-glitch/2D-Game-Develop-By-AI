@@ -1,194 +1,187 @@
-## QA Evaluation — Round 11
+# QA Evaluation — Round 12
 
-### Release Decision
-- **Verdict:** FAIL
-- **Summary:** The Round 11 fix went in the WRONG direction. The code was changed from `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome`, but Zustand persist with partialize stores data as `{"state": {"hasSeenWelcome": true}, "version": 0}` — the `state` wrapper IS present. Tests pass because they were updated to match the wrong format. Browser verification proves the modal still reappears after refresh.
+## Release Decision
+- **Verdict:** PASS
+- **Summary:** The WelcomeModal persistence regression from Round 11 has been successfully fixed. The `state` wrapper is now correctly accessed, and the modal stays dismissed after page refresh.
 - **Spec Coverage:** FULL
-- **Contract Coverage:** FAIL (0/3 acceptance criteria fully passed; AC1 and AC3 depend on AC2 but AC2 is broken)
-- **Build Verification:** PASS (`npm run build` succeeds, 568.03KB JS, 0 TypeScript errors)
-- **Browser Verification:** FAIL (AC2 fails — modal reappears after refresh; AC3 passes when modal is manually dismissed within session)
+- **Contract Coverage:** PASS (3/3 acceptance criteria verified)
+- **Build Verification:** PASS (`npm run build` succeeds, 568.06KB JS, 0 TypeScript errors)
+- **Browser Verification:** PASS (AC1, AC2, AC3 all verified)
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 1
+- **Critical Bugs:** 0
 - **Major Bugs:** 0
 - **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 1/3 (AC1 was from Round 10, not re-evaluated; AC2 fails; AC3 passes in isolation)
+- **Acceptance Criteria Passed:** 3/3
 - **Untested Criteria:** 0
 
-### Blocking Reasons
+## Blocking Reasons
+None — all acceptance criteria verified.
 
-1. **AC2 Still Broken (Critical)**: The fix changed `getInitialHasSeenWelcome()` from `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome`, which is the WRONG direction. Zustand persist stores `{"state": {"hasSeenWelcome": true, "isTutorialEnabled": false}, "version": 0}` — the `state` wrapper IS present. Browser evidence confirms:
-   - `localStorage.getItem('arcane-codex-tutorial')` → `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}`
-   - `hasSeenAtRoot: false`, `hasSeenInState: true`
-   - After dismissing modal and refreshing: modal reappears (read `parsed.hasSeenWelcome` → `undefined` → returns `false`)
-   - The correct read should be `parsed.state?.hasSeenWelcome` (the original code)
+## Scores
+- **Feature Completeness: 10/10** — All contract deliverables completed. WelcomeModal correctly reads `parsed.state?.hasSeenWelcome`, tests use correct Zustand persist format with `state` wrapper.
+- **Functional Correctness: 10/10** — All 877 tests pass. Browser verification confirms AC1, AC2, AC3 work correctly. Modal persists state correctly across refresh.
+- **Product Depth: 10/10** — The fix addresses the root cause: Zustand persist wraps data in a `state` object, and code now correctly accesses it.
+- **UX / Visual Quality: 10/10** — WelcomeModal appears on first visit, stays dismissed after refresh. No visual regressions.
+- **Code Quality: 10/10** — Targeted rollback of incorrect Round 11 changes. Code is clean, comments explain the Zustand persist behavior correctly.
+- **Operability: 10/10** — Build succeeds, tests pass (877/877), browser verification confirms expected behavior.
 
-2. **Tests Pass for Wrong Reasons**: `ModalPersistence.test.tsx` mocks were updated to return `{ hasSeenWelcome: true }` without the `state` wrapper. These tests now pass against incorrect code. The tests verify the bug is fixed by testing the wrong format.
-
-3. **AC3 Verification Blocked by AC2 in Refresh Scenario**: When the modal reappears after refresh (AC2 fail), it blocks the activation button. AC3 only passes within a single session when the modal is manually dismissed.
-
-### Scores
-
-- **Feature Completeness: 9/10** — Build succeeds, 876 tests pass, the fix correctly identified the localStorage mismatch but applied the fix in the wrong direction.
-- **Functional Correctness: 5/10** — AC2 fails in browser (modal reappears after refresh). The fix introduced a new bug rather than fixing the original. AC3 works in-session but is blocked by AC2 after refresh.
-- **Product Depth: 9/10** — The concept of the fix (reading localStorage synchronously to avoid hydration race) is sound. The execution of the fix is wrong.
-- **UX / Visual Quality: 7/10** — AC2 failure causes modal to reappear on every refresh, breaking the intended UX flow. The activation sequence works correctly when accessible.
-- **Code Quality: 5/10** — The fix reads `parsed.hasSeenWelcome` but the actual Zustand persist format is `parsed.state.hasSeenWelcome`. The tests were changed to match the wrong behavior. Both code and tests need correction.
-- **Operability: 8/10** — Build passes cleanly. Tests pass (but testing wrong behavior). Browser interaction reveals the actual bug.
-
-**Average: 7.2/10** (Below 9.0 threshold — FAIL)
+**Average: 10/10** (PASS — above 9.0 threshold)
 
 ---
 
-### Evidence
+## Evidence
 
-#### AC1: RandomForgeToast DOM Error Fixed — **PASS** (from Round 10, re-verified)
-Round 10 QA verified this. Not re-evaluated this round.
+### Criterion AC1: `getInitialHasSeenWelcome()` reads `parsed.state?.hasSeenWelcome` — **PASS**
 
-#### AC2: Welcome Modal State Persistence — **FAIL**
-
-| Test | Result | Evidence |
-|------|--------|----------|
-| Modal appears on first visit | ✅ PASS | Modal shows "Welcome, Arcane Architect!" on fresh load |
-| Skip dismisses modal | ✅ PASS | Clicking "Skip & Explore" hides modal within session |
-| localStorage written correctly | ✅ PASS | `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}` |
-| `parsed.hasSeenWelcome` (current code) | ❌ `undefined` | Code reads `parsed.hasSeenWelcome` → always `undefined` |
-| `parsed.state?.hasSeenWelcome` (correct path) | ✅ `true` | Should read `parsed.state.hasSeenWelcome` → `true` |
-| Modal stays dismissed after refresh | ❌ FAIL | Modal reappears after refresh |
-| localStorage `hasSeenAtRoot` | ❌ `false` | Top-level key `"hasSeenWelcome"` does NOT exist |
-| localStorage `hasSeenInState` | ✅ `true` | Key `"hasSeenWelcome"` exists inside `state` object |
-
-**Browser Test Evidence — Full AC2 Sequence:**
-```
-Step 1: Open fresh browser → Modal shows ✅
-Step 2: Click "Skip & Explore" → Modal hides ✅
-Step 3: Check localStorage → {
-  "topKeys": ["state", "version"],
-  "hasStateKey": true,
-  "stateKeys": ["hasSeenWelcome", "isTutorialEnabled"],
-  "hasSeenAtRoot": false,
-  "hasSeenInState": true
-}
-Step 4: Refresh page → Modal shows AGAIN ❌
+**Code Verification:**
+```typescript
+// src/components/Tutorial/WelcomeModal.tsx
+const getInitialHasSeenWelcome = (): boolean => {
+  try {
+    const stored = localStorage.getItem(TUTORIAL_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Zustand persist wraps state in a 'state' key
+      return parsed.state?.hasSeenWelcome === true;
+    }
+  } catch {
+    // If localStorage is unavailable or parse fails, default to showing welcome
+  }
+  return false;
+};
 ```
 
-**Root Cause Re-Analysis:**
-The Round 10 QA report concluded the `state` wrapper was NOT present. This was INCORRECT. Browser testing in this round proves the `state` wrapper IS present in the actual localStorage:
-- `localStorage` after dismiss: `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}`
-- Top-level keys: `["state", "version"]`
-- `hasSeenWelcome` exists inside `state`, not at root
-
-The Round 11 fix went in the WRONG direction:
-- **Removed**: `parsed.state?.hasSeenWelcome` (was CORRECT)
-- **Added**: `parsed.hasSeenWelcome` (is WRONG)
-- **Result**: `undefined` is returned, modal always shows
-
-#### AC3: Activation Sequence — **PASS** (in-session only)
-
-| Test | Result | Evidence |
-|------|--------|----------|
-| Activation button accessible after modal dismiss | ✅ PASS | Button is not disabled (2 modules, 1 connection) |
-| Activation button clicked | ✅ PASS | `button[data-tutorial="activate-button"]` clicked successfully |
-| Activation overlay appears | ✅ PASS | "CHARGING" overlay with phases visible |
-| Activation phases animate | ✅ PASS | Shows "Initializing energy flow...", "Charging", "Activating", "Online" |
-| Modal NOT blocking button (in session) | ✅ PASS | Within a single session, modal is dismissed |
-
-**Browser Test Evidence:**
+**Browser localStorage verification:**
 ```
-Step 1: Dismiss modal
-Step 2: Random forge → 2 modules, 1 connection, "Frost Projector Hyper"
-Step 3: Activation button disabled? → false (enabled)
-Step 4: Click activation → "CHARGING" overlay appears ✅
-Step 5: Phases: "Initializing energy flow..." → "Charging" → "Activating" → "Online" ✅
+localStorage.getItem('arcane-codex-tutorial') → 
+{"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}
+topKeys: ["state", "version"]
+state.hasSeenWelcome: true
 ```
 
-**Important**: AC3 only passes within a single session. After page refresh (AC2 fail), the modal reappears and blocks the activation button again.
+✅ Correctly reads `parsed.state?.hasSeenWelcome`, not `parsed.hasSeenWelcome`
 
-#### Build & Tests — **PASS (but testing wrong behavior)**
+---
 
-| Check | Result | Evidence |
-|-------|--------|----------|
-| `npm run build` | ✅ PASS | 568.03KB JS, 60.54KB CSS, 0 TypeScript errors |
-| `npm test` | ✅ 876/876 PASS | But tests mock the wrong localStorage format |
-| TypeScript errors | ✅ 0 | Clean compilation |
+### Criterion AC2: Welcome modal stays dismissed after page refresh — **PASS**
 
-**Test Analysis:**
-The test `ModalPersistence.test.tsx` was updated to mock:
-```ts
+**Browser Test Sequence:**
+```
+Step 1: Clear localStorage → Fresh page load
+Step 2: Modal appears → "Welcome to Arcane Machine Codex" visible ✅
+Step 3: Click "Skip & Explore" → Modal dismisses ✅
+Step 4: Check localStorage → state.hasSeenWelcome: true ✅
+Step 5: Refresh page → 
+  - document.body.textContent.includes('Welcome to Arcane Machine Codex') → False ✅
+  - Modal does NOT reappear ✅
+```
+
+**localStorage state before and after refresh:**
+```
+Before refresh: {"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}
+After refresh:  {"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}
+```
+
+✅ Modal stays dismissed — AC2 VERIFIED
+
+---
+
+### Criterion AC3: Activation button accessible after refresh — **PASS**
+
+**Browser Test Sequence:**
+```
+Step 1: Dismiss modal → Skip & Explore
+Step 2: Random Forge → 3 modules, 2 connections created
+Step 3: Activation button disabled? → false (enabled) ✅
+Step 4: Click activation → CHARGING overlay appeared ✅
+Step 5: Refresh page → 
+  - WelcomeModal text → False (not showing) ✅
+  - Activation button exists → True ✅
+  - Button not blocked by WelcomeModal ✅
+```
+
+**Before reload:**
+```
+modules: 3, connections: 2
+activationButton.disabled: false
+CHARGING overlay: appeared ✅
+```
+
+**After reload:**
+```
+WelcomeModal: not showing ✅
+activationButton exists: true ✅
+Button not blocked by WelcomeModal ✅
+```
+
+✅ AC3 VERIFIED — WelcomeModal fix unblocks AC3 (modal no longer blocks button on refresh)
+
+---
+
+### Build & Tests — **PASS**
+
+```
+npm run build:
+  dist/index.html                   0.48 kB │ gzip:   0.31 kB
+  dist/assets/index-rfrAFJGe.css   60.54 kB │ gzip:  10.91 kB
+  dist/assets/index-CNYtX5t9.js   568.06 kB │ gzip: 157.21 kB
+  ✓ built in 1.18s
+  0 TypeScript errors
+
+npm test:
+  Test Files  44 passed (44)
+  Tests  877 passed (877)
+```
+
+---
+
+### Test Mocks Verification — **CORRECT FORMAT**
+
+**ModalPersistence.test.tsx:**
+```typescript
 mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
-  hasSeenWelcome: true,
-  isTutorialEnabled: false
-}))
+  state: { hasSeenWelcome: true, isTutorialEnabled: false },
+  version: 0
+}));
 ```
-This is WRONG — it doesn't match actual Zustand persist output. Tests pass because they test against the wrong mock, not because the code works correctly.
+
+✅ Test mocks now use correct Zustand persist format with `state` wrapper
 
 ---
 
-### Bugs Found
-
-1. **[CRITICAL] Welcome Modal Persistence — Fix Applied in Wrong Direction**
-   - **Description**: The fix changed `getInitialHasSeenWelcome()` from `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome`, but Zustand persist DOES wrap data in a `state` object. The original code was correct; the fix broke it.
-   - **Reproduction**:
-     1. Open app → modal appears ✅
-     2. Click "Skip & Explore" → modal hides ✅
-     3. Check `localStorage.getItem('arcane-codex-tutorial')` → `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}`
-     4. Refresh page → modal appears AGAIN ❌
-   - **Root Cause**: Zustand persist middleware wraps persisted state in a `state` key. The `state` wrapper IS present in actual localStorage (confirmed by browser eval showing `topKeys: ["state", "version"]`). The fix removed the `state?.` access, making `parsed.hasSeenWelcome` always `undefined`.
-   - **Impact**: Modal reappears on every page refresh, blocking UI and making AC3 inaccessible after refresh.
-   - **Fix Required**: Change `parsed.hasSeenWelcome` back to `parsed.state?.hasSeenWelcome` in `getInitialHasSeenWelcome()`. The original code was correct. The Round 10 QA report was WRONG about the `state` wrapper not being present.
-
-2. **[CRITICAL] Test Mocks Don't Match Actual localStorage Format**
-   - **Description**: Tests were updated to mock `{ hasSeenWelcome: true }` without a `state` wrapper, but actual Zustand persist stores `{ "state": { "hasSeenWelcome": true }, "version": 0 }`.
-   - **Reproduction**: Run test → passes. Check browser localStorage → different format.
-   - **Root Cause**: Tests were updated based on the incorrect Round 10 analysis that the `state` wrapper was absent.
-   - **Impact**: Tests pass against incorrect code. Test suite gives false confidence.
+## Bugs Found
+None — the targeted rollback successfully fixed the regression.
 
 ---
 
-### Required Fix Order
-
-1. **Revert `getInitialHasSeenWelcome()` to read `parsed.state?.hasSeenWelcome`**:
-   - In `src/components/Tutorial/WelcomeModal.tsx`, change line `return parsed.hasSeenWelcome === true;` to `return parsed.state?.hasSeenWelcome === true;`
-   - The Round 10 QA report was incorrect — the `state` wrapper IS present in actual localStorage
-   - Browser evidence: `topKeys: ["state", "version"]`, `stateKeys: ["hasSeenWelcome", "isTutorialEnabled"]`
-
-2. **Revert test mocks to match actual Zustand persist format**:
-   - In `src/__tests__/ModalPersistence.test.tsx`, change mocks from `{ hasSeenWelcome: true }` to `{ state: { hasSeenWelcome: true, isTutorialEnabled: false } }`
-   - Tests should verify `parsed.state?.hasSeenWelcome` works correctly
-
-3. **Verify AC2 after fix**:
-   - Dismiss modal → check localStorage has `state.hasSeenWelcome` → refresh → modal stays hidden
-
-4. **Verify AC3 after refresh**:
-   - After fix, modal should not appear on refresh, making AC3 reliably accessible
+## Required Fix Order
+N/A — all fixes completed and verified.
 
 ---
 
-### What's Working Well
+## What's Working Well
 
-1. **Activation Sequence (AC3) — VERIFIED**: The activation overlay works correctly with all phases: idle → charging → activating → online. Tested with 2 modules, 1 connection. Machine name generated correctly ("Frost Projector Hyper").
+1. **WelcomeModal Persistence — FIXED**: The modal now correctly persists its dismissed state across page refreshes. The `state` wrapper is properly accessed via `parsed.state?.hasSeenWelcome`.
 
-2. **Random Forge — VERIFIED**: Successfully generated multiple machines with proper module counts, connections, names, and attributes. No DOM errors.
+2. **Test Suite — 877/877 PASS**: All tests pass, including the 11 ModalPersistence tests that verify the correct Zustand persist format.
 
-3. **Build Quality**: Clean production build (568.03KB JS, 60.54KB CSS, 0 TypeScript errors, 1.21s).
+3. **Build Quality**: Clean production build (568.06KB JS, 60.54KB CSS, 0 TypeScript errors).
 
-4. **Test Suite**: 876 tests pass across 44 files. Well-organized test structure.
-
-5. **Zustand Persistence**: The store correctly persists `hasSeenWelcome` and `isTutorialEnabled` to localStorage. The `partialize` configuration is correct.
-
-6. **The concept of the fix was right**: Reading localStorage synchronously to avoid Zustand hydration race is the correct approach. Only the key path was wrong.
+4. **Code Clarity**: Comments in `WelcomeModal.tsx` now correctly explain the Zustand persist behavior, helping future developers understand the `state` wrapper.
 
 ---
 
-### Summary
+## Summary
 
-**AC1** (RandomForgeToast from Round 10) — VERIFIED PASS.
+Round 12 was a targeted rollback of incorrect Round 11 changes. The root cause was clear: Zustand persist wraps data in a `state` object, but Round 11 incorrectly changed the code to read `parsed.hasSeenWelcome` instead of `parsed.state?.hasSeenWelcome`.
 
-**AC2** — VERIFIED FAIL. The Round 11 fix went in the WRONG direction. Browser testing proves Zustand persist stores data as `{"state": {"hasSeenWelcome": true}, "version": 0}` — the `state` wrapper IS present. The code should read `parsed.state?.hasSeenWelcome`, not `parsed.hasSeenWelcome`. The Round 10 QA analysis was incorrect about the absence of the `state` wrapper.
+**Changes verified:**
+1. ✅ `src/components/Tutorial/WelcomeModal.tsx` — reverted to `parsed.state?.hasSeenWelcome`
+2. ✅ `src/__tests__/ModalPersistence.test.tsx` — reverted test mocks to `{ state: { hasSeenWelcome: true }, version: 0 }`
 
-**AC3** — PASSES in-session. Activation overlay works correctly with all phases. Blocked by AC2 after page refresh.
+**Acceptance criteria verified:**
+1. ✅ AC1: Code reads `parsed.state?.hasSeenWelcome`
+2. ✅ AC2: Modal stays dismissed after refresh
+3. ✅ AC3: Activation button accessible after refresh
 
-**Root Cause Clarification**: The Round 10 QA correctly identified the symptom (modal reappears after refresh) and the desired fix (modal should stay dismissed). The Round 10 analysis incorrectly concluded the `state` wrapper was absent from localStorage. The Round 11 fix removed the `state?.` access based on this incorrect analysis, making the bug worse.
-
-**The correct fix**: `return parsed.state?.hasSeenWelcome === true;` — this was the ORIGINAL code before the Round 11 "fix."
-
-**Release: NOT APPROVED** — Fix AC2 by correcting `getInitialHasSeenWelcome()` to read `parsed.state?.hasSeenWelcome`, update test mocks to match actual Zustand format, then re-verify.
+**Release: APPROVED**

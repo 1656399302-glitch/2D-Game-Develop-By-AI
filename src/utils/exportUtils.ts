@@ -1,10 +1,10 @@
-import { PlacedModule, Connection, GeneratedAttributes, ExportOptions, AttributeTag } from '../types';
+import { PlacedModule, Connection, GeneratedAttributes, ExportResolution, ExportAspectRatio, ASPECT_RATIO_DIMS, RESOLUTION_DIMS } from '../types';
 import { FactionConfig } from '../types/factions';
 
 export function exportToSVG(
   modules: PlacedModule[],
   connections: Connection[],
-  options: ExportOptions = { format: 'svg' }
+  options: { format: 'svg'; width?: number; height?: number } = { format: 'svg' }
 ): string {
   // Calculate bounding box
   const bounds = calculateBounds(modules);
@@ -207,21 +207,59 @@ function calculateBounds(modules: PlacedModule[]): { minX: number; minY: number;
   };
 }
 
+/**
+ * Export to PNG with resolution scaling and transparent background support
+ * 
+ * @param modules - Array of placed modules
+ * @param connections - Array of connections
+ * @param options - Export options including:
+ *   - scale: Resolution multiplier (1x, 2x, 4x). Default is 2.
+ *   - transparentBackground: If true, exports with transparent background. Default is false.
+ *   - width: Optional custom width
+ *   - height: Optional custom height
+ */
 export async function exportToPNG(
   modules: PlacedModule[],
   connections: Connection[],
-  options: ExportOptions = { format: 'png', scale: 2 }
+  options: {
+    scale?: ExportResolution;
+    transparentBackground?: boolean;
+    width?: number;
+    height?: number;
+  } = {}
 ): Promise<Blob> {
-  const svgString = exportToSVG(modules, connections, options);
+  const svgString = exportToSVG(modules, connections, { format: 'svg' });
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
   const img = new Image();
   
+  // Get scale value from resolution
+  const scaleMap: Record<ExportResolution, number> = {
+    '1x': 1,
+    '2x': 2,
+    '4x': 4,
+  };
+  const scale = scaleMap[options.scale || '2x'];
+  
   return new Promise((resolve, reject) => {
     img.onload = () => {
-      const scale = options.scale || 2;
-      canvas.width = (options.width || img.width) * scale;
-      canvas.height = (options.height || img.height) * scale;
+      const baseWidth = options.width || img.width;
+      const baseHeight = options.height || img.height;
+      
+      canvas.width = baseWidth * scale;
+      canvas.height = baseHeight * scale;
+      
+      // Handle transparent background
+      if (options.transparentBackground) {
+        // Clear canvas to transparent
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      } else {
+        // Fill with dark background
+        ctx.fillStyle = '#0a0e17';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      
+      // Scale the drawing
       ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0);
       
@@ -239,25 +277,45 @@ export async function exportToPNG(
   });
 }
 
+/**
+ * Get the expected output dimensions for a given resolution
+ */
+export function getResolutionDimensions(
+  modules: PlacedModule[],
+  resolution: ExportResolution
+): { width: number; height: number } {
+  const bounds = calculateBounds(modules);
+  const padding = 40;
+  const baseWidth = Math.max(bounds.width + padding * 2, RESOLUTION_DIMS['1x'].base);
+  const baseHeight = Math.max(bounds.height + padding * 2, 300);
+  
+  const scale = RESOLUTION_DIMS[resolution].scaled / RESOLUTION_DIMS['1x'].base;
+  
+  return {
+    width: Math.round(baseWidth * scale),
+    height: Math.round(baseHeight * scale),
+  };
+}
+
 export function exportPoster(
   modules: PlacedModule[],
   connections: Connection[],
-  attributes: GeneratedAttributes
+  attributes: GeneratedAttributes,
+  aspectRatio: ExportAspectRatio = 'default'
 ): string {
   const bounds = calculateBounds(modules);
+  const dims = ASPECT_RATIO_DIMS[aspectRatio];
   const machineWidth = Math.max(bounds.width + 100, 400);
   const machineHeight = Math.max(bounds.height + 100, 300);
-  const posterWidth = 600;
-  const posterHeight = 800;
   
-  const offsetX = (posterWidth - Math.min(machineWidth, 500)) / 2;
+  const offsetX = (dims.width - Math.min(machineWidth, 500)) / 2;
   const offsetY = 150;
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" 
-     viewBox="0 0 ${posterWidth} ${posterHeight}" 
-     width="${posterWidth}" 
-     height="${posterHeight}">
+     viewBox="0 0 ${dims.width} ${dims.height}" 
+     width="${dims.width}" 
+     height="${dims.height}">
   <defs>
     <linearGradient id="posterBg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#0a0e17"/>
@@ -276,27 +334,27 @@ export function exportPoster(
   <rect width="100%" height="100%" fill="url(#posterBg)"/>
   
   <!-- Border -->
-  <rect x="20" y="20" width="${posterWidth - 40}" height="${posterHeight - 40}" 
+  <rect x="20" y="20" width="${dims.width - 40}" height="${dims.height - 40}" 
         fill="none" stroke="#00d4ff" stroke-width="2" rx="10"/>
-  <rect x="30" y="30" width="${posterWidth - 60}" height="${posterHeight - 60}" 
+  <rect x="30" y="30" width="${dims.width - 60}" height="${dims.height - 60}" 
         fill="none" stroke="#7c3aed" stroke-width="1" rx="8" opacity="0.5"/>
   
   <!-- Title -->
-  <text x="${posterWidth / 2}" y="60" text-anchor="middle" 
+  <text x="${dims.width / 2}" y="60" text-anchor="middle" 
         fill="#00d4ff" font-family="serif" font-size="24" font-weight="bold">
     ARCANE MACHINE CODEX
   </text>
   
   <!-- Machine Name -->
-  <text x="${posterWidth / 2}" y="95" text-anchor="middle" 
+  <text x="${dims.width / 2}" y="95" text-anchor="middle" 
         fill="#ffd700" font-family="serif" font-size="18">
     ${attributes.name}
   </text>
   
   <!-- Rarity Badge -->
-  <rect x="${posterWidth / 2 - 50}" y="110" width="100" height="25" rx="12" 
+  <rect x="${dims.width / 2 - 50}" y="110" width="100" height="25" rx="12" 
         fill="${getRarityColorHex(attributes.rarity)}" opacity="0.3"/>
-  <text x="${posterWidth / 2}" y="128" text-anchor="middle" 
+  <text x="${dims.width / 2}" y="128" text-anchor="middle" 
         fill="${getRarityColorHex(attributes.rarity)}" font-size="14" font-weight="bold">
     ${attributes.rarity.toUpperCase()}
   </text>
@@ -326,13 +384,13 @@ export function exportPoster(
   </g>
   
   <!-- Description -->
-  <text x="50" y="${posterHeight - 80}" fill="#9ca3af" font-size="10" font-family="serif">
+  <text x="50" y="${dims.height - 80}" fill="#9ca3af" font-size="10" font-family="serif">
     <tspan x="50" dy="0">${attributes.description.substring(0, 60)}</tspan>
     <tspan x="50" dy="14">${attributes.description.substring(60)}</tspan>
   </text>
   
   <!-- Footer -->
-  <text x="${posterWidth / 2}" y="${posterHeight - 30}" text-anchor="middle" 
+  <text x="${dims.width / 2}" y="${dims.height - 30}" text-anchor="middle" 
         fill="#4a5568" font-size="10">
     Arcane Machine Codex Workshop
   </text>
@@ -342,18 +400,30 @@ export function exportPoster(
 export function exportEnhancedPoster(
   modules: PlacedModule[],
   connections: Connection[],
-  attributes: GeneratedAttributes
+  attributes: GeneratedAttributes,
+  aspectRatio: ExportAspectRatio = 'default'
 ): string {
   const bounds = calculateBounds(modules);
-  const posterWidth = 600;
-  const posterHeight = 850;
+  const dims = ASPECT_RATIO_DIMS[aspectRatio];
   
-  // Calculate machine preview position
-  const previewHeight = 350;
+  // Calculate proportions based on aspect ratio
+  const isLandscape = aspectRatio === 'landscape';
+  const isSquare = aspectRatio === 'square';
+  
+  // Preview dimensions scale with aspect ratio
+  const previewHeight = isLandscape ? 280 : (isSquare ? 300 : 350);
   const previewY = 100;
-  const machineScale = Math.min(450 / bounds.width, previewHeight / bounds.height, 1);
-  const offsetX = (posterWidth - bounds.width * machineScale) / 2 - bounds.minX * machineScale + bounds.width * (machineScale - 1) / 2;
-  const offsetY = previewY + (previewHeight - bounds.height * machineScale) / 2 - bounds.minY * machineScale;
+  
+  // Machine preview position calculations
+  const machineScale = Math.min(
+    (dims.width - 100) / Math.max(bounds.width, 1),
+    previewHeight / Math.max(bounds.height, 1),
+    1
+  );
+  const scaledWidth = bounds.width * machineScale;
+  const scaledHeight = bounds.height * machineScale;
+  const offsetX = (dims.width - scaledWidth) / 2 - bounds.minX * machineScale;
+  const offsetY = previewY + (previewHeight - scaledHeight) / 2 - bounds.minY * machineScale;
   
   // Get background gradient based on dominant tag
   const dominantTag = getDominantTag(attributes.tags);
@@ -361,9 +431,9 @@ export function exportEnhancedPoster(
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" 
-     viewBox="0 0 ${posterWidth} ${posterHeight}" 
-     width="${posterWidth}" 
-     height="${posterHeight}">
+     viewBox="0 0 ${dims.width} ${dims.height}" 
+     width="${dims.width}" 
+     height="${dims.height}">
   <defs>
     <linearGradient id="enhancedBg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:${bgGradient.start}"/>
@@ -402,38 +472,38 @@ export function exportEnhancedPoster(
     <circle cx="10" cy="10" r="3" fill="#fbbf24"/>
     
     <!-- Top right -->
-    <path d="M${posterWidth - 10},50 L${posterWidth - 10},10 L${posterWidth - 50},10"/>
-    <path d="M${posterWidth - 15},40 L${posterWidth - 15},15 L${posterWidth - 40},15"/>
-    <circle cx="${posterWidth - 10}" cy="10" r="3" fill="#fbbf24"/>
+    <path d="M${dims.width - 10},50 L${dims.width - 10},10 L${dims.width - 50},10"/>
+    <path d="M${dims.width - 15},40 L${dims.width - 15},15 L${dims.width - 40},15"/>
+    <circle cx="${dims.width - 10}" cy="10" r="3" fill="#fbbf24"/>
     
     <!-- Bottom left -->
-    <path d="M10,${posterHeight - 50} L10,${posterHeight - 10} L50,${posterHeight - 10}"/>
-    <path d="M15,${posterHeight - 40} L15,${posterHeight - 15} L40,${posterHeight - 15}"/>
-    <circle cx="10" cy="${posterHeight - 10}" r="3" fill="#fbbf24"/>
+    <path d="M10,${dims.height - 50} L10,${dims.height - 10} L50,${dims.height - 10}"/>
+    <path d="M15,${dims.height - 40} L15,${dims.height - 15} L40,${dims.height - 15}"/>
+    <circle cx="10" cy="${dims.height - 10}" r="3" fill="#fbbf24"/>
     
     <!-- Bottom right -->
-    <path d="M${posterWidth - 10},${posterHeight - 50} L${posterWidth - 10},${posterHeight - 10} L${posterWidth - 50},${posterHeight - 10}"/>
-    <path d="M${posterWidth - 15},${posterHeight - 40} L${posterWidth - 15},${posterHeight - 15} L${posterWidth - 40},${posterHeight - 15}"/>
-    <circle cx="${posterWidth - 10}" cy="${posterHeight - 10}" r="3" fill="#fbbf24"/>
+    <path d="M${dims.width - 10},${dims.height - 50} L${dims.width - 10},${dims.height - 10} L${dims.width - 50},${dims.height - 10}"/>
+    <path d="M${dims.width - 15},${dims.height - 40} L${dims.width - 15},${dims.height - 15} L${dims.width - 40},${dims.height - 15}"/>
+    <circle cx="${dims.width - 10}" cy="${dims.height - 10}" r="3" fill="#fbbf24"/>
   </g>
   
   <!-- Outer border -->
-  <rect x="20" y="20" width="${posterWidth - 40}" height="${posterHeight - 40}" 
+  <rect x="20" y="20" width="${dims.width - 40}" height="${dims.height - 40}" 
         fill="none" stroke="url(#goldGradient)" stroke-width="2" rx="12"/>
   
   <!-- Inner border -->
-  <rect x="30" y="30" width="${posterWidth - 60}" height="${posterHeight - 60}" 
+  <rect x="30" y="30" width="${dims.width - 60}" height="${dims.height - 60}" 
         fill="none" stroke="${getRarityColorHex(attributes.rarity)}" stroke-width="1" rx="8" opacity="0.6"/>
   
   <!-- Title banner -->
-  <g transform="translate(${posterWidth / 2}, 55)">
+  <g transform="translate(${dims.width / 2}, 55)">
     <text x="0" y="0" text-anchor="middle" fill="#00d4ff" font-family="serif" font-size="14" letter-spacing="4">
       ★ ARCANE MACHINE CODEX ★
     </text>
   </g>
   
   <!-- Machine Name with ornate styling -->
-  <g transform="translate(${posterWidth / 2}, 90)">
+  <g transform="translate(${dims.width / 2}, ${isSquare ? 80 : 90})">
     <text x="0" y="0" text-anchor="middle" fill="#ffd700" font-family="serif" font-size="28" font-weight="bold" filter="url(#enhancedGlow)">
       ${attributes.name}
     </text>
@@ -444,7 +514,7 @@ export function exportEnhancedPoster(
   </g>
   
   <!-- Rarity Badge with icon -->
-  <g transform="translate(${posterWidth / 2}, 120)">
+  <g transform="translate(${dims.width / 2}, ${isSquare ? 110 : 120})">
     <rect x="-60" y="-12" width="120" height="24" rx="12" 
           fill="${getRarityColorHex(attributes.rarity)}" opacity="0.2"/>
     <rect x="-58" y="-10" width="116" height="20" rx="10" 
@@ -455,7 +525,7 @@ export function exportEnhancedPoster(
   </g>
   
   <!-- Machine Preview Container -->
-  <rect x="40" y="${previewY}" width="${posterWidth - 80}" height="${previewHeight}" 
+  <rect x="40" y="${previewY}" width="${dims.width - 80}" height="${previewHeight}" 
         fill="#0a0e17" stroke="#1e2a42" stroke-width="1" rx="8" filter="url(#innerShadow)"/>
   
   <!-- Machine Preview -->
@@ -473,8 +543,49 @@ export function exportEnhancedPoster(
   </g>
   
   <!-- Stats Panel -->
-  <g transform="translate(50, ${previewY + previewHeight + 20})">
-    <!-- Stats header -->
+  ${renderStatsPanel(attributes, previewY, previewHeight, isLandscape)}
+  
+  <!-- Tags Panel -->
+  ${renderTagsPanel(attributes, previewY, previewHeight, isLandscape, isSquare)}
+  
+  <!-- Faction Emblem Placeholder -->
+  <g transform="translate(${dims.width - 100}, ${previewY + previewHeight + 50})">
+    <circle cx="30" cy="30" r="28" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.6"/>
+    <circle cx="30" cy="30" r="22" fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+    <text x="30" y="36" text-anchor="middle" fill="#fbbf24" font-size="20" opacity="0.7">⚗</text>
+    <text x="30" y="75" text-anchor="middle" fill="#6b7280" font-size="8">FACTION</text>
+  </g>
+  
+  <!-- Description -->
+  <g transform="translate(50, ${dims.height - 130})">
+    <text fill="#9ca3af" font-size="10" font-family="serif" font-style="italic">
+      <tspan x="0" dy="0">${wrapText(attributes.description, 70)}</tspan>
+    </text>
+  </g>
+  
+  <!-- Footer -->
+  <g transform="translate(${dims.width / 2}, ${dims.height - 35})">
+    <text x="0" y="0" text-anchor="middle" fill="#4a5568" font-size="9">
+      Arcane Machine Codex Workshop
+    </text>
+    <text x="0" y="14" text-anchor="middle" fill="#374151" font-size="8">
+      ID: ${attributes.codexId}
+    </text>
+  </g>
+</svg>`;
+}
+
+function renderStatsPanel(
+  attributes: GeneratedAttributes,
+  previewY: number,
+  previewHeight: number,
+  isLandscape: boolean
+): string {
+  const statsY = previewY + previewHeight + 20;
+  const col1X = isLandscape ? 40 : 50;
+  
+  return `
+  <g transform="translate(${col1X}, ${statsY})">
     <text x="0" y="0" fill="#9ca3af" font-size="11" letter-spacing="2">◆ ATTRIBUTES</text>
     <line x1="0" y1="8" x2="150" y2="8" stroke="#1e2a42" stroke-width="1"/>
     
@@ -509,10 +620,21 @@ export function exportEnhancedPoster(
       <text x="90" y="8" fill="#06b6d4" font-size="10">❖ Energy</text>
       <text x="160" y="8" fill="#06b6d4" font-size="10" font-weight="bold">${attributes.stats.energyCost}</text>
     </g>
-  </g>
+  </g>`;
+}
+
+function renderTagsPanel(
+  attributes: GeneratedAttributes,
+  previewY: number,
+  previewHeight: number,
+  isLandscape: boolean,
+  isSquare: boolean
+): string {
+  const tagsX = isLandscape ? 250 : (isSquare ? 220 : 250);
+  const tagsY = previewY + previewHeight + 20;
   
-  <!-- Tags Panel -->
-  <g transform="translate(250, ${previewY + previewHeight + 20})">
+  return `
+  <g transform="translate(${tagsX}, ${tagsY})">
     <text x="0" y="0" fill="#9ca3af" font-size="11" letter-spacing="2">◆ TAGS</text>
     <line x1="0" y1="8" x2="150" y2="8" stroke="#1e2a42" stroke-width="1"/>
     
@@ -522,33 +644,7 @@ export function exportEnhancedPoster(
       <text x="10" y="4" fill="${getTagColor(tag)}" font-size="10" font-weight="bold">${getTagIcon(tag)}</text>
       <text x="30" y="4" fill="${getTagColor(tag)}" font-size="10">${tag.charAt(0).toUpperCase() + tag.slice(1)}</text>
     </g>`).join('')}
-  </g>
-  
-  <!-- Faction Emblem Placeholder -->
-  <g transform="translate(${posterWidth - 100}, ${previewY + previewHeight + 50})">
-    <circle cx="30" cy="30" r="28" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.6"/>
-    <circle cx="30" cy="30" r="22" fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
-    <text x="30" y="36" text-anchor="middle" fill="#fbbf24" font-size="20" opacity="0.7">⚗</text>
-    <text x="30" y="75" text-anchor="middle" fill="#6b7280" font-size="8">FACTION</text>
-  </g>
-  
-  <!-- Description -->
-  <g transform="translate(50, ${posterHeight - 130})">
-    <text fill="#9ca3af" font-size="10" font-family="serif" font-style="italic">
-      <tspan x="0" dy="0">${wrapText(attributes.description, 70)}</tspan>
-    </text>
-  </g>
-  
-  <!-- Footer -->
-  <g transform="translate(${posterWidth / 2}, ${posterHeight - 35})">
-    <text x="0" y="0" text-anchor="middle" fill="#4a5568" font-size="9">
-      Arcane Machine Codex Workshop
-    </text>
-    <text x="0" y="14" text-anchor="middle" fill="#374151" font-size="8">
-      ID: ${attributes.codexId}
-    </text>
-  </g>
-</svg>`;
+  </g>`;
 }
 
 /**
@@ -633,7 +729,7 @@ export function exportFactionCard(
   
   // Generate tags
   const tagsX = 100;
-  const tags = attributes.tags.map((tag: AttributeTag, idx: number) => `
+  const tags = attributes.tags.map((tag, idx) => `
     <g transform="translate(${tagsX + idx * 80}, 90)">
       <rect width="70" height="22" rx="4" fill="${factionColor}" opacity="0.2"/>
       <text x="35" y="15" text-anchor="middle" fill="${factionColor}" font-size="11">#${tag}</text>

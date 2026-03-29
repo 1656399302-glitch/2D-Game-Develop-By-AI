@@ -1,16 +1,65 @@
 import { useState, useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
-import { exportToSVG, exportToPNG, exportPoster, exportEnhancedPoster, exportFactionCard, downloadFile } from '../../utils/exportUtils';
+import { exportToSVG, exportToPNG, exportPoster, exportEnhancedPoster, exportFactionCard, downloadFile, getResolutionDimensions } from '../../utils/exportUtils';
 import { generateAttributes } from '../../utils/attributeGenerator';
 import { calculateFaction } from '../../utils/factionCalculator';
 import { EnhancedShareCard } from './EnhancedShareCard';
 import { FACTIONS } from '../../types/factions';
+import { ExportResolution, ExportAspectRatio, RESOLUTION_DIMS, ASPECT_RATIO_DIMS } from '../../types';
 
 interface ExportModalProps {
   onClose: () => void;
 }
 
 type ExportFormat = 'svg' | 'png' | 'poster' | 'enhanced-poster' | 'faction-card';
+
+// Export preset configurations
+interface ExportPreset {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  format: ExportFormat;
+  resolution?: ExportResolution;
+  aspectRatio?: ExportAspectRatio;
+  transparentBackground?: boolean;
+}
+
+const EXPORT_PRESETS: ExportPreset[] = [
+  {
+    id: 'social-media',
+    name: '社交媒体',
+    description: 'PNG 2x 方形',
+    icon: '📱',
+    format: 'png',
+    resolution: '2x',
+    aspectRatio: 'square',
+  },
+  {
+    id: 'print',
+    name: '打印用途',
+    description: 'PNG 4x 高清',
+    icon: '🖨',
+    format: 'png',
+    resolution: '4x',
+  },
+  {
+    id: 'icon',
+    name: '图标导出',
+    description: 'PNG 1x 透明',
+    icon: '🔲',
+    format: 'png',
+    resolution: '1x',
+    transparentBackground: true,
+  },
+  {
+    id: 'presentation',
+    name: '演示文稿',
+    description: 'SVG 矢量图',
+    icon: '📊',
+    format: 'svg',
+  },
+];
 
 export function ExportModal({ onClose }: ExportModalProps) {
   const modules = useMachineStore((state) => state.modules);
@@ -21,11 +70,37 @@ export function ExportModal({ onClose }: ExportModalProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportName, setExportName] = useState('arcane-machine');
   
+  // New P0 options
+  const [resolution, setResolution] = useState<ExportResolution>('2x');
+  const [transparentBackground, setTransparentBackground] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<ExportAspectRatio>('default');
+  
   // Calculate faction and attributes for EnhancedShareCard
   const dominantFaction = calculateFaction(modules);
   const factionId = dominantFaction || 'stellar'; // Default to stellar if no faction modules
   const faction = FACTIONS[factionId];
   const attributes = generateAttributes(modules, connections);
+  
+  // Get expected output dimensions for current settings
+  const getExpectedDimensions = useCallback(() => {
+    if (format === 'png') {
+      return getResolutionDimensions(modules, resolution);
+    }
+    if (format === 'poster' || format === 'enhanced-poster') {
+      return ASPECT_RATIO_DIMS[aspectRatio];
+    }
+    return { width: 800, height: 600 };
+  }, [format, resolution, aspectRatio, modules]);
+  
+  const expectedDims = getExpectedDimensions();
+  
+  // Apply preset configuration
+  const applyPreset = useCallback((preset: ExportPreset) => {
+    setFormat(preset.format);
+    if (preset.resolution) setResolution(preset.resolution);
+    if (preset.aspectRatio) setAspectRatio(preset.aspectRatio);
+    if (preset.transparentBackground !== undefined) setTransparentBackground(preset.transparentBackground);
+  }, []);
   
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -43,20 +118,20 @@ export function ExportModal({ onClose }: ExportModalProps) {
           
         case 'png':
           const pngBlob = await exportToPNG(modules, connections, {
-            format: 'png',
-            scale: 2,
+            scale: resolution,
+            transparentBackground: transparentBackground,
           });
           downloadFile(pngBlob, `${filename}.png`, 'image/png');
           break;
           
         case 'poster':
-          const posterContent = exportPoster(modules, connections, attributes);
-          downloadFile(posterContent, `${filename}-poster.svg`, 'image/svg+xml');
+          const posterContent = exportPoster(modules, connections, attributes, aspectRatio);
+          downloadFile(posterContent, `${filename}-${aspectRatio}-poster.svg`, 'image/svg+xml');
           break;
           
         case 'enhanced-poster':
-          const enhancedContent = exportEnhancedPoster(modules, connections, attributes);
-          downloadFile(enhancedContent, `${filename}-enhanced-poster.svg`, 'image/svg+xml');
+          const enhancedContent = exportEnhancedPoster(modules, connections, attributes, aspectRatio);
+          downloadFile(enhancedContent, `${filename}-${aspectRatio}-enhanced-poster.svg`, 'image/svg+xml');
           break;
           
         case 'faction-card':
@@ -73,7 +148,7 @@ export function ExportModal({ onClose }: ExportModalProps) {
       setIsExporting(false);
       alert('Export failed. Please try again.');
     }
-  }, [format, exportName, modules, connections, attributes, onClose]);
+  }, [format, exportName, modules, connections, attributes, onClose, resolution, transparentBackground, aspectRatio]);
   
   const handleFactionCardExportSVG = useCallback(() => {
     const factionCardContent = exportFactionCard(modules, connections, attributes, faction);
@@ -126,9 +201,9 @@ export function ExportModal({ onClose }: ExportModalProps) {
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-[#121826] border border-[#1e2a42] rounded-xl p-6 shadow-2xl">
+      <div className="w-full max-w-lg bg-[#121826] border border-[#1e2a42] rounded-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-[#00d4ff]">Export Machine</h2>
           <button
             onClick={onClose}
@@ -139,8 +214,28 @@ export function ExportModal({ onClose }: ExportModalProps) {
         </div>
         
         {/* Preview */}
-        <div className="aspect-video bg-[#0a0e17] rounded-lg mb-6 flex items-center justify-center overflow-hidden">
+        <div className="aspect-video bg-[#0a0e17] rounded-lg mb-4 flex items-center justify-center overflow-hidden">
           <ExportPreview format={format} />
+        </div>
+        
+        {/* Export Presets - P1 Item */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-[#9ca3af] mb-2">
+            快速预设
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {EXPORT_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => applyPreset(preset)}
+                className="p-2 rounded-lg border border-[#1e2a42] hover:border-[#00d4ff]/50 bg-[#0a0e17] hover:bg-[#00d4ff]/5 transition-all text-center"
+              >
+                <div className="text-xl mb-1">{preset.icon}</div>
+                <div className="text-xs font-medium text-white">{preset.name}</div>
+                <div className="text-xs text-[#4a5568]">{preset.description}</div>
+              </button>
+            ))}
+          </div>
         </div>
         
         {/* Options */}
@@ -194,21 +289,120 @@ export function ExportModal({ onClose }: ExportModalProps) {
             </div>
           </div>
           
-          {/* Filename */}
+          {/* P0: Resolution Selector - Only for PNG */}
+          {format === 'png' && (
+            <div>
+              <label className="block text-sm font-medium text-[#9ca3af] mb-2">
+                分辨率 (Resolution)
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['1x', '2x', '4x'] as ExportResolution[]).map((res) => {
+                  const dims = RESOLUTION_DIMS[res];
+                  const expectedSize = `${dims.scaled}×${Math.round(dims.scaled * 0.75)}px`;
+                  return (
+                    <button
+                      key={res}
+                      onClick={() => setResolution(res)}
+                      className={`p-2 rounded-lg border transition-all text-center ${
+                        resolution === res
+                          ? 'border-[#00d4ff] bg-[#00d4ff]/10'
+                          : 'border-[#1e2a42] hover:border-[#00d4ff]/50'
+                      }`}
+                    >
+                      <div className={`text-sm font-bold ${resolution === res ? 'text-[#00d4ff]' : 'text-white'}`}>
+                        {res}
+                      </div>
+                      <div className="text-xs text-[#4a5568]">{expectedSize}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* P0: Transparent Background Toggle - Only for PNG */}
+          {format === 'png' && (
+            <div className="flex items-center gap-3 p-3 bg-[#0a0e17] rounded-lg border border-[#1e2a42]">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={transparentBackground}
+                  onChange={(e) => setTransparentBackground(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-[#1e2a42] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00d4ff]"></div>
+              </label>
+              <div>
+                <div className="text-sm font-medium text-white">透明背景</div>
+                <div className="text-xs text-[#4a5568]">Transparent Background</div>
+              </div>
+            </div>
+          )}
+          
+          {/* P0: Aspect Ratio Selector - For Poster formats */}
+          {(format === 'poster' || format === 'enhanced-poster') && (
+            <div>
+              <label className="block text-sm font-medium text-[#9ca3af] mb-2">
+                纵横比 (Aspect Ratio)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['default', 'square', 'portrait', 'landscape'] as ExportAspectRatio[]).map((ratio) => {
+                  const dims = ASPECT_RATIO_DIMS[ratio];
+                  const labels: Record<ExportAspectRatio, string> = {
+                    'default': '默认 (Default)',
+                    'square': '方形 (Square)',
+                    'portrait': '纵向 (Portrait)',
+                    'landscape': '横向 (Landscape)',
+                  };
+                  return (
+                    <button
+                      key={ratio}
+                      onClick={() => setAspectRatio(ratio)}
+                      className={`p-2 rounded-lg border transition-all text-center ${
+                        aspectRatio === ratio
+                          ? 'border-[#00d4ff] bg-[#00d4ff]/10'
+                          : 'border-[#1e2a42] hover:border-[#00d4ff]/50'
+                      }`}
+                    >
+                      <div className={`text-sm font-medium ${aspectRatio === ratio ? 'text-[#00d4ff]' : 'text-white'}`}>
+                        {labels[ratio]}
+                      </div>
+                      <div className="text-xs text-[#4a5568]">{dims.width}×{dims.height}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* P0: Filename Input - Persists across format changes */}
           {format !== 'faction-card' && (
             <div>
               <label className="block text-sm font-medium text-[#9ca3af] mb-2">
-                Filename
+                文件名 (Filename)
               </label>
               <input
                 type="text"
                 value={exportName}
                 onChange={(e) => setExportName(e.target.value)}
-                className="arcane-input"
+                className="w-full bg-[#0a0e17] border border-[#1e2a42] rounded-lg px-3 py-2 text-white placeholder-[#4a5568] focus:outline-none focus:border-[#00d4ff] transition-colors"
                 placeholder="arcane-machine"
               />
+              <div className="mt-1 text-xs text-[#4a5568]">
+                当前文件名将保持不变，即使切换导出格式
+              </div>
             </div>
           )}
+          
+          {/* Output Dimensions Preview */}
+          <div className="p-3 bg-[#0a0e17] rounded-lg border border-[#1e2a42]">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#9ca3af]">输出尺寸 (Output Size)</span>
+              <span className="text-sm font-mono text-[#00d4ff]">
+                {expectedDims.width} × {expectedDims.height} px
+              </span>
+            </div>
+          </div>
           
           {/* Info */}
           <div className="text-xs text-[#4a5568] bg-[#0a0e17] rounded-lg p-3">
@@ -216,13 +410,13 @@ export function ExportModal({ onClose }: ExportModalProps) {
               <p>SVG export includes all modules, connections, and animations. Best for further editing in vector software.</p>
             )}
             {format === 'png' && (
-              <p>PNG export creates a high-resolution raster image at 2x scale (minimum 800x600px).</p>
+              <p>PNG export creates a high-resolution raster image at {resolution} scale. Transparent background removes the dark background.</p>
             )}
             {format === 'poster' && (
-              <p>Poster export creates a styled share card with machine preview, stats, and decorative border.</p>
+              <p>Poster export creates a styled share card with machine preview, stats, and decorative border at {aspectRatio} aspect ratio.</p>
             )}
             {format === 'enhanced-poster' && (
-              <p>Enhanced poster includes decorative corners, ornate name styling, attribute icons, and faction emblem.</p>
+              <p>Enhanced poster includes decorative corners, ornate name styling, attribute icons, and faction emblem at {aspectRatio} aspect ratio.</p>
             )}
             {format === 'faction-card' && (
               <p>Faction Card export creates a branded share card with faction-colored border and theming based on your machine's dominant faction.</p>
@@ -251,14 +445,14 @@ export function ExportModal({ onClose }: ExportModalProps) {
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 arcane-button-secondary"
+            className="flex-1 px-4 py-2 bg-[#1e2a42] hover:bg-[#2d3a56] text-white rounded-lg transition-colors"
           >
             Cancel
           </button>
           {format === 'faction-card' ? (
             <button
               onClick={() => setShowFactionCard(true)}
-              className="flex-1 arcane-button flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-[#00d4ff] hover:bg-[#00b8e6] text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               ⚔ Open Faction Card
             </button>
@@ -266,11 +460,11 @@ export function ExportModal({ onClose }: ExportModalProps) {
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="flex-1 arcane-button flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-[#00d4ff] hover:bg-[#00b8e6] text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isExporting ? (
                 <>
-                  <span className="spinner" />
+                  <span className="inline-block w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
                   Exporting...
                 </>
               ) : (
