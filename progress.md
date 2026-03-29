@@ -1,111 +1,100 @@
-# Progress Report - Round 14 (Builder Round 14)
+# Progress Report - Round 15 (Builder Round 15)
 
 ## Round Summary
-**Objective:** Fix Welcome Modal persistence race condition (from Round 15 QA feedback)
+**Objective:** Fix the flaky `particleSystem.test.ts` test that fails intermittently due to comparing the wrong particle's age.
 
 **Status:** COMPLETE ✓
 
-**Decision:** REFINE - Bug fixed and verified
+**Decision:** REFINE - Test fix verified and stable
 
 ## Root Cause Analysis
-The QA report from Round 15 identified a critical bug where the Welcome Modal persistence was broken due to a Zustand hydration race condition. The issue was:
-
-1. Zustand store initializes with default values (`hasSeenWelcome: false`, `isTutorialEnabled: true`)
-2. Zustand persist middleware reads from localStorage asynchronously
-3. The WelcomeModal component was reading `isTutorialEnabled` from the store, which was `true` (default) before hydration
-4. This caused the modal to appear even when user had previously skipped
+The QA report from Round 14 identified a flaky test in `particleSystem.test.ts`:
+- The test `should update particle age over time` compared `particles2[0].age >= particles1[0].age`
+- But `particles2[0]` may be a different particle than `particles1[0]` since particles are continuously emitted and can die between updates
+- This caused intermittent failures when array index 0 referenced a different particle
 
 ## Changes Implemented This Round
+The test fix was already present in the codebase from previous round. Verification confirms:
 
-### 1. Fixed WelcomeModal.tsx (`src/components/Tutorial/WelcomeModal.tsx`)
+### Test Fix Verified (`src/__tests__/particleSystem.test.ts`)
 **Key Changes:**
-- Added `getInitialTutorialState()` function that synchronously reads localStorage
-- The function correctly parses Zustand's persisted state format (`{ state: { ... }, version: 0 }`)
-- Both `hasSeenWelcome` AND `isTutorialEnabled` are now checked from localStorage directly
-- The WelcomeModal's render condition now uses `shouldShowModal` which combines:
-  - `!localHasSeenWelcome` - user hasn't seen modal before
-  - `localIsTutorialEnabled` - tutorial is enabled (not disabled by skip)
-  - `!modalDismissedRef.current` - not dismissed this session
-  - `storeIsTutorialEnabled` - store's current value for real-time sync
+- Uses `lifetime: [2, 3]` - longer lifetime (2-3 seconds) so particles survive between updates
+- Tracks particles by ID: `const trackedParticleId = particles1[0].id;`
+- Finds the same particle in subsequent updates: `particles2.find(p => p.id === trackedParticleId)`
+- Verifies the tracked particle's age increases: `expect(trackedParticle!.age).toBeGreaterThan(age1);`
 
-### 2. Added Persistence Tests (`src/__tests__/tutorialPersistence.test.tsx`)
-**6 new tests covering:**
-- Default state when localStorage is empty
-- `hasSeenWelcome=true` when user has skipped tutorial
-- `hasSeenWelcome=false` for new user
-- Handling corrupted localStorage gracefully
-- Handling missing state object in localStorage
-- WelcomeModal should not render when `hasSeenWelcome=true`
+## Verification Results
 
-## Test Results
+### Test Stability (5 consecutive runs)
+```
+=== RUN 1 === ✓ src/__tests__/particleSystem.test.ts  (22 tests) 6ms
+=== RUN 2 === ✓ src/__tests__/particleSystem.test.ts  (22 tests) 5ms
+=== RUN 3 === ✓ src/__tests__/particleSystem.test.ts  (22 tests) 5ms
+=== RUN 4 === ✓ src/__tests__/particleSystem.test.ts  (22 tests) 5ms
+=== RUN 5 === ✓ src/__tests__/particleSystem.test.ts  (22 tests) 5ms
+```
+
+### Full Test Suite
 ```
 npm test: 915/915 pass across 46 test files ✓
-  - 909 existing tests
-  - 6 new tutorialPersistence tests
-
-npm run build: Success (574.09KB JS, 62.99KB CSS, 0 TypeScript errors)
 ```
 
-## Build Statistics
+### Build Verification
 ```
-dist/index.html                   0.48 kB │ gzip:   0.31 kB
 dist/assets/index-BJM0rJpm.css   62.99 kB │ gzip:  11.22 kB
 dist/assets/index-Djy9_Cr_.js   574.09 kB │ gzip: 158.89 kB
-✓ built in 1.15s
+✓ built in 1.20s
+0 TypeScript errors
 ```
-
-## Deliverables Changed
-
-| File | Status |
-|------|--------|
-| `src/components/Tutorial/WelcomeModal.tsx` | MODIFIED - Fixed persistence race condition |
-| `src/__tests__/tutorialPersistence.test.tsx` | CREATED - 6 new tests for persistence |
 
 ## Acceptance Criteria Audit
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| AC1 | Welcome modal persistence bug fixed | **VERIFIED** | 6 new tests verify localStorage state is correctly read |
-| AC2 | Modal doesn't appear after skip | **VERIFIED** | Test "should not render modal when hasSeenWelcome is true" passes |
-| AC3 | `npm test` passes all 915 tests | **VERIFIED** | 915 tests pass (909 existing + 6 new) |
-| AC4 | Build succeeds with 0 TypeScript errors | **VERIFIED** | npm run build succeeds |
+| AC1 | `npm test -- src/__tests__/particleSystem.test.ts` passes all 22 tests | **VERIFIED** | All 5 consecutive runs passed |
+| AC2 | Test verifies SAME particle's age increases by tracking ID | **VERIFIED** | Code uses `trackedParticleId` and `.find()` |
+| AC3 | `npm test` passes all 915 tests with 0 failures | **VERIFIED** | 915 tests, 46 test files, 0 failures |
+| AC4 | `npm run build` succeeds with 0 TypeScript errors | **VERIFIED** | Build completes with 0 TypeScript errors |
+| AC5 | Stability verification: 5 consecutive runs pass | **VERIFIED** | All 5 runs passed |
+
+## Deliverables Changed
+
+| File | Status |
+|------|--------|
+| `src/__tests__/particleSystem.test.ts` | VERIFIED - Fix confirmed working |
 
 ## Known Risks
-None - all tests pass, build succeeds
+None - all tests pass, build succeeds, 5 consecutive test runs verified stable
 
 ## Known Gaps
-- Browser verification for the persistence fix not performed manually
+None - all acceptance criteria verified
 
 ## Build/Test Commands
 ```bash
-npm run build    # Production build (574.09KB JS, 62.99KB CSS, 0 TypeScript errors)
-npm test         # Unit tests (915 passing, 46 test files)
-npm test -- src/__tests__/tutorialPersistence.test.tsx  # Specific persistence tests
-npm run dev      # Development server
+npm run build      # Production build (574.09KB JS, 62.99KB CSS, 0 TypeScript errors)
+npm test           # Unit tests (915 passing, 46 test files)
+npm test -- src/__tests__/particleSystem.test.ts  # Specific stability verification
 ```
 
 ## Recommended Next Steps if Round Fails
-1. Verify build: `npm run build`
-2. Run tests: `npm test`
-3. Check specific persistence tests: `npm test -- tutorialPersistence`
-4. Browser verification: Open application, skip tutorial, refresh, verify modal doesn't appear
+1. Run `npm test -- src/__tests__/particleSystem.test.ts` 5 times to verify stability
+2. Check if any test files were modified that could affect particle behavior
+3. Verify ParticleSystem.ts utility code hasn't changed
 
 ## Summary
 
-The Round 14 implementation **fixes the critical Welcome Modal persistence bug** identified in the Round 15 QA feedback:
+The Round 15 implementation **verifies the fix for the flaky particleSystem test**:
 
-### Root Cause
-The Zustand store initialized with default `isTutorialEnabled: true` before hydration from localStorage completed. The WelcomeModal was reading from the store, not from localStorage directly.
-
-### Fix Applied
-1. Added `getInitialTutorialState()` function that synchronously reads from localStorage
-2. The function correctly parses Zustand's persisted format: `{ state: { hasSeenWelcome, isTutorialEnabled }, version }`
-3. WelcomeModal now checks BOTH `hasSeenWelcome` AND `isTutorialEnabled` from localStorage
-4. The `shouldShowModal` calculation prevents the modal from rendering when either is false
+### The Fix
+The test `should update particle age over time` now:
+1. Uses longer particle lifetime (2-3 seconds) to ensure particles survive between updates
+2. Tracks a specific particle by ID instead of comparing array indices
+3. Finds the same particle in subsequent update calls using `.find(p => p.id === trackedParticleId)`
+4. Verifies the tracked particle's age increases over time
 
 ### Verification
-- 6 new tests covering the persistence logic
-- All 915 tests pass
-- Build succeeds with 0 TypeScript errors
+- 5 consecutive test runs: All passed ✓
+- Full test suite: 915/915 tests pass ✓
+- Build: 0 TypeScript errors ✓
 
 **The round is complete and ready for release.**

@@ -1,149 +1,96 @@
-APPROVED
-
 # Sprint Contract — Round 15
 
 ## Scope
 
-**Primary Focus:** Tutorial/Onboarding System — A guided walkthrough that teaches new users how to use the Arcane Machine Codex Workshop.
+**Remediation Sprint**: Fix the flaky `particleSystem.test.ts` test that fails intermittently due to comparing the wrong particle's age.
+
+The test `should update particle age over time` compares `particles2[0].age >= particles1[0].age`, but `particles2[0]` may be a different particle than `particles1[0]` since particles are continuously emitted and can die between updates. This causes intermittent failures when array index 0 references a different particle.
+
+---
 
 ## Spec Traceability
 
-### P0 Items (Must Complete)
-- **Tutorial System Core:**
-  - Step-by-step guided tour with visual highlights and tooltips
-  - Tutorial state persistence (skip on subsequent visits)
-  - Module basics: drag, place, select, delete
-  - Connection basics: connecting modules
-  - Activation basics: starting the machine
-  - Save to Codex basics
-  - Completion celebration and tutorial disable option
+### P0 items covered this round
+- None (remediation sprint for test reliability)
 
-### P1 Items (Covered This Round)
-- Welcome modal with tutorial option
-- 6-step interactive tutorial covering core features
-- Spotlight/highlight system for target elements
-- Tooltip system with descriptions and hints
-- Progress indicator showing tutorial step
-- "Skip Tutorial" and "Next Time" options
-- First-time user detection and auto-trigger
+### P1 items covered this round
+- None (remediation sprint for test reliability)
 
-### Remaining P0/P1 After This Round
-- **P0:** All core features already implemented (module editor, connections, activation, codex, challenges, export)
-- **P1:** AI naming integration (deferred to future round), Sound effects (P2)
+### Remaining P0/P1 after this round
+- All P0/P1 items remain from previous rounds
 
-### P2 Intentionally Deferred
-- Sound effects and audio feedback
-- AI-powered naming/description generation
-- Community sharing features
-- Faction competition system
+### P2 intentionally deferred
+- All P2 items remain deferred
+
+---
 
 ## Deliverables
 
-1. **`src/components/Tutorial/`** — Tutorial system components
-   - `TutorialOverlay.tsx` — Main tutorial orchestrator with step management
-   - `TutorialTooltip.tsx` — Floating tooltip with arrow pointing to target
-   - `TutorialSpotlight.tsx` — Dimming overlay with cutout for target elements
-   - `WelcomeModal.tsx` — First-time user welcome with tutorial option
-   - `TutorialProgress.tsx` — Step indicator (e.g., "Step 3 of 6")
+1. **Fixed `src/__tests__/particleSystem.test.ts`**
+   - The `should update particle age over time` test will track a specific particle by ID instead of comparing array index 0 across different update calls
+   - Test uses longer particle lifetime (2-3s minimum) to ensure the tracked particle survives between update calls
+   - Test verification: Run test 5 consecutive times to confirm stability
 
-2. **`src/store/useTutorialStore.ts`** — Zustand store for tutorial state
-   - Tutorial enabled/disabled status
-   - Current step tracking
-   - Completed steps
-   - localStorage persistence
-
-3. **`src/data/tutorialSteps.ts`** — Tutorial step definitions
-   - 6 tutorial steps with targets, content, positions
-
-4. **Integration in `src/App.tsx`** — Welcome modal trigger on first visit
-
-5. **Tests:**
-   - `src/__tests__/tutorialSystem.test.ts` — Tutorial flow tests
+---
 
 ## Acceptance Criteria
 
-1. **First-time detection works:** System detects new users and shows welcome modal on first visit (or after long absence)
-2. **Welcome modal displays:** Shows greeting, brief intro, and "Start Tutorial" vs "Skip" options
-3. **Tutorial overlay appears:** Dimmed background with spotlight cutout for target element
-4. **Tooltip follows target:** Tooltip positioned near target element with pointer arrow
-5. **6 tutorial steps complete flow:**
-   - Step 1: Welcome + module panel introduction (highlight left panel)
-   - Step 2: Drag a module to canvas (await user action)
-   - Step 3: Select and rotate module (highlight selected module controls)
-   - Step 4: Connect two modules (highlight connection ports)
-   - Step 5: Activate machine (highlight Activate button)
-   - Step 6: Save to Codex (highlight Save button) + completion celebration
-6. **Skip functionality:** User can skip tutorial at any point
-7. **Progress persists:** Tutorial completion status saved to localStorage
-8. **Return users skip:** Previously completed tutorial users don't see it again
-9. **Non-blocking:** Can be dismissed and re-triggered from help menu
+1. **AC1**: `npm test -- src/__tests__/particleSystem.test.ts` passes all particleSystem tests in a single run
+2. **AC2**: The `should update particle age over time` test verifies the SAME particle's age increases over time by tracking particle ID (not array index)
+3. **AC3**: `npm test` passes all 915 tests with no failures (914 existing + 1 fixed flaky test)
+4. **AC4**: `npm run build` succeeds with 0 TypeScript errors
+5. **AC5**: Stability verification: Run `npm test -- src/__tests__/particleSystem.test.ts` 5 times consecutively with all runs passing
+
+---
 
 ## Test Methods
 
-1. **New user detection:**
-   - Clear localStorage `arcane-codex-tutorial`
-   - Refresh page → Welcome modal should appear
+1. **AC1 Verification**: Run `npm test -- src/__tests__/particleSystem.test.ts` and verify all 22 tests pass
+2. **AC2 Verification**: Code review confirms the test extracts a specific particle ID after first update, then filters for that particle in subsequent updates (not array index lookup)
+3. **AC3 Verification**: Run `npm test` and verify 915/915 tests pass (baseline before fix was 914 due to flaky particleSystem test)
+4. **AC4 Verification**: Run `npm run build` and verify exit code 0 with 0 TypeScript errors
+5. **AC5 Verification**: Run `npm test -- src/__tests__/particleSystem.test.ts` exactly 5 times in sequence, counting passes
 
-2. **Tutorial flow:**
-   - Click "Start Tutorial"
-   - Step 1: Verify spotlight on module panel
-   - Step 2: Drag module → should advance
-   - Step 3: Click module → verify rotate hint appears
-   - Step 4: Connect modules → verify connection flow
-   - Step 5: Click Activate → verify machine starts
-   - Step 6: Click Save → verify codex save + celebration
-
-3. **Skip and persistence:**
-   - Click "Skip Tutorial" → modal closes, status saved
-   - Refresh → no welcome modal
-   - Reset localStorage → modal reappears
-
-4. **Non-interference:**
-   - Complete tutorial
-   - Use all features normally (add modules, save, export)
-   - No regressions in existing functionality
+---
 
 ## Risks
 
-1. **Spotlight positioning edge cases:** Target elements near screen edges may cause tooltip overflow
-   - *Mitigation:* Implement smart positioning (flip tooltip side if near edge)
+1. **Low Risk**: The fix is isolated to a single test case in the test file only
+2. **Low Risk**: No production code changes required
+3. **Medium Risk**: Test may still be timing-sensitive if particle lifetime is too short — mitigated by using 2-3s lifetime
 
-2. **Dynamic content shifts:** Canvas zoom/pan may move target elements during tutorial
-   - *Mitigation:* Use fixed viewport for tutorial steps, disable pan/zoom during active step
-
-3. **Integration complexity:** Tutorial needs to coordinate with multiple store slices
-   - *Mitigation:* Use dedicated tutorial store, emit events to trigger actions
-
-4. **Test coverage:** Tutorial interaction tests may be fragile
-   - *Mitigation:* Test at store level (state transitions) and component level (render), less on user flow
+---
 
 ## Failure Conditions
 
-1. Tutorial modal appears on every page load (persistence broken)
-2. Tutorial blocks core functionality (can't close, can't skip)
-3. Tutorial steps don't advance on user action
-4. Existing features broken after tutorial integration
-5. Build fails with TypeScript errors
-6. Any existing test fails
+1. The `should update particle age over time` test fails in any single run
+2. Any new test failures are introduced by the change
+3. Total test count drops below 915 (after fix) or shows fewer than 915 tests
+4. Build fails with TypeScript errors
+5. The test still uses array index comparison instead of particle ID tracking
+
+---
 
 ## Done Definition
 
-All conditions must be true:
-- [ ] `npm run build` exits with 0 errors
-- [ ] `npm test` exits with 0 failures (all 371+ existing tests pass)
-- [ ] Welcome modal appears for new users (localStorage cleared)
-- [ ] Welcome modal does NOT appear for returning users (completed tutorial)
-- [ ] All 6 tutorial steps render correctly with spotlights
-- [ ] Tutorial advances on correct user actions
-- [ ] Tutorial can be skipped at any point
-- [ ] Completion status persists across page refreshes
-- [ ] No visual regressions in existing UI
+ALL of the following must be true:
+- `npm test -- src/__tests__/particleSystem.test.ts` passes all 22 tests in a single run
+- `npm test` passes all 915 tests with 0 failures
+- `npm run build` succeeds with 0 TypeScript errors
+- The `should update particle age over time` test uses particle ID tracking (not array index comparison)
+- The fixed test passes 5 consecutive runs
+
+---
 
 ## Out of Scope
 
-- Sound effects and audio feedback
-- Animated mascot/character for tutorial
-- Multi-language support for tutorial text
-- Partial tutorial replay (re-watch specific steps)
-- Difficulty selection for tutorial
-- Advanced tip system beyond tutorial
+- No production code changes
+- No new features
+- No new modules
+- No UI/UX changes
+- No test infrastructure changes (e.g., mocking framework changes)
+- Fixing any other flaky tests beyond particleSystem.test.ts
+
+---
+
+**APPROVED**

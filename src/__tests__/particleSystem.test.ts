@@ -98,19 +98,30 @@ describe('ParticleSystem', () => {
         x: 100,
         y: 100,
         rate: 10,
+        lifetime: [2, 3], // Longer lifetime so particle survives between updates
         autoStart: false,
       });
 
       emitter.start();
       const particles1 = emitter.update(0.1);
 
-      if (particles1.length > 0) {
-        const particles2 = emitter.update(0.5);
-        
-        if (particles2.length > 0) {
-          expect(particles2[0].age).toBeGreaterThanOrEqual(particles1[0].age);
-        }
-      }
+      // Track a specific particle by ID instead of comparing array indices
+      // because particles[0] may be a different particle after each update
+      // (particles are continuously emitted and some may die between updates)
+      expect(particles1.length).toBeGreaterThan(0);
+      
+      const trackedParticleId = particles1[0].id;
+      const age1 = particles1[0].age;
+      
+      const particles2 = emitter.update(0.2);
+      
+      // Find the same particle by ID to verify age increased
+      const trackedParticle = particles2.find(p => p.id === trackedParticleId);
+      
+      // The tracked particle should still be alive with this lifetime range
+      expect(trackedParticle).toBeDefined();
+      expect(trackedParticle!.age).toBeGreaterThan(age1);
+      expect(trackedParticle!.age).toBeGreaterThanOrEqual(age1 + 0.2 - 0.001); // Account for floating point
 
       emitter.destroy();
     });

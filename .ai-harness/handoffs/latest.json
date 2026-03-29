@@ -1,38 +1,33 @@
 {
-  "round": 13,
+  "round": 14,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "f8c5dfac665ff90193a03583f29d4c52ee6425f3",
+  "commit": "57f2198978b1e1703a89ee12e0c4a7e831329177",
   "completed_items": [
-    "| AC1 | Resolution dropdown (1x/2x/4x) implemented and functional | **VERIFIED** | 32 new tests pass; resolution selector with size previews |",
-    "| AC2 | Transparent background toggle implemented and functional | **VERIFIED** | Toggle checkbox labeled \"\u900f\u660e\u80cc\u666f\" added to modal |",
-    "| AC3 | Aspect ratio presets implemented and functional | **VERIFIED** | 4 aspect ratio options with proper dimensions |",
-    "| AC4 | Filename persistence during export session works | **VERIFIED** | Filename input persists across format changes |",
-    "| AC5 | `npm test` passes all 909 tests | **VERIFIED** | 909 tests pass (877 existing + 32 new) |"
+    "| AC1 | Welcome modal persistence bug fixed | **VERIFIED** | 6 new tests verify localStorage state is correctly read |",
+    "| AC2 | Modal doesn't appear after skip | **VERIFIED** | Test \"should not render modal when hasSeenWelcome is true\" passes |",
+    "| AC3 | `npm test` passes all 915 tests | **VERIFIED** | 915 tests pass (909 existing + 6 new) |",
+    "| AC4 | Build succeeds with 0 TypeScript errors | **VERIFIED** | npm run build succeeds |"
   ],
   "incomplete_items": [],
   "failure_reasons": [],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
-    ".ai-harness/handoffs/round-12.json",
-    ".ai-harness/qa-reports/sprint-12-qa.md",
+    ".ai-harness/handoffs/round-13.json",
     ".ai-harness/qa-reports/sprint-13-qa.md",
+    ".ai-harness/qa-reports/sprint-14-qa.md",
     ".ai-harness/runtime/resume-state.json",
-    ".ai-harness/sprint-contracts/sprint-13.md",
+    ".ai-harness/sprint-contracts/sprint-14.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-BJM0rJpm.css",
-    "dist/assets/index-lbvhaMeZ.js",
-    "dist/assets/index-rfrAFJGe.css",
+    "dist/assets/index-Djy9_Cr_.js",
     "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/__tests__/exportQuality.test.tsx",
-    "src/components/Export/ExportModal.tsx",
-    "src/types/index.ts",
-    "src/utils/exportUtils.ts"
+    "src/__tests__/tutorialPersistence.test.tsx",
+    "src/components/Tutorial/WelcomeModal.tsx"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
@@ -40,14 +35,16 @@
   ],
   "known_issues": [],
   "next_priorities": [
+    "1. Zustand store initializes with default values (`hasSeenWelcome: false`, `isTutorialEnabled: true`)",
+    "2. Zustand persist middleware reads from localStorage asynchronously",
+    "3. The WelcomeModal component was reading `isTutorialEnabled` from the store, which was `true` (default) before hydration",
+    "4. This caused the modal to appear even when user had previously skipped",
     "1. Verify build: `npm run build`",
     "2. Run tests: `npm test`",
-    "3. Check specific test files: `npm test -- src/__tests__/exportQuality.test.tsx`",
-    "4. Browser verification: Open application, open Export Modal, test all new features",
-    "1. **Resolution Multiplier**: PNG exports at 1x (400px+), 2x (800px+), and 4x (1600px+) resolution",
-    "2. **Transparent Background**: Toggle to export PNG with transparent background",
-    "3. **Aspect Ratio Presets**: Square (600\u00d7600), Portrait (600\u00d7800), Landscape (800\u00d7600) for posters",
-    "4. **Filename Persistence**: Filename input keeps value across format changes"
+    "3. Check specific persistence tests: `npm test -- tutorialPersistence`",
+    "4. Browser verification: Open application, skip tutorial, refresh, verify modal doesn't appear",
+    "1. Added `getInitialTutorialState()` function that synchronously reads from localStorage",
+    "2. The function correctly parses Zustand's persisted format: `{ state: { hasSeenWelcome, isTutorialEnabled }, version }`"
   ],
   "evaluator_failures": [],
   "restore_instructions": [
