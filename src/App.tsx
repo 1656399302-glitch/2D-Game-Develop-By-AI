@@ -10,7 +10,7 @@ import { ConnectionErrorToast } from './components/Connections/ConnectionErrorTo
 import { RandomForgeToast } from './components/UI/RandomForgeToast';
 import { LoadPromptModal } from './components/UI/LoadPromptModal';
 import { ChallengeButton } from './components/Challenges/ChallengeButton';
-import { ChallengeBrowser } from './components/Challenges/ChallengeBrowser';
+import { ChallengePanel } from './components/Challenge/ChallengePanel';
 import { WelcomeModal, useWelcomeModal } from './components/Tutorial/WelcomeModal';
 import { TutorialOverlay } from './components/Tutorial/TutorialOverlay';
 import { RecipeBrowser } from './components/Recipes/RecipeBrowser';
@@ -21,6 +21,7 @@ import { useTutorialStore } from './store/useTutorialStore';
 import { useRecipeStore } from './store/useRecipeStore';
 import { useStatsStore } from './store/useStatsStore';
 import { useFactionStore } from './store/useFactionStore';
+import { useAchievementStore } from './store/useAchievementStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
@@ -112,6 +113,23 @@ function App() {
       checkTutorialUnlock();
     }
   }, [checkTutorialUnlock]);
+  
+  // Connect AchievementToast to achievement store callbacks
+  useEffect(() => {
+    const handleAchievementUnlock = (achievement: Achievement) => {
+      setCurrentAchievement(achievement);
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        setCurrentAchievement(null);
+      }, 5000);
+    };
+    
+    useAchievementStore.getState().setOnUnlockCallback(handleAchievementUnlock);
+    
+    return () => {
+      useAchievementStore.getState().setOnUnlockCallback(null);
+    };
+  }, []);
   
   // Handle achievement toast dismissal
   const handleAchievementDismiss = useCallback(() => {
@@ -412,12 +430,24 @@ function App() {
         <ActivationOverlay onComplete={handleActivationComplete} />
       )}
       
-      {/* Challenge Browser Modal */}
+      {/* Challenge Panel Modal */}
       {showChallenges && (
-        <ChallengeBrowser 
-          isOpen={showChallenges} 
-          onClose={() => setShowChallenges(false)} 
-        />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[80vh] bg-[#121826] border border-[#1e2a42] rounded-xl flex flex-col overflow-hidden shadow-2xl">
+            {/* Header with close button */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2a42]">
+              <div />
+              <button
+                onClick={() => setShowChallenges(false)}
+                className="w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors"
+                aria-label="关闭"
+              >
+                ✕
+              </button>
+            </div>
+            <ChallengePanel />
+          </div>
+        </div>
       )}
       
       {/* Recipe Browser Modal */}
