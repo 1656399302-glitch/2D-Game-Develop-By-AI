@@ -2,67 +2,47 @@
   "round": 15,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "93e2ca4a983da9aee89d74ac98f672323108ad76",
+  "commit": "d584d5c1ab573d5ce04697df1dbe285ddd1b9e22",
   "completed_items": [
-    "| 1 | First-time detection works | VERIFIED - hasSeenWelcome state tracks user status |",
-    "| 2 | Welcome modal displays | VERIFIED - WelcomeModal shows for users who haven't seen it |",
-    "| 3 | Tutorial overlay appears | VERIFIED - TutorialOverlay renders with spotlight |",
-    "| 4 | Tooltip follows target | VERIFIED - Smart positioning with viewport clamping |",
-    "| 5 | 6 tutorial steps complete flow | VERIFIED - All 6 steps defined with proper actions |",
-    "| 6 | Skip functionality | VERIFIED - skipTutorial action deactivates and marks seen |",
-    "| 7 | Progress persists | VERIFIED - localStorage persistence for hasSeenWelcome |",
-    "| 8 | Return users skip | VERIFIED - hasSeenWelcome prevents re-appearance |",
-    "| 9 | Non-blocking | VERIFIED - Tutorial can be dismissed from help menu |",
-    "| 10 | Build succeeds with 0 TypeScript errors | VERIFIED |"
+    "| AC1 | `npm test -- src/__tests__/particleSystem.test.ts` passes all 22 tests | **VERIFIED** | All 5 consecutive runs passed |",
+    "| AC2 | Test verifies SAME particle's age increases by tracking ID | **VERIFIED** | Code uses `trackedParticleId` and `.find()` |",
+    "| AC3 | `npm test` passes all 915 tests with 0 failures | **VERIFIED** | 915 tests, 46 test files, 0 failures |",
+    "| AC4 | `npm run build` succeeds with 0 TypeScript errors | **VERIFIED** | Build completes with 0 TypeScript errors |",
+    "| AC5 | Stability verification: 5 consecutive runs pass | **VERIFIED** | All 5 runs passed |",
+    "| `src/__tests__/particleSystem.test.ts` | VERIFIED - Fix confirmed working |"
   ],
   "incomplete_items": [],
-  "failure_reasons": [
-    "**Critical: Welcome modal persistence bug** \u2014 localStorage correctly stores `hasSeenWelcome: true` after skip, but the modal still appears on every page load. This is a race condition where Zustand's persist middleware hydrates after the `useEffect` in `useWelcomeModal` has already shown the modal based on default state.",
-    "**Failing test** \u2014 `activationModes.test.ts` has 1 failing test: `Random Generator - Module Spacing > should generate 10 machines with no overlapping modules` (expected distance >= 80, got 79.4)"
-  ],
+  "failure_reasons": [],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
     ".ai-harness/handoffs/round-14.json",
     ".ai-harness/qa-reports/sprint-14-qa.md",
+    ".ai-harness/qa-reports/sprint-15-qa.md",
+    ".ai-harness/runtime/resume-state.json",
     ".ai-harness/sprint-contracts/sprint-15.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-CFHfna07.css",
-    "dist/assets/index-DJossIkm.css",
-    "dist/assets/index-Fjwvq_Zo.js",
-    "dist/assets/index-IFOKCtu4.js",
-    "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/App.tsx",
-    "src/__tests__/tutorialSystem.test.ts",
-    "src/components/Tutorial/TutorialCompletion.tsx",
-    "src/components/Tutorial/TutorialOverlay.tsx",
-    "src/components/Tutorial/TutorialProgress.tsx",
-    "src/components/Tutorial/TutorialSpotlight.tsx",
-    "src/components/Tutorial/TutorialTooltip.tsx",
-    "src/components/Tutorial/WelcomeModal.tsx",
-    "src/data/tutorialSteps.ts",
-    "src/store/useTutorialStore.ts"
+    "src/__tests__/particleSystem.test.ts"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
     "python harness.py dashboard"
   ],
-  "known_issues": [
-    "**Critical: Welcome modal persistence bug** \u2014 localStorage correctly stores `hasSeenWelcome: true` after skip, but the modal still appears on every page load. This is a race condition where Zustand's persist middleware hydrates after the `useEffect` in `useWelcomeModal` has already shown the modal based on default state.",
-    "**Failing test** \u2014 `activationModes.test.ts` has 1 failing test: `Random Generator - Module Spacing > should generate 10 machines with no overlapping modules` (expected distance >= 80, got 79.4)"
-  ],
+  "known_issues": [],
   "next_priorities": [
-    "**Critical: Welcome modal persistence bug** \u2014 localStorage correctly stores `hasSeenWelcome: true` after skip, but the modal still appears on every page load. This is a race condition where Zustand's persist middleware hydrates after the `useEffect` in `useWelcomeModal` has already shown the modal based on default state.",
-    "**Failing test** \u2014 `activationModes.test.ts` has 1 failing test: `Random Generator - Module Spacing > should generate 10 machines with no overlapping modules` (expected distance >= 80, got 79.4)"
+    "1. Run `npm test -- src/__tests__/particleSystem.test.ts` 5 times to verify stability",
+    "2. Check if any test files were modified that could affect particle behavior",
+    "3. Verify ParticleSystem.ts utility code hasn't changed",
+    "1. Uses longer particle lifetime (2-3 seconds) to ensure particles survive between updates",
+    "2. Tracks a specific particle by ID instead of comparing array indices",
+    "3. Finds the same particle in subsequent update calls using `.find(p => p.id === trackedParticleId)`",
+    "4. Verifies the tracked particle's age increases over time"
   ],
-  "evaluator_failures": [
-    "**Critical: Welcome modal persistence bug** \u2014 localStorage correctly stores `hasSeenWelcome: true` after skip, but the modal still appears on every page load. This is a race condition where Zustand's persist middleware hydrates after the `useEffect` in `useWelcomeModal` has already shown the modal based on default state.",
-    "**Failing test** \u2014 `activationModes.test.ts` has 1 failing test: `Random Generator - Module Spacing > should generate 10 machines with no overlapping modules` (expected distance >= 80, got 79.4)"
-  ],
+  "evaluator_failures": [],
   "restore_instructions": [
     "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",
     "Use .ai-harness/handoffs/latest.json as the first recovery artifact."

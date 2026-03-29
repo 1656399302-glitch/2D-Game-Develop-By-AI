@@ -1,33 +1,32 @@
 {
-  "round": 14,
+  "round": 15,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "57f2198978b1e1703a89ee12e0c4a7e831329177",
+  "commit": "d584d5c1ab573d5ce04697df1dbe285ddd1b9e22",
   "completed_items": [
-    "| AC1 | Welcome modal persistence bug fixed | **VERIFIED** | 6 new tests verify localStorage state is correctly read |",
-    "| AC2 | Modal doesn't appear after skip | **VERIFIED** | Test \"should not render modal when hasSeenWelcome is true\" passes |",
-    "| AC3 | `npm test` passes all 915 tests | **VERIFIED** | 915 tests pass (909 existing + 6 new) |",
-    "| AC4 | Build succeeds with 0 TypeScript errors | **VERIFIED** | npm run build succeeds |"
+    "| AC1 | `npm test -- src/__tests__/particleSystem.test.ts` passes all 22 tests | **VERIFIED** | All 5 consecutive runs passed |",
+    "| AC2 | Test verifies SAME particle's age increases by tracking ID | **VERIFIED** | Code uses `trackedParticleId` and `.find()` |",
+    "| AC3 | `npm test` passes all 915 tests with 0 failures | **VERIFIED** | 915 tests, 46 test files, 0 failures |",
+    "| AC4 | `npm run build` succeeds with 0 TypeScript errors | **VERIFIED** | Build completes with 0 TypeScript errors |",
+    "| AC5 | Stability verification: 5 consecutive runs pass | **VERIFIED** | All 5 runs passed |",
+    "| `src/__tests__/particleSystem.test.ts` | VERIFIED - Fix confirmed working |"
   ],
   "incomplete_items": [],
   "failure_reasons": [],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
-    ".ai-harness/handoffs/round-13.json",
-    ".ai-harness/qa-reports/sprint-13-qa.md",
+    ".ai-harness/handoffs/round-14.json",
     ".ai-harness/qa-reports/sprint-14-qa.md",
+    ".ai-harness/qa-reports/sprint-15-qa.md",
     ".ai-harness/runtime/resume-state.json",
-    ".ai-harness/sprint-contracts/sprint-14.md",
+    ".ai-harness/sprint-contracts/sprint-15.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-Djy9_Cr_.js",
-    "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/__tests__/tutorialPersistence.test.tsx",
-    "src/components/Tutorial/WelcomeModal.tsx"
+    "src/__tests__/particleSystem.test.ts"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
@@ -35,16 +34,13 @@
   ],
   "known_issues": [],
   "next_priorities": [
-    "1. Zustand store initializes with default values (`hasSeenWelcome: false`, `isTutorialEnabled: true`)",
-    "2. Zustand persist middleware reads from localStorage asynchronously",
-    "3. The WelcomeModal component was reading `isTutorialEnabled` from the store, which was `true` (default) before hydration",
-    "4. This caused the modal to appear even when user had previously skipped",
-    "1. Verify build: `npm run build`",
-    "2. Run tests: `npm test`",
-    "3. Check specific persistence tests: `npm test -- tutorialPersistence`",
-    "4. Browser verification: Open application, skip tutorial, refresh, verify modal doesn't appear",
-    "1. Added `getInitialTutorialState()` function that synchronously reads from localStorage",
-    "2. The function correctly parses Zustand's persisted format: `{ state: { hasSeenWelcome, isTutorialEnabled }, version }`"
+    "1. Run `npm test -- src/__tests__/particleSystem.test.ts` 5 times to verify stability",
+    "2. Check if any test files were modified that could affect particle behavior",
+    "3. Verify ParticleSystem.ts utility code hasn't changed",
+    "1. Uses longer particle lifetime (2-3 seconds) to ensure particles survive between updates",
+    "2. Tracks a specific particle by ID instead of comparing array indices",
+    "3. Finds the same particle in subsequent update calls using `.find(p => p.id === trackedParticleId)`",
+    "4. Verifies the tracked particle's age increases over time"
   ],
   "evaluator_failures": [],
   "restore_instructions": [

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { TOTAL_TUTORIAL_STEPS } from '../data/tutorialSteps';
 
 interface TutorialStore {
   // State
@@ -52,7 +53,7 @@ export const useTutorialStore = create<TutorialStore>()(
         set({ 
           currentStep: sessionCurrentStep, 
           completedSteps: new Set(sessionCompletedSteps),
-          isTutorialActive: sessionCurrentStep < 6 // Assuming 6 steps total
+          isTutorialActive: sessionCurrentStep < TOTAL_TUTORIAL_STEPS
         });
       },
 
@@ -123,11 +124,11 @@ export const shouldShowWelcome = (): boolean => {
 
 // Helper to get tutorial progress
 export const getTutorialProgress = (): { current: number; total: number; percentage: number } => {
-  const TOTAL_STEPS = 6;
+  const totalSteps = TOTAL_TUTORIAL_STEPS;
   const current = useTutorialStore.getState().currentStep;
   return {
     current: current + 1,
-    total: TOTAL_STEPS,
-    percentage: ((current + 1) / TOTAL_STEPS) * 100
+    total: totalSteps,
+    percentage: ((current + 1) / totalSteps) * 100
   };
 };

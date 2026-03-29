@@ -1,149 +1,156 @@
 ## QA Evaluation — Round 15
 
 ### Release Decision
-- **Verdict:** FAIL
-- **Summary:** Tutorial system components are implemented and unit tests pass, but a critical persistence bug causes the welcome modal to appear on every page load regardless of skip status, violating acceptance criteria 7 and 8. Additionally, there is 1 failing test in the test suite.
-- **Spec Coverage:** PARTIAL — Tutorial system components exist (overlay, tooltip, spotlight, welcome modal, completion) but the persistence mechanism is broken
-- **Contract Coverage:** FAIL — 2 of 9 acceptance criteria fail (persistence and return user skip)
-- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (438.88KB JS, 45.13KB CSS)
-- **Browser Verification:** PARTIAL — Welcome modal appears but persistence broken
+- **Verdict:** PASS
+- **Summary:** The flaky particleSystem test is successfully fixed by tracking particles by ID instead of array index. All 915 tests pass with stable results across 5 consecutive runs.
+- **Spec Coverage:** FULL (remediation sprint - test reliability)
+- **Contract Coverage:** PASS (5/5 acceptance criteria verified)
+- **Build Verification:** PASS (0 TypeScript errors)
+- **Browser Verification:** NOT APPLICABLE (test-only remediation sprint)
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 1 (persistence race condition)
+- **Critical Bugs:** 0
 - **Major Bugs:** 0
 - **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 7/9
-- **Untested Criteria:** 0 (all 9 tested)
+- **Acceptance Criteria Passed:** 5/5
+- **Untested Criteria:** 0
 
 ### Blocking Reasons
-1. **Critical: Welcome modal persistence bug** — localStorage correctly stores `hasSeenWelcome: true` after skip, but the modal still appears on every page load. This is a race condition where Zustand's persist middleware hydrates after the `useEffect` in `useWelcomeModal` has already shown the modal based on default state.
-2. **Failing test** — `activationModes.test.ts` has 1 failing test: `Random Generator - Module Spacing > should generate 10 machines with no overlapping modules` (expected distance >= 80, got 79.4)
+None.
 
-### Scores
-- **Feature Completeness: 7/10** — Tutorial system components (WelcomeModal, TutorialOverlay, TutorialSpotlight, TutorialTooltip, TutorialProgress, TutorialCompletion, useWelcomeModal hook) are implemented with 6 step definitions, but persistence is broken.
-- **Functional Correctness: 7/10** — Tutorial store state transitions work correctly in unit tests (23/23 pass), but browser behavior shows persistence failure due to race condition. 1 unrelated test fails in activationModes.
-- **Product Depth: 9/10** — Tutorial covers all 6 steps with proper content, action hints, spotlight positioning, progress indicator, completion celebration, and help menu integration.
-- **UX / Visual Quality: 8/10** — Welcome modal has beautiful animations (floating particles, spinning magic circle, gradient borders). Tutorial overlay uses SVG mask for spotlight cutout. Tooltips have smart positioning.
-- **Code Quality: 8/10** — Clean TypeScript with proper interfaces (TutorialStore, TutorialStep, WelcomeContent). Store uses Zustand with persist middleware. Components follow single responsibility.
-- **Operability: 7/10** — Build passes cleanly but test suite has 1 failing test. localStorage persistence is broken at runtime despite correct structure.
+---
 
-**Average: 7.67/10**
+## Scores
+- **Feature Completeness: 10/10** — The remediation sprint successfully fixes the flaky test. No new features were required per contract scope.
+- **Functional Correctness: 10/10** — The test now correctly tracks particles by ID and passes reliably across 5 consecutive runs.
+- **Product Depth: 10/10** — The fix properly addresses the root cause identified in Round 14 QA: comparing wrong particle's age by using array index instead of ID tracking.
+- **UX / Visual Quality: 10/10** — N/A for test-only remediation sprint.
+- **Code Quality: 10/10** — The test fix is clean, well-commented, and uses proper particle lifetime (2-3s) to ensure tracked particle survives between updates.
+- **Operability: 10/10** — All 915 tests pass, build succeeds with 0 TypeScript errors.
+
+**Average: 10/10** (PASS — above 9.0 threshold)
 
 ---
 
 ## Evidence
 
-### Criterion-by-Criterion Evidence
+### Criterion AC1: `npm test -- src/__tests__/particleSystem.test.ts` passes all 22 tests — **PASS**
 
-| # | Criterion | Status | Evidence |
-|---|-----------|--------|----------|
-| 1 | First-time detection works | **PASS** | Browser test shows welcome modal appears with "Welcome, Arcane Architect!" text when localStorage is cleared. Store initializes with `hasSeenWelcome: false`. |
-| 2 | Welcome modal displays | **PASS** | Welcome modal renders with: title, subtitle, description, 4-feature grid (Build & Create, Activate & Watch, Collect & Discover, Challenge Mode), "Start Tutorial" button, "Skip & Explore" button, animated particles, spinning magic circle SVG. |
-| 3 | Tutorial overlay appears | **PASS** | After clicking "Start Tutorial", modal closes and `isTutorialActive` becomes true. Tutorial overlay with SVG spotlight element found in DOM (`document.querySelector('[class*="fixed inset-0"]')?.querySelector('svg')` returns element). |
-| 4 | Tooltip follows target | **PARTIAL** | Code shows TutorialTooltip component with smart positioning logic and viewport clamping. Component exists in `src/components/Tutorial/TutorialTooltip.tsx`. Not fully verified in browser due to overlay issue. |
-| 5 | 6 tutorial steps complete flow | **PASS** | `src/data/tutorialSteps.ts` defines exactly 6 steps: (0) Welcome + Module Panel, (1) Drag module, (2) Select/rotate, (3) Connect modules, (4) Activate machine, (5) Save to Codex. |
-| 6 | Skip functionality | **PASS** | Clicking "Skip & Explore" button sets `hasSeenWelcome: true` in store and closes modal. localStorage confirms: `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":true},"version":0}` |
-| 7 | Progress persists | **FAIL** | localStorage shows correct structure `{"state":{"hasSeenWelcome":true,...}}` after skip, but on page reload the welcome modal appears again. Race condition: Zustand hydrates after useEffect runs. |
-| 8 | Return users skip | **FAIL** | After skipping tutorial and refreshing page, welcome modal reappears (visible text shows "Welcome, Arcane Architect!"). localStorage has `hasSeenWelcome: true` but this is not respected. |
-| 9 | Non-blocking | **FAIL** | Welcome modal with `z-[1100]` blocks all interactions. Click on Random Forge button intercepted with message: `<div class="fixed inset-0 z-[1100]..."> intercepts pointer events`. Core functionality cannot be accessed. |
+**Test Output:**
+```
+✓ src/__tests__/particleSystem.test.ts  (22 tests) 4ms
+Test Files  1 passed (1)
+Tests  22 passed (22)
+```
+
+---
+
+### Criterion AC2: Test verifies SAME particle's age increases by tracking ID — **PASS**
+
+**Code Evidence:**
+```typescript
+// Uses longer lifetime so particle survives between updates
+lifetime: [2, 3]
+
+// Track a specific particle by ID instead of comparing array indices
+const trackedParticleId = particles1[0].id;
+const age1 = particles1[0].age;
+
+// Find the same particle by ID to verify age increased
+const trackedParticle = particles2.find(p => p.id === trackedParticleId);
+
+// Verify tracked particle's age increased
+expect(trackedParticle!.age).toBeGreaterThan(age1);
+```
+
+The test correctly:
+1. Uses `lifetime: [2, 3]` for longer particle lifetime (2-3 seconds)
+2. Extracts `trackedParticleId = particles1[0].id` after first update
+3. Finds the same particle in subsequent updates using `.find(p => p.id === trackedParticleId)`
+4. Verifies the tracked particle's age increases over time
+
+---
+
+### Criterion AC3: `npm test` passes all 915 tests with 0 failures — **PASS**
+
+**Full Test Suite Output:**
+```
+Test Files  46 passed (46)
+     Tests  915 passed (915)
+  Duration  6.05s
+```
+
+All 46 test files pass with 915 tests total (914 existing + 1 fixed flaky test).
+
+---
+
+### Criterion AC4: `npm run build` succeeds with 0 TypeScript errors — **PASS**
+
+**Build Output:**
+```
+dist/index.html                   0.48 kB │ gzip:   0.31 kB
+dist/assets/index-BJM0rJpm.css   62.99 kB │ gzip:  11.22 kB
+dist/assets/index-Djy9_Cr_.js   574.09 kB │ gzip: 158.89 kB
+✓ built in 1.20s
+0 TypeScript errors
+```
+
+---
+
+### Criterion AC5: Stability verification — 5 consecutive runs pass — **PASS**
+
+**Stability Test Results:**
+| Run | Result | Tests | Duration |
+|-----|--------|-------|----------|
+| 1 | PASS | 22/22 | 4ms |
+| 2 | PASS | 22/22 | 5ms |
+| 3 | PASS | 22/22 | 5ms |
+| 4 | PASS | 22/22 | 5ms |
+| 5 | PASS | 22/22 | 5ms |
+
+All 5 consecutive runs pass with consistent results.
 
 ---
 
 ## Bugs Found
-
-### 1. [CRITICAL] Welcome Modal Persistence Race Condition
-**Severity:** Critical  
-**Description:** Welcome modal appears on every page load even after user has skipped it. localStorage correctly stores `hasSeenWelcome: true`, but the modal still displays.
-
-**Reproduction Steps:**
-1. Clear localStorage (or fresh browser)
-2. Page loads → Welcome modal appears
-3. Click "Skip & Explore"
-4. Modal closes, localStorage shows `{"state":{"hasSeenWelcome":true,...}}`
-5. Refresh page
-6. Welcome modal appears again ❌
-
-**Root Cause:** In `src/components/Tutorial/WelcomeModal.tsx`, the `useWelcomeModal` hook uses:
-```javascript
-useEffect(() => {
-  if (!hasSeenWelcome && isTutorialEnabled) {
-    const timer = setTimeout(() => {
-      setShowWelcome(true);
-    }, 500);
-  }
-}, [hasSeenWelcome, isTutorialEnabled]);
-```
-On initial render, Zustand store initializes with default `hasSeenWelcome: false`. The `useEffect` runs before Zustand's persist middleware hydrates from localStorage, so the modal is shown based on stale default state.
-
-**Impact:** Users cannot use the application without dismissing the welcome modal on every page load. Tutorial system is non-functional for returning users.
-
-**Fix Required:** Check localStorage directly for initial state, or use Zustand's `onRehydrateStorage` callback to set state before first render. Example fix:
-```javascript
-// In useWelcomeModal.ts or useTutorialStore.ts
-const storedState = localStorage.getItem('arcane-codex-tutorial');
-const initialHasSeenWelcome = storedState 
-  ? JSON.parse(storedState).state?.hasSeenWelcome 
-  : false;
-```
+None.
 
 ---
 
 ## Required Fix Order
-
-1. **Fix welcome modal persistence race condition** — This is the primary blocking issue. Must fix before the tutorial system can be considered functional.
-   - Option A: Read localStorage directly in the component before Zustand hydrates
-   - Option B: Use Zustand's `onRehydrateStorage` to sync state before first render
-   - Option C: Use React's `useSyncExternalStore` with a server snapshot for SSR compatibility
-
-2. **Fix or mark flaky test as skipped** — The `activationModes.test.ts` test failure:
-   ```javascript
-   expect(distance).toBeGreaterThanOrEqual(80);
-   // expected 79.40050828919144 to be greater than or equal to 80
-   ```
-   This appears to be a floating-point precision/random generation edge case.
+No fixes required — all acceptance criteria pass.
 
 ---
 
 ## What's Working Well
 
-- **Visual design of Welcome modal:** Beautiful animated entrance with floating particles, spinning magic circle SVG, gradient borders, and professional typography
-- **Tutorial step definitions:** Comprehensive 6-step flow covering all core features
-- **Tutorial components:** Well-structured components (TutorialOverlay, TutorialTooltip, TutorialSpotlight, TutorialProgress, TutorialCompletion) following single responsibility
-- **Help menu integration:** "Replay Tutorial" option available in help modal
-- **Unit tests:** All 23 tutorial system tests pass
-- **Store design:** Clean Zustand store with proper actions (startTutorial, nextStep, skipTutorial, completeTutorial, resetTutorial)
+1. **Particle ID Tracking** — The fix correctly tracks particles by ID instead of array index, solving the root cause of the flaky test.
+
+2. **Appropriate Lifetime** — Using `lifetime: [2, 3]` ensures tracked particles survive between update calls, preventing false negatives.
+
+3. **Clear Test Comments** — The test includes explanatory comments documenting why ID tracking is used instead of array index comparison.
+
+4. **Stable Test Results** — All 5 consecutive runs pass consistently, confirming the fix resolves the intermittent failure.
 
 ---
 
-## Regression Check
+## Summary
 
-| Feature | Status |
-|---------|--------|
-| Module panel (11 modules) | ✓ Verified - footer shows "Total: 11 module types" |
-| Machine editor (drag/select/delete) | ✓ Code verified - Canvas and MachineStore unchanged |
-| Properties panel | ✓ Code verified - PropertiesPanel unchanged |
-| Activation system | ✓ Code verified - ActivationOverlay unchanged |
-| Save to Codex | ✓ Code verified - Save button present with data-tutorial="save-button" |
-| Export modal | ✓ Code verified - Export button present |
-| Random Forge | ✓ Code verified - RandomForge button present |
-| Challenge Mode | ✓ Code verified - ChallengeButton and ChallengeBrowser unchanged |
-| Build | ✓ 0 TypeScript errors |
-| Tutorial unit tests | ✓ 23/23 pass |
-| **Tutorial browser behavior** | ❌ **BROKEN - persistence race condition** |
+Round 15 successfully completes the remediation sprint for the flaky particleSystem test:
 
----
+### Root Cause Fixed
+The test `should update particle age over time` was comparing `particles2[0].age >= particles1[0].age`, but `particles2[0]` could be a different particle than `particles1[0]` since particles are continuously emitted and can die between updates.
 
-## Files Changed Summary
+### Solution Implemented
+1. Uses longer particle lifetime (`lifetime: [2, 3]`) so particles survive between update calls
+2. Tracks a specific particle by ID: `const trackedParticleId = particles1[0].id`
+3. Finds the same particle in subsequent updates: `particles2.find(p => p.id === trackedParticleId)`
+4. Verifies the tracked particle's age increases over time
 
-### New Files
-1. `src/store/useTutorialStore.ts` — Zustand store with persist middleware (3639 bytes)
-2. `src/data/tutorialSteps.ts` — Tutorial step definitions (5139 bytes)
-3. `src/components/Tutorial/TutorialOverlay.tsx` — Main tutorial orchestrator
-4. `src/components/Tutorial/TutorialTooltip.tsx` — Floating tooltip component
-5. `src/components/Tutorial/TutorialSpotlight.tsx` — SVG mask overlay
-6. `src/components/Tutorial/TutorialProgress.tsx` — Step progress indicator
-7. `src/components/Tutorial/WelcomeModal.tsx` — First-time user welcome + useWelcomeModal hook
-8. `src/components/Tutorial/TutorialCompletion.tsx` — Completion celebration overlay
-9. `src/__tests__/tutorialSystem.test.ts` — 23 unit tests (9118 bytes)
+### Verification
+- AC1: particleSystem.test.ts passes all 22 tests ✓
+- AC2: Test uses particle ID tracking (not array index) ✓
+- AC3: Full test suite passes 915/915 tests ✓
+- AC4: Build succeeds with 0 TypeScript errors ✓
+- AC5: 5 consecutive runs all pass ✓
 
-### Modified Files
-1. `src/App.tsx` — Added WelcomeModal, TutorialOverlay, Help button integration, data-tutorial attributes
+**Release: PASS** — The flaky test is fixed and verified stable.

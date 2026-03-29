@@ -80,6 +80,28 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     actionDescription: 'Click the Save to Codex button',
     expectedResult: 'Machine is saved with generated attributes',
   },
+  {
+    id: 'export-share',
+    stepNumber: 6,
+    title: 'Export and Share',
+    description: 'Export your machine as an SVG or PNG image, or generate a shareable poster card! Perfect for showcasing your creation.',
+    targetSelector: '[data-tutorial="export-button"]',
+    position: 'bottom',
+    action: 'click',
+    actionDescription: 'Click Export to see sharing options',
+    expectedResult: 'Export modal opens with SVG, PNG, and poster options',
+  },
+  {
+    id: 'random-forge',
+    stepNumber: 7,
+    title: 'Try the Random Forge',
+    description: 'Not sure where to start? Use the Random Forge to generate a complete machine with random modules and connections. You can always edit it afterwards!',
+    targetSelector: '[data-tutorial="random-forge-button"]',
+    position: 'left',
+    action: 'click',
+    actionDescription: 'Click Random Forge to generate inspiration',
+    expectedResult: 'A complete machine is generated with random configuration',
+  },
 ];
 
 export const getStepById = (id: string): TutorialStep | undefined => {

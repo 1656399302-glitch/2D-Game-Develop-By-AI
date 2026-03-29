@@ -30,8 +30,8 @@ describe('Tutorial System', () => {
   });
 
   describe('Tutorial Steps Data', () => {
-    it('should have 6 tutorial steps', () => {
-      expect(TUTORIAL_STEPS).toHaveLength(6);
+    it('should have 8 tutorial steps', () => {
+      expect(TUTORIAL_STEPS).toHaveLength(8);
     });
 
     it('each step should have required properties', () => {
@@ -58,8 +58,8 @@ describe('Tutorial System', () => {
       expect(step5?.title).toBe('Save to Your Codex');
     });
 
-    it('TOTAL_TUTORIAL_STEPS should be 6', () => {
-      expect(TOTAL_TUTORIAL_STEPS).toBe(6);
+    it('TOTAL_TUTORIAL_STEPS should be 8', () => {
+      expect(TOTAL_TUTORIAL_STEPS).toBe(8);
     });
 
     it('first step has welcome content', () => {
@@ -68,10 +68,16 @@ describe('Tutorial System', () => {
       expect(step0?.position).toBe('right');
     });
 
-    it('last step is save to codex', () => {
-      const step5 = getStepByNumber(5);
-      expect(step5?.action).toBe('click');
-      expect(step5?.targetSelector).toBe('[data-tutorial="save-button"]');
+    it('last step is random forge', () => {
+      const step7 = getStepByNumber(7);
+      expect(step7?.action).toBe('click');
+      expect(step7?.targetSelector).toContain('random-forge');
+    });
+
+    it('step 6 is export/share step', () => {
+      const step6 = getStepByNumber(6);
+      expect(step6?.action).toBe('click');
+      expect(step6?.targetSelector).toContain('export');
     });
   });
 
@@ -207,7 +213,7 @@ describe('Tutorial System', () => {
   });
 
   describe('Tutorial Flow Integration', () => {
-    it('complete tutorial flow works correctly', () => {
+    it('complete tutorial flow works correctly for all 8 steps', () => {
       const store = useTutorialStore.getState();
       
       // Start tutorial
@@ -215,8 +221,8 @@ describe('Tutorial System', () => {
       expect(useTutorialStore.getState().isTutorialActive).toBe(true);
       expect(useTutorialStore.getState().currentStep).toBe(0);
 
-      // Go through all steps
-      for (let i = 1; i < 6; i++) {
+      // Go through all 8 steps
+      for (let i = 1; i < 8; i++) {
         store.nextStep();
         expect(useTutorialStore.getState().currentStep).toBe(i);
       }

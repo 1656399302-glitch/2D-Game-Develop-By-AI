@@ -182,8 +182,8 @@ describe('TutorialStore', () => {
 
       it('should set isTutorialActive to false when reaching end', () => {
         useTutorialStore.getState().startTutorial();
-        // Steps 0-5 (6 total)
-        for (let i = 0; i < 6; i++) {
+        // Steps 0-7 (8 total)
+        for (let i = 0; i < 8; i++) {
           useTutorialStore.getState().nextStep();
         }
         expect(useTutorialStore.getState().isTutorialActive).toBe(false);

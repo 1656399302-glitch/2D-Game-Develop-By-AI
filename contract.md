@@ -1,96 +1,120 @@
-# Sprint Contract — Round 15
+# Sprint Contract — Round 16
+
+## APPROVED
 
 ## Scope
 
-**Remediation Sprint**: Fix the flaky `particleSystem.test.ts` test that fails intermittently due to comparing the wrong particle's age.
-
-The test `should update particle age over time` compares `particles2[0].age >= particles1[0].age`, but `particles2[0]` may be a different particle than `particles1[0]` since particles are continuously emitted and can die between updates. This causes intermittent failures when array index 0 references a different particle.
-
----
+This sprint focuses on **Polish & Shareability** — completing the tutorial system, enhancing share/export capabilities for social media, and refining the faction tech tree UI. These improvements increase user onboarding quality and export sharing potential without introducing architectural changes.
 
 ## Spec Traceability
 
 ### P0 items covered this round
-- None (remediation sprint for test reliability)
+- Tutorial system completion (8 steps with proper UI overlays and spotlight)
+- Share card/poster enhancements (social media ready with meta tags)
+- Faction tech tree visual polish (animated nodes, faction banner, progress indicators)
 
 ### P1 items covered this round
-- None (remediation sprint for test reliability)
+- Challenge completion animations and toast notifications
+- Recipe unlock celebration animations
+- Achievement unlock toast system refinement
 
 ### Remaining P0/P1 after this round
-- All P0/P1 items remain from previous rounds
+- P0: AI naming/description generation (requires external API integration)
+- P0: Real-time multiplayer/collaboration (requires backend)
+- P1: Community share plaza (requires backend)
+- P1: Machine marketplace/trading (requires backend)
 
 ### P2 intentionally deferred
-- All P2 items remain deferred
-
----
+- Faction quest chains
+- Seasonal events
+- Cloud sync
+- Mobile app
 
 ## Deliverables
 
-1. **Fixed `src/__tests__/particleSystem.test.ts`**
-   - The `should update particle age over time` test will track a specific particle by ID instead of comparing array index 0 across different update calls
-   - Test uses longer particle lifetime (2-3s minimum) to ensure the tracked particle survives between update calls
-   - Test verification: Run test 5 consecutive times to confirm stability
+1. **Tutorial System** — `src/components/tutorial/TutorialOverlay.tsx`
+   - Complete 8-step tutorial with spotlight highlighting relevant UI
+   - Steps: Welcome, Add Module, Connect, Activate, Save to Codex, Export, Random Forge, Explore Factions
+   - Progress persistence in localStorage
+   - Skip option with "Show tutorial again" in settings
 
----
+2. **Share Card Enhancements** — `src/utils/shareUtils.ts`, poster templates
+   - Open Graph meta tags for social media preview
+   - Sharable poster template with QR code option (using inline SVG)
+   - Copy-to-clipboard share link functionality
+   - Platform-specific sharing buttons (Twitter/X, Reddit)
+
+3. **Faction Tech Tree Polish** — `src/components/faction/FactionTechTree.tsx`
+   - Animated faction banner with SVG gradients
+   - Progress indicators showing unlock status per tier
+   - Hover tooltips with faction lore
+   - Visual connection lines between unlocked nodes
+
+4. **Celebration Animations** — `src/components/common/CelebrationOverlay.tsx`
+   - Challenge completion confetti burst
+   - Recipe unlock glow animation
+   - Achievement toast with badge display
 
 ## Acceptance Criteria
 
-1. **AC1**: `npm test -- src/__tests__/particleSystem.test.ts` passes all particleSystem tests in a single run
-2. **AC2**: The `should update particle age over time` test verifies the SAME particle's age increases over time by tracking particle ID (not array index)
-3. **AC3**: `npm test` passes all 915 tests with no failures (914 existing + 1 fixed flaky test)
-4. **AC4**: `npm run build` succeeds with 0 TypeScript errors
-5. **AC5**: Stability verification: Run `npm test -- src/__tests__/particleSystem.test.ts` 5 times consecutively with all runs passing
+1. **AC1: Tutorial completes** — User can complete all 8 tutorial steps without errors; `npm test -- src/__tests__/tutorial.test.ts` passes all tests
 
----
+2. **AC2: Share card renders** — Export generates valid poster with meta tags; `npm test -- src/__tests__/shareUtils.test.ts` passes
+
+3. **AC3: Tech tree renders** — Faction panel displays all 4 factions with correct node states; `npm test -- src/__tests__/faction.test.ts` passes
+
+4. **AC4: Celebration triggers** — Completing a challenge shows toast and animation; `npm test -- src/__tests__/celebration.test.ts` passes
+
+5. **AC5: Full test suite** — `npm test` passes all 920+ tests with 0 failures
+
+6. **AC6: Build succeeds** — `npm run build` succeeds with 0 TypeScript errors
 
 ## Test Methods
 
-1. **AC1 Verification**: Run `npm test -- src/__tests__/particleSystem.test.ts` and verify all 22 tests pass
-2. **AC2 Verification**: Code review confirms the test extracts a specific particle ID after first update, then filters for that particle in subsequent updates (not array index lookup)
-3. **AC3 Verification**: Run `npm test` and verify 915/915 tests pass (baseline before fix was 914 due to flaky particleSystem test)
-4. **AC4 Verification**: Run `npm run build` and verify exit code 0 with 0 TypeScript errors
-5. **AC5 Verification**: Run `npm test -- src/__tests__/particleSystem.test.ts` exactly 5 times in sequence, counting passes
-
----
+| Criterion | Verification Method |
+|-----------|---------------------|
+| AC1 | Run `npm test -- src/__tests__/tutorial.test.ts`, manually walk through 8 steps in browser |
+| AC2 | Run `npm test -- src/__tests__/shareUtils.test.ts`, verify exported poster HTML has OG tags |
+| AC3 | Run `npm test -- src/__tests__/faction.test.ts`, visually verify tech tree in Faction Panel |
+| AC4 | Trigger challenge completion, observe toast and animation |
+| AC5 | Run `npm test`, count passing tests |
+| AC6 | Run `npm run build`, verify 0 TypeScript errors in output |
 
 ## Risks
 
-1. **Low Risk**: The fix is isolated to a single test case in the test file only
-2. **Low Risk**: No production code changes required
-3. **Medium Risk**: Test may still be timing-sensitive if particle lifetime is too short — mitigated by using 2-3s lifetime
-
----
+1. **Tutorial state conflicts** — Tutorial overlay may conflict with modal/dialog state; mitigate with z-index layering and modal stack awareness
+2. **Share metadata injection** — Dynamic OG tag updates may not work in all social media scrapers; document limitations in UI
+3. **Animation performance** — Confetti animations may impact low-end devices; implement requestAnimationFrame throttling
+4. **Test coverage gaps** — Some celebration paths may not have existing tests; add new tests before implementation
 
 ## Failure Conditions
 
-1. The `should update particle age over time` test fails in any single run
-2. Any new test failures are introduced by the change
-3. Total test count drops below 915 (after fix) or shows fewer than 915 tests
-4. Build fails with TypeScript errors
-5. The test still uses array index comparison instead of particle ID tracking
-
----
+1. Any acceptance criterion not passing
+2. New test failures introduced
+3. Breaking changes to existing functionality
+4. TypeScript errors in build
 
 ## Done Definition
 
-ALL of the following must be true:
-- `npm test -- src/__tests__/particleSystem.test.ts` passes all 22 tests in a single run
-- `npm test` passes all 915 tests with 0 failures
-- `npm run build` succeeds with 0 TypeScript errors
-- The `should update particle age over time` test uses particle ID tracking (not array index comparison)
-- The fixed test passes 5 consecutive runs
+All 6 acceptance criteria must be true:
 
----
+- [ ] TutorialOverlay component complete with 8 steps
+- [ ] Tutorial tests pass (≥5 new tests added)
+- [ ] Share card export includes OG meta tags
+- [ ] ShareUtils tests pass (≥3 new tests added)
+- [ ] Faction tech tree renders with visual polish
+- [ ] Faction tests pass (≥2 new tests added)
+- [ ] CelebrationOverlay component with animations
+- [ ] Celebration tests pass (≥3 new tests added)
+- [ ] `npm test` passes all tests (≥920)
+- [ ] `npm run build` succeeds with 0 errors
 
 ## Out of Scope
 
-- No production code changes
-- No new features
-- No new modules
-- No UI/UX changes
-- No test infrastructure changes (e.g., mocking framework changes)
-- Fixing any other flaky tests beyond particleSystem.test.ts
-
----
-
-**APPROVED**
+- Backend/multiplayer infrastructure
+- AI text generation API integration
+- Native mobile app
+- Cloud save/sync
+- Payment processing
+- Email/notification system
+- Analytics dashboard
