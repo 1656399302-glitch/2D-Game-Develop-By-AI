@@ -29,13 +29,16 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
 
     // Don't handle shortcuts when typing in input fields (unless explicitly allowed)
     if (excludeWhenInputFocused) {
-      const target = e.target as HTMLElement;
+      const target = e.target;
       // Guard against null target or target without closest method
-      if (target && typeof target.closest === 'function') {
+      // Use Element for tagName and closest, HTMLElement for isContentEditable
+      if (target instanceof Element && typeof target.closest === 'function') {
+        const tagName = target.tagName;
+        const isContentEditable = target instanceof HTMLElement && target.isContentEditable;
         const isInputField = 
-          target.tagName === 'INPUT' || 
-          target.tagName === 'TEXTAREA' || 
-          target.isContentEditable ||
+          tagName === 'INPUT' || 
+          tagName === 'TEXTAREA' || 
+          isContentEditable ||
           target.closest('input') ||
           target.closest('textarea');
         
