@@ -1,31 +1,31 @@
-## QA Evaluation — Round 8
+## QA Evaluation — Round 9
 
 ### Release Decision
-- **Verdict:** PASS
-- **Summary:** All contract deliverables successfully implemented with comprehensive accessibility features, mobile responsiveness, keyboard navigation, and improved error handling. All 778 tests pass with clean build.
-- **Spec Coverage:** FULL
-- **Contract Coverage:** PASS
-- **Build Verification:** PASS
-- **Browser Verification:** PASS
+- **Verdict:** FAIL
+- **Summary:** All contract deliverables implemented in code with 858 passing tests, but browser verification is blocked by a critical RandomForgeToast DOM manipulation error that causes page state resets during user interaction.
+- **Spec Coverage:** FULL (code inspection confirms particle system, energy paths, activation choreography, viewport effects)
+- **Contract Coverage:** PASS (7/7 deliverables created, tests pass)
+- **Build Verification:** PASS (`npm run build` succeeds, 0 TypeScript errors)
+- **Browser Verification:** PARTIALLY BLOCKED (modal state issues + RandomForgeToast error)
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 0
+- **Critical Bugs:** 1 (RandomForgeToast DOM manipulation error)
 - **Major Bugs:** 0
-- **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 11/11
-- **Untested Criteria:** 0
+- **Minor Bugs:** 1 (Welcome modal blocks browser interactions on refresh)
+- **Acceptance Criteria Passed:** 7/7 (via code inspection and unit tests)
+- **Untested Criteria:** 0 (all criteria verifiable via tests, browser verification blocked by unrelated modal bug)
 
 ### Blocking Reasons
-None
+1. **RandomForgeToast DOM Manipulation Error**: "Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node." This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state.
 
 ### Scores
-- **Feature Completeness: 9.5/10** — All 10 deliverables implemented (AccessibilityLayer, useKeyboardNavigation, AccessibleCanvas, AccessibleModulePanel, MobileCanvasLayout, ConnectionErrorFeedback, aiIntegration types, ErrorBoundary, LoadingOverlay). LoadingOverlay component created but not integrated into ExportModal/RandomForge (ready to integrate per progress report).
-- **Functional Correctness: 10/10** — All 778 tests pass. Build succeeds with 0 TypeScript errors. ErrorBoundary catches errors gracefully. Canvas arrow key movement works. Skip links functional.
-- **Product Depth: 9.5/10** — WCAG 2.1 AA compliance with comprehensive accessibility layer including roving tabindex, focus traps, live regions, screen reader announcements, high contrast mode support, and reduced motion preferences.
-- **UX / Visual Quality: 9.5/10** — Professional accessibility implementation with skip links, ARIA labels (42 elements), proper role attributes (application, listbox, option, status), and mobile-optimized touch targets (44x44px minimum).
-- **Code Quality: 9.5/10** — Clean TypeScript throughout. Well-structured component architecture. Proper separation of accessibility utilities. Type-safe AI integration stubs.
-- **Operability: 10/10** — Build succeeds (568.19KB JS, 60.63KB CSS). All 778 tests pass. Dev server runs stable. Production-ready deployment.
+- **Feature Completeness: 9/10** — All 7 contract deliverables implemented: ParticleSystem.ts with pool management, ParticleEmitter components (ParticleEmitter, EnergySparkEmitter, ActivationBurstEmitter, AmbientDustEmitter), EnhancedEnergyPath with traveling particles, enhanced ActivationOverlay with viewport shake and phase effects. Missing: smoke and other particle types mentioned in progress but not in contract.
+- **Functional Correctness: 8.5/10** — 858/858 tests pass, but browser interaction reveals a critical DOM manipulation error in RandomForgeToast that prevents reliable activation sequence testing.
+- **Product Depth: 9/10** — Comprehensive particle system with 4 emitter types (spark, dust, glow, ember), 7 activation phases with distinct visual feedback, viewport shake with smooth interpolation, energy path particles with scaling.
+- **UX / Visual Quality: 8.5/10** — ActivationOverlay shows proper phase indicators, progress bars, failure/overload effects. Browser verification blocked by modal issues preventing full visual verification.
+- **Code Quality: 9/10** — Clean TypeScript throughout, well-structured particle system with pool management, proper lifecycle management, requestAnimationFrame with delta time.
+- **Operability: 8/10** — Build succeeds (567.52KB JS, 60.54KB CSS), 858 tests pass. Browser interaction unstable due to RandomForgeToast error.
 
-**Average: 9.7/10**
+**Average: 8.7/10** (Below 9.0 threshold)
 
 ### Evidence
 
@@ -33,103 +33,101 @@ None
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| AC1 | All interactive elements have proper ARIA labels and roles | **PASS** | Browser verification: 42 elements with aria-label, 20 buttons with aria-label. Components have role="application", role="listbox", role="option" with proper aria-selected and aria-disabled states. |
-| AC2 | Tab navigation flows correctly through all UI regions | **PASS** | Browser verification: SkipLink components present for canvas (#main-canvas), module panel (#module-panel), toolbar (#main-toolbar). Focus management utilities in AccessibilityLayer. |
-| AC3 | Canvas supports arrow key movement for selected modules | **PASS** | Code verification: useKeyboardNavigation hook implements ArrowUp/Down/Left/Right handlers with configurable step. Tests confirm keyboard movement functionality. |
-| AC4 | Module panel announces module count to screen readers | **PASS** | Browser verification: role="status" with aria-live="polite" announces "14 个模块可用" (14 modules available). Proper aria-label on role="listbox". |
-| AC5 | Connection errors show specific guidance | **PASS** | Code verification: ConnectionErrorFeedback component with CONNECTION_ERROR_MESSAGES mapping (same-port-type, connection-exists, same-module, invalid-port, port-occupied). Error tests pass (5 tests). |
-| AC6 | Export modal shows loading state during file generation | **PASS** | Browser verification: ExportModal has isExporting state with "Exporting..." spinner in button. Component uses aria-busy during export. LoadingOverlay component ready for future integration. |
-| AC7 | Random forge shows loading indicator during generation | **PASS** | Browser verification: RandomForgeToast shows animated success message. Random generation completes with toast notification. LoadingOverlay component ready for future integration. |
-| AC8 | Error boundary catches and displays errors | **PASS** | Test verification: ErrorBoundary catches thrown errors with fallback UI showing retry button. 23 accessibility tests including error boundary scenarios pass. |
-| AC9 | Canvas layout adapts to viewport < 768px | **PASS** | Code verification: MobileCanvasLayout with responsive breakpoints, collapsible side panels, touch-optimized controls (48x48px minimum), mobile quick actions, gesture hints. |
-| AC10 | All 778 existing tests continue to pass | **PASS** | `npm test` exits 0 with 40 test files, 778 tests passing. |
-| AC11 | Build succeeds with 0 TypeScript errors | **PASS** | `npm run build` exits 0 with 568.19KB JS, 60.63KB CSS, 0 TypeScript errors. |
+| AC1 | Particle System Functionality | **PASS** | Tests: 22 particle system tests pass. Code: ParticleSystem.ts has createEmitter(), Particle pool with max 1000 particles, lifecycle management (spawn→move→fade→die), requestAnimationFrame with delta time. |
+| AC2 | Energy Path Particles | **PASS** | Tests: 29 energy path tests pass. Code: EnhancedEnergyPath.tsx includes EnergySparkEmitter with pathData prop, particles travel from start to end of path, getParticleCountForEnergyLevel() scales 1-20, getSpeedForEnergyLevel() scales 0.5-5. |
+| AC3 | Activation Phase Visuals | **PASS** | Tests: 42 activation effects tests pass. Code: ActivationOverlay.tsx implements all 7 phases (idle, charging, activating, online, failure, overload, shutdown) with distinct visual feedback. Browser verification blocked. |
+| AC4 | Viewport Effects | **PASS** | Tests cover shake intensity. Code: ActivationOverlay.tsx has startShake() with FAILURE_SHAKE_INTENSITY=8, OVERLOAD_SHAKE_INTENSITY=8, NORMAL_SHAKE_INTENSITY=4, CHARGING_SHAKE_INTENSITY=2. |
+| AC5 | Performance | **PASS** | Tests: Performance test verifies < 100ms for 500 particles. Code: Particle pool with hard limit 1000, requestAnimationFrame with delta time, cleanup on shutdown. |
+| AC6 | Module Glow Enhancement | **PASS** | Code: ActivationOverlay.tsx has getModuleActivationColor() for core (cyan), rune (purple), connector (violet) modules. AmbientGlow.tsx, MagicSparkle.tsx, RunePulse.tsx, GearHighlight.tsx components created. |
+| AC7 | Backward Compatibility | **PASS** | Tests: 858/858 total (778 existing + 80 new). Code: No breaking changes to existing APIs. |
 
 #### Deliverable Verification
 
 | File | Status | Details |
 |------|--------|---------|
-| `src/types/aiIntegration.ts` | ✓ VERIFIED | 206 lines. AIServiceInterface, MockAIService, CONNECTION_ERROR_MESSAGES, AI types for future integration. |
-| `src/components/ErrorBoundary.tsx` | ✓ VERIFIED | 128 lines. Global error boundary with retry functionality, role="alert", aria-live="assertive". |
-| `src/components/UI/LoadingOverlay.tsx` | ✓ VERIFIED | 301 lines. Consistent loading state with arcane/simple/dots variants, Skeleton, InlineLoader components. |
-| `src/components/UI/ConnectionErrorFeedback.tsx` | ✓ VERIFIED | 226 lines. Improved error toast with CONNECTION_ERROR_MESSAGES, severity levels, port type hints. |
-| `src/components/Accessibility/AccessibilityLayer.tsx` | ✓ VERIFIED | 248 lines. Screen reader announcements, SkipLink, Landmark regions, focus traps, roving tabindex, reduced motion. |
-| `src/hooks/useKeyboardNavigation.ts` | ✓ VERIFIED | 318 lines. Arrow key movement, Tab navigation, Home/End, focus management, screen reader announcements. |
-| `src/components/Accessibility/AccessibleCanvas.tsx` | ✓ VERIFIED | 413 lines. role="application", role="list" for connections/modules, keyboard navigation integration, viewport culling. |
-| `src/components/Accessibility/AccessibleModulePanel.tsx` | ✓ VERIFIED | 591 lines. role="listbox" with 14 modules, role="option", aria-selected, keyboard navigation, roving tabindex. |
-| `src/components/Accessibility/MobileCanvasLayout.tsx` | ✓ VERIFIED | 372 lines. Mobile responsive layout, collapsible panels, touch-optimized controls, gesture hints. |
-| `src/components/Accessibility/index.ts` | ✓ VERIFIED | Re-exports all accessibility components. |
-| `src/__tests__/accessibility.test.tsx` | ✓ VERIFIED | 23 tests covering accessibility features, ErrorBoundary, keyboard navigation. |
+| `src/utils/ParticleSystem.ts` | ✓ VERIFIED | 480 lines. createEmitter(), ParticleManager, getParticleStyle(), createBurstParticles(). Emitter types: spark, dust, glow, ember. Max 1000 particles. |
+| `src/components/Particles/ParticleEmitter.tsx` | ✓ VERIFIED | Core emitter component with configurable props (particleCount, speed, glowIntensity, color, etc.) |
+| `src/components/Particles/EnergySparkEmitter.tsx` | ✓ VERIFIED | Particles traveling along energy paths with pathData prop, energy level scaling, GSAP animations |
+| `src/components/Particles/ActivationBurstEmitter.tsx` | ✓ VERIFIED | Burst effects for activation sequences |
+| `src/components/Particles/AmbientDustEmitter.tsx` | ✓ VERIFIED | Ambient particles for idle state |
+| `src/components/Particles/index.ts` | ✓ VERIFIED | Component exports |
+| `src/components/Connections/EnhancedEnergyPath.tsx` | ✓ VERIFIED | Enhanced energy path with traveling particles, GSAP animations, glow effects, state-based colors |
+| `src/components/Preview/ActivationOverlay.tsx` | ✓ VERIFIED | 430 lines. All 7 phases, viewport shake, completion particles, ambient dust, flicker effects |
+| `src/__tests__/particleSystem.test.ts` | ✓ VERIFIED | 22 tests covering particle lifecycle, pool management, performance |
+| `src/__tests__/energyPath.test.ts` | ✓ VERIFIED | 29 tests covering particle scaling, direction, state changes |
+| `src/__tests__/activationEffects.test.ts` | ✓ VERIFIED | 42 tests covering phase transitions, progress, visual feedback, memory cleanup |
 
 #### Browser Test Evidence
 
-**Test: Accessibility Structure**
+**Test: Activation Overlay Display**
 ```
-Verify: 42 elements with aria-label
-Result: PASS - Comprehensive ARIA labeling throughout
-
-Verify: role="application" for canvas
-Result: PASS - Canvas has aria-label="Machine Editor Canvas"
-
-Verify: role="listbox" with 14 role="option" elements
-Result: PASS - Module panel properly structured
-
-Verify: SkipLink components for canvas, module panel, toolbar
-Result: PASS - AccessibilityLayer provides skip navigation
+Action: Create machine via random forge, click activation
+Result: ActivationOverlay shows with "CHARGING" phase, progress bar, phase indicators
+Evidence: ActivationOverlay.tsx renders phase-specific UI with getTitle(), getSubtitle(), getBorderColor()
+Status: PARTIAL - Page reset after activation due to RandomForgeToast error
 ```
 
-**Test: Random Forge**
+**Test: Phase Transitions**
 ```
-Action: Click Random Forge
-Result: Machine created with 3 modules, 2 connections
-Machine Name: "Storm Transmuter Hyper"
-Stats: Stability 79%, Power 69%, Energy 25%, Failure 79%
-Result: PASS
+Expected: idle → charging → activating → online (or failure/overload)
+Evidence: Tests verify phase progression with correct progress calculations
+Status: PASS (via unit tests)
 ```
 
-**Test: Export Modal**
+**Test: Particle System Performance**
 ```
-Action: Click Export button
-Result: Export modal with SVG/PNG/Poster/Enhanced/Faction Card options
-Loading state: "Exporting..." with spinner
-Result: PASS
+Command: npm test -- particleSystem
+Result: 22 tests pass in 5ms
+Performance: 500 particles handled in < 100ms
+Status: PASS
 ```
 
 ### Bugs Found
-None
+
+1. **[CRITICAL] RandomForgeToast DOM Manipulation Error**
+   - **Description**: "Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node"
+   - **Reproduction**: Click "随机锻造" button → ErrorBoundary catches rendering error → Page resets
+   - **Impact**: Prevents reliable browser verification of activation sequence and particle effects. Users experience unexpected page resets when generating random machines.
+   - **Root Cause**: React error boundary catches a DOM manipulation error in the component tree (likely related to RandomForgeToast insertion)
+
+2. **[MINOR] Welcome Modal State Persistence**
+   - **Description**: Modal reappears after being dismissed when page state changes
+   - **Reproduction**: Dismiss welcome modal, interact with random forge, page refreshes
+   - **Impact**: Browser testing requires manual modal dismissal multiple times
+   - **Root Cause**: Zustand hydration race condition with localStorage persistence
 
 ### Required Fix Order
-None - all contract criteria satisfied
+
+1. **Fix RandomForgeToast DOM Manipulation Error** — The "insertBefore" error is causing ErrorBoundary to catch errors and potentially reset the page. This must be resolved before reliable browser verification can be performed.
+
+2. **Improve Welcome Modal State Persistence** — Ensure hasSeenWelcome state persists reliably across all interactions to prevent modal from reappearing.
 
 ### What's Working Well
-1. **Accessibility Architecture** — Comprehensive WCAG 2.1 AA implementation with skip links, ARIA labels, keyboard navigation, and screen reader support. 42 elements properly labeled.
-2. **Error Boundary Integration** — Global error boundary catches rendering errors with friendly fallback UI and retry functionality. Properly tested with 23 accessibility tests.
-3. **Mobile Responsiveness** — MobileCanvasLayout provides proper viewport handling with collapsible panels, touch-optimized controls (44x48px minimum), and gesture hints.
-4. **Connection Error Feedback** — Detailed error messages with specific guidance (e.g., "圆形端口为输出，方形端口为输入") mapped to error types.
-5. **Loading State Components** — LoadingOverlay component with multiple variants (arcane, simple, dots) ready for integration into async operations.
-6. **AI Integration Stubs** — Comprehensive type definitions for future AI naming/description API with MockAIService for development.
-7. **Build Quality** — Clean production build (568.19KB JS) with 0 TypeScript errors. All 778 tests passing.
-8. **Keyboard Navigation** — useKeyboardNavigation hook provides arrow key movement, Tab cycling, Home/End navigation with screen reader announcements.
+
+1. **Particle System Architecture** — Excellent design with particle pool (1000 max), requestAnimationFrame with delta time, GPU-accelerated CSS transforms. 22 comprehensive tests.
+
+2. **Energy Path Particles** — EnhancedEnergyPath integrates EnergySparkEmitter seamlessly with GSAP animations, state-based colors, and scaling based on energy level. 29 tests.
+
+3. **Activation Choreography** — All 7 phases implemented with distinct visual feedback, progress bars, viewport shake, particle bursts on completion. 42 tests.
+
+4. **Build Quality** — Clean production build (567.52KB JS, 60.54KB CSS, 0 TypeScript errors) with 858 passing tests.
+
+5. **Code Organization** — Well-structured component hierarchy with proper separation of concerns between ParticleSystem.ts (core engine) and React components.
+
+6. **Performance Optimizations** — Hard particle limit, cleanup on shutdown, efficient pool management, delta time-based updates.
 
 ### Summary
 
-Round 8 QA evaluation confirms the contract implementation is **COMPLETE and READY for release**.
+The Round 11 contract implementation is **functionally complete** with all deliverables created and 858/858 tests passing. However, browser verification is blocked by a critical DOM manipulation error in RandomForgeToast that causes page resets during user interaction.
 
-**Key Achievements:**
-1. All 10 deliverables implemented with high quality
-2. Comprehensive WCAG 2.1 AA accessibility compliance
-3. Mobile responsiveness with touch-optimized controls
-4. Error boundary with graceful fallback and retry
-5. Loading state components ready for integration
-6. All 778 tests pass with clean build
+**Critical Issue**: The RandomForgeToast component (or related code) throws a "Failed to execute 'insertBefore' on 'Node'" error when clicking the random forge button, which triggers the ErrorBoundary and potentially resets the application state.
 
-**All contract acceptance criteria verified:**
-- AC1-AC4: Accessibility features verified via browser and code inspection
-- AC5: ConnectionErrorFeedback with detailed guidance
-- AC6-AC7: Loading states functional (isExporting state, toast notifications)
-- AC8: ErrorBoundary catches and displays errors gracefully
-- AC9: Mobile layout adapts to viewport < 768px
-- AC10: 778/778 tests passing
-- AC11: Build succeeds with 0 TypeScript errors
+**Recommendation**: Fix the RandomForgeToast DOM error before claiming browser verification complete. The underlying code quality is excellent, but the interaction stability must be ensured for production use.
 
-**Release: APPROVED**
+**Evidence Summary**:
+- Build: PASS (0 TypeScript errors, 567.52KB JS)
+- Tests: PASS (858/858)
+- Code Inspection: PASS (all deliverables implemented correctly)
+- Browser Verification: BLOCKED (RandomForgeToast error)
+
+**Release: NOT APPROVED** — Fix critical RandomForgeToast DOM error before re-evaluation.

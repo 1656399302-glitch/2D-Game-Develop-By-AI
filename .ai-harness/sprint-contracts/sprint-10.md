@@ -1,162 +1,226 @@
-# Sprint Contract — Round 10
-
-## APPROVED
+# APPROVED — Sprint Contract — Round 10
 
 ## Scope
 
-**Remediation Sprint**: Fix the critical Load Prompt Modal logic bug that prevents canvas persistence from working. This is a narrow, targeted fix to unblock the Round 9 deliverable.
+**Priority**: Fix critical browser interaction bugs blocking verification from Round 9 feedback.
 
-The bug is at `src/App.tsx` lines 170-172. The current conditional rendering:
-```tsx
-{showLoadPrompt && hasLoadedSavedState && (
-  <LoadPromptModal />
-)}
-```
-is incorrect because `hasLoadedSavedState` starts as `false` and is only set to `true` AFTER user clicks Resume or Start Fresh — creating a chicken-and-egg problem where the modal can NEVER appear.
+This sprint focuses exclusively on remediation of two issues identified in the Round 9 QA evaluation:
+1. **[CRITICAL] RandomForgeToast DOM Manipulation Error** — Causes page resets when clicking random forge button
+2. **[MINOR] Welcome Modal State Persistence** — Modal reappears after dismissal during certain interactions
 
-The fix is a single-line change to:
-```tsx
-{showLoadPrompt && (
-  <LoadPromptModal />
-)}
-```
+---
 
 ## Spec Traceability
 
-- **P0 item being remediated**: Canvas persistence feature (localStorage save/restore with Load Prompt Modal)
-- **P0 items covered this round**: Fix Load Prompt Modal conditional rendering logic
-- **Remaining P0/P1 after this round**: None — persistence feature will be complete
-- **P2 items**: Unchanged, deferred from previous rounds
+### P0 Items Covered This Round
+- Fix RandomForgeToast `insertBefore` DOM error (Critical Bug #1)
+- Fix Welcome Modal state persistence (Minor Bug #1)
+- Ensure activation sequence and particle effects are verifiable in browser
+
+### P1 Items Covered This Round
+- None (remediation sprint)
+
+### Remaining P0/P1 After This Round
+- All previously completed deliverables remain functional
+- No new P0/P1 items introduced
+
+### P2 Intentionally Deferred
+- All deferred items remain deferred
+- No new P2 items added
+
+---
 
 ## Deliverables
 
-1. **Fixed `src/App.tsx` lines 170-172**: Change condition from `{showLoadPrompt && hasLoadedSavedState && (<LoadPromptModal />)}` to `{showLoadPrompt && (<LoadPromptModal />)}`
-2. **Verified persistence flow**: Auto-save → Refresh → Modal appears → Resume restores state
-3. **Browser test verification**: All 10 acceptance criteria pass
+| # | File | Description |
+|---|------|-------------|
+| 1 | `src/components/UI/RandomForgeToast.tsx` (modified) | Fixed DOM manipulation error, proper cleanup |
+| 2 | `src/components/Tutorial/WelcomeModal.tsx` (verified) | Ensure state persistence works correctly |
+| 3 | `src/store/useMachineStore.ts` (verified) | RandomForgeToast visibility state management |
+| 4 | `src/store/useTutorialStore.ts` (verified) | WelcomeModal persistence logic |
+| 5 | `src/App.tsx` (verified) | Modal coordination logic |
+| 6 | `src/__tests__/RandomForgeToast.test.tsx` (new) | Tests for toast lifecycle and error handling |
+| 7 | `src/__tests__/ModalPersistence.test.tsx` (new) | Tests for modal state persistence |
+
+---
 
 ## Acceptance Criteria
 
-1. **Module persistence after refresh**: After Random Forge creates modules, refreshing page and clicking Resume restores all modules with correct count
-2. **Position persistence (±5px)**: Restored modules appear at original coordinates (±5px tolerance)
-3. **Connection persistence**: Restored canvas shows all connections between modules
-4. **Color/style persistence**: Module colors and styles are preserved across refresh
-5. **Load prompt appears when localStorage has data**: Load Prompt Modal appears with Resume/Start Fresh buttons after refresh when localStorage contains saved state
-6. **Resume button restores saved state**: Clicking Resume loads modules, connections, and positions from localStorage
-7. **Start Fresh clears localStorage and canvas**: Clicking Start Fresh clears localStorage and shows empty canvas
-8. **No prompt when localStorage is empty**: Empty localStorage results in direct page load with no modal
-9. **Build succeeds with 0 TypeScript errors**: `npm run build` exits 0 with 0 TypeScript errors
-10. **Tests pass (all existing + new)**: `npm test` exits 0 with all tests passing
+### AC1: RandomForgeToast DOM Error Fixed
+- [ ] Clicking random forge button does NOT throw `insertBefore` DOM error
+- [ ] ErrorBoundary is NOT triggered during random forge operation
+- [ ] Page state is NOT reset after random forge operation
+- [ ] Toast appears and disappears without errors
+
+### AC2: Welcome Modal State Persistence Works
+- [ ] Modal does NOT reappear after being dismissed during page refresh
+- [ ] Modal does NOT reappear after being dismissed during random forge interaction
+- [ ] `hasSeenWelcome` state persists correctly in localStorage
+- [ ] Hydration race condition is handled
+
+### AC3: Browser Verification Passes
+- [ ] Random forge button works reliably
+- [ ] Activation sequence can be triggered without page reset
+- [ ] Particle effects render correctly during activation
+- [ ] All modal dismissals are permanent for session
+
+---
 
 ## Test Methods
 
-### 1. Browser Manual Test (Primary Verification)
-Manual testing is REQUIRED because the bug affects runtime modal rendering:
-
-| Step | Action | Expected Result |
-|------|--------|-----------------|
-| 1 | `localStorage.clear()`, refresh | No modal, empty canvas loads |
-| 2 | Click "Random Forge", wait 5s | Modules appear, auto-saved to localStorage |
-| 3 | `localStorage.getItem('arcane-canvas-state')` | Returns non-null JSON data |
-| 4 | Refresh page | Load Prompt Modal appears with Resume/Start Fresh buttons |
-| 5 | Click "Resume" | Canvas restores modules and connections |
-| 6 | Click "Start Fresh" (fresh session) | localStorage cleared, empty canvas |
-| 7 | Verify positions (±5px) | Modules restored at original coordinates |
-| 8 | Verify connections | All connections restored visually |
-
-### 2. Build Verification
-```bash
-npm run build
+### TM1: RandomForgeToast Error Fix Verification
 ```
-- Must exit with code 0
-- Must produce 0 TypeScript errors
-- Expected output: ~335KB JS, ~33KB CSS
-
-### 3. Test Suite
-```bash
-npm test
+1. Open application in browser
+2. Click "随机锻造" (Random Forge) button
+3. Verify NO console errors about "insertBefore"
+4. Verify NO ErrorBoundary triggered
+5. Verify machine is generated and displayed
+6. Verify toast appears and auto-dismisses
+7. Repeat steps 2-6 three times to ensure consistency
 ```
-- Must exit with code 0
-- All tests must pass (no regression)
+
+### TM2: Welcome Modal Persistence Verification
+```
+1. Open application (fresh browser or incognito)
+2. Verify WelcomeModal appears on first visit
+3. Click "跳过" (Skip) button
+4. Refresh page
+5. Verify WelcomeModal does NOT reappear
+6. Click random forge button
+7. Verify WelcomeModal does NOT reappear
+8. Verify LoadPromptModal is also suppressed when WelcomeModal is skipped
+```
+
+### TM3: Activation Sequence Browser Verification
+```
+1. Create a machine via random forge
+2. Click "启动机器" (Activate Machine) button
+3. Verify ActivationOverlay renders correctly
+4. Verify particle effects are visible
+5. Verify viewport shake occurs during charging
+6. Verify phase transitions work (idle → charging → activating → online)
+```
+
+### TM4: Unit Test Verification
+```
+1. Run: npm test -- --testPathPattern="RandomForgeToast"
+2. Verify all tests pass
+3. Run: npm test -- --testPathPattern="ModalPersistence"
+4. Verify all tests pass
+5. Run: npm test
+6. Verify all 858+ tests pass (858 existing + new tests)
+```
+
+---
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|------|------------|------------|
-| Wrong line edited | Low | Exact lines 170-172 specified |
-| Regression in other modal logic | Low | `hasLoadedSavedState` still used elsewhere for state tracking |
-| Build failure | Very Low | Change is additive removal of condition |
+### R1: Root Cause May Be in Unexpected Location
+- **Risk**: The `insertBefore` error might originate from a dependency component, not RandomForgeToast itself
+- **Mitigation**: Trace the full call stack when error occurs, check GSAP animations, toast positioning logic, and parent component render cycles
+- **Severity**: Medium
+
+### R2: React StrictMode Double-Invocation
+- **Risk**: React StrictMode in development causes effects to run twice, which may expose race conditions not visible in production
+- **Mitigation**: Ensure all effects have proper cleanup, test in both development and production modes
+- **Severity**: Low
+
+### R3: localStorage Hydration Timing
+- **Risk**: The fix for WelcomeModal persistence might have edge cases during SSR or rapid state changes
+- **Mitigation**: Use synchronous localStorage read pattern established in existing code, add hydration guards
+- **Severity**: Low
+
+---
 
 ## Failure Conditions
 
-The round FAILS if ANY of the following occur:
+The round MUST FAIL if any of the following occur:
 
-1. Modal does NOT appear when localStorage has saved state after page refresh
-2. Resume button does NOT restore saved canvas state (modules or connections missing)
-3. `npm run build` exits non-zero OR has TypeScript errors
-4. `npm test` exits non-zero OR has test failures
-5. New TypeScript errors introduced anywhere in codebase
+1. **RandomForgeToast error persists** — The `insertBefore` DOM error is still reproducible after fix attempts
+2. **Regression introduced** — Existing functionality breaks (random forge fails to generate machines, activation sequence doesn't work)
+3. **Welcome modal still reappears** — Modal state persistence issue not fully resolved
+4. **New console errors introduced** — Fixing one error introduces new errors
+5. **Test coverage decreases** — Total passing tests drops below 858
+
+---
 
 ## Done Definition
 
-**All conditions must be TRUE before claiming round complete:**
+All of the following conditions MUST be true before claiming the round complete:
 
-1. [ ] `src/App.tsx` lines 170-172 use exactly: `{showLoadPrompt && (<LoadPromptModal />)}`
-2. [ ] Browser test: Modal appears after refresh with saved localStorage state
-3. [ ] Browser test: Resume button restores modules AND connections with correct positions (±5px)
-4. [ ] Browser test: Start Fresh clears localStorage and canvas shows empty state
-5. [ ] Browser test: Empty localStorage → no modal, direct load
-6. [ ] `npm run build` exits 0 with 0 TypeScript errors
-7. [ ] `npm test` exits 0 with all tests passing
+### Code Quality
+- [ ] RandomForgeToast.tsx has no empty useEffect hooks without cleanup
+- [ ] All timeouts/intervals have corresponding cleanup functions
+- [ ] ErrorBoundary does not trigger during normal random forge usage
+- [ ] Welcome modal state management uses synchronous localStorage reads to avoid hydration race
 
-**Note on `hasLoadedSavedState`**: This flag remains in the store and is still set by `markStateAsLoaded()` after user interaction. Its purpose changes from "gating modal display" to "tracking that user has made a choice" — preventing modal re-appearance on subsequent re-renders.
+### Testing
+- [ ] New RandomForgeToast tests created and passing (minimum 5 new tests)
+- [ ] New ModalPersistence tests created and passing (minimum 5 new tests)
+- [ ] Total test count increases (858 + new tests)
+- [ ] All existing tests continue to pass
+
+### Browser Verification
+- [ ] Random forge button click does NOT cause page reset
+- [ ] Activation sequence runs without ErrorBoundary intervention
+- [ ] Welcome modal stays dismissed after skip + refresh
+- [ ] No console errors during normal user flows
+
+### Build Quality
+- [ ] `npm run build` succeeds with 0 TypeScript errors
+- [ ] Production build bundle size remains reasonable (< 600KB JS)
+
+---
 
 ## Out of Scope
 
-- No new features
-- No new modules or components
-- No UI/UX changes beyond the conditional logic fix
-- No animation improvements
-- No test additions (existing tests are sufficient)
-- No changes to localStorage utilities (already working correctly)
-- No changes to LoadPromptModal component itself (styling is fine)
+The following are explicitly NOT being done in this round:
+
+1. **New features** — No new module types, UI components, or system capabilities
+2. **Performance optimizations** — Particle system or rendering performance (already verified in Round 9)
+3. **Visual polish** — UI refinements beyond bug fixes
+4. **New test scenarios** — Beyond those required to verify bug fixes
+5. **Refactoring for future extensibility** — Code organization improvements that don't relate to bug fixes
+6. **Documentation updates** — README or spec.md updates (deferred to stable release)
+7. **Export functionality changes** — SVG/PNG export (already working)
+8. **AI text generation integration** — Future feature (not yet implemented)
+
+---
 
 ## Technical Notes
 
-### Root Cause Analysis
+### Root Cause Analysis (Expected)
 
-The Round 9 QA evaluation identified this critical bug:
+**RandomForgeToast DOM Error:**
+The error "Failed to execute 'insertBefore' on 'Node'" typically occurs when:
+1. Attempting to insert a DOM node that's already mounted elsewhere
+2. Race condition between React rendering and GSAP/DOM manipulation
+3. Component unmounting during animation/transition
 
-**Current (INCORRECT) code at `src/App.tsx:170-172`:**
+Likely fix pattern:
 ```tsx
-{showLoadPrompt && hasLoadedSavedState && (
-  <LoadPromptModal />
-)}
+useEffect(() => {
+  // Set visibility after mount to avoid DOM insertion race
+  setVisible(true);
+  
+  const timeout = setTimeout(() => {
+    setVisible(false);
+  }, duration);
+  
+  return () => {
+    clearTimeout(timeout);
+    // Ensure cleanup happens before DOM removal
+  };
+}, [duration]);
 ```
 
-**State flow problem:**
-1. `showLoadPrompt` = `true` when saved state exists (correctly set by useEffect)
-2. `hasLoadedSavedState` = `false` initially (set only after user clicks Resume/Start Fresh)
-3. Modal requires BOTH → modal can NEVER appear → user can NEVER interact → flag can NEVER be set
-
-**Required FIX at `src/App.tsx:170-172`:**
+**Welcome Modal Persistence:**
+Hydration race condition pattern (already partially implemented):
 ```tsx
-{showLoadPrompt && (
-  <LoadPromptModal />
-)}
+// Use useMemo for synchronous localStorage read
+const hasSeenWelcome = useMemo(() => {
+  if (typeof window === 'undefined') return false;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored ? JSON.parse(stored).state?.hasSeenWelcome : false;
+}, []);
 ```
-
-**State flow after fix:**
-1. Saved state detected → `showLoadPrompt = true` → Modal appears ✓
-2. User clicks Resume → `markStateAsLoaded()` called → `hasLoadedSavedState = true` ✓
-3. Subsequent renders: `showLoadPrompt` may become `false` (no saved state), modal hidden ✓
-
-### What's Already Working (from Round 9 QA)
-
-| Component | Status |
-|-----------|--------|
-| Auto-save to localStorage | ✓ Working |
-| `localStorage.ts` functions | ✓ All 4 working |
-| Debounced 500ms save | ✓ Working |
-| LoadPromptModal styling | ✓ Professional visuals |
-| Unit tests (23 persistence) | ✓ All passing |
-| Build system | ✓ 0 TypeScript errors |

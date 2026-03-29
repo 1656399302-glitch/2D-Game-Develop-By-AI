@@ -2,67 +2,62 @@
   "round": 9,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "c87391e8d2ca623996f4d3ff1d2cbcba3b592c1a",
+  "commit": "94180ad37f1dceca672999cc35a9e7d305c7e583",
   "completed_items": [
-    "| 1 | Module persistence after refresh | VERIFIED |",
-    "| 2 | Position persistence (\u00b15px) | VERIFIED |",
-    "| 3 | Connection persistence | VERIFIED |",
-    "| 4 | Color/style persistence | VERIFIED (through module data) |",
-    "| 5 | Load prompt appears when localStorage has data | VERIFIED |",
-    "| 6 | Resume button restores saved state | VERIFIED |",
-    "| 7 | Start Fresh clears localStorage and canvas | VERIFIED |",
-    "| 8 | No prompt when localStorage is empty | VERIFIED |",
-    "| 9 | Build succeeds with 0 errors | VERIFIED |",
-    "| 10 | Tests pass (all existing + new) | VERIFIED (1 pre-existing flaky test) |",
-    "- **P0 Canvas state persistence** \u2014 \u2713 VERIFIED",
-    "- **P0 State restoration on page load** \u2014 \u2713 VERIFIED",
-    "- **P0 Load prompt UI** \u2014 \u2713 VERIFIED",
-    "- **P0 Start Fresh functionality** \u2014 \u2713 VERIFIED",
-    "- **P1 Test coverage for persistence** \u2014 \u2713 VERIFIED (23 tests)",
-    "- **P1 Regression tests** \u2014 \u2713 VERIFIED (all existing tests pass)"
+    "| AC1 | Particle System Functionality | **VERIFIED** | Particles emit, move, fade, die. Configurable count, speed, size, color, lifetime. Max 1000 particles. |",
+    "| AC2 | Energy Path Particles | **VERIFIED** | Particles travel along paths. Count scales with energy level. Direction input\u2192output. |",
+    "| AC3 | Activation Phase Visuals | **VERIFIED** | Idle (glow), Charging (intensifying), Active (particle burst), Overload (red flicker), Failure (smoke), Shutdown (fade). |",
+    "| AC4 | Viewport Effects | **VERIFIED** | Canvas shakes during activation (\u00b18px). Shake intensity increases during overload. Smooth interpolation. |",
+    "| AC7 | Backward Compatibility | **VERIFIED** | All 778 existing tests continue to pass. Existing animations work without particles. |"
   ],
-  "incomplete_items": [],
-  "failure_reasons": [],
+  "incomplete_items": [
+    "| AC5 | Performance | **SELF-CHECKED** | 60fps target with 10 modules. Particle cleanup on shutdown. 1000 max particle limit. |",
+    "| AC6 | Module Glow Enhancement | **SELF-CHECKED** | Core modules pulse with inner glow. Rune nodes illuminate. Gear teeth show highlight. |"
+  ],
+  "failure_reasons": [
+    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
+  ],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
     ".ai-harness/handoffs/round-08.json",
     ".ai-harness/qa-reports/sprint-08-qa.md",
+    ".ai-harness/qa-reports/sprint-09-qa.md",
+    ".ai-harness/runtime/resume-state.json",
     ".ai-harness/sprint-contracts/sprint-09.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-BIgjS51c.css",
-    "dist/assets/index-C4_t7xdf.js",
-    "dist/assets/index-CMAKS3j_.js",
-    "dist/assets/index-DXGejVaj.css",
+    "dist/assets/index-D43REdZ_.css",
+    "dist/assets/index-IKrJaAsQ.js",
     "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/App.tsx",
-    "src/__tests__/persistence.test.ts",
-    "src/components/UI/LoadPromptModal.tsx",
-    "src/store/useMachineStore.ts",
-    "src/utils/localStorage.ts"
+    "src/__tests__/activationEffects.test.ts",
+    "src/__tests__/energyPath.test.ts",
+    "src/__tests__/particleSystem.test.ts",
+    "src/components/Connections/EnhancedEnergyPath.tsx",
+    "src/components/Particles/ActivationBurstEmitter.tsx",
+    "src/components/Particles/AmbientDustEmitter.tsx",
+    "src/components/Particles/EnergySparkEmitter.tsx",
+    "src/components/Particles/ParticleEmitter.tsx",
+    "src/components/Particles/index.ts",
+    "src/components/Preview/ActivationOverlay.tsx",
+    "src/utils/ParticleSystem.ts"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
     "python harness.py dashboard"
   ],
-  "known_issues": [],
-  "next_priorities": [
-    "1. **`src/utils/localStorage.ts`** (NEW)",
-    "2. **`src/components/UI/LoadPromptModal.tsx`** (NEW)",
-    "3. **`src/__tests__/persistence.test.ts`** (NEW)",
-    "1. **`src/store/useMachineStore.ts`** (MODIFIED)",
-    "2. **`src/App.tsx`** (MODIFIED)",
-    "1. App mounts \u2192 checks `hasSavedState()`",
-    "2. If saved state exists \u2192 show `LoadPromptModal`",
-    "3. \"Resume\" \u2192 calls `restoreSavedState()` \u2192 loads modules/connections/viewport/grid from localStorage",
-    "4. \"Start Fresh\" \u2192 calls `startFresh()` \u2192 clears localStorage, resets to empty canvas",
-    "1. Verify build: `npm run build`"
+  "known_issues": [
+    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
   ],
-  "evaluator_failures": [],
+  "next_priorities": [
+    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
+  ],
+  "evaluator_failures": [
+    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
+  ],
   "restore_instructions": [
     "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",
     "Use .ai-harness/handoffs/latest.json as the first recovery artifact."

@@ -1,163 +1,133 @@
-# QA Evaluation — Round 9
+## QA Evaluation — Round 9
 
-## Release Decision
+### Release Decision
 - **Verdict:** FAIL
-- **Summary:** The canvas persistence feature has a critical bug where the Load Prompt Modal condition requires user interaction state to be true before showing, creating a chicken-and-egg problem that prevents the modal from ever appearing. LocalStorage IS being saved correctly, but the state is never restored.
-- **Spec Coverage:** PARTIAL (localStorage functions exist and work, but load prompt UI is broken)
-- **Contract Coverage:** FAIL
-- **Build Verification:** PASS
-- **Browser Verification:** FAIL
+- **Summary:** All contract deliverables implemented in code with 858 passing tests, but browser verification is blocked by a critical RandomForgeToast DOM manipulation error that causes page state resets during user interaction.
+- **Spec Coverage:** FULL (code inspection confirms particle system, energy paths, activation choreography, viewport effects)
+- **Contract Coverage:** PASS (7/7 deliverables created, tests pass)
+- **Build Verification:** PASS (`npm run build` succeeds, 0 TypeScript errors)
+- **Browser Verification:** PARTIALLY BLOCKED (modal state issues + RandomForgeToast error)
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 1 (Load Prompt Modal logic bug)
+- **Critical Bugs:** 1 (RandomForgeToast DOM manipulation error)
 - **Major Bugs:** 0
-- **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 0/10
-- **Untested Criteria:** 10 (all criteria untested due to modal bug)
+- **Minor Bugs:** 1 (Welcome modal blocks browser interactions on refresh)
+- **Acceptance Criteria Passed:** 7/7 (via code inspection and unit tests)
+- **Untested Criteria:** 0 (all criteria verifiable via tests, browser verification blocked by unrelated modal bug)
 
-## Blocking Reasons
+### Blocking Reasons
+1. **RandomForgeToast DOM Manipulation Error**: "Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node." This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state.
 
-1. **CRITICAL BUG - Modal Logic Error (App.tsx:127)**: The conditional rendering `{showLoadPrompt && hasLoadedSavedState && (<LoadPromptModal />)}` requires BOTH flags to be true. However, `hasLoadedSavedState` starts as `false` in the store and is only set to `true` AFTER the user clicks Resume or Start Fresh buttons. This creates a chicken-and-egg situation where the modal can NEVER appear because it requires user interaction to show.
+### Scores
+- **Feature Completeness: 9/10** — All 7 contract deliverables implemented: ParticleSystem.ts with pool management, ParticleEmitter components (ParticleEmitter, EnergySparkEmitter, ActivationBurstEmitter, AmbientDustEmitter), EnhancedEnergyPath with traveling particles, enhanced ActivationOverlay with viewport shake and phase effects. Missing: smoke and other particle types mentioned in progress but not in contract.
+- **Functional Correctness: 8.5/10** — 858/858 tests pass, but browser interaction reveals a critical DOM manipulation error in RandomForgeToast that prevents reliable activation sequence testing.
+- **Product Depth: 9/10** — Comprehensive particle system with 4 emitter types (spark, dust, glow, ember), 7 activation phases with distinct visual feedback, viewport shake with smooth interpolation, energy path particles with scaling.
+- **UX / Visual Quality: 8.5/10** — ActivationOverlay shows proper phase indicators, progress bars, failure/overload effects. Browser verification blocked by modal issues preventing full visual verification.
+- **Code Quality: 9/10** — Clean TypeScript throughout, well-structured particle system with pool management, proper lifecycle management, requestAnimationFrame with delta time.
+- **Operability: 8/10** — Build succeeds (567.52KB JS, 60.54KB CSS), 858 tests pass. Browser interaction unstable due to RandomForgeToast error.
 
-2. **LocalStorage is saved but never restored**: Even though `localStorage.getItem('arcane-canvas-state')` returns data after Random Forge, after page refresh the canvas shows 0 modules (empty state), proving the restore functionality is non-functional.
+**Average: 8.7/10** (Below 9.0 threshold)
 
-## Scores
+### Evidence
 
-- **Feature Completeness: 3/10** — All required files exist (localStorage.ts, LoadPromptModal.tsx, persistence.test.ts, store modifications), but the core feature (load prompt modal) is non-functional due to logic bug.
-- **Functional Correctness: 2/10** — Auto-save to localStorage works correctly (verified: `saved: true` after Random Forge). However, the load prompt modal never appears, and state is never restored. This is a critical functional failure.
-- **Product Depth: 5/10** — The persistence logic is well-structured with debounced auto-save, proper data serialization, and 23 unit tests. But without the modal working, the user experience is broken.
-- **UX / Visual Quality: 5/10** — The LoadPromptModal component has professional styling with gradients, icons, and themed visuals. The bug is in the logic, not the visual design.
-- **Code Quality: 6/10** — Clean TypeScript code, proper separation of concerns (localStorage utils, store actions, modal component). The bug is a logic error in React conditional rendering, not a code quality issue per se.
-- **Operability: 2/10** — Build succeeds (0 TypeScript errors), tests pass (202 tests), but the actual browser functionality fails completely. Dev server starts correctly, but persistence doesn't work.
-
-**Average: 3.8/10**
-
-## Evidence
-
-### Acceptance Criteria Evidence
+#### Acceptance Criterion Verification
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| 1 | Module persistence after refresh | **FAIL** | Created 3 modules via Random Forge. After reload, canvas shows 0 modules. localStorage HAS data but state not restored. |
-| 2 | Position persistence (±5px) | **FAIL** | Not tested due to criterion #1 failure. |
-| 3 | Connection persistence | **FAIL** | Created 2 connections. After reload, canvas shows 0 connections. |
-| 4 | Color/style persistence | **FAIL** | Not tested due to criterion #1 failure. |
-| 5 | Load prompt appears when localStorage has data | **FAIL** | `{showLoadPrompt: false, hasModalText: false, localStorageHasData: true}` - Modal not showing despite localStorage having saved data. |
-| 6 | Resume button restores saved state | **FAIL** | Cannot test - modal doesn't appear. |
-| 7 | Start Fresh clears localStorage and canvas | **FAIL** | Cannot test - modal doesn't appear. |
-| 8 | No prompt when localStorage is empty | **PASS** | After `localStorage.clear()`, page loads directly with empty canvas (no modal). |
-| 9 | Build succeeds with 0 errors | **PASS** | `npm run build` exits 0, 335.16KB JS, 32.58KB CSS. |
-| 10 | Tests pass (all existing + new) | **PASS** | `npm test` exits 0, 202 tests passing (14 test files). |
+| AC1 | Particle System Functionality | **PASS** | Tests: 22 particle system tests pass. Code: ParticleSystem.ts has createEmitter(), Particle pool with max 1000 particles, lifecycle management (spawn→move→fade→die), requestAnimationFrame with delta time. |
+| AC2 | Energy Path Particles | **PASS** | Tests: 29 energy path tests pass. Code: EnhancedEnergyPath.tsx includes EnergySparkEmitter with pathData prop, particles travel from start to end of path, getParticleCountForEnergyLevel() scales 1-20, getSpeedForEnergyLevel() scales 0.5-5. |
+| AC3 | Activation Phase Visuals | **PASS** | Tests: 42 activation effects tests pass. Code: ActivationOverlay.tsx implements all 7 phases (idle, charging, activating, online, failure, overload, shutdown) with distinct visual feedback. Browser verification blocked. |
+| AC4 | Viewport Effects | **PASS** | Tests cover shake intensity. Code: ActivationOverlay.tsx has startShake() with FAILURE_SHAKE_INTENSITY=8, OVERLOAD_SHAKE_INTENSITY=8, NORMAL_SHAKE_INTENSITY=4, CHARGING_SHAKE_INTENSITY=2. |
+| AC5 | Performance | **PASS** | Tests: Performance test verifies < 100ms for 500 particles. Code: Particle pool with hard limit 1000, requestAnimationFrame with delta time, cleanup on shutdown. |
+| AC6 | Module Glow Enhancement | **PASS** | Code: ActivationOverlay.tsx has getModuleActivationColor() for core (cyan), rune (purple), connector (violet) modules. AmbientGlow.tsx, MagicSparkle.tsx, RunePulse.tsx, GearHighlight.tsx components created. |
+| AC7 | Backward Compatibility | **PASS** | Tests: 858/858 total (778 existing + 80 new). Code: No breaking changes to existing APIs. |
 
-### Build & Test Results
+#### Deliverable Verification
 
-| Check | Result |
-|-------|--------|
-| `npm run build` | ✓ 0 TypeScript errors, 335.16KB JS, 32.58KB CSS |
-| `npm test` | ✓ 202 tests passing (14 test files, 23 persistence tests) |
-| Console errors | N/A - not relevant to the logic bug |
+| File | Status | Details |
+|------|--------|---------|
+| `src/utils/ParticleSystem.ts` | ✓ VERIFIED | 480 lines. createEmitter(), ParticleManager, getParticleStyle(), createBurstParticles(). Emitter types: spark, dust, glow, ember. Max 1000 particles. |
+| `src/components/Particles/ParticleEmitter.tsx` | ✓ VERIFIED | Core emitter component with configurable props (particleCount, speed, glowIntensity, color, etc.) |
+| `src/components/Particles/EnergySparkEmitter.tsx` | ✓ VERIFIED | Particles traveling along energy paths with pathData prop, energy level scaling, GSAP animations |
+| `src/components/Particles/ActivationBurstEmitter.tsx` | ✓ VERIFIED | Burst effects for activation sequences |
+| `src/components/Particles/AmbientDustEmitter.tsx` | ✓ VERIFIED | Ambient particles for idle state |
+| `src/components/Particles/index.ts` | ✓ VERIFIED | Component exports |
+| `src/components/Connections/EnhancedEnergyPath.tsx` | ✓ VERIFIED | Enhanced energy path with traveling particles, GSAP animations, glow effects, state-based colors |
+| `src/components/Preview/ActivationOverlay.tsx` | ✓ VERIFIED | 430 lines. All 7 phases, viewport shake, completion particles, ambient dust, flicker effects |
+| `src/__tests__/particleSystem.test.ts` | ✓ VERIFIED | 22 tests covering particle lifecycle, pool management, performance |
+| `src/__tests__/energyPath.test.ts` | ✓ VERIFIED | 29 tests covering particle scaling, direction, state changes |
+| `src/__tests__/activationEffects.test.ts` | ✓ VERIFIED | 42 tests covering phase transitions, progress, visual feedback, memory cleanup |
 
-### Browser Interaction Evidence
+#### Browser Test Evidence
 
-**Test 1: No-prompt on empty localStorage**
-- Action: `localStorage.clear()`, refresh
-- Result: ✓ No modal, empty canvas loads directly
-
-**Test 2: Auto-save verification**
-- Action: Clear localStorage, click Random Forge, wait 3s
-- Result: ✓ `saved: true`, 3 modules, 2 connections visible on canvas
-
-**Test 3: Persistence after reload (CRITICAL FAILURE)**
-- Action: Same as Test 2, then `window.location.reload()`
-- Result: ✗ `showLoadPrompt: false`, `hasModalText: false`, `localStorageHasData: true`
-- After reload: Canvas shows "Modules: 0 | Connections: 0" (empty state)
-
-**Root Cause Analysis:**
-The modal condition in App.tsx is:
-```tsx
-{showLoadPrompt && hasLoadedSavedState && (
-  <LoadPromptModal />
-)}
+**Test: Activation Overlay Display**
+```
+Action: Create machine via random forge, click activation
+Result: ActivationOverlay shows with "CHARGING" phase, progress bar, phase indicators
+Evidence: ActivationOverlay.tsx renders phase-specific UI with getTitle(), getSubtitle(), getBorderColor()
+Status: PARTIAL - Page reset after activation due to RandomForgeToast error
 ```
 
-Where:
-- `showLoadPrompt` = `true` when saved state exists (set by useEffect)
-- `hasLoadedSavedState` = `false` initially, set to `true` ONLY after user clicks Resume/Start Fresh
-
-This creates a chicken-and-egg: the modal requires `hasLoadedSavedState` to be true, but it can only become true after the modal is shown and user interacts with it.
-
-## Bugs Found
-
-### 1. [CRITICAL] Load Prompt Modal Never Appears
-**Location:** `src/App.tsx` line ~127
-**Description:** The conditional rendering logic for LoadPromptModal is incorrect. The condition `{showLoadPrompt && hasLoadedSavedState && ...}` requires both flags to be true, but `hasLoadedSavedState` starts as `false` in the store and is only set to `true` after user interaction.
-
-**Reproduction Steps:**
-1. Open browser to http://localhost:5173
-2. Click "Random Forge" to create modules
-3. Wait 3+ seconds for auto-save
-4. Verify localStorage has data: `localStorage.getItem('arcane-canvas-state')` returns non-null
-5. Refresh the page
-6. Expected: "Welcome Back" modal appears with Resume/Start Fresh buttons
-7. Actual: No modal appears, canvas is empty
-
-**Impact:** The entire persistence feature is non-functional. Users cannot resume their work after closing the browser tab.
-
-**Fix Required:** Change the modal condition from:
-```tsx
-{showLoadPrompt && hasLoadedSavedState && (<LoadPromptModal />)}
+**Test: Phase Transitions**
 ```
-to:
-```tsx
-{showLoadPrompt && (<LoadPromptModal />)}
+Expected: idle → charging → activating → online (or failure/overload)
+Evidence: Tests verify phase progression with correct progress calculations
+Status: PASS (via unit tests)
 ```
 
-The `hasLoadedSavedState` flag purpose is to track that the user has made a choice (not to gate the modal display). After the user clicks Resume or Start Fresh, `hasLoadedSavedState` should be set to `true` to prevent the modal from reappearing on subsequent re-renders.
+**Test: Particle System Performance**
+```
+Command: npm test -- particleSystem
+Result: 22 tests pass in 5ms
+Performance: 500 particles handled in < 100ms
+Status: PASS
+```
 
-## Required Fix Order
+### Bugs Found
 
-1. **FIX Modal Condition (CRITICAL)** — Change `App.tsx` line ~127 from `{showLoadPrompt && hasLoadedSavedState && (<LoadPromptModal />)}` to `{showLoadPrompt && (<LoadPromptModal />)}`
-2. **Verify Load Prompt Appears** — After fix, confirm modal appears when localStorage has saved state
-3. **Verify Resume Works** — Click Resume, confirm modules/connections are restored
-4. **Verify Start Fresh Works** — Click Start Fresh, confirm localStorage is cleared and canvas is empty
-5. **Re-run Browser Tests** — Verify all 10 acceptance criteria pass
+1. **[CRITICAL] RandomForgeToast DOM Manipulation Error**
+   - **Description**: "Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node"
+   - **Reproduction**: Click "随机锻造" button → ErrorBoundary catches rendering error → Page resets
+   - **Impact**: Prevents reliable browser verification of activation sequence and particle effects. Users experience unexpected page resets when generating random machines.
+   - **Root Cause**: React error boundary catches a DOM manipulation error in the component tree (likely related to RandomForgeToast insertion)
 
-## What's Working Well
+2. **[MINOR] Welcome Modal State Persistence**
+   - **Description**: Modal reappears after being dismissed when page state changes
+   - **Reproduction**: Dismiss welcome modal, interact with random forge, page refreshes
+   - **Impact**: Browser testing requires manual modal dismissal multiple times
+   - **Root Cause**: Zustand hydration race condition with localStorage persistence
 
-- **Auto-save implementation** — Debounced 500ms auto-save works correctly, saves modules, connections, viewport, and grid state
-- **localStorage utilities** — All 4 functions (`saveCanvasState`, `loadCanvasState`, `clearCanvasState`, `hasSavedState`) work correctly
-- **LoadPromptModal component styling** — Professional visual design with gradients, icons, and themed visuals
-- **Unit tests** — 23 persistence tests covering localStorage operations and store integration
-- **Build system** — Clean TypeScript compilation, 0 errors, fast build times
-- **Test coverage** — Comprehensive test suite (202 tests across 14 files)
+### Required Fix Order
 
-## Deliverables Confirmation
+1. **Fix RandomForgeToast DOM Manipulation Error** — The "insertBefore" error is causing ErrorBoundary to catch errors and potentially reset the page. This must be resolved before reliable browser verification can be performed.
 
-| Deliverable | Status | Notes |
-|-------------|--------|-------|
-| `src/utils/localStorage.ts` | ✓ EXISTS | All 4 functions implemented correctly |
-| `src/store/useMachineStore.ts` | ✓ EXISTS | `restoreSavedState()`, `startFresh()`, `markStateAsLoaded()`, debounced auto-save implemented |
-| `src/components/UI/LoadPromptModal.tsx` | ✓ EXISTS | Professional styling, both buttons present |
-| `src/__tests__/persistence.test.ts` | ✓ EXISTS | 23 tests, all passing |
-| `npm test` regression pass | ✓ PASS | 202 tests passing |
-| `npm run build` success | ✓ PASS | 0 TypeScript errors |
+2. **Improve Welcome Modal State Persistence** — Ensure hasSeenWelcome state persists reliably across all interactions to prevent modal from reappearing.
 
-## Regression Check
+### What's Working Well
 
-All existing features remain functional (verified via passing tests and previous round QA):
-| Feature | Status |
-|---------|--------|
-| Module dragging/selection | ✓ Still functional |
-| Connection creation | ✓ Still functional |
-| Activation animations | ✓ Still functional |
-| Undo/Redo | ✓ Still functional |
-| Export | ✓ Still functional |
-| Codex | ✓ Still functional |
-| Keyboard shortcuts | ✓ Still functional |
-| Zoom controls | ✓ Still functional |
-| Random Forge | ✓ Still functional |
+1. **Particle System Architecture** — Excellent design with particle pool (1000 max), requestAnimationFrame with delta time, GPU-accelerated CSS transforms. 22 comprehensive tests.
 
-## Summary
+2. **Energy Path Particles** — EnhancedEnergyPath integrates EnergySparkEmitter seamlessly with GSAP animations, state-based colors, and scaling based on energy level. 29 tests.
 
-The Round 9 contract has a **critical logic bug** that prevents the canvas persistence feature from working. While the implementation is structurally correct (auto-save works, localStorage is saved, tests pass), the Load Prompt Modal can never appear due to an incorrect conditional rendering logic.
+3. **Activation Choreography** — All 7 phases implemented with distinct visual feedback, progress bars, viewport shake, particle bursts on completion. 42 tests.
 
-**The feature cannot be considered complete until the modal condition is fixed and verified through browser testing.**
+4. **Build Quality** — Clean production build (567.52KB JS, 60.54KB CSS, 0 TypeScript errors) with 858 passing tests.
+
+5. **Code Organization** — Well-structured component hierarchy with proper separation of concerns between ParticleSystem.ts (core engine) and React components.
+
+6. **Performance Optimizations** — Hard particle limit, cleanup on shutdown, efficient pool management, delta time-based updates.
+
+### Summary
+
+The Round 11 contract implementation is **functionally complete** with all deliverables created and 858/858 tests passing. However, browser verification is blocked by a critical DOM manipulation error in RandomForgeToast that causes page resets during user interaction.
+
+**Critical Issue**: The RandomForgeToast component (or related code) throws a "Failed to execute 'insertBefore' on 'Node'" error when clicking the random forge button, which triggers the ErrorBoundary and potentially resets the application state.
+
+**Recommendation**: Fix the RandomForgeToast DOM error before claiming browser verification complete. The underlying code quality is excellent, but the interaction stability must be ensured for production use.
+
+**Evidence Summary**:
+- Build: PASS (0 TypeScript errors, 567.52KB JS)
+- Tests: PASS (858/858)
+- Code Inspection: PASS (all deliverables implemented correctly)
+- Browser Verification: BLOCKED (RandomForgeToast error)
+
+**Release: NOT APPROVED** — Fix critical RandomForgeToast DOM error before re-evaluation.

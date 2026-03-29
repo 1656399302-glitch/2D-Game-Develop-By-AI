@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useTutorialStore } from '../../store/useTutorialStore';
 import { useMachineStore } from '../../store/useMachineStore';
 import { WELCOME_CONTENT } from '../../data/tutorialSteps';
@@ -47,27 +47,42 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   const hasSeenWelcome = useMemo(() => getInitialHasSeenWelcome(), []);
   const [showModal, setShowModal] = useState(!hasSeenWelcome);
 
+  // Track if modal has been dismissed this session
+  const modalDismissedRef = useRef(false);
+
   // Also sync with store's isTutorialEnabled
   const isTutorialEnabled = useTutorialStore((state) => state.isTutorialEnabled);
 
   useEffect(() => {
+    // Don't show modal if already dismissed this session
+    if (modalDismissedRef.current) {
+      return;
+    }
+    
     // Trigger entrance animation if we should show the modal
     if (showModal) {
-      setTimeout(() => setIsVisible(true), 50);
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => setIsVisible(true), 50);
+      return () => clearTimeout(timer);
     }
+  }, [showModal]);
 
-    // Generate floating particles
-    const newParticles = Array.from({ length: 20 }).map((_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      delay: Math.random() * 3,
-      duration: 3 + Math.random() * 2,
-    }));
-    setParticles(newParticles);
+  useEffect(() => {
+    // Generate floating particles only when modal is shown
+    if (showModal) {
+      const newParticles = Array.from({ length: 20 }).map((_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        delay: Math.random() * 3,
+        duration: 3 + Math.random() * 2,
+      }));
+      setParticles(newParticles);
+    }
   }, [showModal]);
 
   const handleStartTutorial = () => {
     setIsVisible(false);
+    modalDismissedRef.current = true;
     setTimeout(() => {
       setShowModal(false);
       onStartTutorial();
@@ -75,9 +90,10 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   };
 
   const handleSkip = useCallback(() => {
-    // CRITICAL FIX: Don't call onSkip immediately. Instead:
-    // 1. Close the modal with animation
-    // 2. After animation, call onSkip which will restore saved state
+    // Mark as dismissed immediately to prevent re-appearing
+    modalDismissedRef.current = true;
+    
+    // Close the modal with animation
     setIsVisible(false);
     setTimeout(() => {
       setShowModal(false);
@@ -86,7 +102,8 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   }, [onSkip]);
 
   // Don't render if we shouldn't show the modal
-  if (!showModal || !isTutorialEnabled) {
+  // Check both showModal state AND session dismissal flag
+  if (!showModal || !isTutorialEnabled || modalDismissedRef.current) {
     return null;
   }
 
@@ -284,32 +301,52 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   );
 }
 
-// Hook to manage welcome modal visibility
-// IMPORTANT: This hook reads localStorage synchronously to avoid the Zustand
-// hydration race condition where hasSeenWelcome defaults to false before
-// the persisted state is loaded.
-// 
-// Parameters:
-// - setShowLoadPrompt: Optional setter from App.tsx to suppress the LoadPromptModal
-//   when WelcomeModal is skipped. This ensures the skip flow is seamless.
+// Session-level flag to track if welcome modal has been dismissed
+// This survives across re-renders but not across page refreshes
+let welcomeModalDismissedThisSession = false;
+
+/**
+ * Hook to manage welcome modal visibility
+ * 
+ * CRITICAL FIX: This hook now properly handles:
+ * 1. Synchronous localStorage reads to avoid Zustand hydration race conditions
+ * 2. Session-level dismissal tracking that persists across interactions
+ * 3. Safe callback handling that doesn't create stale closures
+ */
 export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
   const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
   const setTutorialEnabled = useTutorialStore((state) => state.setTutorialEnabled);
   const restoreSavedState = useMachineStore((state) => state.restoreSavedState);
   
   // Read localStorage synchronously to get the true initial state
-  const hasSeenWelcome = useMemo(() => getInitialHasSeenWelcome(), []);
+  // This prevents the Zustand hydration race condition
+  const hasSeenWelcome = useMemo(() => {
+    // If already dismissed this session, return true (don't show)
+    if (welcomeModalDismissedThisSession) {
+      return true;
+    }
+    return getInitialHasSeenWelcome();
+  }, []);
   
   // State for the modal visibility - starts as false if already seen
   const [showWelcome, setShowWelcome] = useState(!hasSeenWelcome);
 
+  // Memoize the setShowLoadPrompt to prevent stale closures
+  const setLoadPrompt = useCallback((show: boolean) => {
+    if (setShowLoadPrompt) {
+      setShowLoadPrompt(show);
+    }
+  }, [setShowLoadPrompt]);
+
   const handleStartTutorial = useCallback(() => {
+    welcomeModalDismissedThisSession = true;
     setShowWelcome(false);
     setHasSeenWelcome(true);
     // Don't restore saved state when starting tutorial - user wants to learn first
   }, [setHasSeenWelcome]);
 
   const handleSkip = useCallback(() => {
+    welcomeModalDismissedThisSession = true;
     setShowWelcome(false);
     setHasSeenWelcome(true);
     // CRITICAL FIX: Also disable tutorial so modal doesn't reappear on refresh
@@ -322,10 +359,8 @@ export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
     
     // CRITICAL FIX: Suppress LoadPromptModal to prevent confusing UX
     // where user might click "Start Fresh" and lose their work
-    if (setShowLoadPrompt) {
-      setShowLoadPrompt(false);
-    }
-  }, [setHasSeenWelcome, setTutorialEnabled, restoreSavedState, setShowLoadPrompt]);
+    setLoadPrompt(false);
+  }, [setHasSeenWelcome, setTutorialEnabled, restoreSavedState, setLoadPrompt]);
 
   return {
     showWelcome,
