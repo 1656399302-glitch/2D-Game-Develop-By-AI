@@ -11,8 +11,11 @@ import { RandomForgeToast } from './components/UI/RandomForgeToast';
 import { LoadPromptModal } from './components/UI/LoadPromptModal';
 import { ChallengeButton } from './components/Challenges/ChallengeButton';
 import { ChallengeBrowser } from './components/Challenges/ChallengeBrowser';
+import { WelcomeModal, useWelcomeModal } from './components/Tutorial/WelcomeModal';
+import { TutorialOverlay } from './components/Tutorial/TutorialOverlay';
 import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
+import { useTutorialStore } from './store/useTutorialStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
@@ -24,6 +27,7 @@ function App() {
   const [showExport, setShowExport] = useState(false);
   const [showLoadPrompt, setShowLoadPrompt] = useState(false);
   const [showChallenges, setShowChallenges] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
@@ -35,6 +39,13 @@ function App() {
   
   const addEntry = useCodexStore((state) => state.addEntry);
   
+  // Welcome modal hook - handles tutorial start/skip internally
+  const {
+    showWelcome,
+    handleStartTutorial,
+    handleSkip,
+  } = useWelcomeModal();
+
   // Check for saved state on mount
   useEffect(() => {
     if (hasSavedState()) {
@@ -72,6 +83,36 @@ function App() {
     setMachineState('idle');
   }, [setMachineState, setShowActivation]);
   
+  // Tutorial callback handlers
+  const handleModuleAdded = useCallback(() => {
+    // This callback is called when user completes the drag module step
+    // Can be used to track analytics or show additional hints
+  }, []);
+  
+  const handleModuleSelected = useCallback(() => {
+    // This callback is called when user completes the select/rotate step
+  }, []);
+  
+  const handleModuleConnected = useCallback(() => {
+    // This callback is called when user completes the connect step
+  }, []);
+  
+  const handleMachineActivated = useCallback(() => {
+    // This callback is called when user completes the activate step
+  }, []);
+  
+  const handleMachineSaved = useCallback(() => {
+    // This callback is called when user completes the save step
+  }, []);
+  
+  const handleShowHelp = useCallback(() => {
+    setShowHelp(true);
+  }, []);
+  
+  const handleHideHelp = useCallback(() => {
+    setShowHelp(false);
+  }, []);
+
   return (
     <div className="w-screen h-screen flex flex-col bg-[#0a0e17] overflow-hidden">
       {/* Header */}
@@ -107,9 +148,17 @@ function App() {
         {viewMode === 'editor' && (
           <div className="flex items-center gap-2">
             <button
+              onClick={handleShowHelp}
+              className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#9ca3af] hover:text-white border border-[#1e2a42] hover:border-[#7c3aed]/30 transition-colors"
+              title="Help & Tutorial"
+            >
+              ❓ Help
+            </button>
+            <button
               onClick={handleActivate}
               disabled={modules.length === 0}
               className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#00d4ff] to-[#00ffcc] text-[#0a0e17] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              data-tutorial="activate-button"
             >
               ▶ Activate Machine
             </button>
@@ -117,6 +166,7 @@ function App() {
               onClick={handleSaveToCodex}
               disabled={modules.length === 0}
               className="arcane-button disabled:opacity-50 disabled:cursor-not-allowed"
+              data-tutorial="save-button"
             >
               📖 Save to Codex
             </button>
@@ -179,17 +229,112 @@ function App() {
         />
       )}
       
-      {/* Load Prompt Modal - FIX: Removed hasLoadedSavedState check because it starts as false
-          and can only become true after user interaction, creating a chicken-and-egg problem.
-          The hasLoadedSavedState flag remains in the store and is set by markStateAsLoaded() 
-          after user clicks Resume/Start Fresh to prevent modal re-appearance on subsequent re-renders. */}
+      {/* Load Prompt Modal */}
       {showLoadPrompt && (
         <LoadPromptModal />
+      )}
+      
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg mx-4 bg-gradient-to-br from-[#1a1a2e] via-[#121826] to-[#0a0e17] rounded-2xl border border-[#7c3aed]/40 shadow-2xl shadow-purple-900/30 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#7c3aed]" />
+            
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-white">Quick Help</h2>
+                <button
+                  onClick={handleHideHelp}
+                  className="text-[#6b7280] hover:text-white text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-4 mb-6">
+                <div className="bg-[#0a0e17]/50 rounded-lg p-4 border border-[#1e2a42]">
+                  <h3 className="text-sm font-medium text-[#a855f7] mb-2">Getting Started</h3>
+                  <p className="text-xs text-[#9ca3af]">
+                    Drag modules from the left panel onto the canvas. Click on modules to select them, 
+                    then use the toolbar or keyboard shortcuts to transform them.
+                  </p>
+                </div>
+                
+                <div className="bg-[#0a0e17]/50 rounded-lg p-4 border border-[#1e2a42]">
+                  <h3 className="text-sm font-medium text-[#a855f7] mb-2">Keyboard Shortcuts</h3>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-[#1e2a42] rounded text-[#c084fc]">R</kbd>
+                      <span className="text-[#9ca3af]">Rotate 90°</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-[#1e2a42] rounded text-[#c084fc]">F</kbd>
+                      <span className="text-[#9ca3af]">Flip</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-[#1e2a42] rounded text-[#c084fc]">Del</kbd>
+                      <span className="text-[#9ca3af]">Delete</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-[#1e2a42] rounded text-[#c084fc]">Ctrl+Z</kbd>
+                      <span className="text-[#9ca3af]">Undo</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-[#0a0e17]/50 rounded-lg p-4 border border-[#1e2a42]">
+                  <h3 className="text-sm font-medium text-[#a855f7] mb-2">Tips</h3>
+                  <ul className="text-xs text-[#9ca3af] space-y-1">
+                    <li>• Connect modules by dragging from output ports to input ports</li>
+                    <li>• Use Random Forge for quick inspiration</li>
+                    <li>• Save your best machines to the Codex</li>
+                    <li>• Complete challenges to earn rewards</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    handleHideHelp();
+                    useTutorialStore.getState().resetTutorial();
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium bg-[#7c3aed]/20 text-[#a855f7] hover:bg-[#7c3aed]/30 border border-[#7c3aed]/40 transition-colors"
+                >
+                  📖 Replay Tutorial
+                </button>
+                <button
+                  onClick={handleHideHelp}
+                  className="flex-1 px-4 py-2 rounded-lg font-medium bg-[#121826] text-[#9ca3af] hover:text-white border border-[#1e2a42] transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       
       {/* Toast Notifications */}
       <ConnectionErrorToast />
       <RandomForgeToast />
+      
+      {/* Welcome Modal - for first-time users */}
+      {showWelcome && (
+        <WelcomeModal
+          onStartTutorial={handleStartTutorial}
+          onSkip={handleSkip}
+        />
+      )}
+      
+      {/* Tutorial Overlay */}
+      <TutorialOverlay
+        onModuleAdded={handleModuleAdded}
+        onModuleSelected={handleModuleSelected}
+        onModuleConnected={handleModuleConnected}
+        onMachineActivated={handleMachineActivated}
+        onMachineSaved={handleMachineSaved}
+      />
     </div>
   );
 }
