@@ -1,25 +1,22 @@
-# Sprint Contract — Round 16
-
-## APPROVED
+APPROVED
+# Sprint Contract — Round 17
 
 ## Scope
 
-This sprint focuses on **Polish & Shareability** — completing the tutorial system, enhancing share/export capabilities for social media, and refining the faction tech tree UI. These improvements increase user onboarding quality and export sharing potential without introducing architectural changes.
+This sprint focuses on **Performance Optimization & AI Integration** — implementing code splitting to reduce bundle size, creating an AI naming assistant UI that integrates with the existing MockAIService, and improving mobile touch responsiveness. These improvements enhance initial load performance and add a compelling feature that previews future AI capabilities.
 
 ## Spec Traceability
 
 ### P0 items covered this round
-- Tutorial system completion (8 steps with proper UI overlays and spotlight)
-- Share card/poster enhancements (social media ready with meta tags)
-- Faction tech tree visual polish (animated nodes, faction banner, progress indicators)
+- AI naming/description UI (using existing MockAIService architecture)
+- Code splitting for bundle optimization (reduce 574KB bundle)
 
 ### P1 items covered this round
-- Challenge completion animations and toast notifications
-- Recipe unlock celebration animations
-- Achievement unlock toast system refinement
+- Mobile touch responsiveness improvements
+- Lazy loading of modal components
 
 ### Remaining P0/P1 after this round
-- P0: AI naming/description generation (requires external API integration)
+- P0: AI naming with external API integration (requires API key setup)
 - P0: Real-time multiplayer/collaboration (requires backend)
 - P1: Community share plaza (requires backend)
 - P1: Machine marketplace/trading (requires backend)
@@ -28,93 +25,111 @@ This sprint focuses on **Polish & Shareability** — completing the tutorial sys
 - Faction quest chains
 - Seasonal events
 - Cloud sync
-- Mobile app
+- Native mobile app
 
 ## Deliverables
 
-1. **Tutorial System** — `src/components/tutorial/TutorialOverlay.tsx`
-   - Complete 8-step tutorial with spotlight highlighting relevant UI
-   - Steps: Welcome, Add Module, Connect, Activate, Save to Codex, Export, Random Forge, Explore Factions
-   - Progress persistence in localStorage
-   - Skip option with "Show tutorial again" in settings
+1. **Code Splitting Configuration** — `vite.config.ts` updates
+   - Dynamic imports for route-based splitting
+   - Manual chunk configuration for vendor libraries
+   - Target: reduce main bundle from 574KB to <400KB
 
-2. **Share Card Enhancements** — `src/utils/shareUtils.ts`, poster templates
-   - Open Graph meta tags for social media preview
-   - Sharable poster template with QR code option (using inline SVG)
-   - Copy-to-clipboard share link functionality
-   - Platform-specific sharing buttons (Twitter/X, Reddit)
+2. **AI Naming Assistant Component** — `src/components/AI/AIAssistantPanel.tsx`
+   - Panel with AI name generation using MockAIService
+   - Name style selector (arcane/mechanical/mixed/poetic)
+   - Regenerate and apply name buttons
+   - Loading state with animation
 
-3. **Faction Tech Tree Polish** — `src/components/faction/FactionTechTree.tsx`
-   - Animated faction banner with SVG gradients
-   - Progress indicators showing unlock status per tier
-   - Hover tooltips with faction lore
-   - Visual connection lines between unlocked nodes
+3. **AI Description Enhancement** — `src/utils/aiIntegrationUtils.ts`
+   - Integration helper for AI description generation
+   - Description style options (technical/flavor/lore/mixed)
+   - Integration with machine attributes display
 
-4. **Celebration Animations** — `src/components/common/CelebrationOverlay.tsx`
-   - Challenge completion confetti burst
-   - Recipe unlock glow animation
-   - Achievement toast with badge display
+4. **Lazy-loaded Modal Components** — Route/Component refactoring
+   - ChallengePanel lazy import
+   - CodexView lazy import
+   - FactionPanel lazy import
+   - TechTree lazy import
+
+5. **Touch Improvement Layer** — `src/components/Accessibility/MobileTouchEnhancer.tsx`
+   - Pinch-to-zoom touch handling
+   - Two-finger pan on canvas
+   - Long-press context menu
+   - Touch feedback animations
+
+6. **Performance Test Suite** — `src/__tests__/performance.test.ts`
+   - Bundle size assertions
+   - Lazy loading verification
+   - AI service integration tests
 
 ## Acceptance Criteria
 
-1. **AC1: Tutorial completes** — User can complete all 8 tutorial steps without errors; `npm test -- src/__tests__/tutorial.test.ts` passes all tests
+1. **AC1: Bundle size reduced** — Main bundle < 400KB after code splitting; `npm run build` shows reduced chunk sizes
 
-2. **AC2: Share card renders** — Export generates valid poster with meta tags; `npm test -- src/__tests__/shareUtils.test.ts` passes
+2. **AC2: AI Assistant panel functional** — User can click "AI 命名" button and receive generated names; `npm test -- src/__tests__/aiNaming.test.ts` passes
 
-3. **AC3: Tech tree renders** — Faction panel displays all 4 factions with correct node states; `npm test -- src/__tests__/faction.test.ts` passes
+3. **AC3: AI description integration works** — AI-generated descriptions appear in machine stats panel when enabled; `npm test -- src/__tests__/aiDescription.test.ts` passes
 
-4. **AC4: Celebration triggers** — Completing a challenge shows toast and animation; `npm test -- src/__tests__/celebration.test.ts` passes
+4. **AC4: Modal lazy loading works** — Challenge, Codex, Faction panels load on demand; network tab shows chunks loaded on demand
 
-5. **AC5: Full test suite** — `npm test` passes all 920+ tests with 0 failures
+5. **AC5: Mobile touch improvements** — Touch gestures work on mobile viewport (pinch zoom, two-finger pan); `npm test -- src/__tests__/touchGestures.test.ts` passes
 
-6. **AC6: Build succeeds** — `npm run build` succeeds with 0 TypeScript errors
+6. **AC6: Full test suite passes** — `npm test` passes all tests with 0 failures (including new tests)
+
+7. **AC7: Build succeeds** — `npm run build` succeeds with 0 TypeScript errors and bundle size warning resolved
 
 ## Test Methods
 
 | Criterion | Verification Method |
 |-----------|---------------------|
-| AC1 | Run `npm test -- src/__tests__/tutorial.test.ts`, manually walk through 8 steps in browser |
-| AC2 | Run `npm test -- src/__tests__/shareUtils.test.ts`, verify exported poster HTML has OG tags |
-| AC3 | Run `npm test -- src/__tests__/faction.test.ts`, visually verify tech tree in Faction Panel |
-| AC4 | Trigger challenge completion, observe toast and animation |
-| AC5 | Run `npm test`, count passing tests |
-| AC6 | Run `npm run build`, verify 0 TypeScript errors in output |
+| AC1 | Run `npm run build`, check chunk sizes in output, verify main bundle < 400KB |
+| AC2 | Run `npm test -- src/__tests__/aiNaming.test.ts`, manually test AI panel in browser |
+| AC3 | Run `npm test -- src/__tests__/aiDescription.test.ts`, verify description generation |
+| AC4 | Open browser DevTools, load app, check Network tab for lazy-loaded chunks |
+| AC5 | Run `npm test -- src/__tests__/touchGestures.test.ts`, test on mobile viewport |
+| AC6 | Run `npm test`, verify all tests pass |
+| AC7 | Run `npm run build`, verify 0 TypeScript errors and no bundle warning |
 
 ## Risks
 
-1. **Tutorial state conflicts** — Tutorial overlay may conflict with modal/dialog state; mitigate with z-index layering and modal stack awareness
-2. **Share metadata injection** — Dynamic OG tag updates may not work in all social media scrapers; document limitations in UI
-3. **Animation performance** — Confetti animations may impact low-end devices; implement requestAnimationFrame throttling
-4. **Test coverage gaps** — Some celebration paths may not have existing tests; add new tests before implementation
+1. **Chunk splitting complexity** — Incorrect dynamic import paths may break module resolution; mitigate with careful path configuration and testing
+2. **AI service mocking** — MockAIService may need adjustment for integration tests; ensure timeout handling
+3. **Touch gesture conflicts** — Touch improvements may conflict with existing scroll behavior; test on actual mobile devices
+4. **Test coverage gaps** — New code paths may lack tests; add tests before implementation
 
 ## Failure Conditions
 
 1. Any acceptance criterion not passing
-2. New test failures introduced
-3. Breaking changes to existing functionality
+2. Bundle size > 400KB (excluding vendor chunks)
+3. New test failures introduced
 4. TypeScript errors in build
+5. Breaking changes to existing functionality
 
 ## Done Definition
 
-All 6 acceptance criteria must be true:
+All 7 acceptance criteria must be true:
 
-- [ ] TutorialOverlay component complete with 8 steps
-- [ ] Tutorial tests pass (≥5 new tests added)
-- [ ] Share card export includes OG meta tags
-- [ ] ShareUtils tests pass (≥3 new tests added)
-- [ ] Faction tech tree renders with visual polish
-- [ ] Faction tests pass (≥2 new tests added)
-- [ ] CelebrationOverlay component with animations
-- [ ] Celebration tests pass (≥3 new tests added)
-- [ ] `npm test` passes all tests (≥920)
+- [ ] `vite.config.ts` updated with manual chunks configuration
+- [ ] Main bundle size < 400KB after optimization
+- [ ] `src/components/AI/AIAssistantPanel.tsx` created and functional
+- [ ] `src/utils/aiIntegrationUtils.ts` created with description helpers
+- [ ] Lazy imports added for ChallengePanel, CodexView, FactionPanel, TechTree
+- [ ] `src/components/Accessibility/MobileTouchEnhancer.tsx` created
+- [ ] AI naming tests pass (≥10 new tests)
+- [ ] AI description tests pass (≥8 new tests)
+- [ ] Touch gesture tests pass (≥6 new tests)
+- [ ] Performance tests pass (≥4 new tests)
+- [ ] `npm test` passes all tests (≥1044 baseline)
 - [ ] `npm run build` succeeds with 0 errors
+- [ ] No bundle size warning in build output
 
 ## Out of Scope
 
 - Backend/multiplayer infrastructure
-- AI text generation API integration
+- External AI API integration (OpenAI/Anthropic API keys)
 - Native mobile app
 - Cloud save/sync
 - Payment processing
 - Email/notification system
 - Analytics dashboard
+- Full i18n localization (Chinese/English only)

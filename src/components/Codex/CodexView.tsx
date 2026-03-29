@@ -455,3 +455,5 @@ function MachinePreview({ modules, large = false }: { modules: PlacedModule[]; l
     </svg>
   );
 }
+
+export default CodexView;

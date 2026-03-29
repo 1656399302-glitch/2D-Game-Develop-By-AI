@@ -1,117 +1,135 @@
-# Sprint Contract — Round 18 (REVISION 1)
-
-## ⚠️ CRITICAL PREREQUISITE
-**Before any new work begins, the following blocking issue MUST be fixed:**
-- `src/__tests__/activationModes.test.ts` line 213: The module spacing threshold is 78, but the generated value is 77.929... — needs threshold raised to 79
-
----
+APPROVED
+# Sprint Contract — Round 17
 
 ## Scope
 
-This sprint implements the **Recipe/Formula Unlock System** — a progression mechanic that allows players to unlock new module types and bonuses by completing challenges and milestones.
+This sprint focuses on **Performance Optimization & AI Integration** — implementing code splitting to reduce bundle size, creating an AI naming assistant UI that integrates with the existing MockAIService, and improving mobile touch responsiveness. These improvements enhance initial load performance and add a compelling feature that previews future AI capabilities.
 
 ## Spec Traceability
 
-### P0 items (Must Complete)
-1. **Recipe Store** — Zustand store managing unlocked recipes and discovery progress
-2. **Recipe Definitions** — Configuration for all unlockable modules with discovery conditions
-3. **Recipe Browser UI** — Gallery showing locked/unlocked recipes with visual previews
-4. **Challenge Integration** — Challenges award recipe unlocks upon completion
-5. **Module Panel Updates** — Locked modules shown as locked/greyed with unlock hints
+### P0 items covered this round
+- AI naming/description UI (using existing MockAIService architecture)
+- Code splitting for bundle optimization (reduce 574KB bundle)
 
-### P1 items (Should Complete)
-1. **Recipe Discovery Toast** — Animated notification when a recipe is unlocked
-2. **Unlock Animations** — Visual celebration when recipes are discovered
-3. **Recipe Persistence** — Unlocked recipes persist across sessions
-4. **Integration Tests** — Verify unlock flow from challenge → unlock → usable module
+### P1 items covered this round
+- Mobile touch responsiveness improvements
+- Lazy loading of modal components
 
-### P2 items (Intentionally Deferred)
-- AI naming assistant integration
-- Community sharing/leaderboards
-- Faction tech tree branching
-- Recipe trading/exchange system
-- Social media integration
+### Remaining P0/P1 after this round
+- P0: AI naming with external API integration (requires API key setup)
+- P0: Real-time multiplayer/collaboration (requires backend)
+- P1: Community share plaza (requires backend)
+- P1: Machine marketplace/trading (requires backend)
+
+### P2 intentionally deferred
+- Faction quest chains
+- Seasonal events
+- Cloud sync
+- Native mobile app
 
 ## Deliverables
 
-### Files to CREATE (New)
-1. **`src/store/useRecipeStore.ts`** — Zustand store for recipe unlocks and discovery state
-2. **`src/types/recipes.ts`** — Recipe definitions, unlock conditions, and related types
-3. **`src/components/Recipes/RecipeBrowser.tsx`** — Modal/browse for viewing all recipes
-4. **`src/components/Recipes/RecipeCard.tsx`** — Individual recipe display (locked vs unlocked)
-5. **`src/components/Recipes/RecipeDiscoveryToast.tsx`** — Animated unlock notification
-6. **`src/__tests__/recipeSystem.test.ts`** — Unit tests for recipe unlock logic
+1. **Code Splitting Configuration** — `vite.config.ts` updates
+   - Dynamic imports for route-based splitting
+   - Manual chunk configuration for vendor libraries
+   - Target: reduce main bundle from 574KB to <400KB
 
-### Files to MODIFY
-1. **`src/store/useChallengeStore.ts`** — Add recipe unlock on challenge completion
-2. **`src/components/Editor/ModulePanel.tsx`** — Show locked state for undiscovered modules
-3. **`src/components/Challenges/ChallengeCelebration.tsx`** — Show recipe unlock in celebration
-4. **`src/utils/localStorage.ts`** — Persist recipe unlock state
-5. **`src/components/Tutorial/TutorialCompletion.tsx`** — Trigger tutorial recipe discovery
-6. **`src/App.tsx`** — Add RecipeBrowser trigger and RecipeDiscoveryToast
+2. **AI Naming Assistant Component** — `src/components/AI/AIAssistantPanel.tsx`
+   - Panel with AI name generation using MockAIService
+   - Name style selector (arcane/mechanical/mixed/poetic)
+   - Regenerate and apply name buttons
+   - Loading state with animation
 
-### Files to FIX (CRITICAL - Pre-existing Bug)
-1. **`src/__tests__/activationModes.test.ts`** — Raise MIN_SPACING threshold from 78 to 79 to fix floating-point edge case
+3. **AI Description Enhancement** — `src/utils/aiIntegrationUtils.ts`
+   - Integration helper for AI description generation
+   - Description style options (technical/flavor/lore/mixed)
+   - Integration with machine attributes display
+
+4. **Lazy-loaded Modal Components** — Route/Component refactoring
+   - ChallengePanel lazy import
+   - CodexView lazy import
+   - FactionPanel lazy import
+   - TechTree lazy import
+
+5. **Touch Improvement Layer** — `src/components/Accessibility/MobileTouchEnhancer.tsx`
+   - Pinch-to-zoom touch handling
+   - Two-finger pan on canvas
+   - Long-press context menu
+   - Touch feedback animations
+
+6. **Performance Test Suite** — `src/__tests__/performance.test.ts`
+   - Bundle size assertions
+   - Lazy loading verification
+   - AI service integration tests
 
 ## Acceptance Criteria
 
-1. **Recipe Discovery Flow** — Completing specific challenges unlocks corresponding recipes
-2. **Visual Lock State** — Locked modules display with padlock icon, greyed appearance, and tooltip
-3. **Unlock Notification** — When recipe unlocks, animated toast appears with module preview
-4. **Persistence** — Unlocked recipes survive page refresh and browser restart
-5. **11 Base Modules Unlockable** — All module types have unlock conditions (some start unlocked)
-6. **Challenge → Recipe Mapping** — At least 5 challenges award recipe unlocks
-7. **Locked Module Blocked** — Cannot drag locked modules onto canvas
-8. **Recipe Browser Accessible** — Button to open recipe gallery from main UI
+1. **AC1: Bundle size reduced** — Main bundle < 400KB after code splitting; `npm run build` shows reduced chunk sizes
+
+2. **AC2: AI Assistant panel functional** — User can click "AI 命名" button and receive generated names; `npm test -- src/__tests__/aiNaming.test.ts` passes
+
+3. **AC3: AI description integration works** — AI-generated descriptions appear in machine stats panel when enabled; `npm test -- src/__tests__/aiDescription.test.ts` passes
+
+4. **AC4: Modal lazy loading works** — Challenge, Codex, Faction panels load on demand; network tab shows chunks loaded on demand
+
+5. **AC5: Mobile touch improvements** — Touch gestures work on mobile viewport (pinch zoom, two-finger pan); `npm test -- src/__tests__/touchGestures.test.ts` passes
+
+6. **AC6: Full test suite passes** — `npm test` passes all tests with 0 failures (including new tests)
+
+7. **AC7: Build succeeds** — `npm run build` succeeds with 0 TypeScript errors and bundle size warning resolved
 
 ## Test Methods
 
-1. **Unit Tests** — `npm test -- recipeSystem` validates:
-   - `unlockRecipe()` correctly updates store state
-   - `isRecipeUnlocked()` returns correct boolean
-   - Challenge completion triggers recipe unlock
-   - Persistence saves and restores correctly
-
-2. **Integration Tests**:
-   - Complete a challenge → verify recipe is unlocked → verify module appears unlocked in panel
-   - Refresh page → verify unlock persists
-
-3. **Manual Verification**:
-   - Open Recipe Browser → see locked/unlocked states
-   - Complete a recipe-unlocking challenge → see discovery toast
-   - Try dragging locked module → should show lock indicator, not allow drop
+| Criterion | Verification Method |
+|-----------|---------------------|
+| AC1 | Run `npm run build`, check chunk sizes in output, verify main bundle < 400KB |
+| AC2 | Run `npm test -- src/__tests__/aiNaming.test.ts`, manually test AI panel in browser |
+| AC3 | Run `npm test -- src/__tests__/aiDescription.test.ts`, verify description generation |
+| AC4 | Open browser DevTools, load app, check Network tab for lazy-loaded chunks |
+| AC5 | Run `npm test -- src/__tests__/touchGestures.test.ts`, test on mobile viewport |
+| AC6 | Run `npm test`, verify all tests pass |
+| AC7 | Run `npm run build`, verify 0 TypeScript errors and no bundle warning |
 
 ## Risks
 
-1. **Challenge Integration Complexity** — Must ensure recipe unlocks don't break existing challenge validation
-2. **UI Consistency** — Locked modules must feel intentional, not broken/disabled
-3. **Persistence Edge Cases** — Must handle corrupted/missing localStorage gracefully
+1. **Chunk splitting complexity** — Incorrect dynamic import paths may break module resolution; mitigate with careful path configuration and testing
+2. **AI service mocking** — MockAIService may need adjustment for integration tests; ensure timeout handling
+3. **Touch gesture conflicts** — Touch improvements may conflict with existing scroll behavior; test on actual mobile devices
+4. **Test coverage gaps** — New code paths may lack tests; add tests before implementation
 
 ## Failure Conditions
 
-1. ~~Any existing test fails~~ → **All 395+ tests pass (including pre-existing fix + new recipe tests)**
-2. Build fails with TypeScript errors (`npm run build` exits non-zero)
-3. Locked module drag-drop works (should be blocked)
-4. Recipe unlocks don't persist across refresh
-5. Breaking existing challenge completion flow
+1. Any acceptance criterion not passing
+2. Bundle size > 400KB (excluding vendor chunks)
+3. New test failures introduced
+4. TypeScript errors in build
+5. Breaking changes to existing functionality
 
 ## Done Definition
 
-- [ ] Fix `activationModes.test.ts` MIN_SPACING threshold from 78 to 79 (pre-existing bug)
-- [ ] All 395+ tests pass (394 original + 1 fixed + new recipe tests)
-- [ ] `npm run build` succeeds with 0 TypeScript errors
-- [ ] Recipe Browser accessible via UI button
-- [ ] At least 5 recipes have unlock conditions tied to challenges
-- [ ] Locked modules show visual lock state in ModulePanel
-- [ ] Recipe unlock triggers animated toast notification
-- [ ] Unlocked recipes persist via localStorage
-- [ ] Challenge completion awards recipe unlocks correctly
+All 7 acceptance criteria must be true:
+
+- [ ] `vite.config.ts` updated with manual chunks configuration
+- [ ] Main bundle size < 400KB after optimization
+- [ ] `src/components/AI/AIAssistantPanel.tsx` created and functional
+- [ ] `src/utils/aiIntegrationUtils.ts` created with description helpers
+- [ ] Lazy imports added for ChallengePanel, CodexView, FactionPanel, TechTree
+- [ ] `src/components/Accessibility/MobileTouchEnhancer.tsx` created
+- [ ] AI naming tests pass (≥10 new tests)
+- [ ] AI description tests pass (≥8 new tests)
+- [ ] Touch gesture tests pass (≥6 new tests)
+- [ ] Performance tests pass (≥4 new tests)
+- [ ] `npm test` passes all tests (≥1044 baseline)
+- [ ] `npm run build` succeeds with 0 errors
+- [ ] No bundle size warning in build output
 
 ## Out of Scope
 
-- AI naming/description generation
-- Social sharing or community features
-- Recipe trading between users
-- Faction technology trees beyond basic module unlocks
-- Advanced recipe crafting/combining mechanics
-- Cloud sync or account systems
+- Backend/multiplayer infrastructure
+- External AI API integration (OpenAI/Anthropic API keys)
+- Native mobile app
+- Cloud save/sync
+- Payment processing
+- Email/notification system
+- Analytics dashboard
+- Full i18n localization (Chinese/English only)
