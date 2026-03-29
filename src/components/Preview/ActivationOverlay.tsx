@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
-import { getRarityColor } from '../../utils/activationChoreographer';
+import { getRarityColor, calculateShakeOffset } from '../../utils/activationChoreographer';
 import { Rarity } from '../../types';
+import { AmbientDustEmitter } from '../Particles';
 
 interface ActivationOverlayProps {
   onComplete: () => void;
 }
 
-type Phase = 'charging' | 'activating' | 'online' | 'failure' | 'overload';
+type Phase = 'idle' | 'charging' | 'activating' | 'online' | 'failure' | 'overload' | 'shutdown';
 
 // Shake intensity constants (in pixels)
 const FAILURE_SHAKE_INTENSITY = 8;
@@ -15,20 +16,20 @@ const OVERLOAD_SHAKE_INTENSITY = 8;
 const NORMAL_SHAKE_INTENSITY = 4;
 const CHARGING_SHAKE_INTENSITY = 2;
 
-// Overload vignette
-const VIGNETTE_TARGET_OPACITY = 0.4;
-const VIGNETTE_ANIMATION_DURATION = 200;
-
 // Flicker interval
 const FLICKER_INTERVAL = 50;
+
+// Overload/failure vignette
+const VIGNETTE_TARGET_OPACITY = 0.4;
+const VIGNETTE_ANIMATION_DURATION = 200;
 
 // Flash effect
 const FLASH_DURATION = 100;
 const FLASH_OPACITY = 0.3;
 
 // Particle burst at completion
-const PARTICLE_COUNT = 8;
-const PARTICLE_DURATION = 800;
+const PARTICLE_COUNT = 12;
+const PARTICLE_DURATION = 1000;
 
 export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const [phase, setPhase] = useState<Phase>('charging');
@@ -36,13 +37,15 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const [currentModuleIndex, setCurrentModuleIndex] = useState(-1);
   const [flicker, setFlicker] = useState(false);
   const [vignetteOpacity, setVignetteOpacity] = useState(0);
-  const [sparks, setSparks] = useState<{ id: number; x: number; y: number; vx: number; vy: number; size: number }[]>([]);
   const [showFlash, setShowFlash] = useState(false);
   const [particles, setParticles] = useState<{ id: number; angle: number; distance: number; size: number }[]>([]);
+  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
+  const [showAmbientParticles, setShowAmbientParticles] = useState(false);
   
+  const containerRef = useRef<HTMLDivElement>(null);
   const flickerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sparkAnimationRef = useRef<number | null>(null);
   const particleAnimationRef = useRef<number | null>(null);
+  const shakeAnimationRef = useRef<number | null>(null);
   
   const modules = useMachineStore((state) => state.modules);
   const machineState = useMachineStore((state) => state.machineState);
@@ -53,6 +56,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const rarity: Rarity = generatedAttributes?.rarity || 'common';
   const rarityColor = getRarityColor(rarity);
   
+  // Trigger flash effect
   const triggerFlash = useCallback(() => {
     setShowFlash(true);
     setTimeout(() => {
@@ -60,6 +64,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     }, FLASH_DURATION);
   }, []);
   
+  // Generate completion particles
   const generateParticles = useCallback(() => {
     const newParticles = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
       id: i,
@@ -77,13 +82,13 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         return;
       }
       
-      const progress = elapsed / PARTICLE_DURATION;
-      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      const progressPct = elapsed / PARTICLE_DURATION;
+      const easedProgress = 1 - Math.pow(1 - progressPct, 3);
       
       setParticles((prev) =>
         prev.map((p) => ({
           ...p,
-          distance: easedProgress * 150,
+          distance: easedProgress * 200,
         }))
       );
       
@@ -93,108 +98,110 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     particleAnimationRef.current = requestAnimationFrame(animateParticles);
   }, []);
   
-  const generateSparks = useCallback(() => {
-    const newSparks = Array.from({ length: 8 }, (_, i) => ({
-      id: i,
-      x: 50 + (Math.random() - 0.5) * 20,
-      y: 50 + (Math.random() - 0.5) * 20,
-      vx: (Math.random() - 0.5) * 2,
-      vy: Math.random() * -2 - 1,
-      size: 3 + Math.random() * 3,
-    }));
-    setSparks(newSparks);
-    
-    const startTime = performance.now();
-    const animateSparks = (time: number) => {
-      const elapsed = time - startTime;
-      if (elapsed > 500) {
-        setSparks([]);
-        return;
-      }
-      
-      setSparks((prev) =>
-        prev.map((spark) => ({
-          ...spark,
-          x: spark.x + spark.vx,
-          y: spark.y + spark.vy + (elapsed / 500) * 2,
-          vy: spark.vy + 0.1,
-        }))
-      );
-      
-      sparkAnimationRef.current = requestAnimationFrame(animateSparks);
-    };
-    
-    sparkAnimationRef.current = requestAnimationFrame(animateSparks);
+  // Stop ambient particles
+  const stopAmbientParticles = useCallback(() => {
+    setShowAmbientParticles(false);
   }, []);
   
+  // Viewport shake effect
+  const startShake = useCallback((intensity: number) => {
+    if (shakeAnimationRef.current) {
+      cancelAnimationFrame(shakeAnimationRef.current);
+    }
+    
+    const startTime = performance.now();
+    const shake = () => {
+      const elapsed = Date.now() - startTime;
+      const offset = calculateShakeOffset(elapsed / 1000, intensity, 10000);
+      
+      setViewportOffset({ x: offset.x, y: offset.y });
+      
+      if (!offset.isComplete) {
+        shakeAnimationRef.current = requestAnimationFrame(shake);
+      } else {
+        setViewportOffset({ x: 0, y: 0 });
+      }
+    };
+    
+    shake();
+  }, []);
+  
+  // Handle skip
   const handleSkip = useCallback(() => {
+    // Clean up all animations
     if (flickerIntervalRef.current) {
       clearInterval(flickerIntervalRef.current);
-    }
-    if (sparkAnimationRef.current) {
-      cancelAnimationFrame(sparkAnimationRef.current);
     }
     if (particleAnimationRef.current) {
       cancelAnimationFrame(particleAnimationRef.current);
     }
+    if (shakeAnimationRef.current) {
+      cancelAnimationFrame(shakeAnimationRef.current);
+    }
     
+    stopAmbientParticles();
     setMachineState('idle');
     setShowActivation(false);
+    setViewportOffset({ x: 0, y: 0 });
     onComplete();
-  }, [setMachineState, setShowActivation, onComplete]);
+  }, [setMachineState, setShowActivation, onComplete, stopAmbientParticles]);
   
+  // Failure mode effect
   useEffect(() => {
     if (machineState === 'failure') {
       setPhase('failure');
       setProgress(100);
       setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
+      stopAmbientParticles();
       
+      // Flicker effect
       flickerIntervalRef.current = setInterval(() => {
         setFlicker((prev) => !prev);
       }, FLICKER_INTERVAL);
       
-      generateSparks();
+      // Start shake
+      startShake(FAILURE_SHAKE_INTENSITY);
       
       return () => {
         if (flickerIntervalRef.current) {
           clearInterval(flickerIntervalRef.current);
-        }
-        if (sparkAnimationRef.current) {
-          cancelAnimationFrame(sparkAnimationRef.current);
         }
       };
     } else if (machineState === 'overload') {
       setPhase('overload');
       setProgress(100);
       setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
+      stopAmbientParticles();
       
+      // Faster flicker for overload
       flickerIntervalRef.current = setInterval(() => {
         setFlicker((prev) => !prev);
-      }, FLICKER_INTERVAL);
+      }, FLICKER_INTERVAL / 2);
       
-      generateSparks();
+      // Start shake
+      startShake(OVERLOAD_SHAKE_INTENSITY);
       
       return () => {
         if (flickerIntervalRef.current) {
           clearInterval(flickerIntervalRef.current);
         }
-        if (sparkAnimationRef.current) {
-          cancelAnimationFrame(sparkAnimationRef.current);
-        }
       };
     }
-  }, [machineState, generateSparks]);
+  }, [machineState, startShake, stopAmbientParticles]);
   
+  // Main activation sequence
   useEffect(() => {
     if (machineState !== 'charging' && machineState !== 'active' && machineState !== 'shutdown') {
       return;
     }
     
     setMachineState('charging');
+    setShowAmbientParticles(true);
+    startShake(CHARGING_SHAKE_INTENSITY);
     
-    const chargingDuration = 600;
-    const activatingDuration = 1000;
-    const onlineDuration = 400;
+    const chargingDuration = 800;
+    const activatingDuration = 1200;
+    const onlineDuration = 500;
     
     let startTime = Date.now();
     let animationFrame: number;
@@ -211,7 +218,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           setPhase('activating');
           setMachineState('active');
           startTime = Date.now();
+          startShake(NORMAL_SHAKE_INTENSITY);
           
+          // Show module activation
           const categorizedModules = categorizeModulesForActivation(modules);
           
           categorizedModules.forEach((group, groupIndex) => {
@@ -248,6 +257,8 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         if (progressPercent >= 1) {
           setProgress(100);
           setTimeout(() => {
+            stopAmbientParticles();
+            setViewportOffset({ x: 0, y: 0 });
             setMachineState('idle');
             setShowActivation(false);
             onComplete();
@@ -265,7 +276,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState, triggerFlash, generateParticles]);
+  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState, triggerFlash, generateParticles, startShake, stopAmbientParticles]);
   
   const categorizeModulesForActivation = (mods: typeof modules) => {
     const cores: typeof modules = [];
@@ -343,22 +354,6 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     }
   };
   
-  const getShakeAnimation = () => {
-    if (phase === 'failure') {
-      return `failureShakeAnimation ${1000 / FAILURE_SHAKE_INTENSITY}s linear infinite`;
-    }
-    if (phase === 'overload') {
-      return `overloadShakeAnimation ${1000 / OVERLOAD_SHAKE_INTENSITY}s ease-in-out infinite`;
-    }
-    if (phase === 'charging') {
-      return `chargingShakeAnimation ${1000 / CHARGING_SHAKE_INTENSITY}s ease-in-out infinite`;
-    }
-    if (phase === 'activating') {
-      return `normalShakeAnimation ${1000 / NORMAL_SHAKE_INTENSITY}s ease-in-out infinite`;
-    }
-    return 'none';
-  };
-  
   const getTitleColor = () => {
     switch (phase) {
       case 'failure':
@@ -395,23 +390,37 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   
   const getCardShadow = () => {
     if (phase === 'failure') {
-      return '0 0 20px rgba(255, 51, 85, 0.2)';
+      return '0 0 30px rgba(255, 51, 85, 0.3)';
     }
     if (phase === 'overload') {
-      return '0 0 20px rgba(255, 107, 53, 0.2)';
+      return '0 0 30px rgba(255, 107, 53, 0.3)';
     }
-    return `0 0 20px ${rarityColor}20`;
+    return `0 0 30px ${rarityColor}30`;
   };
   
   return (
     <div 
+      ref={containerRef}
       className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ${
         phase === 'failure' ? 'failure-mode' : ''
       } ${phase === 'overload' ? 'overload-mode' : ''}`}
       style={{
-        animation: getShakeAnimation(),
+        transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px)`,
+        transition: 'transform 50ms linear',
       }}
     >
+      {/* Ambient dust particles */}
+      {showAmbientParticles && (
+        <AmbientDustEmitter
+          width={typeof window !== 'undefined' ? window.innerWidth : 800}
+          height={typeof window !== 'undefined' ? window.innerHeight : 600}
+          density={3}
+          color={rarityColor}
+          active={showAmbientParticles && phase !== 'failure' && phase !== 'overload'}
+        />
+      )}
+      
+      {/* Flash effect */}
       {showFlash && (
         <div
           className="fixed inset-0 bg-white pointer-events-none"
@@ -421,6 +430,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         />
       )}
       
+      {/* Completion particles */}
       {particles.map((particle) => (
         <div
           key={particle.id}
@@ -430,12 +440,13 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
             top: `calc(50% + ${Math.sin((particle.angle * Math.PI) / 180) * particle.distance}px)`,
             width: particle.size,
             height: particle.size,
-            opacity: 1 - particle.distance / 150,
+            opacity: 1 - particle.distance / 200,
             boxShadow: `0 0 ${particle.size * 2}px rgba(255, 255, 255, 0.8)`,
           }}
         />
       ))}
       
+      {/* Failure/Overload vignette */}
       {phase === 'failure' || phase === 'overload' ? (
         <div
           className="fixed inset-0 pointer-events-none"
@@ -446,20 +457,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         />
       ) : null}
       
-      {phase === 'overload' && sparks.map((spark) => (
-        <div
-          key={spark.id}
-          className="absolute rounded-full bg-[#ffd700] pointer-events-none"
-          style={{
-            left: `calc(50% + ${spark.x}vw)`,
-            top: `calc(50% + ${spark.y}vh)`,
-            width: spark.size,
-            height: spark.size,
-            boxShadow: '0 0 10px #ffd700',
-          }}
-        />
-      ))}
-      
+      {/* Main card */}
       <div 
         className="relative w-96 bg-[#121826] border-2 rounded-xl p-6 shadow-2xl"
         style={{
@@ -491,6 +489,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           </p>
         </div>
         
+        {/* Progress bar */}
         <div className="relative h-3 bg-[#1e2a42] rounded-full overflow-hidden mb-4">
           <div
             className="absolute inset-y-0 left-0 transition-all duration-300 ease-out"
@@ -508,6 +507,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           />
         </div>
         
+        {/* Phase indicators */}
         {phase !== 'failure' && phase !== 'overload' && (
           <div className="flex justify-between text-xs">
             <div className="flex items-center gap-1" style={{ color: progress >= 0 ? rarityColor : '#4a5568' }}>
@@ -525,6 +525,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           </div>
         )}
         
+        {/* Failure details */}
         {phase === 'failure' && (
           <div className="mt-4 p-3 bg-[#7f1d1d]/30 rounded-lg border border-[#ff3355]/30">
             <div className="flex items-center gap-2 text-[#ff3355]">
@@ -539,6 +540,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           </div>
         )}
         
+        {/* Overload details */}
         {phase === 'overload' && (
           <div className="mt-4 p-3 bg-[#78350f]/30 rounded-lg border border-[#ff6b35]/30">
             <div className="flex items-center gap-2 text-[#ff6b35]">
@@ -553,6 +555,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           </div>
         )}
         
+        {/* Module status during activation */}
         {phase === 'activating' && modules.length > 0 && (
           <div className="mt-4 p-3 bg-[#0a0e17] rounded-lg">
             <p className="text-xs text-[#4a5568] mb-2">Module Status:</p>
@@ -589,6 +592,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         </p>
       </div>
       
+      {/* Phase-specific overlays */}
       {phase === 'online' && (
         <div
           className="fixed inset-0 bg-white pointer-events-none"
@@ -639,40 +643,6 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         @keyframes titlePulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
-        }
-        @keyframes chargingShakeAnimation {
-          0%, 100% { transform: translate(0, 0); }
-          25% { transform: translate(-2px, 2px); }
-          50% { transform: translate(2px, -2px); }
-          75% { transform: translate(-2px, -2px); }
-        }
-        @keyframes normalShakeAnimation {
-          0%, 100% { transform: translate(0, 0); }
-          25% { transform: translate(-4px, 4px); }
-          50% { transform: translate(4px, -4px); }
-          75% { transform: translate(-4px, -4px); }
-        }
-        @keyframes failureShakeAnimation {
-          0%, 100% { transform: translate(0, 0); }
-          10% { transform: translate(-8px, 8px); }
-          20% { transform: translate(8px, -8px); }
-          30% { transform: translate(-8px, 0); }
-          40% { transform: translate(8px, 8px); }
-          50% { transform: translate(0, -8px); }
-          60% { transform: translate(-8px, 8px); }
-          70% { transform: translate(8px, 0); }
-          80% { transform: translate(-8px, -8px); }
-          90% { transform: translate(8px, 8px); }
-        }
-        @keyframes overloadShakeAnimation {
-          0%, 100% { transform: translate(0, 0); }
-          25% { transform: translate(-8px, 8px); }
-          50% { transform: translate(8px, -8px); }
-          75% { transform: translate(-8px, -8px); }
-        }
-        .failure-close:hover {
-          background: #7f1d1d !important;
-          color: #ff3355 !important;
         }
       `}</style>
     </div>
