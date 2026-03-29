@@ -1,226 +1,113 @@
-# APPROVED — Sprint Contract — Round 10
+APPROVED
+
+# Sprint Contract — Round 11
 
 ## Scope
 
-**Priority**: Fix critical browser interaction bugs blocking verification from Round 9 feedback.
-
-This sprint focuses exclusively on remediation of two issues identified in the Round 9 QA evaluation:
-1. **[CRITICAL] RandomForgeToast DOM Manipulation Error** — Causes page resets when clicking random forge button
-2. **[MINOR] Welcome Modal State Persistence** — Modal reappears after dismissal during certain interactions
-
----
+Remediation sprint to fix the critical Welcome Modal state persistence bug identified in Round 10 QA. The modal reappears after dismissal due to a localStorage structure mismatch. This is a narrow, well-defined fix.
 
 ## Spec Traceability
 
-### P0 Items Covered This Round
-- Fix RandomForgeToast `insertBefore` DOM error (Critical Bug #1)
-- Fix Welcome Modal state persistence (Minor Bug #1)
-- Ensure activation sequence and particle effects are verifiable in browser
+- **P0 items covered this round:**
+  - Welcome Modal state persistence (AC2 from Round 10)
+  - Activation Sequence verification (AC3 from Round 10, blocked by AC2)
 
-### P1 Items Covered This Round
-- None (remediation sprint)
+- **P1 items covered this round:**
+  - None — remediation only
 
-### Remaining P0/P1 After This Round
-- All previously completed deliverables remain functional
-- No new P0/P1 items introduced
+- **Remaining P0/P1 after this round:**
+  - All Round 10 P0 items should be resolved
+  - No new P0/P1 introduced
 
-### P2 Intentionally Deferred
-- All deferred items remain deferred
-- No new P2 items added
-
----
+- **P2 items intentionally deferred:**
+  - All P2 items remain deferred from prior rounds
 
 ## Deliverables
 
-| # | File | Description |
-|---|------|-------------|
-| 1 | `src/components/UI/RandomForgeToast.tsx` (modified) | Fixed DOM manipulation error, proper cleanup |
-| 2 | `src/components/Tutorial/WelcomeModal.tsx` (verified) | Ensure state persistence works correctly |
-| 3 | `src/store/useMachineStore.ts` (verified) | RandomForgeToast visibility state management |
-| 4 | `src/store/useTutorialStore.ts` (verified) | WelcomeModal persistence logic |
-| 5 | `src/App.tsx` (verified) | Modal coordination logic |
-| 6 | `src/__tests__/RandomForgeToast.test.tsx` (new) | Tests for toast lifecycle and error handling |
-| 7 | `src/__tests__/ModalPersistence.test.tsx` (new) | Tests for modal state persistence |
+1. **`src/components/Tutorial/WelcomeModal.tsx`**
+   - Fix `getInitialHasSeenWelcome()` function to read `parsed.hasSeenWelcome` instead of `parsed.state?.hasSeenWelcome`
+   - Ensure `useWelcomeModal` hook exports remain functional
 
----
+2. **`src/__tests__/ModalPersistence.test.tsx`**
+   - Update localStorage mock to return `{ hasSeenWelcome: true }` (without `state` wrapper) to match actual Zustand persist behavior
+
+3. **`src/__tests__/WelcomeModal.test.tsx`** (if exists)
+   - Update any localStorage mocks in related tests
 
 ## Acceptance Criteria
 
-### AC1: RandomForgeToast DOM Error Fixed
-- [ ] Clicking random forge button does NOT throw `insertBefore` DOM error
-- [ ] ErrorBoundary is NOT triggered during random forge operation
-- [ ] Page state is NOT reset after random forge operation
-- [ ] Toast appears and disappears without errors
+1. **AC2: Welcome Modal State Persistence** — Modal does NOT reappear after dismissal and page refresh
+   - Open app in fresh browser → Modal appears
+   - Click "Skip & Explore" → Modal hides
+   - Refresh page → Modal stays hidden
+   - Verify `localStorage` contains `hasSeenWelcome: true` at `arcane-codex-tutorial` key
 
-### AC2: Welcome Modal State Persistence Works
-- [ ] Modal does NOT reappear after being dismissed during page refresh
-- [ ] Modal does NOT reappear after being dismissed during random forge interaction
-- [ ] `hasSeenWelcome` state persists correctly in localStorage
-- [ ] Hydration race condition is handled
+2. **AC3: Activation Sequence** — Activation button is accessible and machine activates
+   - Generate a machine via random forge
+   - Click "Activate Machine" button
+   - Activation overlay appears and plays through phases: idle → charging → activating → online
+   - No modal blocks the button
 
-### AC3: Browser Verification Passes
-- [ ] Random forge button works reliably
-- [ ] Activation sequence can be triggered without page reset
-- [ ] Particle effects render correctly during activation
-- [ ] All modal dismissals are permanent for session
-
----
+3. **Build & Tests Pass**
+   - `npm run build` succeeds with no TypeScript errors
+   - All 874+ existing tests pass
+   - New/updated tests pass
 
 ## Test Methods
 
-### TM1: RandomForgeToast Error Fix Verification
-```
-1. Open application in browser
-2. Click "随机锻造" (Random Forge) button
-3. Verify NO console errors about "insertBefore"
-4. Verify NO ErrorBoundary triggered
-5. Verify machine is generated and displayed
-6. Verify toast appears and auto-dismisses
-7. Repeat steps 2-6 three times to ensure consistency
-```
+1. **Browser verification for AC2:**
+   - Open dev tools → Application → Local Storage
+   - Find key `arcane-codex-tutorial`
+   - Verify JSON structure: `{ hasSeenWelcome: true, isTutorialEnabled: false }` (no `state` wrapper)
 
-### TM2: Welcome Modal Persistence Verification
-```
-1. Open application (fresh browser or incognito)
-2. Verify WelcomeModal appears on first visit
-3. Click "跳过" (Skip) button
-4. Refresh page
-5. Verify WelcomeModal does NOT reappear
-6. Click random forge button
-7. Verify WelcomeModal does NOT reappear
-8. Verify LoadPromptModal is also suppressed when WelcomeModal is skipped
-```
+2. **Browser verification for AC3:**
+   - Load page, dismiss welcome modal
+   - Click random forge button
+   - Click "▶ 激活机器" button
+   - Verify activation overlay appears and animates through phases
 
-### TM3: Activation Sequence Browser Verification
-```
-1. Create a machine via random forge
-2. Click "启动机器" (Activate Machine) button
-3. Verify ActivationOverlay renders correctly
-4. Verify particle effects are visible
-5. Verify viewport shake occurs during charging
-6. Verify phase transitions work (idle → charging → activating → online)
-```
-
-### TM4: Unit Test Verification
-```
-1. Run: npm test -- --testPathPattern="RandomForgeToast"
-2. Verify all tests pass
-3. Run: npm test -- --testPathPattern="ModalPersistence"
-4. Verify all tests pass
-5. Run: npm test
-6. Verify all 858+ tests pass (858 existing + new tests)
-```
-
----
+3. **Unit test verification:**
+   - Run `npm test -- --testPathPattern=ModalPersistence`
+   - Run `npm test -- --testPathPattern=WelcomeModal`
+   - All tests pass
 
 ## Risks
 
-### R1: Root Cause May Be in Unexpected Location
-- **Risk**: The `insertBefore` error might originate from a dependency component, not RandomForgeToast itself
-- **Mitigation**: Trace the full call stack when error occurs, check GSAP animations, toast positioning logic, and parent component render cycles
-- **Severity**: Medium
+1. **Low Risk: Simple state reading fix**
+   - Changing `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome` is a one-line fix per location
+   - Only affects the localStorage read path, no side effects
 
-### R2: React StrictMode Double-Invocation
-- **Risk**: React StrictMode in development causes effects to run twice, which may expose race conditions not visible in production
-- **Mitigation**: Ensure all effects have proper cleanup, test in both development and production modes
-- **Severity**: Low
+2. **Low Risk: Test mock updates**
+   - Updating test mocks to match actual Zustand behavior should make tests more accurate
+   - May require reviewing other test files that mock localStorage
 
-### R3: localStorage Hydration Timing
-- **Risk**: The fix for WelcomeModal persistence might have edge cases during SSR or rapid state changes
-- **Mitigation**: Use synchronous localStorage read pattern established in existing code, add hydration guards
-- **Severity**: Low
-
----
+3. **Medium Risk: Undiscovered issues**
+   - There may be other code paths that expect the wrong localStorage structure
+   - Will verify by running full test suite and browser testing
 
 ## Failure Conditions
 
-The round MUST FAIL if any of the following occur:
-
-1. **RandomForgeToast error persists** — The `insertBefore` DOM error is still reproducible after fix attempts
-2. **Regression introduced** — Existing functionality breaks (random forge fails to generate machines, activation sequence doesn't work)
-3. **Welcome modal still reappears** — Modal state persistence issue not fully resolved
-4. **New console errors introduced** — Fixing one error introduces new errors
-5. **Test coverage decreases** — Total passing tests drops below 858
-
----
+1. **AC2 still fails** — Modal reappears after dismissal and refresh
+2. **AC3 still blocked** — Activation button inaccessible due to modal
+3. **Build fails** — TypeScript compilation errors introduced
+4. **Tests fail** — New/updated tests do not pass
+5. **Regression** — Any previously passing AC fails in this round
 
 ## Done Definition
 
-All of the following conditions MUST be true before claiming the round complete:
+All of the following must be TRUE before claiming round complete:
 
-### Code Quality
-- [ ] RandomForgeToast.tsx has no empty useEffect hooks without cleanup
-- [ ] All timeouts/intervals have corresponding cleanup functions
-- [ ] ErrorBoundary does not trigger during normal random forge usage
-- [ ] Welcome modal state management uses synchronous localStorage reads to avoid hydration race
-
-### Testing
-- [ ] New RandomForgeToast tests created and passing (minimum 5 new tests)
-- [ ] New ModalPersistence tests created and passing (minimum 5 new tests)
-- [ ] Total test count increases (858 + new tests)
-- [ ] All existing tests continue to pass
-
-### Browser Verification
-- [ ] Random forge button click does NOT cause page reset
-- [ ] Activation sequence runs without ErrorBoundary intervention
-- [ ] Welcome modal stays dismissed after skip + refresh
-- [ ] No console errors during normal user flows
-
-### Build Quality
-- [ ] `npm run build` succeeds with 0 TypeScript errors
-- [ ] Production build bundle size remains reasonable (< 600KB JS)
-
----
+1. ✅ `WelcomeModal.tsx` `getInitialHasSeenWelcome()` reads `parsed.hasSeenWelcome` (not `parsed.state?.hasSeenWelcome`)
+2. ✅ Test mocks updated to match actual Zustand persist format
+3. ✅ `npm run build` succeeds (0 TypeScript errors)
+4. ✅ All unit tests pass (including updated ModalPersistence tests)
+5. ✅ Browser test: Modal stays dismissed after page refresh
+6. ✅ Browser test: Activation button accessible and functional
 
 ## Out of Scope
 
-The following are explicitly NOT being done in this round:
-
-1. **New features** — No new module types, UI components, or system capabilities
-2. **Performance optimizations** — Particle system or rendering performance (already verified in Round 9)
-3. **Visual polish** — UI refinements beyond bug fixes
-4. **New test scenarios** — Beyond those required to verify bug fixes
-5. **Refactoring for future extensibility** — Code organization improvements that don't relate to bug fixes
-6. **Documentation updates** — README or spec.md updates (deferred to stable release)
-7. **Export functionality changes** — SVG/PNG export (already working)
-8. **AI text generation integration** — Future feature (not yet implemented)
-
----
-
-## Technical Notes
-
-### Root Cause Analysis (Expected)
-
-**RandomForgeToast DOM Error:**
-The error "Failed to execute 'insertBefore' on 'Node'" typically occurs when:
-1. Attempting to insert a DOM node that's already mounted elsewhere
-2. Race condition between React rendering and GSAP/DOM manipulation
-3. Component unmounting during animation/transition
-
-Likely fix pattern:
-```tsx
-useEffect(() => {
-  // Set visibility after mount to avoid DOM insertion race
-  setVisible(true);
-  
-  const timeout = setTimeout(() => {
-    setVisible(false);
-  }, duration);
-  
-  return () => {
-    clearTimeout(timeout);
-    // Ensure cleanup happens before DOM removal
-  };
-}, [duration]);
-```
-
-**Welcome Modal Persistence:**
-Hydration race condition pattern (already partially implemented):
-```tsx
-// Use useMemo for synchronous localStorage read
-const hasSeenWelcome = useMemo(() => {
-  if (typeof window === 'undefined') return false;
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored).state?.hasSeenWelcome : false;
-}, []);
-```
+- No new features or P2 items will be introduced
+- No refactoring beyond the minimal fix required
+- No changes to Zustand store configuration
+- No changes to activation animation logic (beyond verification)
+- No changes to RandomForgeToast (already passing)

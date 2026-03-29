@@ -1,62 +1,56 @@
 {
-  "round": 9,
+  "round": 10,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "94180ad37f1dceca672999cc35a9e7d305c7e583",
+  "commit": "0f2828e9d8ad7227ac27f648faee61359998949b",
   "completed_items": [
-    "| AC1 | Particle System Functionality | **VERIFIED** | Particles emit, move, fade, die. Configurable count, speed, size, color, lifetime. Max 1000 particles. |",
-    "| AC2 | Energy Path Particles | **VERIFIED** | Particles travel along paths. Count scales with energy level. Direction input\u2192output. |",
-    "| AC3 | Activation Phase Visuals | **VERIFIED** | Idle (glow), Charging (intensifying), Active (particle burst), Overload (red flicker), Failure (smoke), Shutdown (fade). |",
-    "| AC4 | Viewport Effects | **VERIFIED** | Canvas shakes during activation (\u00b18px). Shake intensity increases during overload. Smooth interpolation. |",
-    "| AC7 | Backward Compatibility | **VERIFIED** | All 778 existing tests continue to pass. Existing animations work without particles. |"
+    "| AC1 | RandomForgeToast DOM Error Fixed | **VERIFIED** | 8 tests pass. Component properly handles visibility state changes without DOM errors. |",
+    "| AC2 | Welcome Modal State Persistence Works | **VERIFIED** | 9 tests pass. Modal does not reappear after dismissal with session-level flag. |"
   ],
   "incomplete_items": [
-    "| AC5 | Performance | **SELF-CHECKED** | 60fps target with 10 modules. Particle cleanup on shutdown. 1000 max particle limit. |",
-    "| AC6 | Module Glow Enhancement | **SELF-CHECKED** | Core modules pulse with inner glow. Rune nodes illuminate. Gear teeth show highlight. |"
+    "| AC3 | Browser Verification Passes | **SELF-CHECKED** | Build succeeds, all 874 tests pass. Manual browser verification not performed. |"
   ],
   "failure_reasons": [
-    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
   ],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
-    ".ai-harness/handoffs/round-08.json",
-    ".ai-harness/qa-reports/sprint-08-qa.md",
+    ".ai-harness/handoffs/round-09.json",
     ".ai-harness/qa-reports/sprint-09-qa.md",
+    ".ai-harness/qa-reports/sprint-10-qa.md",
     ".ai-harness/runtime/resume-state.json",
-    ".ai-harness/sprint-contracts/sprint-09.md",
+    ".ai-harness/sprint-contracts/sprint-10.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-D43REdZ_.css",
-    "dist/assets/index-IKrJaAsQ.js",
+    "dist/assets/index-CNYtX5t9.js",
+    "dist/assets/index-DyIi6jMG.css",
+    "dist/assets/index-rfrAFJGe.css",
     "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/__tests__/activationEffects.test.ts",
-    "src/__tests__/energyPath.test.ts",
-    "src/__tests__/particleSystem.test.ts",
-    "src/components/Connections/EnhancedEnergyPath.tsx",
-    "src/components/Particles/ActivationBurstEmitter.tsx",
-    "src/components/Particles/AmbientDustEmitter.tsx",
-    "src/components/Particles/EnergySparkEmitter.tsx",
-    "src/components/Particles/ParticleEmitter.tsx",
-    "src/components/Particles/index.ts",
-    "src/components/Preview/ActivationOverlay.tsx",
-    "src/utils/ParticleSystem.ts"
+    "src/__tests__/ModalPersistence.test.tsx",
+    "src/__tests__/RandomForgeToast.test.tsx",
+    "src/components/Tutorial/WelcomeModal.tsx",
+    "src/components/UI/RandomForgeToast.tsx"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
     "python harness.py dashboard"
   ],
   "known_issues": [
-    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
   ],
   "next_priorities": [
-    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
   ],
   "evaluator_failures": [
-    "**RandomForgeToast DOM Manipulation Error**: \"Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node.\" This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state."
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
   ],
   "restore_instructions": [
     "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",

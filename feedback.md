@@ -1,133 +1,186 @@
-## QA Evaluation — Round 9
+# QA Evaluation — Round 10
 
 ### Release Decision
 - **Verdict:** FAIL
-- **Summary:** All contract deliverables implemented in code with 858 passing tests, but browser verification is blocked by a critical RandomForgeToast DOM manipulation error that causes page state resets during user interaction.
-- **Spec Coverage:** FULL (code inspection confirms particle system, energy paths, activation choreography, viewport effects)
-- **Contract Coverage:** PASS (7/7 deliverables created, tests pass)
-- **Build Verification:** PASS (`npm run build` succeeds, 0 TypeScript errors)
-- **Browser Verification:** PARTIALLY BLOCKED (modal state issues + RandomForgeToast error)
+- **Summary:** AC1 (RandomForgeToast DOM error) is successfully fixed and verified in browser. However, AC2 (Welcome Modal state persistence) is BROKEN - the modal reappears after dismissal due to a localStorage structure mismatch between what the code expects and what Zustand persist actually stores.
+- **Spec Coverage:** FULL (code inspection confirms RandomForgeToast fix implementation)
+- **Contract Coverage:** FAIL (2/3 acceptance criteria failed)
+- **Build Verification:** PASS (`npm run build` succeeds, 568.06KB JS, 0 TypeScript errors)
+- **Browser Verification:** PARTIAL (AC1 verified, AC2 failed, AC3 blocked)
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 1 (RandomForgeToast DOM manipulation error)
+- **Critical Bugs:** 1 (Welcome Modal state persistence - localStorage structure mismatch)
 - **Major Bugs:** 0
-- **Minor Bugs:** 1 (Welcome modal blocks browser interactions on refresh)
-- **Acceptance Criteria Passed:** 7/7 (via code inspection and unit tests)
-- **Untested Criteria:** 0 (all criteria verifiable via tests, browser verification blocked by unrelated modal bug)
+- **Minor Bugs:** 0
+- **Acceptance Criteria Passed:** 1/3
+- **Untested Criteria:** 1 (AC3 blocked by AC2)
+
+---
 
 ### Blocking Reasons
-1. **RandomForgeToast DOM Manipulation Error**: "Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node." This error occurs when clicking the random forge button, causing the ErrorBoundary to catch a rendering error and potentially reset the page state.
+
+1. **Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:
+   - `WelcomeModal.tsx` `getInitialHasSeenWelcome()` reads `parsed.state?.hasSeenWelcome`
+   - But Zustand persist with `partialize` stores `{ hasSeenWelcome: true, isTutorialEnabled: false }` directly (no `state` wrapper)
+   - Tests mock localStorage to return `{ state: { hasSeenWelcome: true } }` - this is INCORRECT and does not match actual Zustand behavior
+   - Result: `parsed.state?.hasSeenWelcome` is always `undefined`, so `getInitialHasSeenWelcome()` always returns `false`
+
+2. **Activation Sequence (AC3) - BLOCKED**: Cannot click "Activate Machine" button through modal overlay
+
+---
 
 ### Scores
-- **Feature Completeness: 9/10** — All 7 contract deliverables implemented: ParticleSystem.ts with pool management, ParticleEmitter components (ParticleEmitter, EnergySparkEmitter, ActivationBurstEmitter, AmbientDustEmitter), EnhancedEnergyPath with traveling particles, enhanced ActivationOverlay with viewport shake and phase effects. Missing: smoke and other particle types mentioned in progress but not in contract.
-- **Functional Correctness: 8.5/10** — 858/858 tests pass, but browser interaction reveals a critical DOM manipulation error in RandomForgeToast that prevents reliable activation sequence testing.
-- **Product Depth: 9/10** — Comprehensive particle system with 4 emitter types (spark, dust, glow, ember), 7 activation phases with distinct visual feedback, viewport shake with smooth interpolation, energy path particles with scaling.
-- **UX / Visual Quality: 8.5/10** — ActivationOverlay shows proper phase indicators, progress bars, failure/overload effects. Browser verification blocked by modal issues preventing full visual verification.
-- **Code Quality: 9/10** — Clean TypeScript throughout, well-structured particle system with pool management, proper lifecycle management, requestAnimationFrame with delta time.
-- **Operability: 8/10** — Build succeeds (567.52KB JS, 60.54KB CSS), 858 tests pass. Browser interaction unstable due to RandomForgeToast error.
 
-**Average: 8.7/10** (Below 9.0 threshold)
+- **Feature Completeness: 9/10** — RandomForgeToast DOM manipulation fix implemented and verified. All 874 tests pass. The modal persistence issue is a state management bug, not a missing feature.
+- **Functional Correctness: 8/10** — AC1 verified passing via browser test (random forge works 3 times without errors). AC2 fails (modal reappears). AC3 blocked by AC2.
+- **Product Depth: 9/10** — Comprehensive fix for RandomForgeToast, 17 new tests added (8 + 9).
+- **UX / Visual Quality: 8/10** — Modal issue prevents smooth UX flow but doesn't affect core forge functionality.
+- **Code Quality: 8/10** — The RandomForgeToast fix is clean, but the WelcomeModal fix has a subtle bug in the localStorage reading logic that doesn't match Zustand's actual persistence format.
+- **Operability: 8/10** — Build succeeds, tests pass (874/874), but browser interaction reveals modal persistence bug.
+
+**Average: 8.3/10** (Below 9.0 threshold)
+
+---
 
 ### Evidence
 
-#### Acceptance Criterion Verification
+#### AC1: RandomForgeToast DOM Error Fixed — **PASS**
 
-| # | Criterion | Status | Evidence |
-|---|-----------|--------|----------|
-| AC1 | Particle System Functionality | **PASS** | Tests: 22 particle system tests pass. Code: ParticleSystem.ts has createEmitter(), Particle pool with max 1000 particles, lifecycle management (spawn→move→fade→die), requestAnimationFrame with delta time. |
-| AC2 | Energy Path Particles | **PASS** | Tests: 29 energy path tests pass. Code: EnhancedEnergyPath.tsx includes EnergySparkEmitter with pathData prop, particles travel from start to end of path, getParticleCountForEnergyLevel() scales 1-20, getSpeedForEnergyLevel() scales 0.5-5. |
-| AC3 | Activation Phase Visuals | **PASS** | Tests: 42 activation effects tests pass. Code: ActivationOverlay.tsx implements all 7 phases (idle, charging, activating, online, failure, overload, shutdown) with distinct visual feedback. Browser verification blocked. |
-| AC4 | Viewport Effects | **PASS** | Tests cover shake intensity. Code: ActivationOverlay.tsx has startShake() with FAILURE_SHAKE_INTENSITY=8, OVERLOAD_SHAKE_INTENSITY=8, NORMAL_SHAKE_INTENSITY=4, CHARGING_SHAKE_INTENSITY=2. |
-| AC5 | Performance | **PASS** | Tests: Performance test verifies < 100ms for 500 particles. Code: Particle pool with hard limit 1000, requestAnimationFrame with delta time, cleanup on shutdown. |
-| AC6 | Module Glow Enhancement | **PASS** | Code: ActivationOverlay.tsx has getModuleActivationColor() for core (cyan), rune (purple), connector (violet) modules. AmbientGlow.tsx, MagicSparkle.tsx, RunePulse.tsx, GearHighlight.tsx components created. |
-| AC7 | Backward Compatibility | **PASS** | Tests: 858/858 total (778 existing + 80 new). Code: No breaking changes to existing APIs. |
+| Test | Result | Evidence |
+|------|--------|----------|
+| Random forge button click | ✅ PASS | Machine "Spectral Phaser Elite" generated with ID 20523890, 3 modules, 1 connection |
+| No insertBefore error | ✅ PASS | Browser error listener captured 0 errors during 3 random forge operations |
+| Toast appears | ✅ PASS | Toast visible with message "Machine has been randomly generated!" |
+| Multiple consecutive clicks | ✅ PASS | 3 successful random forge operations without error |
+| ErrorBoundary not triggered | ✅ PASS | Page remained stable, no error overlay appeared |
 
-#### Deliverable Verification
-
-| File | Status | Details |
-|------|--------|---------|
-| `src/utils/ParticleSystem.ts` | ✓ VERIFIED | 480 lines. createEmitter(), ParticleManager, getParticleStyle(), createBurstParticles(). Emitter types: spark, dust, glow, ember. Max 1000 particles. |
-| `src/components/Particles/ParticleEmitter.tsx` | ✓ VERIFIED | Core emitter component with configurable props (particleCount, speed, glowIntensity, color, etc.) |
-| `src/components/Particles/EnergySparkEmitter.tsx` | ✓ VERIFIED | Particles traveling along energy paths with pathData prop, energy level scaling, GSAP animations |
-| `src/components/Particles/ActivationBurstEmitter.tsx` | ✓ VERIFIED | Burst effects for activation sequences |
-| `src/components/Particles/AmbientDustEmitter.tsx` | ✓ VERIFIED | Ambient particles for idle state |
-| `src/components/Particles/index.ts` | ✓ VERIFIED | Component exports |
-| `src/components/Connections/EnhancedEnergyPath.tsx` | ✓ VERIFIED | Enhanced energy path with traveling particles, GSAP animations, glow effects, state-based colors |
-| `src/components/Preview/ActivationOverlay.tsx` | ✓ VERIFIED | 430 lines. All 7 phases, viewport shake, completion particles, ambient dust, flicker effects |
-| `src/__tests__/particleSystem.test.ts` | ✓ VERIFIED | 22 tests covering particle lifecycle, pool management, performance |
-| `src/__tests__/energyPath.test.ts` | ✓ VERIFIED | 29 tests covering particle scaling, direction, state changes |
-| `src/__tests__/activationEffects.test.ts` | ✓ VERIFIED | 42 tests covering phase transitions, progress, visual feedback, memory cleanup |
-
-#### Browser Test Evidence
-
-**Test: Activation Overlay Display**
+**Browser Test Evidence:**
 ```
-Action: Create machine via random forge, click activation
-Result: ActivationOverlay shows with "CHARGING" phase, progress bar, phase indicators
-Evidence: ActivationOverlay.tsx renders phase-specific UI with getTitle(), getSubtitle(), getBorderColor()
-Status: PARTIAL - Page reset after activation due to RandomForgeToast error
+Action: Click random forge via JS injection
+Result: Machine generated with:
+  - Name: "Spectral Phaser Elite" (Uncommon)
+  - ID: 20523890
+  - Modules: 3
+  - Connections: 1
+  - Tags: arcane, fire, resonance
+  - No console errors captured
 ```
 
-**Test: Phase Transitions**
+#### AC2: Welcome Modal State Persistence — **FAIL**
+
+| Test | Result | Evidence |
+|------|--------|----------|
+| Modal appears on first visit | ✅ PASS | Welcome modal shows with "Welcome, Arcane Architect!" |
+| Skip button dismisses modal | ✅ PASS | Clicking "Skip & Explore" hides modal |
+| Modal after page refresh | ❌ FAIL | Modal reappears after refresh |
+| localStorage hasSeenWelcome | ❌ FAIL | `parsed.state?.hasSeenWelcome` is `undefined` because Zustand stores `{ hasSeenWelcome: true }` not `{ state: { hasSeenWelcome: true } }` |
+| Session flag works | ⚠️ PARTIAL | `welcomeModalDismissedThisSession` works within session but doesn't persist |
+
+**Browser Test Evidence:**
 ```
-Expected: idle → charging → activating → online (or failure/overload)
-Evidence: Tests verify phase progression with correct progress calculations
-Status: PASS (via unit tests)
+Step 1: Open fresh browser → Modal shows ✅
+Step 2: Click "Skip & Explore" → Modal hides ✅
+Step 3: Refresh page → Modal shows AGAIN ❌
+Step 4: Verify localStorage → `parsed.state?.hasSeenWelcome` is undefined
 ```
 
-**Test: Particle System Performance**
+**Root Cause Analysis:**
+1. `useTutorialStore.ts` uses Zustand persist with `partialize`:
+```ts
+partialize: (state) => ({ 
+  hasSeenWelcome: state.hasSeenWelcome,
+  isTutorialEnabled: state.isTutorialEnabled,
+})
 ```
-Command: npm test -- particleSystem
-Result: 22 tests pass in 5ms
-Performance: 500 particles handled in < 100ms
-Status: PASS
+Zustand stores: `{ hasSeenWelcome: true, isTutorialEnabled: false }`
+
+2. `WelcomeModal.tsx` reads:
+```ts
+return parsed.state?.hasSeenWelcome === true;
 ```
+This expects: `{ state: { hasSeenWelcome: true } }`
+
+3. **MISMATCH**: The code expects a `state` wrapper that doesn't exist.
+
+4. **Test mocks are wrong**: `ModalPersistence.test.tsx` mocks:
+```ts
+mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
+  state: { hasSeenWelcome: true }
+}))
+```
+This doesn't match what Zustand actually produces.
+
+#### AC3: Browser Verification Passes — **BLOCKED**
+
+| Test | Result | Evidence |
+|------|--------|----------|
+| Random forge button works | ✅ PASS | Verified in AC1 |
+| Activation button accessible | ❌ FAIL | Modal blocks click on activation button |
+| Activation sequence runs | ⚠️ UNTESTED | Cannot verify due to modal |
+
+**Browser Test Evidence:**
+```
+Action: Click "▶ 激活机器" button
+Error: <div class="fixed inset-0 z-[1100]..."> intercepts pointer events
+Modal overlay blocks all interactions
+```
+
+---
 
 ### Bugs Found
 
-1. **[CRITICAL] RandomForgeToast DOM Manipulation Error**
-   - **Description**: "Failed to execute 'insertBefore' on 'Node': The node before which the new node is to be inserted is not a child of this node"
-   - **Reproduction**: Click "随机锻造" button → ErrorBoundary catches rendering error → Page resets
-   - **Impact**: Prevents reliable browser verification of activation sequence and particle effects. Users experience unexpected page resets when generating random machines.
-   - **Root Cause**: React error boundary catches a DOM manipulation error in the component tree (likely related to RandomForgeToast insertion)
+1. **[CRITICAL] Welcome Modal State Persistence - localStorage Structure Mismatch**
+   - **Description**: Modal reappears after dismissal due to incorrect localStorage structure expectation
+   - **Reproduction**:
+     1. Open app → modal appears
+     2. Click "Skip & Explore" → modal hides
+     3. Refresh page → modal reappears
+   - **Root Cause**: `getInitialHasSeenWelcome()` reads `parsed.state?.hasSeenWelcome` but Zustand persist stores `{ hasSeenWelcome: true }` directly without a `state` wrapper
+   - **Fix Required**: Update `getInitialHasSeenWelcome()` to read `parsed.hasSeenWelcome` instead of `parsed.state?.hasSeenWelcome`
+   - **Impact**: Users must dismiss modal on every page load, blocking UI interactions
 
-2. **[MINOR] Welcome Modal State Persistence**
-   - **Description**: Modal reappears after being dismissed when page state changes
-   - **Reproduction**: Dismiss welcome modal, interact with random forge, page refreshes
-   - **Impact**: Browser testing requires manual modal dismissal multiple times
-   - **Root Cause**: Zustand hydration race condition with localStorage persistence
+---
 
 ### Required Fix Order
 
-1. **Fix RandomForgeToast DOM Manipulation Error** — The "insertBefore" error is causing ErrorBoundary to catch errors and potentially reset the page. This must be resolved before reliable browser verification can be performed.
+1. **Fix localStorage structure mismatch in WelcomeModal.tsx**:
+   - Change `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome`
+   - Also update the `useWelcomeModal` hook's `getInitialHasSeenWelcome()` function
+   - Verify fix by checking actual localStorage structure in browser
 
-2. **Improve Welcome Modal State Persistence** — Ensure hasSeenWelcome state persists reliably across all interactions to prevent modal from reappearing.
+2. **Update tests to match actual Zustand persistence**:
+   - Tests mock `{ state: { hasSeenWelcome: true } }` but Zustand stores `{ hasSeenWelcome: true }`
+   - Update mocks to match actual persistence format
+
+3. **Verify AC3 (Activation Sequence)** after AC2 is fixed:
+   - Click random forge to generate a machine
+   - Click "Activate Machine" button
+   - Verify ActivationOverlay renders correctly
+   - Verify phase transitions work (idle → charging → activating → online)
+
+---
 
 ### What's Working Well
 
-1. **Particle System Architecture** — Excellent design with particle pool (1000 max), requestAnimationFrame with delta time, GPU-accelerated CSS transforms. 22 comprehensive tests.
+1. **RandomForgeToast DOM Fix - VERIFIED**: The RandomForgeToast component now handles visibility state correctly without throwing DOM manipulation errors. Verified through 3 consecutive successful random forge operations.
 
-2. **Energy Path Particles** — EnhancedEnergyPath integrates EnergySparkEmitter seamlessly with GSAP animations, state-based colors, and scaling based on energy level. 29 tests.
+2. **Test Coverage**: 874 tests pass including new tests for RandomForgeToast lifecycle (8 tests) and ModalPersistence (8 tests).
 
-3. **Activation Choreography** — All 7 phases implemented with distinct visual feedback, progress bars, viewport shake, particle bursts on completion. 42 tests.
+3. **Build Quality**: Clean production build (568.06KB JS, 60.54KB CSS, 0 TypeScript errors).
 
-4. **Build Quality** — Clean production build (567.52KB JS, 60.54KB CSS, 0 TypeScript errors) with 858 passing tests.
+4. **Unit Test Isolation**: RandomForgeToast tests properly mock the store and verify component behavior without DOM errors.
 
-5. **Code Organization** — Well-structured component hierarchy with proper separation of concerns between ParticleSystem.ts (core engine) and React components.
-
-6. **Performance Optimizations** — Hard particle limit, cleanup on shutdown, efficient pool management, delta time-based updates.
+---
 
 ### Summary
 
-The Round 11 contract implementation is **functionally complete** with all deliverables created and 858/858 tests passing. However, browser verification is blocked by a critical DOM manipulation error in RandomForgeToast that causes page resets during user interaction.
+**AC1 is VERIFIED PASS** - RandomForgeToast DOM manipulation error is fixed and works reliably in browser testing.
 
-**Critical Issue**: The RandomForgeToast component (or related code) throws a "Failed to execute 'insertBefore' on 'Node'" error when clicking the random forge button, which triggers the ErrorBoundary and potentially resets the application state.
+**AC2 is VERIFIED FAIL** - Welcome Modal state persistence is broken due to a localStorage structure mismatch between what the code expects (`parsed.state?.hasSeenWelcome`) and what Zustand persist actually stores (`{ hasSeenWelcome: true }` directly).
 
-**Recommendation**: Fix the RandomForgeToast DOM error before claiming browser verification complete. The underlying code quality is excellent, but the interaction stability must be ensured for production use.
+**AC3 is BLOCKED** - Cannot verify activation sequence due to modal blocking the activation button.
 
-**Evidence Summary**:
-- Build: PASS (0 TypeScript errors, 567.52KB JS)
-- Tests: PASS (858/858)
-- Code Inspection: PASS (all deliverables implemented correctly)
-- Browser Verification: BLOCKED (RandomForgeToast error)
+**Root Cause**: The tests pass because they mock localStorage to return `{ state: { hasSeenWelcome: true } }` but Zustand persist actually stores `{ hasSeenWelcome: true }` directly (without the `state` wrapper due to the `partialize` option).
 
-**Release: NOT APPROVED** — Fix critical RandomForgeToast DOM error before re-evaluation.
+**Recommended Fix**: Update `getInitialHasSeenWelcome()` in both `WelcomeModal.tsx` component and `useWelcomeModal` hook to read `parsed.hasSeenWelcome` instead of `parsed.state?.hasSeenWelcome`.
+
+**Release: NOT APPROVED** — Fix AC2 (localStorage structure mismatch) before re-evaluation.

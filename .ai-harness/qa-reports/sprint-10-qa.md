@@ -1,154 +1,186 @@
-## QA Evaluation — Round 10
+# QA Evaluation — Round 10
 
 ### Release Decision
-- **Verdict:** PASS
-- **Summary:** The critical Load Prompt Modal logic bug has been successfully fixed. The modal now appears correctly when localStorage has saved state, and Resume/Start Fresh buttons function as expected. All 10 acceptance criteria pass.
-- **Spec Coverage:** FULL (canvas persistence feature is now complete)
-- **Contract Coverage:** PASS
-- **Build Verification:** PASS
-- **Browser Verification:** PASS
+- **Verdict:** FAIL
+- **Summary:** AC1 (RandomForgeToast DOM error) is successfully fixed and verified in browser. However, AC2 (Welcome Modal state persistence) is BROKEN - the modal reappears after dismissal due to a localStorage structure mismatch between what the code expects and what Zustand persist actually stores.
+- **Spec Coverage:** FULL (code inspection confirms RandomForgeToast fix implementation)
+- **Contract Coverage:** FAIL (2/3 acceptance criteria failed)
+- **Build Verification:** PASS (`npm run build` succeeds, 568.06KB JS, 0 TypeScript errors)
+- **Browser Verification:** PARTIAL (AC1 verified, AC2 failed, AC3 blocked)
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 0
+- **Critical Bugs:** 1 (Welcome Modal state persistence - localStorage structure mismatch)
 - **Major Bugs:** 0
 - **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 10/10
-- **Untested Criteria:** 0
+- **Acceptance Criteria Passed:** 1/3
+- **Untested Criteria:** 1 (AC3 blocked by AC2)
+
+---
 
 ### Blocking Reasons
-None
+
+1. **Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:
+   - `WelcomeModal.tsx` `getInitialHasSeenWelcome()` reads `parsed.state?.hasSeenWelcome`
+   - But Zustand persist with `partialize` stores `{ hasSeenWelcome: true, isTutorialEnabled: false }` directly (no `state` wrapper)
+   - Tests mock localStorage to return `{ state: { hasSeenWelcome: true } }` - this is INCORRECT and does not match actual Zustand behavior
+   - Result: `parsed.state?.hasSeenWelcome` is always `undefined`, so `getInitialHasSeenWelcome()` always returns `false`
+
+2. **Activation Sequence (AC3) - BLOCKED**: Cannot click "Activate Machine" button through modal overlay
+
+---
 
 ### Scores
-- **Feature Completeness: 10/10** — Canvas persistence feature is fully functional. Auto-save, modal prompt, Resume, and Start Fresh all work correctly.
-- **Functional Correctness: 10/10** — All persistence flows verified through browser testing. Module count, connection count, and machine state are correctly saved and restored.
-- **Product Depth: 10/10** — The persistence feature is well-implemented with debounced auto-save, proper state management, and seamless user experience.
-- **UX / Visual Quality: 10/10** — LoadPromptModal has professional styling with clear messaging, intuitive buttons, and smooth transitions.
-- **Code Quality: 10/10** — Clean TypeScript fix with clear explanatory comments. The change is minimal and targeted.
-- **Operability: 10/10** — Build passes (0 TypeScript errors), tests pass (202 tests), dev server runs correctly.
 
-**Average: 10/10**
+- **Feature Completeness: 9/10** — RandomForgeToast DOM manipulation fix implemented and verified. All 874 tests pass. The modal persistence issue is a state management bug, not a missing feature.
+- **Functional Correctness: 8/10** — AC1 verified passing via browser test (random forge works 3 times without errors). AC2 fails (modal reappears). AC3 blocked by AC2.
+- **Product Depth: 9/10** — Comprehensive fix for RandomForgeToast, 17 new tests added (8 + 9).
+- **UX / Visual Quality: 8/10** — Modal issue prevents smooth UX flow but doesn't affect core forge functionality.
+- **Code Quality: 8/10** — The RandomForgeToast fix is clean, but the WelcomeModal fix has a subtle bug in the localStorage reading logic that doesn't match Zustand's actual persistence format.
+- **Operability: 8/10** — Build succeeds, tests pass (874/874), but browser interaction reveals modal persistence bug.
+
+**Average: 8.3/10** (Below 9.0 threshold)
+
+---
 
 ### Evidence
 
-#### Criterion-by-Criterion Evidence
+#### AC1: RandomForgeToast DOM Error Fixed — **PASS**
 
-| # | Criterion | Status | Evidence |
-|---|-----------|--------|----------|
-| 1 | Module persistence after refresh | **PASS** | Created 4 modules via Random Forge. After refresh + Resume, footer shows "Modules: 4". Module count matches saved state. |
-| 2 | Position persistence (±5px) | **PASS** | Positions stored with fractional precision (e.g., 108.92607837382036). Within ±5px tolerance when rounded to integers for display. |
-| 3 | Connection persistence | **PASS** | Created 2 connections. After Resume, footer shows "Connections: 2". Connection count matches saved state. |
-| 4 | Color/style persistence | **PASS** | Module types preserved: output-array, trigger-switch. Machine ID "14E00362" matches saved state. |
-| 5 | Load prompt appears when localStorage has data | **PASS** | After Random Forge + refresh, modal appeared with "Welcome Back, Artificer" message and Resume/Start Fresh buttons. |
-| 6 | Resume button restores saved state | **PASS** | Clicked Resume → footer showed "Modules: 4 | Connections: 2" with restored machine ID and attributes. |
-| 7 | Start Fresh clears localStorage and canvas | **PASS** | Clicked Start Fresh → canvas showed "Modules: 0 | Connections: 0". After refresh, no modal appeared, proving localStorage was cleared. |
-| 8 | No prompt when localStorage is empty | **PASS** | `localStorage.clear()` + refresh → no modal, empty canvas loads directly. |
-| 9 | Build succeeds with 0 TypeScript errors | **PASS** | `npm run build` exits 0, 335.12KB JS, 32.58KB CSS, 0 TypeScript errors. |
-| 10 | Tests pass (all existing + new) | **PASS** | `npm test` exits 0, 202 tests passing across 14 test files. |
+| Test | Result | Evidence |
+|------|--------|----------|
+| Random forge button click | ✅ PASS | Machine "Spectral Phaser Elite" generated with ID 20523890, 3 modules, 1 connection |
+| No insertBefore error | ✅ PASS | Browser error listener captured 0 errors during 3 random forge operations |
+| Toast appears | ✅ PASS | Toast visible with message "Machine has been randomly generated!" |
+| Multiple consecutive clicks | ✅ PASS | 3 successful random forge operations without error |
+| ErrorBoundary not triggered | ✅ PASS | Page remained stable, no error overlay appeared |
 
-#### Build & Test Results
-
-| Check | Result |
-|-------|--------|
-| `npm run build` | ✓ 0 TypeScript errors, 335.12KB JS, 32.58KB CSS |
-| `npm test` | ✓ 202 tests passing (14 test files) |
-| Dev server | ✓ Starts correctly on port 5173 |
-
-#### Browser Interaction Evidence
-
-**Test 1: Empty localStorage → no modal**
-- Action: `localStorage.clear()`, refresh
-- Result: ✓ No modal, empty canvas loads directly
-- Evidence: Footer shows "Modules: 0 | Connections: 0"
-
-**Test 2: Random Forge → auto-save**
-- Action: Click "Random Forge", wait 6s
-- Result: ✓ 4 modules, 2 connections created and auto-saved
-- Evidence: `localStorage.getItem('arcane-canvas-state')` returns JSON with modules/connections
-
-**Test 3: Persistence after refresh (CRITICAL FIX)**
-- Action: Random Forge → wait 6s → refresh
-- Result: ✓ Load Prompt Modal appears with Resume/Start Fresh buttons
-- Evidence: Visible text shows "Welcome Back, Artificer" + "Resume Previous Work" + "Start Fresh"
-
-**Test 4: Resume restores state**
-- Action: Click "Resume Previous Work"
-- Result: ✓ Canvas restores 4 modules and 2 connections
-- Evidence: Footer shows "Modules: 4 | Connections: 2", Machine ID "14E00362"
-
-**Test 5: Start Fresh clears**
-- Action: Random Forge → refresh → click "Start Fresh"
-- Result: ✓ Canvas shows empty, no modal on subsequent refresh
-- Evidence: Footer shows "Modules: 0 | Connections: 0", no modal after refresh
-
-#### Code Fix Verification
-
-**File:** `src/App.tsx` lines 170-173
-
-**Before (INCORRECT):**
-```tsx
-{showLoadPrompt && hasLoadedSavedState && (
-  <LoadPromptModal />
-)}
+**Browser Test Evidence:**
+```
+Action: Click random forge via JS injection
+Result: Machine generated with:
+  - Name: "Spectral Phaser Elite" (Uncommon)
+  - ID: 20523890
+  - Modules: 3
+  - Connections: 1
+  - Tags: arcane, fire, resonance
+  - No console errors captured
 ```
 
-**After (CORRECT):**
-```tsx
-{showLoadPrompt && (
-  <LoadPromptModal />
-)}
+#### AC2: Welcome Modal State Persistence — **FAIL**
+
+| Test | Result | Evidence |
+|------|--------|----------|
+| Modal appears on first visit | ✅ PASS | Welcome modal shows with "Welcome, Arcane Architect!" |
+| Skip button dismisses modal | ✅ PASS | Clicking "Skip & Explore" hides modal |
+| Modal after page refresh | ❌ FAIL | Modal reappears after refresh |
+| localStorage hasSeenWelcome | ❌ FAIL | `parsed.state?.hasSeenWelcome` is `undefined` because Zustand stores `{ hasSeenWelcome: true }` not `{ state: { hasSeenWelcome: true } }` |
+| Session flag works | ⚠️ PARTIAL | `welcomeModalDismissedThisSession` works within session but doesn't persist |
+
+**Browser Test Evidence:**
+```
+Step 1: Open fresh browser → Modal shows ✅
+Step 2: Click "Skip & Explore" → Modal hides ✅
+Step 3: Refresh page → Modal shows AGAIN ❌
+Step 4: Verify localStorage → `parsed.state?.hasSeenWelcome` is undefined
 ```
 
-**Evidence:** The fix was applied correctly. Comment added explaining the fix:
-```tsx
-{/* Load Prompt Modal - FIX: Removed hasLoadedSavedState check because it starts as false
-    and can only become true after user interaction, creating a chicken-and-egg problem.
-    The hasLoadedSavedState flag remains in the store and is set by markStateAsLoaded() 
-    after user clicks Resume/Start Fresh to prevent modal re-appearance on subsequent re-renders. */}
-{showLoadPrompt && (
-  <LoadPromptModal />
-)}
+**Root Cause Analysis:**
+1. `useTutorialStore.ts` uses Zustand persist with `partialize`:
+```ts
+partialize: (state) => ({ 
+  hasSeenWelcome: state.hasSeenWelcome,
+  isTutorialEnabled: state.isTutorialEnabled,
+})
 ```
+Zustand stores: `{ hasSeenWelcome: true, isTutorialEnabled: false }`
+
+2. `WelcomeModal.tsx` reads:
+```ts
+return parsed.state?.hasSeenWelcome === true;
+```
+This expects: `{ state: { hasSeenWelcome: true } }`
+
+3. **MISMATCH**: The code expects a `state` wrapper that doesn't exist.
+
+4. **Test mocks are wrong**: `ModalPersistence.test.tsx` mocks:
+```ts
+mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
+  state: { hasSeenWelcome: true }
+}))
+```
+This doesn't match what Zustand actually produces.
+
+#### AC3: Browser Verification Passes — **BLOCKED**
+
+| Test | Result | Evidence |
+|------|--------|----------|
+| Random forge button works | ✅ PASS | Verified in AC1 |
+| Activation button accessible | ❌ FAIL | Modal blocks click on activation button |
+| Activation sequence runs | ⚠️ UNTESTED | Cannot verify due to modal |
+
+**Browser Test Evidence:**
+```
+Action: Click "▶ 激活机器" button
+Error: <div class="fixed inset-0 z-[1100]..."> intercepts pointer events
+Modal overlay blocks all interactions
+```
+
+---
 
 ### Bugs Found
-None
+
+1. **[CRITICAL] Welcome Modal State Persistence - localStorage Structure Mismatch**
+   - **Description**: Modal reappears after dismissal due to incorrect localStorage structure expectation
+   - **Reproduction**:
+     1. Open app → modal appears
+     2. Click "Skip & Explore" → modal hides
+     3. Refresh page → modal reappears
+   - **Root Cause**: `getInitialHasSeenWelcome()` reads `parsed.state?.hasSeenWelcome` but Zustand persist stores `{ hasSeenWelcome: true }` directly without a `state` wrapper
+   - **Fix Required**: Update `getInitialHasSeenWelcome()` to read `parsed.hasSeenWelcome` instead of `parsed.state?.hasSeenWelcome`
+   - **Impact**: Users must dismiss modal on every page load, blocking UI interactions
+
+---
 
 ### Required Fix Order
-Not applicable - all criteria pass.
+
+1. **Fix localStorage structure mismatch in WelcomeModal.tsx**:
+   - Change `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome`
+   - Also update the `useWelcomeModal` hook's `getInitialHasSeenWelcome()` function
+   - Verify fix by checking actual localStorage structure in browser
+
+2. **Update tests to match actual Zustand persistence**:
+   - Tests mock `{ state: { hasSeenWelcome: true } }` but Zustand stores `{ hasSeenWelcome: true }`
+   - Update mocks to match actual persistence format
+
+3. **Verify AC3 (Activation Sequence)** after AC2 is fixed:
+   - Click random forge to generate a machine
+   - Click "Activate Machine" button
+   - Verify ActivationOverlay renders correctly
+   - Verify phase transitions work (idle → charging → activating → online)
+
+---
 
 ### What's Working Well
-- **Modal logic fix is correct and minimal** — Single condition change with clear explanatory comment
-- **Auto-save works reliably** — Debounced 500ms save captures modules, connections, and machine state
-- **Load prompt flow is intuitive** — User sees "Welcome Back, Artificer" with clear Resume/Start Fresh choices
-- **Resume restores complete state** — Modules, connections, and machine ID are all restored correctly
-- **Start Fresh properly clears** — Both canvas and localStorage are cleared, verified by no modal on subsequent refresh
-- **No edge case failures** — Empty localStorage correctly shows no modal; existing state correctly shows modal
-- **Build and test quality** — 0 TypeScript errors, 202 tests passing with no regressions
 
-### Regression Check
-All existing features remain functional (verified via passing tests and previous round QA):
-| Feature | Status |
-|---------|--------|
-| Module dragging/selection | ✓ Still functional |
-| Connection creation | ✓ Still functional |
-| Activation animations | ✓ Still functional |
-| Undo/Redo | ✓ Still functional |
-| Export | ✓ Still functional |
-| Codex | ✓ Still functional |
-| Keyboard shortcuts | ✓ Still functional |
-| Zoom controls | ✓ Still functional |
-| Random Forge | ✓ Still functional |
+1. **RandomForgeToast DOM Fix - VERIFIED**: The RandomForgeToast component now handles visibility state correctly without throwing DOM manipulation errors. Verified through 3 consecutive successful random forge operations.
 
-### Round 9 → Round 10 Remediation Summary
+2. **Test Coverage**: 874 tests pass including new tests for RandomForgeToast lifecycle (8 tests) and ModalPersistence (8 tests).
 
-**Round 9 FAILURE:** The Load Prompt Modal conditional rendering was:
-```tsx
-{showLoadPrompt && hasLoadedSavedState && (<LoadPromptModal />)}
-```
-This created a chicken-and-egg problem: `hasLoadedSavedState` starts as `false` and is only set to `true` AFTER user clicks Resume/Start Fresh. The modal could NEVER appear.
+3. **Build Quality**: Clean production build (568.06KB JS, 60.54KB CSS, 0 TypeScript errors).
 
-**Round 10 FIX:** Changed to:
-```tsx
-{showLoadPrompt && (<LoadPromptModal />)}
-```
-The `hasLoadedSavedState` flag remains in the store and is still set by `markStateAsLoaded()` after user interaction to prevent modal re-appearance on subsequent re-renders.
+4. **Unit Test Isolation**: RandomForgeToast tests properly mock the store and verify component behavior without DOM errors.
 
-**Verification Result:** All 10 acceptance criteria pass. The persistence feature is now fully functional.
+---
+
+### Summary
+
+**AC1 is VERIFIED PASS** - RandomForgeToast DOM manipulation error is fixed and works reliably in browser testing.
+
+**AC2 is VERIFIED FAIL** - Welcome Modal state persistence is broken due to a localStorage structure mismatch between what the code expects (`parsed.state?.hasSeenWelcome`) and what Zustand persist actually stores (`{ hasSeenWelcome: true }` directly).
+
+**AC3 is BLOCKED** - Cannot verify activation sequence due to modal blocking the activation button.
+
+**Root Cause**: The tests pass because they mock localStorage to return `{ state: { hasSeenWelcome: true } }` but Zustand persist actually stores `{ hasSeenWelcome: true }` directly (without the `state` wrapper due to the `partialize` option).
+
+**Recommended Fix**: Update `getInitialHasSeenWelcome()` in both `WelcomeModal.tsx` component and `useWelcomeModal` hook to read `parsed.hasSeenWelcome` instead of `parsed.state?.hasSeenWelcome`.
+
+**Release: NOT APPROVED** — Fix AC2 (localStorage structure mismatch) before re-evaluation.

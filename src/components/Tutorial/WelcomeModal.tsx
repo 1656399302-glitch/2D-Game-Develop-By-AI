@@ -14,13 +14,17 @@ const TUTORIAL_STORAGE_KEY = 'arcane-codex-tutorial';
  * Synchronously read localStorage to get the initial hasSeenWelcome state.
  * This avoids the Zustand hydration race condition where the store defaults
  * to false before localStorage is read.
+ * 
+ * CRITICAL FIX: Zustand persist with partialize stores state directly without
+ * a 'state' wrapper. So we read parsed.hasSeenWelcome, not parsed.state?.hasSeenWelcome.
  */
 const getInitialHasSeenWelcome = (): boolean => {
   try {
     const stored = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return parsed.state?.hasSeenWelcome === true;
+      // Zustand persist with partialize stores directly, not wrapped in 'state'
+      return parsed.hasSeenWelcome === true;
     }
   } catch {
     // If localStorage is unavailable or parse fails, default to showing welcome
@@ -312,6 +316,10 @@ let welcomeModalDismissedThisSession = false;
  * 1. Synchronous localStorage reads to avoid Zustand hydration race conditions
  * 2. Session-level dismissal tracking that persists across interactions
  * 3. Safe callback handling that doesn't create stale closures
+ * 
+ * NOTE: The getInitialHasSeenWelcome() function reads Zustand persist data correctly
+ * by accessing parsed.hasSeenWelcome directly (not parsed.state?.hasSeenWelcome)
+ * because Zustand with partialize stores state directly without a 'state' wrapper.
  */
 export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
   const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);

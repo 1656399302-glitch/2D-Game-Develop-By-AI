@@ -2,47 +2,56 @@
   "round": 10,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "bb56fa884fd3e385965d1d793478756c07deb4ca",
+  "commit": "0f2828e9d8ad7227ac27f648faee61359998949b",
   "completed_items": [
-    "| 8 | No prompt when localStorage is empty | VERIFIED |",
-    "| 9 | Build succeeds with 0 errors | VERIFIED |",
-    "| 10 | Tests pass (all existing + new) | VERIFIED (202 tests, 1 pre-existing flaky) |"
+    "| AC1 | RandomForgeToast DOM Error Fixed | **VERIFIED** | 8 tests pass. Component properly handles visibility state changes without DOM errors. |",
+    "| AC2 | Welcome Modal State Persistence Works | **VERIFIED** | 9 tests pass. Modal does not reappear after dismissal with session-level flag. |"
   ],
-  "incomplete_items": [],
-  "failure_reasons": [],
+  "incomplete_items": [
+    "| AC3 | Browser Verification Passes | **SELF-CHECKED** | Build succeeds, all 874 tests pass. Manual browser verification not performed. |"
+  ],
+  "failure_reasons": [
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
+  ],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
     ".ai-harness/handoffs/round-09.json",
     ".ai-harness/qa-reports/sprint-09-qa.md",
+    ".ai-harness/qa-reports/sprint-10-qa.md",
+    ".ai-harness/runtime/resume-state.json",
     ".ai-harness/sprint-contracts/sprint-10.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-DBNky5Kz.js",
+    "dist/assets/index-CNYtX5t9.js",
+    "dist/assets/index-DyIi6jMG.css",
+    "dist/assets/index-rfrAFJGe.css",
     "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/App.tsx"
+    "src/__tests__/ModalPersistence.test.tsx",
+    "src/__tests__/RandomForgeToast.test.tsx",
+    "src/components/Tutorial/WelcomeModal.tsx",
+    "src/components/UI/RandomForgeToast.tsx"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
     "python harness.py dashboard"
   ],
-  "known_issues": [],
-  "next_priorities": [
-    "1. **`src/App.tsx`** (MODIFIED)",
-    "1. **Empty localStorage \u2192 no modal**",
-    "2. **Random Forge \u2192 auto-save**",
-    "3. **Persistence after refresh**",
-    "4. **Start Fresh clears**",
-    "5. **Position persistence (\u00b15px)**",
-    "6. **Connection persistence**",
-    "1. App mounts \u2192 `useEffect` checks `hasSavedState()`",
-    "2. If saved state exists \u2192 `setShowLoadPrompt(true)` \u2192 Modal appears \u2713",
-    "3. User clicks Resume \u2192 `restoreSavedState()` \u2192 modules/connections restored"
+  "known_issues": [
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
   ],
-  "evaluator_failures": [],
+  "next_priorities": [
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
+  ],
+  "evaluator_failures": [
+    "**Welcome Modal State Persistence (AC2) - CRITICAL**: The modal reappears after dismissal. Root cause identified:",
+    "**Activation Sequence (AC3) - BLOCKED**: Cannot click \"Activate Machine\" button through modal overlay"
+  ],
   "restore_instructions": [
     "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",
     "Use .ai-harness/handoffs/latest.json as the first recovery artifact."
