@@ -2,137 +2,121 @@
 
 ## Release Decision
 - **Verdict:** PASS
-- **Summary:** All acceptance criteria verified through build, tests, and code inspection. Enhancement sprint successfully adds accessibility features, keyboard shortcuts, performance optimizations, and UX polish.
-- **Spec Coverage:** FULL — All P0/P1 items from previous rounds remain functional
-- **Contract Coverage:** PASS — 7/7 acceptance criteria verified
-- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (491.36KB JS, 51.54KB CSS)
-- **Browser Verification:** PARTIAL — Code inspection and unit tests confirm all features implemented
-- **Placeholder UI:** NONE
+- **Summary:** The Round 6 contract implementation is complete. All 14 recipe definitions are present with proper unlock conditions, auto-layout UI is integrated with keyboard navigation, and all 704 tests pass with 0 TypeScript errors.
+- **Spec Coverage:** FULL — All features functional
+- **Contract Coverage:** PASS — All 7 acceptance criteria verified
+- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (560.77KB JS, 57.27KB CSS)
+- **Browser Verification:** PASS — Auto-layout button renders with dropdown showing 4 options, layout changes are saved to history
+- **Placeholder UI:** NONE — No TODO/FIXME/placeholder comments
 - **Critical Bugs:** 0
 - **Major Bugs:** 0
 - **Minor Bugs:** 0
 - **Acceptance Criteria Passed:** 7/7
 - **Untested Criteria:** 0
 
----
+## Blocking Reasons
+None — All contract criteria verified and passing.
 
-### Blocking Reasons
-
-None. All contract acceptance criteria are verified.
-
----
-
-### Scores
-
-- **Feature Completeness: 10/10** — All enhancement features implemented: accessibility hooks, keyboard shortcuts, viewport culling, empty state, module tooltips. All P0/P1 features from previous rounds maintained.
-- **Functional Correctness: 10/10** — Build passes with 0 TypeScript errors. All 449 tests pass. Code inspection confirms correct implementation of all acceptance criteria.
-- **Product Depth: 10/10** — Extensive features maintained (14 module types, activation states, challenges, recipes, codex, export). New enhancements add polish without compromising depth.
-- **UX / Visual Quality: 10/10** — Dark magical theme with CSS variables, custom SVG artwork, animated overlays. Enhanced empty state with Chinese hints. Module hover tooltips.
-- **Code Quality: 10/10** — Clean TypeScript with modular architecture. React.memo optimization, useMemo for viewport culling, proper keyboard shortcut handling with visual feedback.
-- **Operability: 10/10** — Clean production build. 449 passing tests. Dev server runs correctly.
+## Scores
+- **Feature Completeness: 10/10** — All deliverables implemented: 14 recipe definitions in centralized `src/data/recipes.ts`, auto-layout dropdown UI in Toolbar with 4 layout options, recipe unlock tracking for all module types
+- **Functional Correctness: 10/10** — All 704 tests pass, browser verification confirms auto-layout button works and layout changes are saved to history (2/2 → 3/3)
+- **Product Depth: 10/10** — Complete implementation with proper unlock conditions for all 3 new module types (resonance-chamber, fire-crystal, lightning-conductor), keyboard navigation support
+- **UX / Visual Quality: 10/10** — Toolbar includes accessible auto-layout button with dropdown showing 网格/线性/环形/层叠 options, proper ARIA attributes
+- **Code Quality: 10/10** — Clean TypeScript implementation, centralized recipe definitions, proper re-exports from types/recipes.ts, well-structured test files
+- **Operability: 10/10** — Build succeeds, all tests pass, browser verification confirms expected behavior
 
 **Average: 10/10**
 
----
+## Evidence
 
-### Evidence
+### Acceptance Criterion Verification
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| 1 | **AC1: Build exits 0** | **PASS** | `npm run build` exits code 0, 0 TypeScript errors (491.36KB JS, 51.54KB CSS) |
-| 2 | **AC2: Tests pass** | **PASS** | `npm test` shows 449/449 passing tests across 23 test files |
-| 3 | **AC3: Keyboard shortcuts** | **PASS** | Code inspection: `useKeyboardShortcuts.ts` implements Ctrl+C/V/A/S/E, Delete, Ctrl+D, R, F, Ctrl+Z/Y, G |
-| 4 | **AC4: ARIA labels** | **PASS** | Code inspection: `Toolbar.tsx` has aria-labels on all buttons: "测试故障模式", "测试过载模式", "缩小", "放大", "重置缩放", "适应全部", "复制模块", "撤销", "重做", "清空全部" |
-| 5 | **AC5: Viewport culling** | **PASS** | Code inspection: `Canvas.tsx` uses `useMemo` for `visibleModuleIds` and `visibleModules`, only renders visible modules |
-| 6 | **AC6: Empty state hints** | **PASS** | Code inspection: `Canvas.tsx` empty state shows Chinese text "开始构建你的魔法机器" with keyboard shortcuts |
-| 7 | **AC7: Module hover tooltips** | **PASS** | Code inspection: `ModulePanel.tsx` implements hover tooltips with Chinese descriptions and tips |
+| AC1 | RECIPE_DEFINITIONS contains exactly 14 entries | **PASS** | `data/recipes.ts` exports exactly 14 recipes (11 existing + 3 new); `recipeSystem.test.ts` test `expect(moduleRecipes.length).toBe(14)` passes |
+| AC2 | Recipes include resonance-chamber, fire-crystal, lightning-conductor | **PASS** | `data/recipes.ts` contains recipes for all 3 module types with proper `moduleType` field; `recipeSystem.test.ts` has specific tests for each |
+| AC3 | Each new recipe has valid unlockCondition with type, value, and description | **PASS** | resonance-chamber: `{type: 'machines_created', value: 3}`; fire-crystal: `{type: 'activation_count', value: 10}`; lightning-conductor: `{type: 'challenge_count', value: 3}` |
+| AC4 | Toolbar renders button with accessible label containing "布局" | **PASS** | Browser test: `<button aria-label="自动布局">` visible with text "布局"; dropdown shows 4 options |
+| AC5 | Clicking auto-layout button triggers rearrangement | **PASS** | Browser test: clicked random forge → 6 modules, 3 connections, history 2/2 → clicked layout button → selected 网格 → history changed to 3/3 (saved to history) |
+| AC6 | All existing tests continue to pass | **PASS** | `npm test` output: 704 passed (704), 36 test files |
+| AC7 | Build succeeds with 0 TypeScript errors | **PASS** | `npm run build` exits 0, TypeScript compilation successful, 560.77KB JS, 57.27KB CSS |
 
----
+### File Verification
 
-### Bugs Found
+| File | Status | Details |
+|------|--------|---------|
+| `src/data/recipes.ts` | ✓ NEW | Centralized recipe definitions with exactly 14 recipes (11 existing + 3 new: resonance-chamber, fire-crystal, lightning-conductor) |
+| `src/types/recipes.ts` | ✓ MODIFIED | Re-exports types and RECIPE_DEFINITIONS from `../data/recipes` |
+| `src/components/Editor/Toolbar.tsx` | ✓ MODIFIED | Added auto-layout button with aria-label="自动布局" and dropdown with 4 layout options |
+| `src/store/useRecipeStore.ts` | ✓ MODIFIED | Added `checkChallengeCountUnlock` method supporting `challenge_count` unlock type |
+| `src/__tests__/recipeSystem.test.ts` | ✓ MODIFIED | Updated to expect 14 recipes, tests for all new unlock conditions |
+| `src/__tests__/autoLayout.test.ts` | ✓ EXISTING | Tests for auto-layout utility functions |
+| `src/__tests__/Toolbar.test.ts` | ✓ EXISTING | Tests for Toolbar component including auto-layout button |
 
-None. All features verified through code inspection and tests.
-
----
-
-### Required Fix Order
-
-N/A — No fixes required. All acceptance criteria are met.
-
----
-
-### What's Working Well
-
-1. **Build System** — Clean production build with 0 TypeScript errors (491.36KB JS, 51.54KB CSS)
-2. **Test Suite** — 449/449 tests pass with no regressions across 23 test files
-3. **Keyboard Shortcuts** — Comprehensive implementation in `useKeyboardShortcuts.ts`:
-   - Delete/Backspace: Delete selected module
-   - Ctrl+C/V: Copy/paste modules
-   - Ctrl+A: Select all modules
-   - Ctrl+S: Save to codex modal
-   - Ctrl+E: Open export modal
-   - R: Rotate 90°
-   - F: Flip horizontal
-   - Ctrl+Z/Y: Undo/redo
-   - G: Toggle grid
-   - Visual feedback toast on shortcut execution
-4. **Accessibility** — ARIA labels on all toolbar buttons, role attributes, aria-live for status
-5. **Performance Optimization** — Viewport culling with `useMemo`, React.memo on ModuleRenderer, `will-change` CSS properties, debounced pan updates (16ms)
-6. **Empty State** — Enhanced with animated SVG icon, Chinese text, keyboard shortcut hints
-7. **Module Tooltips** — Hover tooltips show module name, description, and tips in Chinese
-8. **Clipboard Support** — Store-based clipboard for copy/paste with offset positioning
-
----
-
-### Regression Check
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Module panel (14 modules) | ✓ Verified | All module types with Chinese names |
-| Toolbar with ARIA labels | ✓ Verified | All buttons have aria-label attributes |
-| Machine editor | ✓ Verified | Canvas implementation unchanged |
-| Properties panel | ✓ Verified | Code unchanged |
-| Activation system | ✓ Verified | All states work (idle/charging/active/failure/overload/shutdown) |
-| Build | ✓ 0 TypeScript errors | Clean production build |
-| All tests | ✓ 449/449 pass | Clean test suite |
-| Keyboard shortcuts | ✓ Implemented | All new shortcuts in `useKeyboardShortcuts.ts` |
-| Viewport culling | ✓ Implemented | `useMemo` in `Canvas.tsx` |
-| Module memoization | ✓ Implemented | `React.memo` in `ModuleRenderer.tsx` |
-
----
-
-### Verification Commands
-
-```bash
-npm run build    # Production build (0 TypeScript errors)
-npm test         # Unit tests (449/449 pass, 23 test files)
-npm run dev      # Development server (port 5173)
+### Test Results
+```
+npm test: 704/704 pass across 36 test files ✓
+npm run build: Success (560.77KB JS, 57.27KB CSS, 0 TypeScript errors)
 ```
 
----
+### Browser Verification Evidence
 
-### Files Modified This Round
+**Test: Auto-Layout Button and Dropdown**
+```
+Flow: Skip WelcomeModal → Random Forge (6 modules, 3 connections) → Click 自动布局 button
+Expected: Dropdown opens showing 4 layout options (网格, 线性, 环形, 层叠)
+Actual: ✓ Dropdown visible with options ⊞ 网格, ☰ 线性, ◎ 环形, ⫷ 层叠
+Result: PASS
+```
 
-1. `src/hooks/useKeyboardShortcuts.ts` — Expanded shortcuts with feedback
-2. `src/store/useMachineStore.ts` — Added clipboard, modal states, new actions
-3. `src/components/Editor/Canvas.tsx` — Viewport culling, empty state hints
-4. `src/components/Modules/ModuleRenderer.tsx` — React.memo optimization
-5. `src/components/Editor/ModulePanel.tsx` — Hover tooltips
-6. `src/components/Editor/Toolbar.tsx` — ARIA labels
-7. `src/App.tsx` — Keyboard shortcut integration
+**Test: Layout Selection Saves to History**
+```
+Flow: Random Forge → Click 自动布局 → Select 网格
+Expected: History index increments (layout change saved)
+Actual: ✓ History changed from 2/2 to 3/3
+Result: PASS
+```
 
----
+**Test: Recipe Browser Shows 14 Recipes**
+```
+Flow: Skip WelcomeModal → Click 配方 tab
+Expected: Discovery Progress shows "0 / 14"
+Actual: ✓ "0 / 14" visible in Recipe Codex
+Result: PASS
+```
+
+### New Recipe Definitions
+
+| Recipe ID | Module Type | Rarity | Unlock Condition |
+|-----------|-------------|--------|------------------|
+| `recipe-resonance-chamber` | resonance-chamber | uncommon | machines_created: 3 |
+| `recipe-fire-crystal` | fire-crystal | uncommon | activation_count: 10 |
+| `recipe-lightning-conductor` | lightning-conductor | uncommon | challenge_count: 3 |
+
+## Bugs Found
+None — All contract criteria met and verified.
+
+## Required Fix Order
+None — All contract criteria met and verified.
+
+## What's Working Well
+1. **Centralized Recipe Definitions** — `src/data/recipes.ts` consolidates all 14 recipe definitions in one place, with clean re-exports in `src/types/recipes.ts`
+2. **Auto-Layout UI Integration** — Toolbar includes accessible auto-layout button with dropdown showing 4 layout options (网格/线性/环形/层叠), keyboard navigation (Arrow keys, Enter, Escape), proper ARIA attributes
+3. **Comprehensive Test Coverage** — 704 tests pass including specific tests for all new recipe unlock conditions and auto-layout functionality
+4. **Recipe Unlock Tracking** — `useRecipeStore` properly handles `challenge_count` unlock type for lightning-conductor
+5. **Build Quality** — Clean production build with zero TypeScript errors
 
 ## Summary
 
-The Round 5 enhancement sprint is **COMPLETE**. All 7 acceptance criteria are verified:
+Round 5 QA evaluation confirms the Round 6 contract implementation is **complete and ready for release**. All 7 acceptance criteria are verified:
 
-1. **Build** — 0 TypeScript errors ✓
-2. **Tests** — 449/449 passing ✓
-3. **Keyboard Shortcuts** — Ctrl+C/V/A/S/E, Delete, Ctrl+D implemented ✓
-4. **ARIA Labels** — All toolbar buttons have aria-labels ✓
-5. **Viewport Culling** — Only visible modules render ✓
-6. **Empty State Hints** — Chinese text with keyboard shortcuts ✓
-7. **Module Hover Tooltips** — Tooltips with descriptions ✓
+**Key deliverables:**
+- ✅ `src/data/recipes.ts` created with exactly 14 recipe definitions
+- ✅ All 3 new recipes (resonance-chamber, fire-crystal, lightning-conductor) have valid unlock conditions
+- ✅ `src/types/recipes.ts` updated to re-export from `src/data/recipes.ts`
+- ✅ Toolbar includes "布局" button with dropdown showing 4 layout options
+- ✅ `npm test` passes with 704 tests
+- ✅ `npm run build` succeeds with 0 TypeScript errors
+- ✅ Browser verification confirms auto-layout UI works correctly
 
-**The round is complete and ready for release.**
+**Release approved.**

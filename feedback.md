@@ -1,28 +1,28 @@
-# QA Evaluation — Round 4
+# QA Evaluation — Round 5
 
 ## Release Decision
 - **Verdict:** PASS
-- **Summary:** The LoadPromptModal coordination fix is verified working. When user clicks "Skip & Explore" on WelcomeModal with saved state, the LoadPromptModal no longer appears and canvas modules are preserved.
+- **Summary:** The Round 6 contract implementation is complete. All 14 recipe definitions are present with proper unlock conditions, auto-layout UI is integrated with keyboard navigation, and all 704 tests pass with 0 TypeScript errors.
 - **Spec Coverage:** FULL — All features functional
-- **Contract Coverage:** PASS — All 5 acceptance criteria verified
-- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (554.89KB JS, 56.48KB CSS)
-- **Browser Verification:** PASS — LoadPromptModal coordination fix confirmed with actual user interactions
+- **Contract Coverage:** PASS — All 7 acceptance criteria verified
+- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (560.77KB JS, 57.27KB CSS)
+- **Browser Verification:** PASS — Auto-layout button renders with dropdown showing 4 options, layout changes are saved to history
 - **Placeholder UI:** NONE — No TODO/FIXME/placeholder comments
 - **Critical Bugs:** 0
 - **Major Bugs:** 0
 - **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 5/5
+- **Acceptance Criteria Passed:** 7/7
 - **Untested Criteria:** 0
 
 ## Blocking Reasons
 None — All contract criteria verified and passing.
 
 ## Scores
-- **Feature Completeness: 10/10** — All 3 deliverables implemented: modified `useWelcomeModal` hook accepting optional `setShowLoadPrompt` parameter, modified `App.tsx` passing the setter, new `ModalCoordination.test.tsx` with 13 integration tests
-- **Functional Correctness: 10/10** — All 689 tests pass, browser verification confirms LoadPromptModal does NOT appear after WelcomeModal skip with saved state (canvas shows 1 module) and without saved state (canvas empty)
-- **Product Depth: 10/10** — Comprehensive fix with proper backward compatibility using optional parameter pattern, complete test coverage for all edge cases
-- **UX / Visual Quality: 10/10** — Confusing UX flow from Round 3 fully resolved. User can skip WelcomeModal and proceed directly to editor without seeing conflicting LoadPromptModal.
-- **Code Quality: 10/10** — Clean TypeScript implementation, proper optional parameter pattern for backward compatibility, well-structured test file
+- **Feature Completeness: 10/10** — All deliverables implemented: 14 recipe definitions in centralized `src/data/recipes.ts`, auto-layout dropdown UI in Toolbar with 4 layout options, recipe unlock tracking for all module types
+- **Functional Correctness: 10/10** — All 704 tests pass, browser verification confirms auto-layout button works and layout changes are saved to history (2/2 → 3/3)
+- **Product Depth: 10/10** — Complete implementation with proper unlock conditions for all 3 new module types (resonance-chamber, fire-crystal, lightning-conductor), keyboard navigation support
+- **UX / Visual Quality: 10/10** — Toolbar includes accessible auto-layout button with dropdown showing 网格/线性/环形/层叠 options, proper ARIA attributes
+- **Code Quality: 10/10** — Clean TypeScript implementation, centralized recipe definitions, proper re-exports from types/recipes.ts, well-structured test files
 - **Operability: 10/10** — Build succeeds, all tests pass, browser verification confirms expected behavior
 
 **Average: 10/10**
@@ -33,71 +33,90 @@ None — All contract criteria verified and passing.
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| AC1 | Skip WelcomeModal with saved state: WelcomeModal closes, canvas shows restored modules, LoadPromptModal does NOT appear | **PASS** | Browser test: seeded 1 module → reloaded → clicked "Skip & Explore" → "模块: 1" visible, "Crystalline Capacitor Temporal" generated, NO "Welcome Back, Artificer" text |
-| AC2 | Skip WelcomeModal without saved state: WelcomeModal closes, canvas empty, LoadPromptModal does NOT appear | **PASS** | Browser test: cleared localStorage → reloaded → clicked "Skip & Explore" → "模块: 0" visible, NO "Welcome Back, Artificer" text |
-| AC3 | Start Tutorial: WelcomeModal closes, tutorial begins, LoadPromptModal does not appear | **PASS** | Verified in unit tests (WelcomeModal.test.ts) - tutorial flow doesn't trigger LoadPromptModal |
-| AC4 | All 689 existing tests continue to pass | **PASS** | `npm test` output: 689 passed (689), 35 test files |
-| AC5 | New integration test created and passing | **PASS** | `ModalCoordination.test.tsx` with 13 tests covering complete skip flow |
-
-### Browser Verification Evidence
-
-**Test 1: AC1 - Skip with Saved State**
-```
-Flow: Seed localStorage with 1 module → Set hasSeenWelcome=false → Reload → Click "Skip & Explore"
-Expected: WelcomeModal closes, canvas shows module, LoadPromptModal NOT shown
-Actual: ✓ WelcomeModal closed, ✓ "模块: 1" visible, ✓ "Crystalline Capacitor Temporal" generated, ✓ "Welcome Back, Artificer" NOT visible
-Result: PASS
-```
-
-**Test 2: AC2 - Skip without Saved State**
-```
-Flow: Clear localStorage → Set hasSeenWelcome=false → Reload → Click "Skip & Explore"
-Expected: WelcomeModal closes, canvas empty, LoadPromptModal NOT shown
-Actual: ✓ WelcomeModal closed, ✓ "模块: 0" visible, ✓ "Welcome Back, Artificer" NOT visible
-Result: PASS
-```
+| AC1 | RECIPE_DEFINITIONS contains exactly 14 entries | **PASS** | `data/recipes.ts` exports exactly 14 recipes (11 existing + 3 new); `recipeSystem.test.ts` test `expect(moduleRecipes.length).toBe(14)` passes |
+| AC2 | Recipes include resonance-chamber, fire-crystal, lightning-conductor | **PASS** | `data/recipes.ts` contains recipes for all 3 module types with proper `moduleType` field; `recipeSystem.test.ts` has specific tests for each |
+| AC3 | Each new recipe has valid unlockCondition with type, value, and description | **PASS** | resonance-chamber: `{type: 'machines_created', value: 3}`; fire-crystal: `{type: 'activation_count', value: 10}`; lightning-conductor: `{type: 'challenge_count', value: 3}` |
+| AC4 | Toolbar renders button with accessible label containing "布局" | **PASS** | Browser test: `<button aria-label="自动布局">` visible with text "布局"; dropdown shows 4 options |
+| AC5 | Clicking auto-layout button triggers rearrangement | **PASS** | Browser test: clicked random forge → 6 modules, 3 connections, history 2/2 → clicked layout button → selected 网格 → history changed to 3/3 (saved to history) |
+| AC6 | All existing tests continue to pass | **PASS** | `npm test` output: 704 passed (704), 36 test files |
+| AC7 | Build succeeds with 0 TypeScript errors | **PASS** | `npm run build` exits 0, TypeScript compilation successful, 560.77KB JS, 57.27KB CSS |
 
 ### File Verification
 
 | File | Status | Details |
 |------|--------|---------|
-| `src/components/Tutorial/WelcomeModal.tsx` | ✓ MODIFIED | `useWelcomeModal` hook accepts optional `setShowLoadPrompt` parameter, `handleSkip` calls `setShowLoadPrompt(false)` when provided |
-| `src/App.tsx` | ✓ MODIFIED | Updated to pass `setShowLoadPrompt` to `useWelcomeModal` hook |
-| `src/__tests__/ModalCoordination.test.tsx` | ✓ NEW | 13 tests covering complete skip flow, backward compatibility, and edge cases |
+| `src/data/recipes.ts` | ✓ NEW | Centralized recipe definitions with exactly 14 recipes (11 existing + 3 new: resonance-chamber, fire-crystal, lightning-conductor) |
+| `src/types/recipes.ts` | ✓ MODIFIED | Re-exports types and RECIPE_DEFINITIONS from `../data/recipes` |
+| `src/components/Editor/Toolbar.tsx` | ✓ MODIFIED | Added auto-layout button with aria-label="自动布局" and dropdown with 4 layout options |
+| `src/store/useRecipeStore.ts` | ✓ MODIFIED | Added `checkChallengeCountUnlock` method supporting `challenge_count` unlock type |
+| `src/__tests__/recipeSystem.test.ts` | ✓ MODIFIED | Updated to expect 14 recipes, tests for all new unlock conditions |
+| `src/__tests__/autoLayout.test.ts` | ✓ EXISTING | Tests for auto-layout utility functions |
+| `src/__tests__/Toolbar.test.ts` | ✓ EXISTING | Tests for Toolbar component including auto-layout button |
 
 ### Test Results
 ```
-npm test: 689/689 pass across 35 test files ✓
-npm run build: Success (554.89KB JS, 56.48KB CSS, 0 TypeScript errors)
+npm test: 704/704 pass across 36 test files ✓
+npm run build: Success (560.77KB JS, 57.27KB CSS, 0 TypeScript errors)
 ```
 
+### Browser Verification Evidence
+
+**Test: Auto-Layout Button and Dropdown**
+```
+Flow: Skip WelcomeModal → Random Forge (6 modules, 3 connections) → Click 自动布局 button
+Expected: Dropdown opens showing 4 layout options (网格, 线性, 环形, 层叠)
+Actual: ✓ Dropdown visible with options ⊞ 网格, ☰ 线性, ◎ 环形, ⫷ 层叠
+Result: PASS
+```
+
+**Test: Layout Selection Saves to History**
+```
+Flow: Random Forge → Click 自动布局 → Select 网格
+Expected: History index increments (layout change saved)
+Actual: ✓ History changed from 2/2 to 3/3
+Result: PASS
+```
+
+**Test: Recipe Browser Shows 14 Recipes**
+```
+Flow: Skip WelcomeModal → Click 配方 tab
+Expected: Discovery Progress shows "0 / 14"
+Actual: ✓ "0 / 14" visible in Recipe Codex
+Result: PASS
+```
+
+### New Recipe Definitions
+
+| Recipe ID | Module Type | Rarity | Unlock Condition |
+|-----------|-------------|--------|------------------|
+| `recipe-resonance-chamber` | resonance-chamber | uncommon | machines_created: 3 |
+| `recipe-fire-crystal` | fire-crystal | uncommon | activation_count: 10 |
+| `recipe-lightning-conductor` | lightning-conductor | uncommon | challenge_count: 3 |
+
 ## Bugs Found
-None — Round 3 bug (LoadPromptModal appearing after WelcomeModal skip) is fully resolved.
+None — All contract criteria met and verified.
 
 ## Required Fix Order
 None — All contract criteria met and verified.
 
 ## What's Working Well
-1. **LoadPromptModal Coordination Fix** — The core bug from Round 3 is fully resolved. When user clicks "Skip & Explore", `setShowLoadPrompt(false)` is called, preventing the LoadPromptModal from appearing.
-2. **Backward Compatibility** — The optional parameter pattern ensures older code without `setShowLoadPrompt` continues to work.
-3. **Test Coverage** — 13 new integration tests comprehensively verify the complete skip flow, edge cases, and App.tsx condition verification.
-4. **Canvas State Preservation** — Modules are correctly restored when skipping with saved state.
-5. **Build Quality** — Clean production build with zero TypeScript errors.
+1. **Centralized Recipe Definitions** — `src/data/recipes.ts` consolidates all 14 recipe definitions in one place, with clean re-exports in `src/types/recipes.ts`
+2. **Auto-Layout UI Integration** — Toolbar includes accessible auto-layout button with dropdown showing 4 layout options (网格/线性/环形/层叠), keyboard navigation (Arrow keys, Enter, Escape), proper ARIA attributes
+3. **Comprehensive Test Coverage** — 704 tests pass including specific tests for all new recipe unlock conditions and auto-layout functionality
+4. **Recipe Unlock Tracking** — `useRecipeStore` properly handles `challenge_count` unlock type for lightning-conductor
+5. **Build Quality** — Clean production build with zero TypeScript errors
 
 ## Summary
 
-Round 4 QA evaluation confirms the LoadPromptModal coordination bug from Round 3 is **fully resolved**. The fix properly coordinates between WelcomeModal and LoadPromptModal by passing the `setShowLoadPrompt` state setter through the `useWelcomeModal` hook.
+Round 5 QA evaluation confirms the Round 6 contract implementation is **complete and ready for release**. All 7 acceptance criteria are verified:
 
-**Key implementation details:**
-- `useWelcomeModal` accepts optional `setShowLoadPrompt?: (show: boolean) => void` parameter
-- `handleSkip` calls `setShowLoadPrompt(false)` when the parameter is provided
-- `App.tsx` passes `setShowLoadPrompt` to the hook
-- Optional parameter pattern ensures backward compatibility
-
-**Verification completed:**
-- ✅ All 689 tests pass
-- ✅ Build succeeds with 0 TypeScript errors
-- ✅ Browser test confirms AC1: LoadPromptModal does NOT appear after WelcomeModal skip with saved state
-- ✅ Browser test confirms AC2: LoadPromptModal does NOT appear after WelcomeModal skip without saved state
+**Key deliverables:**
+- ✅ `src/data/recipes.ts` created with exactly 14 recipe definitions
+- ✅ All 3 new recipes (resonance-chamber, fire-crystal, lightning-conductor) have valid unlock conditions
+- ✅ `src/types/recipes.ts` updated to re-export from `src/data/recipes.ts`
+- ✅ Toolbar includes "布局" button with dropdown showing 4 layout options
+- ✅ `npm test` passes with 704 tests
+- ✅ `npm run build` succeeds with 0 TypeScript errors
+- ✅ Browser verification confirms auto-layout UI works correctly
 
 **Release approved.**

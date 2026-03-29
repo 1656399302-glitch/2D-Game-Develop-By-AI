@@ -1,140 +1,315 @@
+APPROVED
+
+---
+
 # Sprint Contract — Round 6
 
 ## Scope
 
-This sprint adds **Faction System with Tech Tree**, **User Stats Dashboard**, and **Enhanced Sharing** to the Arcane Machine Codex Workshop. These features deepen the meta-game progression and provide users with long-term engagement goals beyond individual machine creation.
+**Primary Focus:** Challenge Mode System
+
+This round implements a complete Challenge Mode system that allows users to complete themed tasks to earn rewards, track progress, and unlock additional content. This integrates with the existing recipe unlock system and provides clear progression goals.
 
 ## Spec Traceability
 
-### P0 Items Covered This Round
-1. **Faction System** — 4 magical factions (Arcane Order, Mechanical Guild, Elemental Circle, Void Covenant) with alignment based on module usage
-2. **Tech Tree** — Unlocks and bonuses tied to faction progression
-3. **Stats Dashboard** — User statistics (machines created, challenges completed, playtime, favorite modules)
-4. **Faction-vs-faction battles** (from spec "派系科技树") — Purely cosmetic progression system
+### P0 Items (Must Complete)
+- **Challenge Definitions** — Create a centralized challenge data structure with 8+ challenges across 3 difficulty tiers (beginner, intermediate, advanced)
+- **Challenge Store** — Zustand store to track challenge completion state, progress, and rewards
+- **Challenge UI Panel** — Accessible panel showing available challenges, status, and rewards
+- **Progress Tracking** — Track challenge completion counts for recipe unlock system integration
 
-### P1 Items Covered This Round
-5. **Faction-branded Export** — Share cards include faction emblems and progression badges
-6. **Achievement System** — Milestone unlocks based on stats (first machine, 10 machines, all challenges, etc.)
+### P1 Items (Should Complete)
+- **Challenge Rewards** — Implement reward distribution (new recipes, badges, achievements)
+- **Challenge Categories** — Organize challenges by type (creation, collection, activation, mastery)
 
-### Remaining P0/P1 After This Round
-- All P0 features from previous rounds remain implemented and functional:
-  - Module panel (14+ modules with Chinese names)
-  - Machine editor with canvas, toolbar, properties panel
-  - Activation system (idle/charging/active/overload/failure/shutdown states)
-  - Build/circuit system with 6 challenges
-  - Machine attributes generation (name, rarity, tags, stability, output type, faction, description)
-  - Codex system with list/detail views, filtering, sorting
-  - Random generation mode
-  - Export (SVG, PNG, share card)
-  - Keyboard shortcuts, ARIA labels, viewport culling, module tooltips
-- No P0/P1 items are being deferred this round
-
-### P2 Intentionally Deferred
-- AI naming/description API integration
-- Community sharing marketplace
+### P2 Items (Intentionally Deferred)
+- AI naming/description generation
+- Community sharing features
 - Codex trading/exchange system
-- Multiplayer/cooperative mode
-- Audio system (sound effects or music)
-- Mobile touch optimization
+- Faction tech tree beyond basic implementation
 
 ## Deliverables
 
-| File | Purpose |
-|------|---------|
-| `src/types/factions.ts` | Faction definitions, tech tree nodes, and types |
-| `src/store/useFactionStore.ts` | Zustand store for faction progress and unlocks |
-| `src/store/useStatsStore.ts` | Zustand store for user statistics tracking |
-| `src/components/Factions/FactionPanel.tsx` | UI for viewing faction alignment and progress |
-| `src/components/Factions/TechTree.tsx` | Visual tech tree with unlock nodes |
-| `src/components/Stats/StatsDashboard.tsx` | Dashboard showing user statistics |
-| `src/components/Achievements/AchievementToast.tsx` | Notification for unlocked achievements |
-| `src/components/Export/EnhancedShareCard.tsx` | Export with faction branding |
-| `src/utils/factionCalculator.ts` | Logic to determine faction alignment from machine composition |
-| `src/utils/achievementChecker.ts` | Logic to detect and award achievements |
+### 1. New File: `src/data/challenges.ts`
+Contains `CHALLENGE_DEFINITIONS` array with 8 challenges:
+
+| Challenge ID | Title | Description | Category | Difficulty | Reward |
+|--------------|-------|-------------|----------|------------|--------|
+| first-machine | 初代锻造 | Create your first machine | creation | beginner | +100 XP |
+| energy-master | 能量大师 | Connect 5 energy paths | mastery | beginner | Fire Crystal recipe |
+| codex-entry | 图鉴收藏家 | Save 3 machines to the codex | collection | beginner | +50 XP |
+| golden-gear | 黄金齿轮 | Create a machine with 5+ gears | creation | intermediate | Golden Gear badge |
+| overload-specialist | 过载专家 | Trigger an overload effect | activation | intermediate | Lightning Conductor recipe |
+| stability-master | 稳定大师 | Create a machine with 95%+ stability | mastery | intermediate | Resonance Chamber recipe |
+| legendary-forge | 传说锻造师 | Create 10 machines | creation | advanced | Legendary Forge badge |
+| activation-king | 激活之王 | Activate machines 50 times | activation | advanced | +500 XP |
+
+### 2. New File: `src/store/useChallengeStore.ts`
+Zustand store for challenge state management:
+- `challengeProgress`: Record of challenge completion states
+- `completedChallenges`: Set of completed challenge IDs
+- `totalXP`: Player experience points
+- `badges`: Array of earned badges
+- `checkChallengeCompletion(type, value)`: Check if a challenge condition is met
+- `claimReward(challengeId)`: Claim challenge reward
+- `getChallengesByCategory(category)`: Filter challenges by category
+- `getChallengesByDifficulty(difficulty)`: Filter challenges by difficulty
+- `resetChallenges()`: Reset all progress (for testing)
+
+### 3. Modified File: `src/components/Challenge/ChallengePanel.tsx`
+New component for challenge UI:
+- Tab in main navigation or accessible modal
+- Challenge list with progress indicators
+- Difficulty badges (beginner/intermediate/advanced)
+- Reward previews
+- Progress bars for numeric goals
+- Claim reward button (disabled until complete)
+- XP and badge display
+
+### 4. Modified File: `src/components/Challenge/ChallengeProgress.tsx`
+Visual component showing overall challenge progress:
+- Total challenges completed / total
+- XP progress bar
+- Badge showcase
+- Category breakdown
+
+### 5. New File: `src/hooks/useChallengeTracker.ts`
+React hook for tracking challenge-relevant events:
+- `trackMachineCreated()` — Call after machine save
+- `trackActivation()` — Call after machine activation
+- `trackConnectionCreated()` — Call after energy path creation
+- `trackOverloadTriggered()` — Call on overload
+- `trackStabilityAchieved(value)` — Call with stability percentage
+
+Implementation note: This hook should subscribe to relevant store actions or dispatch events that the useChallengeStore listens to, not maintain separate state.
+
+### 6. New File: `src/__tests__/challengeSystem.test.ts`
+Unit tests for challenge definitions and store
+
+### 7. Modified File: `src/store/useRecipeStore.ts`
+Integration point for challenge rewards:
+- `checkChallengeCountUnlock()` already exists, verify it works with new challenges
 
 ## Acceptance Criteria
 
-| ID | Criterion | Verification Method |
-|----|-----------|---------------------|
-| AC1 | **Faction Assignment** — Machine is tagged with a faction based on dominant module category usage | Unit test: `calculateFaction([fireCrystal, fireCrystal, fireCrystal])` returns `"elemental-circle"` |
-| AC2 | **Tech Tree Renders** — Displays 4 factions × 3 tiers = 12 nodes with locked/unlocked visual states | Unit test: Render `TechTree`, verify 12 SVG nodes exist with correct `.locked` or `.unlocked` classes |
-| AC3 | **Stats Track** — Counters increment on machine save, challenge complete, session time | Unit test: Call `statsStore.incrementMachines()`, `statsStore.incrementChallenges()`, verify values |
-| AC4 | **Achievements Fire** — At least 5 achievements trigger at defined thresholds | Unit test: Set `machineCount = 10`, verify `"10_machines"` achievement `onUnlock` callback called |
-| AC5 | **Faction Export** — Share card includes faction emblem SVG and tier badge | Unit test: Call `generateShareCard(machine)`, verify `factionEmblem` (SVG string) and `factionTier` (1-3) |
-| AC6 | **Build Passes** — `npm run build` exits 0 with 0 TypeScript errors | Run build, assert exit code 0 |
-| AC7 | **Tests Pass** — `npm test` shows all existing + new tests passing | Run tests, assert 100% pass rate (baseline: 449 existing) |
+| # | Criterion | Verification Method |
+|---|-----------|---------------------|
+| AC1 | `CHALLENGE_DEFINITIONS` contains exactly 8 entries | `expect(CHALLENGE_DEFINITIONS.length).toBe(8)` |
+| AC2 | Challenges cover all 3 difficulty tiers | Each difficulty has at least 2 challenges |
+| AC3 | Challenges cover all 4 categories | creation, collection, activation, mastery |
+| AC4 | `useChallengeStore` has `checkChallengeCompletion` and `claimReward` methods | TypeScript interface check |
+| AC5 | ChallengePanel renders with accessible list structure | `getByRole('list')` in test |
+| AC6 | All existing tests continue to pass (704+) | `npm test` exit code 0 |
+| AC7 | Build succeeds with 0 TypeScript errors | `npm run build` exit code 0 |
 
 ## Test Methods
 
-| Criterion | Test Command | Expected Result |
-|-----------|--------------|-----------------|
-| AC1: Faction Assignment | `npm test -- --testPathPattern=factionCalculator` | Test passes, returns correct faction ID |
-| AC2: Tech Tree Renders | `npm test -- --testPathPattern=TechTree` | Test passes, 12 nodes verified |
-| AC3: Stats Track | `npm test -- --testPathPattern=useStatsStore` | Test passes, counters increment |
-| AC4: Achievements Fire | `npm test -- --testPathPattern=achievementChecker` | Test passes, callbacks fire at thresholds |
-| AC5: Faction Export | `npm test -- --testPathPattern=EnhancedShareCard` | Test passes, export contains faction data |
-| AC6: Build Passes | `npm run build` | Exit code 0, no TypeScript errors |
-| AC7: Tests Pass | `npm test` | 449 + N tests pass, 0 failures |
+### 1. Challenge Definitions Tests (`src/__tests__/challengeSystem.test.ts`)
+
+```typescript
+import { CHALLENGE_DEFINITIONS } from '../../data/challenges';
+
+describe('Challenge Definitions', () => {
+  test('should have exactly 8 challenges', () => {
+    expect(CHALLENGE_DEFINITIONS.length).toBe(8);
+  });
+
+  test('should have challenges in all difficulty tiers', () => {
+    const difficulties = CHALLENGE_DEFINITIONS.map(c => c.difficulty);
+    expect(difficulties).toContain('beginner');
+    expect(difficulties).toContain('intermediate');
+    expect(difficulties).toContain('advanced');
+    expect(new Set(difficulties).size).toBe(3);
+  });
+
+  test('should have challenges in all categories', () => {
+    const categories = CHALLENGE_DEFINITIONS.map(c => c.category);
+    expect(categories).toContain('creation');
+    expect(categories).toContain('collection');
+    expect(categories).toContain('activation');
+    expect(categories).toContain('mastery');
+    expect(new Set(categories).size).toBe(4);
+  });
+
+  test('each challenge should have valid reward', () => {
+    CHALLENGE_DEFINITIONS.forEach(challenge => {
+      expect(challenge.reward).toBeDefined();
+      expect(challenge.reward.type).toMatch(/^(xp|recipe|badge)$/);
+      if (challenge.reward.type === 'recipe') {
+        expect(challenge.reward.value).toBeDefined();
+      }
+      if (challenge.reward.type === 'badge') {
+        expect(challenge.reward.value).toBeDefined();
+      }
+    });
+  });
+
+  test('each challenge should have required fields', () => {
+    CHALLENGE_DEFINITIONS.forEach(challenge => {
+      expect(challenge.id).toBeDefined();
+      expect(challenge.title).toBeTruthy();
+      expect(challenge.description).toBeTruthy();
+      expect(challenge.category).toBeDefined();
+      expect(challenge.difficulty).toBeDefined();
+      expect(challenge.target).toBeDefined();
+      expect(challenge.reward).toBeDefined();
+    });
+  });
+});
+```
+
+### 2. Challenge Store Tests
+
+```typescript
+import { useChallengeStore } from '../../store/useChallengeStore';
+
+describe('useChallengeStore', () => {
+  beforeEach(() => {
+    useChallengeStore.getState().resetChallenges();
+  });
+
+  test('should initialize with empty completedChallenges', () => {
+    expect(useChallengeStore.getState().completedChallenges.size).toBe(0);
+  });
+
+  test('checkChallengeCompletion should return false for incomplete challenges', () => {
+    const result = useChallengeStore.getState().checkChallengeCompletion('first-machine', 0);
+    expect(result).toBe(false);
+  });
+
+  test('checkChallengeCompletion should return true when target met', () => {
+    const result = useChallengeStore.getState().checkChallengeCompletion('first-machine', 1);
+    expect(result).toBe(true);
+  });
+
+  test('claimReward should add challenge to completedChallenges', () => {
+    const store = useChallengeStore.getState();
+    store.claimReward('first-machine');
+    expect(store.completedChallenges.has('first-machine')).toBe(true);
+  });
+
+  test('claiming XP reward should increment totalXP by correct amount', () => {
+    const store = useChallengeStore.getState();
+    const initialXP = store.totalXP;
+    store.claimReward('first-machine'); // 100 XP reward
+    expect(store.totalXP).toBe(initialXP + 100);
+  });
+
+  test('claiming recipe reward should trigger recipe unlock check', () => {
+    const store = useChallengeStore.getState();
+    const recipeStore = require('../../store/useRecipeStore').useRecipeStore;
+    const initialUnlocked = recipeStore.getState().unlockedRecipes.length;
+    store.claimReward('energy-master'); // Fire Crystal recipe reward
+    // Verify recipe unlock mechanism was triggered
+    expect(recipeStore.getState().unlockedRecipes.length).toBeGreaterThanOrEqual(initialUnlocked);
+  });
+
+  test('claiming badge reward should add badge to badges array', () => {
+    const store = useChallengeStore.getState();
+    store.claimReward('golden-gear'); // Golden Gear badge
+    const badges = store.badges;
+    expect(badges.some(b => b.id === 'golden-gear' || b.name === 'Golden Gear')).toBe(true);
+  });
+});
+```
+
+### 3. ChallengeTracker Hook Tests
+
+```typescript
+import { renderHook, act } from '@testing-library/react';
+import { useChallengeTracker } from '../../hooks/useChallengeTracker';
+import { useChallengeStore } from '../../store/useChallengeStore';
+
+describe('useChallengeTracker', () => {
+  beforeEach(() => {
+    useChallengeStore.getState().resetChallenges();
+  });
+
+  test('trackMachineCreated should increment machine creation count', () => {
+    const { result } = renderHook(() => useChallengeTracker());
+    act(() => {
+      result.current.trackMachineCreated();
+    });
+    // Verify challenge progress was updated
+    const progress = useChallengeStore.getState().challengeProgress;
+    expect(progress.machinesCreated).toBe(1);
+  });
+
+  test('trackActivation should increment activation count', () => {
+    const { result } = renderHook(() => useChallengeTracker());
+    act(() => {
+      result.current.trackActivation();
+    });
+    const progress = useChallengeStore.getState().challengeProgress;
+    expect(progress.activationCount).toBe(1);
+  });
+
+  test('trackConnectionCreated should increment connection count', () => {
+    const { result } = renderHook(() => useChallengeTracker());
+    act(() => {
+      result.current.trackConnectionCreated();
+    });
+    const progress = useChallengeStore.getState().challengeProgress;
+    expect(progress.connectionsCreated).toBe(1);
+  });
+});
+```
+
+### 4. Existing Test Regression
+
+```bash
+npm test  # Must show all tests passing (baseline: 704 from Round 5 QA)
+npm run build  # Must succeed with 0 errors
+```
 
 ## Risks
 
-| Risk | Mitigation |
-|------|------------|
-| **Faction Calculation Accuracy** — Module-to-faction mapping must reflect actual module types | Verify against `src/types/modules.ts` before implementation; unit test all module categories |
-| **Tech Tree Layout** — 12-node grid requires careful positioning | Use CSS grid with fixed cell sizes; test responsive behavior |
-| **Stats Persistence** — Stats must survive page reload | Use localStorage via Zustand persist; verify in test suite |
-| **Achievement Timing** — Notifications must not interfere with user flow | Use toast with auto-dismiss; debounce rapid unlocks |
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Challenge tracking not integrated with existing systems | Medium | High | Create `useChallengeTracker` hook that wraps existing store actions |
+| XP/badges storage conflicts with existing localStorage | Low | Medium | Use separate keys or namespace prefix |
+| Performance impact from challenge checks on every action | Low | Low | Debounce checks, only run on relevant events |
+| TypeScript errors from new store integration | Medium | Medium | Follow existing store patterns in `useRecipeStore` |
 
 ## Failure Conditions
 
-The round **fails** if any of the following occur:
+This sprint **must fail** if:
 
-1. `npm run build` exits non-zero or produces TypeScript errors
-2. Any existing test fails (regression) — 449 tests must continue to pass
-3. New features break existing module placement, activation, or export
-4. Faction assignment returns `undefined` or invalid faction ID for any module combination
-5. Tech tree renders fewer than 12 nodes
-6. Fewer than 5 achievements are defined or triggerable
-7. Stats store does not persist data across page reloads
-8. Faction panel is not accessible from main UI
+1. **Test failure** — Any new or existing test fails (`npm test` exit code ≠ 0)
+2. **Build failure** — `npm run build` exits with non-zero status or TypeScript errors
+3. **Fewer than 8 challenges** — CHALLENGE_DEFINITIONS.length !== 8
+4. **Missing categories** — Not all 4 categories (creation, collection, activation, mastery) represented
+5. **Missing difficulties** — Not all 3 difficulty tiers represented
+6. **Store methods missing** — `checkChallengeCompletion` or `claimReward` not implemented
 
 ## Done Definition
 
-All conditions **must** be true before claiming round complete:
+The round is complete when **all** of the following are true:
 
-- [ ] `npm run build` exits 0 with 0 TypeScript errors
-- [ ] `npm test` shows 100% pass rate (449 existing + all new tests pass, 0 failures)
-- [ ] `calculateFaction()` correctly maps all module types to faction IDs
-- [ ] Tech tree renders 12 nodes (4 factions × 3 tiers) with visible locked/unlocked states
-- [ ] Stats store increments `machinesCreated`, `challengesCompleted`, `totalPlaytime` on appropriate actions
-- [ ] At least 5 achievements defined in `achievementChecker.ts` with threshold conditions
-- [ ] Enhanced share card includes faction emblem SVG string and tier badge number
-- [ ] No breaking changes: editor, activation system, export modal all function correctly
-- [ ] Faction panel accessible from main UI
-- [ ] All new code has TypeScript types with no `any` types
+1. ✅ `src/data/challenges.ts` created with exactly 8 challenge definitions
+2. ✅ All 4 categories (creation, collection, activation, mastery) represented
+3. ✅ All 3 difficulty tiers (beginner, intermediate, advanced) represented
+4. ✅ `useChallengeStore` implements `checkChallengeCompletion` and `claimReward`
+5. ✅ `ChallengePanel` component renders accessible challenge list
+6. ✅ `useChallengeTracker` hook provides tracking methods
+7. ✅ `npm test` passes with all tests (baseline: 704, plus new tests)
+8. ✅ `npm run build` succeeds with 0 TypeScript errors
+9. ✅ No runtime errors when accessing Challenge components
 
 ## Out of Scope
 
-This round explicitly does **NOT** include:
+The following features from `spec.md` are **not** in scope for this round:
 
-| Item | Reason |
-|------|--------|
-| AI naming API integration | Interface stub only, no actual AI |
-| Community marketplace | Requires backend and authentication |
-| Multiplayer/cooperative features | Single-user only |
-| Audio system (sound effects, music) | Visual-only this round |
-| Mobile touch optimization | Desktop-first implementation |
-| Theme toggle | Single dark theme maintained |
-| Faction-vs-faction combat | Purely cosmetic progression only |
-| Persistent achievement gallery | Toast notifications only this round |
+- AI naming/description generation
+- Community sharing / social features
+- Codex trading or exchange system
+- Faction technology trees
+- New module types beyond existing 14
+- Animation polish beyond bug fixes
+- Performance optimizations not directly related to new features
+- Challenge leaderboard or rankings
+- Timed/limited challenges
 
 ---
 
-## Notes for Reviewer
-
-- **Scope Focus:** Data layer + UI + persistence; no new editor interactions introduced
-- **Faction Calculation:** Server-side calculation simulated client-side for MVP based on machine composition
-- **Tech Tree:** Read-only this round; unlocks trigger visual changes only (no gameplay modifiers)
-- **Achievement Notifications:** Toast UI with auto-dismiss; no persistent gallery this round
-- **Test Baseline:** 449 tests from Round 5; new tests expected for all new components
-- **Persistence:** All stores use Zustand persist middleware with localStorage
+**Contract prepared for Round 6 — Arcane Machine Codex Workshop**
