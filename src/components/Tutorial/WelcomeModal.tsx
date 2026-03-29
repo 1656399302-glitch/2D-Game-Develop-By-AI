@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTutorialStore } from '../../store/useTutorialStore';
+import { useMachineStore } from '../../store/useMachineStore';
 import { WELCOME_CONTENT } from '../../data/tutorialSteps';
 
 interface WelcomeModalProps {
@@ -25,6 +26,17 @@ const getInitialHasSeenWelcome = (): boolean => {
     // If localStorage is unavailable or parse fails, default to showing welcome
   }
   return false;
+};
+
+/**
+ * Check if there is saved canvas state in localStorage.
+ */
+const hasSavedCanvasState = (): boolean => {
+  try {
+    return localStorage.getItem('arcane-canvas-state') !== null;
+  } catch {
+    return false;
+  }
 };
 
 export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
@@ -62,13 +74,16 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     }, 300);
   };
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
+    // CRITICAL FIX: Don't call onSkip immediately. Instead:
+    // 1. Close the modal with animation
+    // 2. After animation, call onSkip which will restore saved state
     setIsVisible(false);
     setTimeout(() => {
       setShowModal(false);
       onSkip();
     }, 300);
-  };
+  }, [onSkip]);
 
   // Don't render if we shouldn't show the modal
   if (!showModal || !isTutorialEnabled) {
@@ -276,6 +291,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
 export function useWelcomeModal() {
   const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
   const setTutorialEnabled = useTutorialStore((state) => state.setTutorialEnabled);
+  const restoreSavedState = useMachineStore((state) => state.restoreSavedState);
   
   // Read localStorage synchronously to get the true initial state
   const hasSeenWelcome = useMemo(() => getInitialHasSeenWelcome(), []);
@@ -283,17 +299,24 @@ export function useWelcomeModal() {
   // State for the modal visibility - starts as false if already seen
   const [showWelcome, setShowWelcome] = useState(!hasSeenWelcome);
 
-  const handleStartTutorial = () => {
+  const handleStartTutorial = useCallback(() => {
     setShowWelcome(false);
     setHasSeenWelcome(true);
-  };
+    // Don't restore saved state when starting tutorial - user wants to learn first
+  }, [setHasSeenWelcome]);
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     setShowWelcome(false);
     setHasSeenWelcome(true);
     // CRITICAL FIX: Also disable tutorial so modal doesn't reappear on refresh
     setTutorialEnabled(false);
-  };
+    
+    // CRITICAL FIX: Restore saved state if it exists to prevent LoadPromptModal
+    // from appearing and potentially confusing the user to click "Start Fresh"
+    if (hasSavedCanvasState()) {
+      restoreSavedState();
+    }
+  }, [setHasSeenWelcome, setTutorialEnabled, restoreSavedState]);
 
   return {
     showWelcome,
