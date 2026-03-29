@@ -11,26 +11,29 @@ interface WelcomeModalProps {
 const TUTORIAL_STORAGE_KEY = 'arcane-codex-tutorial';
 
 /**
- * Synchronously read localStorage to get the initial hasSeenWelcome state.
+ * Synchronously read localStorage to get the initial state.
  * This avoids the Zustand hydration race condition where the store defaults
- * to false before localStorage is read.
+ * to false/true before localStorage is read.
  * 
  * CRITICAL: Zustand persist wraps persisted state in a 'state' object.
  * Actual localStorage format: {"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}
  * We must read parsed.state?.hasSeenWelcome, not parsed.hasSeenWelcome.
  */
-const getInitialHasSeenWelcome = (): boolean => {
+export const getInitialTutorialState = (): { hasSeenWelcome: boolean; isTutorialEnabled: boolean } => {
   try {
     const stored = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       // Zustand persist wraps state in a 'state' key
-      return parsed.state?.hasSeenWelcome === true;
+      const hasSeenWelcome = parsed.state?.hasSeenWelcome === true;
+      // isTutorialEnabled defaults to true, but is stored as false when user skips
+      const isTutorialEnabled = parsed.state?.isTutorialEnabled !== false; // defaults to true
+      return { hasSeenWelcome, isTutorialEnabled };
     }
   } catch {
-    // If localStorage is unavailable or parse fails, default to showing welcome
+    // If localStorage is unavailable or parse fails, use defaults
   }
-  return false;
+  return { hasSeenWelcome: false, isTutorialEnabled: true };
 };
 
 /**
@@ -48,15 +51,27 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number; duration: number }>>([]);
 
-  // Get initial state synchronously from localStorage to avoid hydration race
-  const hasSeenWelcome = useMemo(() => getInitialHasSeenWelcome(), []);
-  const [showModal, setShowModal] = useState(!hasSeenWelcome);
+  // CRITICAL: Read localStorage synchronously to get the true initial state
+  // This prevents the Zustand hydration race condition
+  const { hasSeenWelcome: localHasSeenWelcome, isTutorialEnabled: localIsTutorialEnabled } = useMemo(
+    () => getInitialTutorialState(),
+    []
+  );
+  
+  // Also sync with store's isTutorialEnabled for real-time updates
+  const storeIsTutorialEnabled = useTutorialStore((state) => state.isTutorialEnabled);
 
   // Track if modal has been dismissed this session
   const modalDismissedRef = useRef(false);
 
-  // Also sync with store's isTutorialEnabled
-  const isTutorialEnabled = useTutorialStore((state) => state.isTutorialEnabled);
+  // Calculate effective visibility based on localStorage AND store
+  // The modal should only show if:
+  // 1. User hasn't seen it before (localHasSeenWelcome is false)
+  // 2. Tutorial is enabled (localIsTutorialEnabled is true)
+  // 3. User hasn't dismissed it this session
+  // 4. Store's isTutorialEnabled is true (for real-time sync)
+  const shouldShowModal = !localHasSeenWelcome && localIsTutorialEnabled && 
+                          !modalDismissedRef.current && storeIsTutorialEnabled;
 
   useEffect(() => {
     // Don't show modal if already dismissed this session
@@ -65,16 +80,16 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     }
     
     // Trigger entrance animation if we should show the modal
-    if (showModal) {
+    if (shouldShowModal) {
       // Small delay to ensure DOM is ready
       const timer = setTimeout(() => setIsVisible(true), 50);
       return () => clearTimeout(timer);
     }
-  }, [showModal]);
+  }, [shouldShowModal]);
 
   useEffect(() => {
     // Generate floating particles only when modal is shown
-    if (showModal) {
+    if (shouldShowModal) {
       const newParticles = Array.from({ length: 20 }).map((_, i) => ({
         id: i,
         x: Math.random() * 100,
@@ -83,13 +98,12 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
       }));
       setParticles(newParticles);
     }
-  }, [showModal]);
+  }, [shouldShowModal]);
 
   const handleStartTutorial = () => {
     setIsVisible(false);
     modalDismissedRef.current = true;
     setTimeout(() => {
-      setShowModal(false);
       onStartTutorial();
     }, 300);
   };
@@ -101,14 +115,13 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     // Close the modal with animation
     setIsVisible(false);
     setTimeout(() => {
-      setShowModal(false);
       onSkip();
     }, 300);
   }, [onSkip]);
 
   // Don't render if we shouldn't show the modal
-  // Check both showModal state AND session dismissal flag
-  if (!showModal || !isTutorialEnabled || modalDismissedRef.current) {
+  // CRITICAL: Check localStorage-derived state, not just store state
+  if (!shouldShowModal) {
     return null;
   }
 
@@ -318,23 +331,23 @@ let welcomeModalDismissedThisSession = false;
  * 2. Session-level dismissal tracking that persists across interactions
  * 3. Safe callback handling that doesn't create stale closures
  * 
- * NOTE: The getInitialHasSeenWelcome() function reads Zustand persist data correctly
- * by accessing parsed.state?.hasSeenWelcome because Zustand wraps state in a 'state' key.
+ * NOTE: The getInitialTutorialState() function reads Zustand persist data correctly
+ * by accessing parsed.state?.hasSeenWelcome and parsed.state?.isTutorialEnabled 
+ * because Zustand wraps state in a 'state' key.
  */
 export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
   const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
   const setTutorialEnabled = useTutorialStore((state) => state.setTutorialEnabled);
   const restoreSavedState = useMachineStore((state) => state.restoreSavedState);
   
-  // Read localStorage synchronously to get the true initial state
+  // CRITICAL: Read localStorage synchronously to get the true initial state
   // This prevents the Zustand hydration race condition
-  const hasSeenWelcome = useMemo(() => {
-    // If already dismissed this session, return true (don't show)
-    if (welcomeModalDismissedThisSession) {
-      return true;
-    }
-    return getInitialHasSeenWelcome();
-  }, []);
+  const initialState = useMemo(() => getInitialTutorialState(), []);
+  
+  // If already dismissed this session, don't show
+  // OR if already seen (hasSeenWelcome is true)
+  // OR if tutorial is disabled (isTutorialEnabled is false)
+  const hasSeenWelcome = welcomeModalDismissedThisSession || initialState.hasSeenWelcome || !initialState.isTutorialEnabled;
   
   // State for the modal visibility - starts as false if already seen
   const [showWelcome, setShowWelcome] = useState(!hasSeenWelcome);

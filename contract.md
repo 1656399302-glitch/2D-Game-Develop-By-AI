@@ -1,158 +1,175 @@
-APPROVED
-
-# Sprint Contract — Round 13
+# Sprint Contract — Round 15
 
 ## Scope
 
-**Focus:** Enhanced Export System with High-Resolution PNG and Custom Background Options
+**Focus:** Canvas Performance Optimization, Keyboard Shortcuts Discoverability, and Core Accessibility Improvements
 
-This round adds professional-grade export capabilities:
-- PNG export at 1x, 2x, and 4x resolution
-- Optional transparent background for PNG exports
-- Custom filename preservation across exports
-- Improved poster card aspect ratios (square, portrait, landscape)
-- Export format presets for common use cases
+This round focuses on quality-of-life improvements that do not introduce new feature surface area:
+
+1. **Canvas Performance Optimization** (viewport culling for large machines with 20+ modules)
+2. **Keyboard Shortcuts Help Modal** (discoverability via `?` key trigger)
+3. **Core Accessibility Improvements** (ARIA labels on interactive elements, focus management)
 
 ## Spec Traceability
 
 ### P0 items (Must complete this round)
-- **Export Quality Enhancement**: Add resolution multiplier options (1x, 2x, 4x) for PNG export
-- **Background Options**: Add transparent background toggle for PNG exports
-- **Aspect Ratio Presets**: Add square/portrait/landscape options for poster exports
-- **Filename Persistence**: Remember user's last used filename across export sessions
+- **Performance - Viewport Culling**: Only render modules visible in current viewport
+- **Keyboard Shortcuts Help Modal**: Show all shortcuts, triggered by `?` key
+- **Accessibility - ARIA Labels**: Descriptive labels on interactive elements (module panel, toolbar, export modal)
+- **Accessibility - Focus Management**: Tab navigation, visible focus indicators, modal focus trap
 
 ### P1 items (If time allows)
-- **Export Presets**: Quick-select buttons for common export formats (social media, print, icon)
+- **Test Coverage**: Unit tests for keyboard shortcuts and accessibility features
+- **Edge Case Handling**: Error states for broken module configurations
 
 ### Remaining P0/P1 after this round
 - All P0/P1 items from spec are covered by existing implementation
-- No unresolved high-priority items
+- Round 15 is polish/refinement focused
 
 ### P2 intentionally deferred
 - AI naming/description integration
 - Community sharing features
 - Mobile-specific optimizations
 - Custom module creation tool
+- High contrast mode (complex theme system changes)
 
 ## Deliverables
 
-1. **Enhanced Export Modal** (`src/components/Export/ExportModal.tsx`)
-   - Resolution selector (1x/2x/4x) with preview of output size
-   - Transparent background toggle checkbox
-   - Aspect ratio selector for poster cards
-   - Filename input that persists value during session
+1. **Performance Optimized Canvas** (`src/components/Editor/Canvas.tsx`)
+   - Viewport culling: only render modules within visible bounds + 100px buffer
+   - Module visibility calculated on pan/zoom change
+   - No changes to activation animations or visual quality
 
-2. **Updated Export Utilities** (`src/utils/exportUtils.ts`)
-   - `exportToPNG()` with `scale` parameter (1, 2, 4)
-   - `exportToPNG()` with `transparentBackground` parameter
-   - Poster exports with `aspectRatio` parameter ('square' | 'portrait' | 'landscape')
-   - Proper canvas sizing calculations for each resolution
+2. **Keyboard Shortcuts Help Modal** (`src/components/Editor/KeyboardShortcutsHelp.tsx`)
+   - Opens on `?` keypress
+   - Lists: Undo (Ctrl+Z), Redo (Ctrl+Y/Ctrl+Shift+Z), Delete (Del), Duplicate (Ctrl+D), Select All (Ctrl+A), Copy (Ctrl+C), Paste (Ctrl+V)
+   - Categorized by function (Edit, View, Machine, Navigation)
+   - Chinese and English labels
+   - Closes on Escape or clicking overlay
 
-3. **Enhanced Poster Templates**
-   - Square (600x600), Portrait (600x800), Landscape (800x600) variants
-   - Layout adjusts dynamically based on aspect ratio
-   - Maintains visual hierarchy across all ratios
+3. **Accessibility Improvements** (multiple files)
+   - Module panel: `aria-label` on each module item describing its function
+   - Toolbar: `aria-label` on all toolbar buttons
+   - Canvas: `aria-label="Machine editor canvas with N modules"` where N is current count
+   - Export modal: `role="dialog"`, `aria-modal="true"`, `aria-labelledby` pointing to title
+   - Focus trap in all modals (Export, Keyboard Shortcuts Help, Challenge Browser)
+   - Visible focus ring (`:focus-visible`) on all interactive elements
 
-4. **New Tests** (`src/__tests__/exportQuality.test.tsx`)
-   - Resolution multiplier test
-   - Transparent background test
-   - Aspect ratio preset test
-   - Filename persistence test
+4. **New Tests**
+   - `src/__tests__/keyboardShortcuts.test.ts` - Simulate keypress events, verify handlers called
+   - `src/__tests__/accessibilityCore.test.ts` - Verify ARIA attributes and focus behavior
 
 ## Acceptance Criteria
 
-1. **AC1: Resolution Multiplier**
-   - PNG export at 1x produces minimum 400x300px image
-   - PNG export at 2x produces minimum 800x600px image
-   - PNG export at 4x produces minimum 1600x1200px image
-   - Scale selector UI shows expected output dimensions
+1. **AC1: Performance - Viewport Culling**
+   - With 30 modules on canvas, only modules in visible viewport area are rendered to DOM
+   - Pan/zoom operations update rendered set within 16ms (single frame)
+   - `npm test` includes a performance test verifying render cycle time
 
-2. **AC2: Transparent Background**
-   - PNG export with transparent background produces image with alpha channel
-   - Toggle checkbox labeled "透明背景" (Transparent Background)
-   - Default is opaque (current behavior)
-   - Transparent mode removes dark background from export
+2. **AC2: Keyboard Shortcuts Help**
+   - Pressing `?` key (when not in input field) opens KeyboardShortcutsHelp modal
+   - Modal displays all 8 shortcuts listed in Deliverables
+   - Pressing Escape closes modal and returns focus to previously focused element
+   - Clicking overlay closes modal
 
-3. **AC3: Aspect Ratio Presets**
-   - Poster export dropdown offers: 默认 (Default), 方形 (Square), 纵向 (Portrait), 横向 (Landscape)
-   - Square produces 600x600 poster
-   - Portrait produces 600x800 poster
-   - Landscape produces 800x600 poster
-   - Layout adjusts appropriately for each ratio
+3. **AC3: Accessibility - ARIA Labels**
+   - All buttons in module panel have descriptive `aria-label` attributes
+   - All toolbar buttons have `aria-label` attributes
+   - Canvas element has `aria-label` with module count
+   - Export modal has `role="dialog"` and `aria-modal="true"`
 
-4. **AC4: Filename Persistence**
-   - Filename input field retains value during export modal session
-   - Changing format does not reset filename
-   - Default filename is 'arcane-machine'
+4. **AC4: Accessibility - Focus Management**
+   - Tab key cycles through all interactive elements in logical order
+   - All focusable elements show visible focus indicator
+   - Modal focus trap: focus cannot leave modal while open
+   - Escape key closes modals and returns focus to trigger element
 
 5. **AC5: Backward Compatibility**
-   - Default export behavior unchanged when not using new options
-   - Existing SVG export continues to work
-   - All 877 existing tests pass
+   - All existing tests pass (current: 909 tests)
+   - No changes to existing keyboard shortcut behavior (only added discoverability layer)
+   - No visual changes to existing UI components
+   - No changes to export, activation, or challenge systems
 
 ## Test Methods
 
 ### Unit Tests
-1. **Resolution Test**: Mock canvas operations, verify scale parameter creates correct dimensions
-2. **Transparency Test**: Verify canvas context has `globalCompositeOperation` or alpha applied
-3. **Aspect Ratio Test**: Verify poster dimensions match expected ratios
-4. **Filename Test**: Simulate multiple format selections, verify filename persists
+1. **Performance Test** (`src/__tests__/canvasPerformance.test.ts`)
+   - Mount canvas with 30 modules
+   - Simulate pan/zoom
+   - Measure time to recalculate visible set (assert < 16ms)
 
-### Browser Verification
-1. Open Export Modal, select PNG format
-2. Verify resolution dropdown shows 1x/2x/4x options with size previews
-3. Verify transparent background checkbox appears for PNG
-4. Select each resolution, verify filename display shows expected output size
-5. Export PNG at each resolution, verify file dimensions match
-6. Export with transparent background, verify no dark background in result
-7. Change poster format, verify aspect ratio changes
-8. Verify filename persists across format changes
+2. **Keyboard Test** (`src/__tests__/keyboardShortcuts.test.ts`)
+   - Test `?` key opens modal
+   - Test each shortcut key triggers correct handler
+   - Test Escape closes modal
+
+3. **Accessibility Test** (`src/__tests__/accessibilityCore.test.ts`)
+   - Query DOM for buttons with `aria-label`
+   - Verify modal has `role="dialog"` and `aria-modal`
+   - Verify focus trap behavior
+
+### Browser Verification (Manual)
+1. Open application, verify no console errors
+2. Add 30+ modules, pan/zoom, verify no frame drops
+3. Press `?` key, verify help modal opens
+4. Navigate with Tab, verify focus indicators visible
+5. Open/close modals, verify focus returns correctly
 
 ## Risks
 
-1. **Canvas Scaling Quality**: 4x scale may produce blurry results on some browsers
-   - Mitigation: Use proper canvas scaling with anti-aliasing
-2. **Transparency in Poster**: Poster exports always have background (not a risk)
-3. **Test Coverage**: Need to ensure existing export tests still pass
-   - Mitigation: Run full test suite, add specific new tests
+1. **Viewport Culling Affecting Animations**: Culling logic might interfere with activation animations
+   - **Mitigation**: Only cull inactive modules; activation animations render all participating modules
+2. **Focus Management Conflicts**: Multiple focus systems (modals, canvas, panels) may conflict
+   - **Mitigation**: Centralize focus management in a single `useFocusManager` hook
+3. **Test Regression**: Adding new tests while maintaining 909 existing tests
+   - **Mitigation**: Run full suite before commit; new tests must not modify existing test files
 
 ## Failure Conditions
 
-1. Any existing test fails (877 tests must pass)
-2. Export modal fails to render or becomes non-functional
-3. PNG export produces no output or corrupt file
-4. Resolution 4x causes browser crash or timeout
-5. Transparent background toggle has no effect
-6. TypeScript compilation errors introduced
+The round fails if any of these occur:
+1. Any existing test fails (`npm test` must show 909+ passing)
+2. TypeScript compilation errors introduced
+3. Activation animation system broken
+4. Export functionality regresses
+5. Keyboard shortcuts stop working (existing behavior preserved)
+6. Canvas renders incorrectly (modules missing when should be visible)
+7. Modals cannot be opened or closed
 
 ## Done Definition
 
-- [ ] AC1: Resolution dropdown (1x/2x/4x) implemented and functional
-- [ ] AC2: Transparent background toggle implemented and functional  
-- [ ] AC3: Aspect ratio presets implemented and functional
-- [ ] AC4: Filename persistence during export session works
-- [ ] AC5: `npm test` passes all 877+ tests
+All of the following must be true before claiming round complete:
+
+- [ ] `npm test` passes with 909+ tests (no regressions)
 - [ ] `npm run build` succeeds with 0 TypeScript errors
-- [ ] Browser verification confirms all 4 new features work
-- [ ] No regression in existing export formats (SVG, PNG, Poster, Faction Card)
+- [ ] AC1: Viewport culling implemented, performance test passes
+- [ ] AC2: `?` key opens shortcuts help modal with all 8 shortcuts listed
+- [ ] AC3: All interactive elements have ARIA labels (verified by test)
+- [ ] AC4: Focus management works (tab nav, focus trap, escape closes modals)
+- [ ] AC5: No regressions in existing functionality (verified by test suite)
+- [ ] Browser verification confirms smooth performance and accessibility features work
 
 ## Out of Scope
 
-- AI-powered naming or description generation
-- Social media direct sharing integration
-- Module color customization (per-module theming)
-- Additional module types beyond 15 existing
-- Faction expansion beyond 5 existing
-- Recipe system expansion
-- Challenge system changes
-- Tutorial/welcome flow modifications
-- Performance optimization for large machines
-- Mobile-specific export layouts
-- WebP or other format support beyond SVG/PNG
+- New module types or categories
+- New export formats or quality options
+- Faction or recipe system changes
+- Challenge system modifications
+- Tutorial/welcome flow changes
+- AI integration
+- Community features
+- Mobile-specific layouts
+- Custom module creation tool
+- Major visual redesigns
+- Connection path optimization (separate P2 item)
+- Render batching refactor (separate from viewport culling)
 
-## Notes
+---
 
-- Default PNG behavior (1x, opaque) matches current implementation
-- Export modal UX follows existing patterns (format buttons, preview icons)
-- Chinese localization for all new UI elements
-- ExportUtils remains backward compatible via default parameters
+*Contract revised with tighter scope, explicit test methods, and measurable acceptance criteria.*
+
+---
+
+## APPROVED
+
+*Contract approved on: Review Round 15*
+*Verdict: Specific, honest, and testable - all acceptance criteria are binary and measurable*

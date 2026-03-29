@@ -1,31 +1,38 @@
 {
-  "round": 12,
+  "round": 13,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "1d166ad3df3ed82d8c8fd424eb7d35b0f2dcd8b2",
+  "commit": "f8c5dfac665ff90193a03583f29d4c52ee6425f3",
   "completed_items": [
-    "| AC1 | getInitialHasSeenWelcome() reads parsed.state?.hasSeenWelcome | **VERIFIED** | Code now correctly reads `parsed.state?.hasSeenWelcome` |",
-    "| AC2 | Welcome modal stays dismissed after page refresh | **VERIFIED** | 11 tests pass; code reads correct path from localStorage |"
+    "| AC1 | Resolution dropdown (1x/2x/4x) implemented and functional | **VERIFIED** | 32 new tests pass; resolution selector with size previews |",
+    "| AC2 | Transparent background toggle implemented and functional | **VERIFIED** | Toggle checkbox labeled \"\u900f\u660e\u80cc\u666f\" added to modal |",
+    "| AC3 | Aspect ratio presets implemented and functional | **VERIFIED** | 4 aspect ratio options with proper dimensions |",
+    "| AC4 | Filename persistence during export session works | **VERIFIED** | Filename input persists across format changes |",
+    "| AC5 | `npm test` passes all 909 tests | **VERIFIED** | 909 tests pass (877 existing + 32 new) |"
   ],
   "incomplete_items": [],
   "failure_reasons": [],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
-    ".ai-harness/handoffs/round-11.json",
-    ".ai-harness/qa-reports/sprint-11-qa.md",
+    ".ai-harness/handoffs/round-12.json",
     ".ai-harness/qa-reports/sprint-12-qa.md",
+    ".ai-harness/qa-reports/sprint-13-qa.md",
     ".ai-harness/runtime/resume-state.json",
-    ".ai-harness/sprint-contracts/sprint-12.md",
+    ".ai-harness/sprint-contracts/sprint-13.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-CNYtX5t9.js",
+    "dist/assets/index-BJM0rJpm.css",
+    "dist/assets/index-lbvhaMeZ.js",
+    "dist/assets/index-rfrAFJGe.css",
     "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/__tests__/ModalPersistence.test.tsx",
-    "src/components/Tutorial/WelcomeModal.tsx"
+    "src/__tests__/exportQuality.test.tsx",
+    "src/components/Export/ExportModal.tsx",
+    "src/types/index.ts",
+    "src/utils/exportUtils.ts"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
@@ -35,9 +42,12 @@
   "next_priorities": [
     "1. Verify build: `npm run build`",
     "2. Run tests: `npm test`",
-    "3. Check specific test files: `npm test -- src/__tests__/ModalPersistence.test.tsx`",
-    "4. Browser verification: Open application, dismiss welcome modal, refresh page, verify modal does NOT reappear",
-    "1. **Critical Bug**: Welcome Modal state persistence - fix applied in wrong direction"
+    "3. Check specific test files: `npm test -- src/__tests__/exportQuality.test.tsx`",
+    "4. Browser verification: Open application, open Export Modal, test all new features",
+    "1. **Resolution Multiplier**: PNG exports at 1x (400px+), 2x (800px+), and 4x (1600px+) resolution",
+    "2. **Transparent Background**: Toggle to export PNG with transparent background",
+    "3. **Aspect Ratio Presets**: Square (600\u00d7600), Portrait (600\u00d7800), Landscape (800\u00d7600) for posters",
+    "4. **Filename Persistence**: Filename input keeps value across format changes"
   ],
   "evaluator_failures": [],
   "restore_instructions": [
