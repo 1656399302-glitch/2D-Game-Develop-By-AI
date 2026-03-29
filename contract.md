@@ -1,295 +1,308 @@
-APPROVED
-
-# Sprint Contract — Round 1
+# APPROVED — Sprint Contract Round 2
 
 ## Scope
 
-**Primary Objective:** Fix the build-breaking TypeScript error by implementing the missing `exportFactionCard()` function and integrating EnhancedShareCard into the ExportModal.
+This sprint focuses on **UX Enhancements and Editor Polish** to improve the creation experience. Building on the stable foundation from Round 1, we will implement:
 
-**Theme:** Bug Remediation — Fix build error and complete EnhancedShareCard integration
+1. **Multi-select and alignment tools** - Allow users to select multiple modules and align them (left, center, right, top, middle, bottom)
+2. **Box selection** - Drag to select multiple modules on canvas using Shift+Drag
+3. **Auto-layout suggestion** - One-click arrangement for messy layouts (appears when 3+ modules exist)
+4. **Z-order/Layer controls** - Bring forward, send backward, bring to front, send to back (inline with spec: "层级调整")
 
-**Root Cause:** 
-- `src/components/Export/ExportModal.tsx` imports `exportFactionCard` from `exportUtils.ts`
-- The function is referenced but not defined, causing compilation failure
-- This prevents the build from completing (`npm run build` exits non-zero)
-
-**Resolution Required:**
-1. Implement `exportFactionCard()` function in `src/utils/exportUtils.ts`
-2. Integrate EnhancedShareCard into ExportModal export flow
-3. Verify all export formats work (SVG, PNG, Poster, Enhanced, Faction Card)
+**Note:** The "Faction Card preview enhancement" item has been removed as it was verified complete in Round 1 QA (AC5: EnhancedShareCard uses `factionConfig.color` for faction badge with correct colors per faction).
 
 ---
 
 ## Spec Traceability
 
-### P0 items (Must Complete)
-| Item | Description | Status |
-|------|-------------|--------|
-| Build Fix | `exportFactionCard` undefined → Implement function in `exportUtils.ts` | BLOCKED |
-| Integration | EnhancedShareCard not accessible from UI → Connect to ExportModal | BLOCKED |
-| Verification | Build must pass → `npm run build` exits 0 | BLOCKED |
+### P0 items covered this round
+- **Box selection** (spec: "框选")
+- **Module alignment tools** (spec: "对齐")
+- **Z-order/Layer controls** (spec: "层级调整")
 
-### P1 items (Should Complete)
-| Item | Description |
-|------|-------------|
-| Regression Prevention | Test suite passes → `npm test` shows no new failures |
-| Functional Verification | Faction Card export works → SVG/PNG downloads function correctly |
+### P1 items covered this round
+- Multi-select operations (Shift+Click to add/remove, Ctrl+A for select all)
+- Alignment actions (align left, center, right, top, middle, bottom)
+- Auto-layout suggestion (grid arrangement when 3+ modules)
+- Layer operations (bring forward, send backward, bring to front, send to back)
+
+### P2 items intentionally deferred
+- Module color/style customization (needs design system work)
+- Copy/paste between different machines (clipboard already exists)
+- AI naming assistant integration (needs external API)
+- Community sharing features (backend required)
+- Advanced recipe unlock system (needs more content)
 
 ### Remaining P0/P1 after this round
-None — Build error fixed, EnhancedShareCard integration complete.
-
-### P2 intentionally deferred
-| Item | Reason |
-|------|--------|
-| AI naming/description assistant integration | Future feature |
-| Community share square | Future feature |
-| Machine trading/exchange system | Future feature |
-| Challenge task mode | Existing challenges preserved; new modes deferred |
-| Recipe/Formula unlock system | Future feature |
-| Faction technology tree functional unlocks | Visual only; functional effects deferred |
+- P0: All core editor features (drag, drop, selection, delete, rotate) ✓
+- P0: Connection system ✓
+- P0: Activation preview system ✓
+- P0: Attribute generation ✓
+- P0: Faction system ✓
+- P1: Machine Codex/Collection system ✓
+- P1: Random Forge ✓
+- P1: Export functionality ✓
+- P2: Remaining deferred items (see above)
 
 ---
 
 ## Deliverables
 
-### Files to CREATE
-None — all required files exist; this is a remediation sprint.
+1. **`src/store/useSelectionStore.ts`** - New store for multi-select state management
+   - `selectedModuleIds: string[]`
+   - `addToSelection(id: string): void`
+   - `removeFromSelection(id: string): void`
+   - `clearSelection(): void`
+   - `selectAll(moduleIds: string[]): void`
+   - `toggleSelection(id: string): void`
 
-### Files to MODIFY
-| # | File | Change |
-|---|------|--------|
-| 1 | `src/utils/exportUtils.ts` | Add `exportFactionCard()` function implementation |
-| 2 | `src/components/Export/ExportModal.tsx` | Ensure "Faction Card" button present and functional |
-| 3 | `src/components/Export/EnhancedShareCard.tsx` | Verify modal opens with faction-colored border |
+2. **`src/components/Editor/AlignmentToolbar.tsx`** - New alignment and layer controls
+   - Alignment dropdown: left, center, right, top, middle, bottom icons
+   - Layer dropdown: bring forward, send backward, bring to front, send to back
+   - Only visible when 2+ modules selected
 
-### Deliverable 1: `exportFactionCard()` Function
+3. **`src/components/Editor/Canvas.tsx`** (modified) - Box selection functionality
+   - Shift+Drag on empty canvas area creates selection rectangle
+   - Rectangle: semi-transparent fill (#3b82f6 at 20% opacity), dashed border
+   - All modules within rectangle on mouse release get selected
 
-**Location:** `src/utils/exportUtils.ts`
+4. **`src/utils/alignmentUtils.ts`** - New alignment calculation utilities
+   - `calculateAlignmentBounds(modules): Bounds`
+   - `alignModules(modules, alignment, bounds): ModulePosition[]`
+   - `alignLeft, alignCenter, alignRight, alignTop, alignMiddle, alignBottom`
 
-**Function signature:**
-```typescript
-export function exportFactionCard(
-  modules: PlacedModule[],
-  connections: Connection[],
-  attributes: GeneratedAttributes,
-  faction: FactionConfig
-): string {
-  // Generate SVG string matching EnhancedShareCard visual output
-  // Include faction-specific border color and theming
-  // Return complete SVG markup suitable for download
-}
-```
+5. **`src/utils/zOrderUtils.ts`** - New z-index management utilities
+   - `bringForward(moduleId, allModules): void`
+   - `sendBackward(moduleId, allModules): void`
+   - `bringToFront(moduleId, allModules): void`
+   - `sendToBack(moduleId, allModules): void`
 
-**Requirements:**
-- Accept `modules`, `connections`, `attributes`, and `faction` parameters
-- Return SVG string with faction-colored border matching EnhancedShareCard
-- Exportable as `.svg` file via download
+6. **`src/utils/autoLayout.ts`** - Auto-arrangement algorithm
+   - `autoArrange(modules, containerWidth): ModulePosition[]`
+   - Grid-based layout with consistent spacing
+   - Maintains connections after layout
+
+7. **`src/hooks/useKeyboardShortcuts.ts`** (modified) - Keyboard shortcuts
+   - `Shift+Click`: Toggle module in selection
+   - `Ctrl/Cmd+A`: Select all modules
+   - `Ctrl/Cmd+D`: Deselect all
+
+8. **Test files**:
+   - `src/__tests__/useSelectionStore.test.ts`
+   - `src/__tests__/alignmentUtils.test.ts`
+   - `src/__tests__/zOrderUtils.test.ts`
+   - `src/__tests__/autoLayout.test.ts`
 
 ---
 
 ## Acceptance Criteria
 
-| # | Criterion | Pass Condition | Fail Condition |
-|---|-----------|----------------|----------------|
-| AC1 | Build passes | `npm run build` exits 0 | Non-zero exit code |
-| AC2 | Function exists | `exportFactionCard` defined in exportUtils.ts | Function undefined or not exported |
-| AC3 | Five format options | ExportModal displays exactly: SVG, PNG, Poster, Enhanced, Faction Card | Missing or extra options |
-| AC4 | Faction Card opens modal | Clicking "Faction Card" shows EnhancedShareCard | Modal does not appear |
-| AC5 | Faction border color | Border color matches dominant faction of machine | Neutral/default color regardless of faction |
-| AC6 | SVG export works | "Export SVG" downloads `{name}-share-card.svg` | No download or wrong filename |
-| AC7 | PNG export works | "Export PNG" downloads `{name}-share-card.png` | No download or wrong filename |
-| AC8 | Close navigation | "Close" returns to ExportModal format selection | Navigation fails or broken state |
-| AC9 | Tests pass | `npm test` shows no new failures | Any test regression |
+### AC1: Box Selection Works
+- **Given** user has modules on canvas
+- **When** user presses Shift and drags on empty canvas area
+- **Then** a selection rectangle appears (semi-transparent blue fill, dashed border)
+- **And** when mouse is released, all modules inside the rectangle are selected
+- **And** selection rectangle disappears
+
+### AC2: Multi-Select Operations Work
+- **When** user Shift+Clicks a module that is NOT selected
+- **Then** the module is added to the current selection
+- **When** user Shift+Clicks a module that IS selected
+- **Then** the module is removed from selection
+- **When** user presses Ctrl/Cmd+A
+- **Then** all modules on canvas are selected
+- **And** all selected modules show visual distinction (highlighted border: #3b82f6)
+
+### AC3: Alignment Tools Function Correctly
+- **Given** 3+ modules are selected
+- **When** user clicks "Align Left"
+- **Then** all selected modules have X coordinate equal to the leftmost module's X
+- **When** user clicks "Align Center"  
+- **Then** all selected modules have X coordinate at the median X of selection
+- **When** user clicks "Align Right"
+- **Then** all selected modules have X coordinate equal to the rightmost module's X
+- **When** user clicks "Align Top"
+- **Then** all selected modules have Y coordinate equal to the topmost module's Y
+- **When** user clicks "Align Middle"
+- **Then** all selected modules have Y coordinate at the median Y of selection
+- **When** user clicks "Align Bottom"
+- **Then** all selected modules have Y coordinate equal to the bottommost module's Y
+- **And** modules stay within canvas bounds (0 to 800 on X/Y)
+
+### AC4: Z-Order/Layer Controls Work
+- **Given** 3 modules with z-indices [1, 2, 3] where module C is at 3
+- **When** user selects module A (z-index 1) and clicks "Bring Forward"
+- **Then** module A's z-index becomes 2 (swapped with module B)
+- **When** user selects module A and clicks "Bring to Front"
+- **Then** module A's z-index becomes 4 (highest)
+- **When** user selects module C (z-index 3) and clicks "Send Backward"
+- **Then** module C's z-index becomes 1 (swapped with module A)
+- **When** user selects module C and clicks "Send to Back"
+- **Then** module C's z-index becomes 0 (lowest)
+
+### AC5: Auto-Layout Suggestion Works
+- **Given** user has 3+ modules on canvas (scattered positions)
+- **When** user clicks "Auto Arrange" button in toolbar
+- **Then** a grid layout is calculated with consistent spacing
+- **And** modules are repositioned to grid positions
+- **And** all module connections are preserved (paths recalculated)
+- **And** all modules stay within canvas bounds
+
+### AC6: Build Passes
+- `npm run build` exits with code 0
+- No TypeScript errors introduced
+- All existing tests pass
+
+### AC7: No Placeholder UI
+- All new features have functional UI
+- No "// TODO" or "// FIXME" comments in new code
+- All buttons and interactions have handlers
+- Alignment toolbar only appears when 2+ modules selected
+- Auto Arrange button only appears when 3+ modules exist
 
 ---
 
 ## Test Methods
 
-### AC1: Build Verification
-```bash
-npm run build
-# Exit code must be 0
-echo "Exit code: $?"  # Must be 0
+### TM1: Box Selection
+```
+Manual Test:
+1. Open canvas with 5+ modules placed
+2. Press and hold Shift
+3. Drag mouse on empty area (not on a module)
+4. Verify: selection rectangle appears during drag
+5. Release mouse
+6. Verify: modules inside rectangle are selected, rectangle gone
+
+Automated Test (useSelectionStore.test.ts):
+- Test addToSelection, removeFromSelection, toggleSelection
+- Test that toggle correctly adds/removes
+- Test clearSelection empties array
+- Test selectAll replaces selection
 ```
 
-### AC2: Function Export Verification
-```bash
-grep -n "^export function exportFactionCard" src/utils/exportUtils.ts
-# Must output: "export function exportFactionCard("
+### TM2: Multi-Select
+```
+Manual Test:
+1. Click module A (1 selected)
+2. Shift+Click module B (2 selected)
+3. Shift+Click module A (1 selected, A removed)
+4. Press Ctrl+A (all selected)
+
+Automated Test (useSelectionStore.test.ts):
+- Test addToSelection, removeFromSelection, toggleSelection
+- Test that toggle correctly adds/removes
+- Test clearSelection empties array
+- Test selectAll replaces selection
 ```
 
-### AC3: Format Options Count
-```bash
-grep -c "Faction Card" src/components/Export/ExportModal.tsx
-# Must be >= 1 (button label and handler)
+### TM3: Alignment Calculations
+```
+Automated Test (alignmentUtils.test.ts):
+1. Create 3 modules at positions: {x:10, y:50}, {x:100, y:100}, {x:200, y:75}
+2. Call alignLeft(modules)
+3. Assert: all modules have x=10
+4. Call alignRight(modules)
+5. Assert: all modules have x=200
+6. Call alignCenter(modules)
+7. Assert: all modules have x=100 (median)
+8. Test vertical alignments similarly
 ```
 
-### AC4-AC5: Faction Card UI Integration
-Manual verification required:
-1. Open app in browser
-2. Click Export button in toolbar
-3. Count format buttons — must be exactly 5
-4. Click "Faction Card" button
-5. Verify EnhancedShareCard modal appears with faction-colored border
-
-**Test machines for faction detection:**
-| Faction | Test Modules | Expected Border Color |
-|---------|--------------|----------------------|
-| Void | void-siphon, phase-modulator | Purple (#a78bfa) |
-| Inferno | fire-crystal, core-furnace | Orange (#f97316) |
-| Storm | lightning-conductor, energy-pipe | Cyan (#22d3ee) |
-| Stellar | amplifier-crystal, resonance-chamber | Gold (#fbbf24) |
-
-### AC6: SVG Export
-```bash
-# Manual test:
-# 1. Open ExportModal
-# 2. Select Faction Card
-# 3. Click "Export SVG"
-# 4. Verify file downloads with pattern "{machine-name}-share-card.svg"
+### TM4: Z-Order Operations
+```
+Automated Test (zOrderUtils.test.ts):
+1. Create 3 modules with z-indices 1, 2, 3
+2. Call bringForward(module1)
+3. Assert: module1 z-index = 2, module2 z-index = 1
+4. Call bringToFront(module2)
+5. Assert: module2 z-index = 4 (was 2, +2 = highest+1)
+6. Test sendBackward and sendToBack similarly
 ```
 
-### AC7: PNG Export
-```bash
-# Manual test:
-# 1. Open ExportModal
-# 2. Select Faction Card
-# 3. Click "Export PNG"
-# 4. Verify file downloads with pattern "{machine-name}-share-card.png"
+### TM5: Auto-Layout
+```
+Automated Test (autoLayout.test.ts):
+1. Create 6 modules at random positions
+2. Call autoArrange(modules, containerWidth=800)
+3. Assert: all modules have x,y within bounds
+4. Assert: modules are arranged in grid pattern (consistent spacing)
+5. Assert: connections array length unchanged
 ```
 
-### AC8: Close Navigation
+### TM6: Build Verification
 ```bash
-# Manual test:
-# 1. Open EnhancedShareCard modal
-# 2. Click "Close"
-# 3. Verify ExportModal format buttons visible
-# 4. Verify no modal state stuck
-```
-
-### AC9: Test Suite
-```bash
-npm test 2>&1 | tail -20
-# Must show passing tests with no failures
+npm run build   # Must exit 0
+npm test        # Must show all tests passing
 ```
 
 ---
 
 ## Risks
 
-| # | Risk | Mitigation | Severity |
-|---|------|------------|----------|
-| R1 | Machine with no faction modules shows neutral styling | EnhancedShareCard handles null faction with gray default border | Low |
-| R2 | SVG-to-Canvas PNG export may have CORS issues | Uses blob URLs (already implemented in EnhancedShareCard) | Low |
-| R3 | Export timing issues with modal state | Uses setTimeout for export completion (existing pattern) | Low |
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Box selection interferes with panning | Low | Medium | Box select only activates on Shift+Drag; plain drag remains pan |
+| Alignment moves modules off-canvas | Low | High | Clamp positions to 0-800 range after alignment |
+| Auto-layout disconnects existing paths | Medium | High | Recalculate all connection paths after repositioning |
+| Z-order changes affect visual layering unexpectedly | Low | Medium | Test with overlapping modules to verify correct stacking |
+| Selection state conflicts with other interactions | Medium | Medium | Selection store must properly coordinate with module store |
 
 ---
 
 ## Failure Conditions
 
-This round **MUST FAIL** if ANY of the following are true:
+The round **MUST FAIL** if:
 
-| # | Condition | Check Command |
-|---|-----------|---------------|
-| F1 | `npm run build` exits non-zero | `npm run build; echo $?` |
-| F2 | `exportFactionCard` function not defined in exportUtils.ts | `grep "exportFactionCard" src/utils/exportUtils.ts` |
-| F3 | ExportModal missing "Faction Card" option | Inspect component code |
-| F4 | EnhancedShareCard modal does not open on click | Manual browser test |
-| F5 | Any existing tests fail (regression) | `npm test` |
+1. **Build fails** - Any TypeScript compilation error or `npm run build` non-zero exit
+2. **Tests fail** - Any existing test in `src/__tests__/` fails
+3. **Regression in core features** - Module drag, drop, connection, or export stops working
+4. **New feature crashes** - Any new component causes runtime errors when used
+5. **Visual regression** - Existing UI elements change appearance unexpectedly
+6. **Partial implementation** - Any acceptance criterion has only placeholder/stub code
 
 ---
 
 ## Done Definition
 
-All of the following must be **TRUE** before claiming Round 1 complete:
+The round is complete when ALL of the following are true:
 
-| # | Criterion | Verification |
-|---|-----------|--------------|
-| D1 | `npm run build` passes | Run `npm run build`; verify exit code 0 |
-| D2 | `exportFactionCard()` function exists | `grep "exportFactionCard" src/utils/exportUtils.ts` finds definition |
-| D3 | ExportModal has 5 format options | Inspect component or manual test |
-| D4 | "Faction Card" opens EnhancedShareCard | Click button; verify modal renders |
-| D5 | Faction border reflects machine faction | Create faction machine; verify border color |
-| D6 | SVG export downloads file | Click Export SVG; verify file download |
-| D7 | PNG export downloads file | Click Export PNG; verify file download |
-| D8 | Close button returns to ExportModal | Click Close; verify format selection visible |
-| D9 | `npm test` passes (no regressions) | Run `npm test`; verify all tests pass |
+1. ☐ Box selection rectangle appears when Shift+Dragging on empty canvas
+2. ☐ Multiple modules can be selected via Shift+Click, Ctrl+A, and box selection
+3. ☐ All 6 alignment options (left, center, right, top, middle, bottom) work correctly
+4. ☐ All 4 layer options (bring forward/backward, front/back) work correctly
+5. ☐ Auto-arrange button appears when 3+ modules exist
+6. ☐ Auto-arrange creates grid layout and preserves connections
+7. ☐ `npm run build` exits with code 0
+8. ☐ `npm test` passes all tests (expected: 540+, including new tests)
+9. ☐ No console errors in browser when using new features
+10. ☐ All new UI elements have proper styling matching project theme (dark background, neon accents)
+11. ☐ No TODO/FIXME comments in new code
+12. ☐ Keyboard shortcuts (Shift+Click, Ctrl+A) work as specified
 
 ---
 
 ## Out of Scope
 
-The following are explicitly **NOT** being done in Round 1:
+The following features from `spec.md` are explicitly NOT part of this sprint:
 
-| Item | Reason |
-|------|--------|
-| New faction-specific animations beyond existing | EnhancedShareCard animations are sufficient |
-| Functional tech tree unlocks | Visual unlocks only; gameplay effects deferred |
-| AI text generation integration | Future feature; needs API design |
-| Social sharing or community features | Future feature |
-| New achievement types | Existing 5 achievements sufficient for MVP |
-| New module types or mechanics | Current modules sufficient for MVP |
-| Recipe/Formula unlock system | Deferred to future round |
-| Performance optimization | Not in scope for bug fix round |
-| Mobile-responsive layout changes | Desktop-first; mobile deferred |
+1. **Module color/style customization** - Requires design system work, deferred
+2. **AI naming/description generation** - Requires external API integration, deferred
+3. **Community sharing or multiplayer** - Requires backend, deferred
+4. **Advanced recipe unlock system** - Needs more content before implementation
+5. **Challenge/achievement expansions** - Core system works, enhancements deferred
+6. **Mobile/touch support** - Web desktop focus maintained
+7. **Plugin/module system** - Architecture work needed, deferred
+8. **Faction Card border preview enhancement** - VERIFIED COMPLETE in Round 1 QA
 
 ---
 
-## Technical Notes
+## Notes
 
-### Integration Flow
-
-```
-ExportModal
-  │
-  ├── format: 'svg' | 'png' | 'poster' | 'enhanced-poster'
-  │     └── Existing export flow unchanged
-  │
-  └── format: 'faction-card'
-        └── EnhancedShareCard (full-screen modal)
-              ├── Props: faction, attributes, modules, connections
-              ├── Export buttons: handleExportSVG, handleExportPNG
-              └── Close: returns to format selection
-```
-
-### Build Error to Fix
-
-**Current error:**
-```
-src/components/Export/ExportModal.tsx(3,72): error TS2305: 
-Module '"../../utils/exportUtils"' has no exported member 'exportFactionCard'.
-```
-
-**Fix:** Add `exportFactionCard` function to `src/utils/exportUtils.ts`.
-
-### Faction Color Mapping
-
-| Faction | Hex Color | CSS Variable |
-|---------|-----------|--------------|
-| Void | #a78bfa | --faction-void |
-| Inferno | #f97316 | --faction-inferno |
-| Storm | #22d3ee | --faction-storm |
-| Stellar | #fbbf24 | --faction-stellar |
-| Neutral | #6b7280 | --faction-neutral |
-
----
-
-## Previous Round Context (Round 7 QA Finding)
-
-**Round 7 QA Finding:** EnhancedShareCard component exists but not integrated into export flow. This is a minor integration gap identified during QA verification.
-
-**Pre-existing state:**
-- `src/components/Export/EnhancedShareCard.tsx` exists ✓
-- `src/utils/factionCalculator.ts` exists (faction calculator) ✓
-- `exportFactionCard` imported in ExportModal but undefined ✗
-- EnhancedShareCard not accessible from UI ✗
-
-**This Round's Task:**
-1. Implement `exportFactionCard()` to fix build error
-2. Ensure EnhancedShareCard is accessible from ExportModal
-3. Verify all export formats work correctly
-
----
-
-*Contract Version: 1.0*
-*Status: APPROVED*
+- This sprint adds polish features to the stable Round 1 foundation
+- All changes maintain backward compatibility with existing machines
+- New keyboard shortcuts: `Shift+Click` = toggle in selection, `Ctrl/Cmd+A` = select all
+- Alignment toolbar appears as dropdown when 2+ modules selected
+- Layer controls appear as dropdown in same toolbar area
+- Auto Arrange button appears in toolbar when 3+ modules exist
+- Selection state persists until user clicks empty canvas or presses Escape

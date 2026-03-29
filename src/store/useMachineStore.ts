@@ -58,6 +58,10 @@ interface MachineStore {
   deleteSelected: () => void;
   duplicateModule: (instanceId: string) => void;
   
+  // Batch operations
+  updateModulesBatch: (updates: Array<{ instanceId: string; x?: number; y?: number }>) => void;
+  setModulesOrder: (orderedModuleIds: string[]) => void;
+  
   // Copy/Paste
   copySelected: () => void;
   pasteModules: () => void;
@@ -443,6 +447,81 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     });
     
     // THEN save to history (captures the new state)
+    get().saveToHistory();
+  },
+
+  // Batch update multiple modules at once (for alignment and auto-layout)
+  updateModulesBatch: (updates) => {
+    const { gridEnabled, modules, connections } = get();
+    const updateMap = new Map(updates.map(u => [u.instanceId, u]));
+
+    // Update connection paths for affected modules
+    const affectedModuleIds = new Set(updates.map(u => u.instanceId));
+    const updatedConnections = connections.map((conn) => {
+      if (affectedModuleIds.has(conn.sourceModuleId) || affectedModuleIds.has(conn.targetModuleId)) {
+        const newPath = calculateConnectionPath(
+          modules,
+          conn.sourceModuleId,
+          conn.sourcePortId,
+          conn.targetModuleId,
+          conn.targetPortId
+        );
+        return { ...conn, pathData: newPath };
+      }
+      return conn;
+    });
+
+    set((_state) => {
+      const newModules = get().modules.map((m) => {
+        const update = updateMap.get(m.instanceId);
+        if (update) {
+          return {
+            ...m,
+            x: update.x !== undefined ? (gridEnabled ? snapToGrid(update.x) : update.x) : m.x,
+            y: update.y !== undefined ? (gridEnabled ? snapToGrid(update.y) : update.y) : m.y,
+          };
+        }
+        return m;
+      });
+
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+
+      return {
+        modules: newModules,
+        connections: updatedConnections,
+      };
+    });
+  },
+
+  // Set module order (for z-index changes)
+  setModulesOrder: (orderedModuleIds) => {
+    const { modules } = get();
+    const moduleMap = new Map(modules.map(m => [m.instanceId, m]));
+    const orderedModules = orderedModuleIds
+      .map(id => moduleMap.get(id))
+      .filter((m): m is PlacedModule => m !== undefined);
+
+    // Add any modules not in the ordered list at the end
+    const remainingModules = modules.filter(m => !orderedModuleIds.includes(m.instanceId));
+    const finalModules = [...orderedModules, ...remainingModules];
+
+    set((_state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+
+      return {
+        modules: finalModules,
+      };
+    });
+
+    // Save to history after z-order changes
     get().saveToHistory();
   },
 

@@ -1,8 +1,10 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
+import { useSelectionStore } from '../../store/useSelectionStore';
 import { ModuleRenderer } from '../Modules/ModuleRenderer';
 import { EnergyPath } from '../Connections/EnergyPath';
 import { ConnectionPreview } from '../Connections/ConnectionPreview';
+import { AlignmentToolbar } from './AlignmentToolbar';
 import { calculateShakeOffset } from '../../utils/activationChoreographer';
 import { MODULE_SIZES } from '../../types';
 
@@ -15,6 +17,12 @@ export function Canvas() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [draggingModule, setDraggingModule] = useState<string | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
+  
+  // Box selection state
+  const [isBoxSelecting, setIsBoxSelecting] = useState(false);
+  const [boxStart, setBoxStart] = useState({ x: 0, y: 0 });
+  const [boxEnd, setBoxEnd] = useState({ x: 0, y: 0 });
+  const boxStartCanvasRef = useRef<{ x: number; y: number } | null>(null);
   
   // Camera shake state
   const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
@@ -39,6 +47,12 @@ export function Canvas() {
   const updateConnectionPreview = useMachineStore((state) => state.updateConnectionPreview);
   const cancelConnection = useMachineStore((state) => state.cancelConnection);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
+  
+  // Selection store
+  const selectedModuleIds = useSelectionStore((state) => state.selectedModuleIds);
+  const toggleSelection = useSelectionStore((state) => state.toggleSelection);
+  const setSelection = useSelectionStore((state) => state.setSelection);
+  const clearSelection = useSelectionStore((state) => state.clearSelection);
   
   // Update viewport size on resize
   useEffect(() => {
@@ -161,6 +175,47 @@ export function Canvas() {
     return visibleConnections;
   }, [connections, visibleModuleIds]);
   
+  // Calculate box selection rectangle
+  const boxSelectionRect = useMemo(() => {
+    if (!isBoxSelecting) return null;
+    
+    const minX = Math.min(boxStart.x, boxEnd.x);
+    const maxX = Math.max(boxStart.x, boxEnd.x);
+    const minY = Math.min(boxStart.y, boxEnd.y);
+    const maxY = Math.max(boxStart.y, boxEnd.y);
+    
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }, [isBoxSelecting, boxStart, boxEnd]);
+  
+  // Find modules within box selection
+  const modulesInBoxSelection = useMemo(() => {
+    if (!isBoxSelecting || !boxSelectionRect) return new Set<string>();
+    
+    const selectedIds = new Set<string>();
+    modules.forEach((module) => {
+      const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+      const moduleRight = module.x + size.width;
+      const moduleBottom = module.y + size.height;
+      
+      // Check if module intersects with selection rectangle
+      if (
+        module.x < boxSelectionRect.x + boxSelectionRect.width &&
+        moduleRight > boxSelectionRect.x &&
+        module.y < boxSelectionRect.y + boxSelectionRect.height &&
+        moduleBottom > boxSelectionRect.y
+      ) {
+        selectedIds.add(module.instanceId);
+      }
+    });
+    
+    return selectedIds;
+  }, [isBoxSelecting, boxSelectionRect, modules]);
+  
   const getCanvasCoordinates = useCallback((clientX: number, clientY: number) => {
     if (!svgRef.current) return { x: 0, y: 0 };
     
@@ -185,22 +240,72 @@ export function Canvas() {
     e.preventDefault();
   }, []);
   
+  // Check if a module is at the given screen coordinates
+  const getModuleAtPoint = useCallback((clientX: number, clientY: number): string | null => {
+    const coords = getCanvasCoordinates(clientX, clientY);
+    
+    // Check modules in reverse order (top-most first)
+    for (let i = modules.length - 1; i >= 0; i--) {
+      const module = modules[i];
+      const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+      
+      if (
+        coords.x >= module.x &&
+        coords.x <= module.x + size.width &&
+        coords.y >= module.y &&
+        coords.y <= module.y + size.height
+      ) {
+        return module.instanceId;
+      }
+    }
+    
+    return null;
+  }, [modules, getCanvasCoordinates]);
+  
   // Handle mouse down on canvas
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
-      // Middle mouse or shift+left click for panning
+    // Check if clicking on a module first
+    const clickedModuleId = getModuleAtPoint(e.clientX, e.clientY);
+    
+    if (e.button === 1 || (e.button === 0 && e.shiftKey && !clickedModuleId)) {
+      // Middle mouse or shift+left click on empty area for panning
       setIsPanning(true);
       setDragStart({ x: e.clientX - viewport.x, y: e.clientY - viewport.y });
       e.preventDefault();
-    } else if (e.button === 0 && e.target === svgRef.current) {
-      // Left click on empty canvas
-      selectModule(null);
-      selectConnection(null);
-      if (isConnecting) {
-        cancelConnection();
+    } else if (e.button === 0 && e.shiftKey && !clickedModuleId) {
+      // Shift+Left click on empty area starts box selection
+      const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
+      setIsBoxSelecting(true);
+      setBoxStart(canvasCoords);
+      setBoxEnd(canvasCoords);
+      boxStartCanvasRef.current = canvasCoords;
+      e.preventDefault();
+    } else if (e.button === 0) {
+      if (clickedModuleId) {
+        // Clicking on a module
+        if (e.shiftKey) {
+          // Shift+Click toggles selection
+          toggleSelection(clickedModuleId);
+        } else {
+          // Regular click selects the module
+          selectModule(clickedModuleId);
+          setIsDragging(true);
+          setDraggingModule(clickedModuleId);
+        }
+      } else if (e.target === svgRef.current || (e.target as Element)?.id === 'canvas-background') {
+        // Left click on empty canvas
+        if (!e.shiftKey) {
+          // Regular click on empty area clears multi-selection
+          clearSelection();
+        }
+        selectModule(null);
+        selectConnection(null);
+        if (isConnecting) {
+          cancelConnection();
+        }
       }
     }
-  }, [viewport, selectModule, selectConnection, isConnecting, cancelConnection]);
+  }, [viewport, getModuleAtPoint, getCanvasCoordinates, selectModule, selectConnection, isConnecting, cancelConnection, toggleSelection, clearSelection]);
   
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -215,6 +320,10 @@ export function Canvas() {
           y: e.clientY - dragStart.y,
         });
       }, 16); // ~60fps
+    } else if (isBoxSelecting) {
+      // Update box selection
+      const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
+      setBoxEnd(canvasCoords);
     } else if (isDragging && draggingModule) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       updateModulePosition(draggingModule, coords.x, coords.y);
@@ -222,17 +331,25 @@ export function Canvas() {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       updateConnectionPreview(coords.x, coords.y);
     }
-  }, [isPanning, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setViewport, updateModulePosition, updateConnectionPreview]);
+  }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setViewport, updateModulePosition, updateConnectionPreview]);
   
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
     if (isDragging) {
       saveToHistory();
     }
+    
+    if (isBoxSelecting && modulesInBoxSelection.size > 0) {
+      // Select all modules in the box
+      setSelection(Array.from(modulesInBoxSelection));
+    }
+    
     setIsPanning(false);
     setIsDragging(false);
     setDraggingModule(null);
-  }, [isDragging, saveToHistory]);
+    setIsBoxSelecting(false);
+    boxStartCanvasRef.current = null;
+  }, [isDragging, isBoxSelecting, modulesInBoxSelection, setSelection, saveToHistory]);
   
   // Handle wheel for zoom
   const handleWheel = useCallback((e: React.WheelEvent) => {
@@ -256,10 +373,17 @@ export function Canvas() {
   // Handle module drag start
   const handleModuleDragStart = useCallback((instanceId: string, e: React.MouseEvent) => {
     if (e.button !== 0) return;
+    
+    // If shift key is held, toggle selection instead of dragging
+    if (e.shiftKey) {
+      toggleSelection(instanceId);
+      return;
+    }
+    
     setIsDragging(true);
     setDraggingModule(instanceId);
     selectModule(instanceId);
-  }, [selectModule]);
+  }, [selectModule, toggleSelection]);
   
   // Grid pattern
   const gridSize = 20;
@@ -274,14 +398,22 @@ export function Canvas() {
     'Connect ports by dragging between them',
   ];
   
+  // Check if module is selected (either single or multi-select)
+  const isModuleSelected = useCallback((instanceId: string) => {
+    return instanceId === selectedModuleId || selectedModuleIds.includes(instanceId);
+  }, [selectedModuleId, selectedModuleIds]);
+  
   return (
     <div 
       ref={containerRef}
       className="flex-1 relative overflow-hidden bg-[#050810]"
-      style={{ cursor: isPanning ? 'grabbing' : isDragging ? 'grabbing' : 'default' }}
+      style={{ cursor: isPanning ? 'grabbing' : isDragging ? 'grabbing' : isBoxSelecting ? 'crosshair' : 'default' }}
       role="application"
       aria-label="Machine Editor Canvas"
     >
+      {/* Alignment Toolbar */}
+      <AlignmentToolbar visible={selectedModuleIds.length >= 2} />
+      
       <svg
         ref={svgRef}
         className="w-full h-full"
@@ -325,6 +457,15 @@ export function Canvas() {
             </feMerge>
           </filter>
           
+          {/* Selection glow filter */}
+          <filter id="selectionGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          
           {/* Energy gradient */}
           <linearGradient id="energyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#00ffcc" />
@@ -334,7 +475,12 @@ export function Canvas() {
         </defs>
         
         {/* Background */}
-        <rect width="100%" height="100%" fill="#0a0e17" />
+        <rect 
+          id="canvas-background"
+          width="100%" 
+          height="100%" 
+          fill="#0a0e17" 
+        />
         
         {/* Grid */}
         {gridEnabled && (
@@ -379,12 +525,49 @@ export function Canvas() {
               <ModuleRenderer
                 key={module.instanceId}
                 module={module}
-                isSelected={module.instanceId === selectedModuleId}
+                isSelected={isModuleSelected(module.instanceId)}
                 machineState={machineState}
                 onMouseDown={(e) => handleModuleDragStart(module.instanceId, e)}
               />
             ))}
           </g>
+          
+          {/* Box selection rectangle */}
+          {isBoxSelecting && boxSelectionRect && (
+            <rect
+              x={boxSelectionRect.x}
+              y={boxSelectionRect.y}
+              width={boxSelectionRect.width}
+              height={boxSelectionRect.height}
+              fill="rgba(59, 130, 246, 0.15)"
+              stroke="#3b82f6"
+              strokeWidth={1 / viewport.zoom}
+              strokeDasharray={`${4 / viewport.zoom} ${2 / viewport.zoom}`}
+              pointerEvents="none"
+            />
+          )}
+          
+          {/* Multi-selection highlight for selected modules */}
+          {selectedModuleIds.map((moduleId) => {
+            const module = modules.find(m => m.instanceId === moduleId);
+            if (!module) return null;
+            const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+            return (
+              <rect
+                key={`selection-${moduleId}`}
+                x={module.x - 3}
+                y={module.y - 3}
+                width={size.width + 6}
+                height={size.height + 6}
+                fill="none"
+                stroke="#3b82f6"
+                strokeWidth={2 / viewport.zoom}
+                rx={4 / viewport.zoom}
+                filter="url(#selectionGlow)"
+                pointerEvents="none"
+              />
+            );
+          })}
         </g>
       </svg>
       
@@ -397,6 +580,13 @@ export function Canvas() {
           </span>
         )}
       </div>
+      
+      {/* Multi-select indicator */}
+      {selectedModuleIds.length > 0 && (
+        <div className="absolute bottom-4 right-4 px-3 py-1 rounded bg-[#1e4d8c] border border-[#3b82f6] text-xs text-[#93c5fd]">
+          {selectedModuleIds.length} 模块已选择
+        </div>
+      )}
       
       {/* Enhanced Empty state with animated hints */}
       {modules.length === 0 && (
@@ -430,7 +620,7 @@ export function Canvas() {
             </div>
             <div className="mt-4 pt-4 border-t border-[#1e2a42]">
               <p className="text-xs text-[#4a5568]">
-                快捷键: <span className="text-[#9ca3af]">Ctrl+D</span> 复制 | <span className="text-[#9ca3af]">R</span> 旋转 | <span className="text-[#9ca3af]">F</span> 翻转 | <span className="text-[#9ca3af]">Delete</span> 删除
+                快捷键: <span className="text-[#9ca3af]">Ctrl+D</span> 复制 | <span className="text-[#9ca3af]">R</span> 旋转 | <span className="text-[#9ca3af]">F</span> 翻转 | <span className="text-[#9ca3af]">Delete</span> 删除 | <span className="text-[#9ca3af]">Shift+拖动</span> 框选
               </p>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useMachineStore } from '../store/useMachineStore';
+import { useSelectionStore } from '../store/useSelectionStore';
 
 interface UseKeyboardShortcutsOptions {
   enabled?: boolean;
@@ -47,6 +48,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     }
 
     const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
 
     // Delete selected module or connection
     if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -66,6 +68,8 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       } else {
         store.selectModule(null);
         store.selectConnection(null);
+        // Also clear multi-selection
+        selectionStore.clearSelection();
       }
       showFeedback('已取消');
       return;
@@ -95,9 +99,33 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) {
       if (store.modules.length > 0) {
         e.preventDefault();
-        store.selectAllModules();
+        // Select all modules
+        const allModuleIds = store.modules.map(m => m.instanceId);
+        selectionStore.selectAll(allModuleIds);
+        // Also set the first module as the primary selected module
+        store.selectModule(allModuleIds[0]);
         showFeedback(`已选择 ${store.modules.length} 个模块`);
       }
+      return;
+    }
+
+    // Ctrl+D for deselect all (in addition to existing duplicate functionality)
+    if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      if (store.selectedModuleId) {
+        e.preventDefault();
+        store.duplicateModule(store.selectedModuleId);
+        showFeedback('已复制模块');
+      }
+      return;
+    }
+
+    // Ctrl+Shift+A or Ctrl+D (with shift) for deselect all
+    if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+      e.preventDefault();
+      selectionStore.clearSelection();
+      store.selectModule(null);
+      store.selectConnection(null);
+      showFeedback('已取消全选');
       return;
     }
 
@@ -160,16 +188,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       e.preventDefault();
       store.redo();
       showFeedback('重做');
-      return;
-    }
-
-    // Ctrl+D for duplicate
-    if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) {
-      if (store.selectedModuleId) {
-        e.preventDefault();
-        store.duplicateModule(store.selectedModuleId);
-        showFeedback('已复制模块');
-      }
       return;
     }
 

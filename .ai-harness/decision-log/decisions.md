@@ -243,3 +243,9 @@
 ## Planning
 - Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
 
+## Round 1 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 2 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
