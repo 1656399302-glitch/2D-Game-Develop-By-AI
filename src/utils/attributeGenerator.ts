@@ -48,9 +48,13 @@ const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
   // Multi-port modules
   'amplifier-crystal': ['arcane', 'amplifying'],
   'stabilizer-core': ['balancing', 'stable'],
-  // New modules for Round 13
+  // Round 13 modules
   'void-siphon': ['void', 'amplifying'], // void energy, amplifies output
   'phase-modulator': ['lightning', 'balancing'], // lightning energy, balances phases
+  // Round 3 new modules
+  'resonance-chamber': ['resonance', 'arcane'], // resonance energy, arcane enhancement
+  'fire-crystal': ['fire', 'explosive'], // fire energy, explosive output
+  'lightning-conductor': ['lightning', 'amplifying'], // lightning energy, amplifies output
 };
 
 const DESCRIPTIONS = [
@@ -187,6 +191,9 @@ function generateDescription(stats: MachineStats, modules: PlacedModule[]): stri
   const hasOutputArray = modules.some((m) => m.type === 'output-array');
   const hasVoidSiphon = modules.some((m) => m.type === 'void-siphon');
   const hasPhaseModulator = modules.some((m) => m.type === 'phase-modulator');
+  const hasFireCrystal = modules.some((m) => m.type === 'fire-crystal');
+  const hasResonanceChamber = modules.some((m) => m.type === 'resonance-chamber');
+  const hasLightningConductor = modules.some((m) => m.type === 'lightning-conductor');
   
   if (hasOutputArray) {
     desc += ' Output array projects focused arcane beams.';
@@ -196,6 +203,15 @@ function generateDescription(stats: MachineStats, modules: PlacedModule[]): stri
   }
   if (hasPhaseModulator) {
     desc += ' Phase modulator channels lightning with precision control.';
+  }
+  if (hasFireCrystal) {
+    desc += ' Fire crystals blaze with volatile thermal energy.';
+  }
+  if (hasResonanceChamber) {
+    desc += ' The resonance chamber amplifies harmonic frequencies.';
+  }
+  if (hasLightningConductor) {
+    desc += ' Lightning conductors channel raw electrical fury.';
   }
   
   return desc;
