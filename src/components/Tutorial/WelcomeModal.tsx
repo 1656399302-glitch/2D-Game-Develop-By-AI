@@ -15,16 +15,17 @@ const TUTORIAL_STORAGE_KEY = 'arcane-codex-tutorial';
  * This avoids the Zustand hydration race condition where the store defaults
  * to false before localStorage is read.
  * 
- * CRITICAL FIX: Zustand persist with partialize stores state directly without
- * a 'state' wrapper. So we read parsed.hasSeenWelcome, not parsed.state?.hasSeenWelcome.
+ * CRITICAL: Zustand persist wraps persisted state in a 'state' object.
+ * Actual localStorage format: {"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}
+ * We must read parsed.state?.hasSeenWelcome, not parsed.hasSeenWelcome.
  */
 const getInitialHasSeenWelcome = (): boolean => {
   try {
     const stored = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Zustand persist with partialize stores directly, not wrapped in 'state'
-      return parsed.hasSeenWelcome === true;
+      // Zustand persist wraps state in a 'state' key
+      return parsed.state?.hasSeenWelcome === true;
     }
   } catch {
     // If localStorage is unavailable or parse fails, default to showing welcome
@@ -312,14 +313,13 @@ let welcomeModalDismissedThisSession = false;
 /**
  * Hook to manage welcome modal visibility
  * 
- * CRITICAL FIX: This hook now properly handles:
+ * CRITICAL: This hook properly handles:
  * 1. Synchronous localStorage reads to avoid Zustand hydration race conditions
  * 2. Session-level dismissal tracking that persists across interactions
  * 3. Safe callback handling that doesn't create stale closures
  * 
  * NOTE: The getInitialHasSeenWelcome() function reads Zustand persist data correctly
- * by accessing parsed.hasSeenWelcome directly (not parsed.state?.hasSeenWelcome)
- * because Zustand with partialize stores state directly without a 'state' wrapper.
+ * by accessing parsed.state?.hasSeenWelcome because Zustand wraps state in a 'state' key.
  */
 export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
   const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
@@ -357,15 +357,15 @@ export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
     welcomeModalDismissedThisSession = true;
     setShowWelcome(false);
     setHasSeenWelcome(true);
-    // CRITICAL FIX: Also disable tutorial so modal doesn't reappear on refresh
+    // Also disable tutorial so modal doesn't reappear on refresh
     setTutorialEnabled(false);
     
-    // CRITICAL FIX: Restore saved state if it exists
+    // Restore saved state if it exists
     if (hasSavedCanvasState()) {
       restoreSavedState();
     }
     
-    // CRITICAL FIX: Suppress LoadPromptModal to prevent confusing UX
+    // Suppress LoadPromptModal to prevent confusing UX
     // where user might click "Start Fresh" and lose their work
     setLoadPrompt(false);
   }, [setHasSeenWelcome, setTutorialEnabled, restoreSavedState, setLoadPrompt]);

@@ -3,12 +3,11 @@
  * Verifies the fix for the modal reappearing after dismissal
  * 
  * CRITICAL FIX: These tests now use the correct localStorage mock format
- * that matches actual Zustand persist behavior with partialize.
- * Zustand stores: { hasSeenWelcome: true, isTutorialEnabled: false }
- * NOT: { state: { hasSeenWelcome: true } }
+ * that matches actual Zustand persist behavior.
+ * Zustand stores: { state: { hasSeenWelcome: true, isTutorialEnabled: false }, version: 0 }
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { WelcomeModal } from '../components/Tutorial/WelcomeModal';
 import { useTutorialStore } from '../store/useTutorialStore';
 import { useMachineStore } from '../store/useMachineStore';
@@ -35,7 +34,7 @@ vi.mock('../store/useMachineStore', () => ({
   }),
 }));
 
-// Mock localStorage - uses correct Zustand persist format
+// Mock localStorage - uses correct Zustand persist format with state wrapper
 const mockLocalStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
@@ -95,13 +94,13 @@ describe('WelcomeModal', () => {
   });
 
   describe('AC2: Welcome Modal State Persistence', () => {
-    it('should not appear when user has seen welcome before (localStorage has hasSeenWelcome: true)', () => {
-      // CRITICAL FIX: Use correct Zustand persist format with partialize
-      // This matches what Zustand actually stores: { hasSeenWelcome: true, isTutorialEnabled: false }
-      // NOT the old incorrect format: { state: { hasSeenWelcome: true } }
+    it('should not appear when user has seen welcome before (localStorage has state.hasSeenWelcome: true)', () => {
+      // CRITICAL FIX: Use correct Zustand persist format with 'state' wrapper
+      // This matches what Zustand actually stores:
+      // { state: { hasSeenWelcome: true, isTutorialEnabled: false }, version: 0 }
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
-        hasSeenWelcome: true,
-        isTutorialEnabled: false
+        state: { hasSeenWelcome: true, isTutorialEnabled: false },
+        version: 0
       }));
 
       (useTutorialStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
@@ -300,16 +299,15 @@ describe('WelcomeModal', () => {
   });
 
   describe('localStorage Structure Verification', () => {
-    it('should correctly read hasSeenWelcome from Zustand persist format', () => {
-      // This is the CORRECT format that Zustand persist produces with partialize
-      // Set up localStorage mock with correct format
+    it('should correctly read hasSeenWelcome from Zustand persist format with state wrapper', () => {
+      // This is the CORRECT format that Zustand persist produces:
+      // { state: { hasSeenWelcome: true, isTutorialEnabled: false }, version: 0 }
       mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
-        hasSeenWelcome: true,
-        isTutorialEnabled: false
+        state: { hasSeenWelcome: true, isTutorialEnabled: false },
+        version: 0
       }));
 
-      // Also override the store mock to match - this is important because
-      // the component checks both the localStorage value AND the store state
+      // Also override the store mock to match
       (useTutorialStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
         const state = {
           isTutorialEnabled: false,
@@ -328,29 +326,61 @@ describe('WelcomeModal', () => {
       );
 
       // Modal should NOT be visible because hasSeenWelcome is true
-      // The component should read localStorage correctly and return null
       expect(container.firstChild).toBeNull();
     });
 
-    it('should NOT match old incorrect format with state wrapper', () => {
-      // This is the OLD INCORRECT format that was causing the bug
-      // The code expects parsed.hasSeenWelcome, not parsed.state?.hasSeenWelcome
-      const incorrectFormat = {
-        state: { hasSeenWelcome: true }
-      };
-      
-      mockLocalStorage.getItem.mockReturnValue(JSON.stringify(incorrectFormat));
+    it('should correctly read hasSeenWelcome: false from state wrapper', () => {
+      // Zustand persist format with hasSeenWelcome: false
+      mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
+        state: { hasSeenWelcome: false, isTutorialEnabled: true },
+        version: 0
+      }));
+
+      (useTutorialStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          isTutorialEnabled: true,
+          hasSeenWelcome: false,
+          setHasSeenWelcome: vi.fn(),
+          setTutorialEnabled: vi.fn(),
+        };
+        return selector(state);
+      });
 
       const onStart = vi.fn();
       const onSkip = vi.fn();
 
-      const { container } = render(
-        <WelcomeModal onStartTutorial={onStart} onSkip={onSkip} />
-      );
+      render(<WelcomeModal onStartTutorial={onStart} onSkip={onSkip} />);
 
-      // Modal WILL be visible because parsed.hasSeenWelcome is undefined
-      // This test documents the old incorrect behavior - it should NOT match
-      expect(container.firstChild).not.toBeNull();
+      // Modal SHOULD be visible because hasSeenWelcome is false
+      const content = document.body.textContent;
+      expect(content).toContain('Welcome to Arcane Machine Codex');
+    });
+
+    it('should handle missing state wrapper gracefully', () => {
+      // If somehow the localStorage has old format without state wrapper,
+      // the code should return false (show modal) because parsed.state is undefined
+      mockLocalStorage.getItem.mockReturnValue(JSON.stringify({
+        hasSeenWelcome: true  // Old incorrect format without state wrapper
+      }));
+
+      (useTutorialStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          isTutorialEnabled: true,
+          hasSeenWelcome: false,
+          setHasSeenWelcome: vi.fn(),
+          setTutorialEnabled: vi.fn(),
+        };
+        return selector(state);
+      });
+
+      const onStart = vi.fn();
+      const onSkip = vi.fn();
+
+      render(<WelcomeModal onStartTutorial={onStart} onSkip={onSkip} />);
+
+      // Modal SHOULD be visible because parsed.state?.hasSeenWelcome is undefined
+      const content = document.body.textContent;
+      expect(content).toContain('Welcome to Arcane Machine Codex');
     });
   });
 });

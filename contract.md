@@ -1,113 +1,91 @@
-APPROVED
-
-# Sprint Contract — Round 11
+# Sprint Contract — Round 12
 
 ## Scope
 
-Remediation sprint to fix the critical Welcome Modal state persistence bug identified in Round 10 QA. The modal reappears after dismissal due to a localStorage structure mismatch. This is a narrow, well-defined fix.
+**Remediation Round**: Fix Welcome Modal persistence regression introduced in Round 11.
+
+**Root Cause**: Round 11 incorrectly changed `getInitialHasSeenWelcome()` from `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome`. Zustand persist **DOES** wrap data in a `state` object — the wrapper IS present. Actual localStorage contains: `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}`. Tests were also updated to match the incorrect behavior.
+
+**Required Fix**: Revert both code AND tests to the correct Zustand persist format with `state` wrapper.
 
 ## Spec Traceability
 
-- **P0 items covered this round:**
-  - Welcome Modal state persistence (AC2 from Round 10)
-  - Activation Sequence verification (AC3 from Round 10, blocked by AC2)
-
-- **P1 items covered this round:**
-  - None — remediation only
-
-- **Remaining P0/P1 after this round:**
-  - All Round 10 P0 items should be resolved
-  - No new P0/P1 introduced
-
-- **P2 items intentionally deferred:**
-  - All P2 items remain deferred from prior rounds
+- **P0 item covered this round**: Welcome Modal State Persistence (AC2) — regression remediation
+- **Remaining P0/P1 after this round**: None — all previously identified P0/P1 items remain resolved
+- **P2 intentionally deferred**: All P2 items remain deferred from prior rounds
 
 ## Deliverables
 
-1. **`src/components/Tutorial/WelcomeModal.tsx`**
-   - Fix `getInitialHasSeenWelcome()` function to read `parsed.hasSeenWelcome` instead of `parsed.state?.hasSeenWelcome`
-   - Ensure `useWelcomeModal` hook exports remain functional
+1. **`src/components/Tutorial/WelcomeModal.tsx`** — Revert `getInitialHasSeenWelcome()` to:
+   ```typescript
+   return parsed.state?.hasSeenWelcome === true;
+   ```
+   (Was incorrectly changed to `parsed.hasSeenWelcome` in Round 11)
 
-2. **`src/__tests__/ModalPersistence.test.tsx`**
-   - Update localStorage mock to return `{ hasSeenWelcome: true }` (without `state` wrapper) to match actual Zustand persist behavior
+2. **`src/__tests__/ModalPersistence.test.tsx`** — Revert test mocks to correct Zustand persist format:
+   ```typescript
+   { state: { hasSeenWelcome: true, isTutorialEnabled: false }, version: 0 }
+   ```
+   (Was incorrectly changed to `{ hasSeenWelcome: true }` in Round 11)
 
-3. **`src/__tests__/WelcomeModal.test.tsx`** (if exists)
-   - Update any localStorage mocks in related tests
+3. **No new comments needed** — code should match the correct Zustand persist structure
 
 ## Acceptance Criteria
 
-1. **AC2: Welcome Modal State Persistence** — Modal does NOT reappear after dismissal and page refresh
-   - Open app in fresh browser → Modal appears
-   - Click "Skip & Explore" → Modal hides
-   - Refresh page → Modal stays hidden
-   - Verify `localStorage` contains `hasSeenWelcome: true` at `arcane-codex-tutorial` key
-
-2. **AC3: Activation Sequence** — Activation button is accessible and machine activates
-   - Generate a machine via random forge
-   - Click "Activate Machine" button
-   - Activation overlay appears and plays through phases: idle → charging → activating → online
-   - No modal blocks the button
-
-3. **Build & Tests Pass**
-   - `npm run build` succeeds with no TypeScript errors
-   - All 874+ existing tests pass
-   - New/updated tests pass
+1. **AC1**: `getInitialHasSeenWelcome()` reads `parsed.state?.hasSeenWelcome` (not `parsed.hasSeenWelcome`)
+2. **AC2**: Welcome modal stays dismissed after page refresh — dismiss → refresh → no modal
+3. **AC3**: Activation button accessible after refresh (enabled by AC2)
 
 ## Test Methods
 
-1. **Browser verification for AC2:**
-   - Open dev tools → Application → Local Storage
-   - Find key `arcane-codex-tutorial`
-   - Verify JSON structure: `{ hasSeenWelcome: true, isTutorialEnabled: false }` (no `state` wrapper)
+1. **Browser Verification (Primary)**:
+   - Open app fresh → modal appears
+   - Click "Skip & Explore" → modal dismisses
+   - Check localStorage: `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}`
+   - Verify top-level keys are `["state", "version"]` — confirming `state` wrapper is present
+   - Refresh page → modal does NOT appear
 
-2. **Browser verification for AC3:**
-   - Load page, dismiss welcome modal
-   - Click random forge button
-   - Click "▶ 激活机器" button
-   - Verify activation overlay appears and animates through phases
+2. **Unit Test Verification**:
+   - Run `npm test` — all existing tests pass
+   - Test mocks must use `{ state: { hasSeenWelcome: true, isTutorialEnabled: false }, version: 0 }`
+   - Verify tests assert against `parsed.state?.hasSeenWelcome`
 
-3. **Unit test verification:**
-   - Run `npm test -- --testPathPattern=ModalPersistence`
-   - Run `npm test -- --testPathPattern=WelcomeModal`
-   - All tests pass
+3. **Build Verification**:
+   - Run `npm run build` — succeeds with 0 TypeScript errors
 
 ## Risks
 
-1. **Low Risk: Simple state reading fix**
-   - Changing `parsed.state?.hasSeenWelcome` to `parsed.hasSeenWelcome` is a one-line fix per location
-   - Only affects the localStorage read path, no side effects
-
-2. **Low Risk: Test mock updates**
-   - Updating test mocks to match actual Zustand behavior should make tests more accurate
-   - May require reviewing other test files that mock localStorage
-
-3. **Medium Risk: Undiscovered issues**
-   - There may be other code paths that expect the wrong localStorage structure
-   - Will verify by running full test suite and browser testing
+1. **Very Low**: This is a targeted rollback, not new code
+2. **No architectural changes** — only reverting data access paths
+3. **Historical context**: The original code (pre-Round 11) was correct; reverting to it
 
 ## Failure Conditions
 
-1. **AC2 still fails** — Modal reappears after dismissal and refresh
-2. **AC3 still blocked** — Activation button inaccessible due to modal
-3. **Build fails** — TypeScript compilation errors introduced
-4. **Tests fail** — New/updated tests do not pass
-5. **Regression** — Any previously passing AC fails in this round
+1. `npm run build` fails
+2. `npm test` fails
+3. Modal reappears after page refresh (AC2 fails)
+4. Code still reads `parsed.hasSeenWelcome` without `state?.` accessor
+5. Test mocks still use `{ hasSeenWelcome: true }` format without `state` wrapper
 
 ## Done Definition
 
-All of the following must be TRUE before claiming round complete:
+All of the following must be true:
 
-1. ✅ `WelcomeModal.tsx` `getInitialHasSeenWelcome()` reads `parsed.hasSeenWelcome` (not `parsed.state?.hasSeenWelcome`)
-2. ✅ Test mocks updated to match actual Zustand persist format
-3. ✅ `npm run build` succeeds (0 TypeScript errors)
-4. ✅ All unit tests pass (including updated ModalPersistence tests)
-5. ✅ Browser test: Modal stays dismissed after page refresh
-6. ✅ Browser test: Activation button accessible and functional
+1. `getInitialHasSeenWelcome()` returns `parsed.state?.hasSeenWelcome === true`
+2. Test mocks use format `{ state: { hasSeenWelcome: true, isTutorialEnabled: false }, version: 0 }`
+3. `npm run build` succeeds with 0 TypeScript errors
+4. `npm test` passes all tests
+5. **Browser verified**: Modal does NOT reappear after dismiss + refresh (AC2 passes)
+6. **Browser verified**: localStorage contains `state.hasSeenWelcome: true` — the `state` wrapper IS present
 
 ## Out of Scope
 
-- No new features or P2 items will be introduced
-- No refactoring beyond the minimal fix required
-- No changes to Zustand store configuration
-- No changes to activation animation logic (beyond verification)
-- No changes to RandomForgeToast (already passing)
+- No new features or functionality
+- No changes to Zustand store configuration (was always correct)
+- No changes to how `hasSeenWelcome` is persisted
+- No changes to activation sequence or other features that already pass
+- No changes to RandomForgeToast (AC1 from Round 10)
+
+---
+
+**APPROVED**
