@@ -275,6 +275,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
 // the persisted state is loaded.
 export function useWelcomeModal() {
   const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
+  const setTutorialEnabled = useTutorialStore((state) => state.setTutorialEnabled);
   
   // Read localStorage synchronously to get the true initial state
   const hasSeenWelcome = useMemo(() => getInitialHasSeenWelcome(), []);
@@ -290,6 +291,8 @@ export function useWelcomeModal() {
   const handleSkip = () => {
     setShowWelcome(false);
     setHasSeenWelcome(true);
+    // CRITICAL FIX: Also disable tutorial so modal doesn't reappear on refresh
+    setTutorialEnabled(false);
   };
 
   return {
