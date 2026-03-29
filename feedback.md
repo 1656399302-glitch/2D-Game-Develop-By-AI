@@ -1,119 +1,148 @@
-# QA Evaluation — Round 16
+# QA Evaluation — Round 3
 
-## Release Decision
-- **Verdict:** PASS
-- **Summary:** Critical persistence race condition in the welcome modal and failing module spacing test have been successfully fixed. Welcome modal now correctly respects `hasSeenWelcome` localStorage state on page reload. All tests pass.
-- **Spec Coverage:** FULL — Tutorial system with welcome modal, overlay, spotlight, tooltip, progress, and completion components
-- **Contract Coverage:** PASS — 9/9 acceptance criteria verified
-- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (439.05KB JS, 45.13KB CSS)
-- **Browser Verification:** PASS — Persistence fix verified with automated browser test
+### Release Decision
+- **Verdict:** FAIL
+- **Summary:** Toolbar integration is complete, test buttons are visible and trigger the correct overlays, but the overlay text is in English instead of the contractually required Chinese text.
+- **Spec Coverage:** FULL — All features from spec.md are implemented
+- **Contract Coverage:** FAIL — 7/9 acceptance criteria passed
+- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (483.20KB JS, 50.83KB CSS)
+- **Browser Verification:** PARTIAL — Test buttons visible and trigger overlays, but text language mismatch
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 0 (Round 15's persistence bug is FIXED)
+- **Critical Bugs:** 1 (overlay text language mismatch)
 - **Major Bugs:** 0
 - **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 9/9
+- **Acceptance Criteria Passed:** 7/9
 - **Untested Criteria:** 0
-
-## Blocking Reasons
-None — all blocking issues from Round 15 have been resolved.
-
-## Scores
-- **Feature Completeness: 9/10** — Tutorial persistence mechanism fully implemented with synchronous localStorage check. WelcomeModal and useWelcomeModal both use `getInitialHasSeenWelcome()` to avoid Zustand hydration race condition. Tutorial overlay, spotlight, tooltip, progress, and completion components all present.
-- **Functional Correctness: 9/10** — Persistence fix verified in browser: first-time users see welcome modal, after skip + refresh the modal stays hidden. All 394 unit tests pass including 23 tutorial system tests and 20 activation modes tests.
-- **Product Depth: 9/10** — Tutorial system covers 6 comprehensive steps with proper target selectors, positioning, action hints, and state machine. Beautiful welcome modal with animated particles and magic circle.
-- **UX / Visual Quality: 8/10** — Welcome modal has polished animations (floating particles, spinning magic circle SVG, gradient borders, entrance/exit transitions). Tutorial tooltip has smart positioning with viewport clamping.
-- **Code Quality: 8/10** — Clean TypeScript with proper interfaces (TutorialStore, TutorialStep, WelcomeContent). `getInitialHasSeenWelcome()` function properly handles errors and edge cases. Components follow single responsibility.
-- **Operability: 10/10** — Build passes with 0 TypeScript errors. All 394 tests pass. Manual browser verification confirms correct behavior.
-
-**Average: 8.83/10**
 
 ---
 
-## Evidence
+### Blocking Reasons
 
-### Criterion-by-Criterion Evidence
+1. **CRITICAL: Chinese text requirement not met** — Acceptance criteria 5 and 6 explicitly require Chinese text in the overlay ("⚠ 机器故障" and "⚡ 系统过载"), but the implementation displays English text ("⚠ SYSTEM FAILURE" and "⚡ CRITICAL OVERLOAD"). This is a contract violation.
+
+---
+
+### Scores
+
+- **Feature Completeness: 9/10** — All contract P0/P1 items implemented. Toolbar integrated, test buttons work. 14 module types available.
+- **Functional Correctness: 8/10** — Test buttons trigger correct overlays (failure/overload), auto-recovery works (3.5s delay confirmed in store), but text language does not match acceptance criteria.
+- **Product Depth: 9/10** — Extensive features: activation states, machine attributes, challenges, recipes, and export.
+- **UX / Visual Quality: 9/10** — Dark magical theme with CSS variables, custom SVG artwork, animated overlays.
+- **Code Quality: 9/10** — Well-structured TypeScript with Zustand stores, modular architecture, 438 passing tests.
+- **Operability: 10/10** — Build passes with 0 TypeScript errors, 438/438 tests pass, dev server runs correctly.
+
+**Average: 9.0/10** (threshold not met due to blocking failure)
+
+---
+
+### Evidence
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| 1 | **Persistence Fix** | **PASS** | Browser test confirmed: After clicking "Skip & Explore" and refreshing with pre-set `hasSeenWelcome: true` in localStorage, welcome modal did NOT appear. `hasModal: null` returned. |
-| 2 | **Browser Test (hasSeenWelcome respected)** | **PASS** | Browser test: Pre-set localStorage `hasSeenWelcome: true`, refreshed page, verified `hasModal: null` — modal suppressed. |
-| 3 | **First-Time Flow** | **PASS** | Browser test: Cleared localStorage, page loaded, welcome modal appeared with "Welcome, Arcane Architect!" text visible. |
-| 4 | **Skip Flow** | **PASS** | Browser test: Clicked "Skip & Explore", localStorage confirmed `{"state":{"hasSeenWelcome":true,"isTutorialEnabled":true},"version":0}`. Modal closed. |
-| 5 | **Tutorial Launch** | **PASS** | Browser test: Clicked "Start Tutorial", modal closed (`hasModal: false`), tutorial overlay exists (`tutorialOverlay: true`). Store state correctly updated. |
-| 6 | **Test Fix** | **PASS** | `npm test -- activationModes` — 20/20 tests pass. Module spacing threshold adjusted from 80 to 78. |
-| 7 | **Regression** | **PASS** | `npm test` — 394/394 tests pass across 21 test files. |
-| 8 | **Build** | **PASS** | `npm run build` exits with code 0. 0 TypeScript errors. |
-| 9 | **Non-Blocking** | **PASS** | Browser test confirmed "Random Forge accessible" after skip — core functionality not blocked. |
+| 1 | **Toolbar Button 1 Visible** | **PASS** | `document.body.innerText.includes('测试故障')` returned `true` |
+| 2 | **Toolbar Button 2 Visible** | **PASS** | `document.body.innerText.includes('测试过载')` returned `true` |
+| 3 | **Failure Mode Triggerable** | **PASS** | Clicking "⚠ 测试故障" triggered overlay with "⚠ SYSTEM FAILURE" |
+| 4 | **Overload Mode Triggerable** | **PASS** | Clicking "⚡ 测试过载" triggered overlay with "⚡ CRITICAL OVERLOAD" |
+| 5 | **Failure Mode Chinese Text** | **FAIL** | Expected "⚠ 机器故障", got "⚠ SYSTEM FAILURE" |
+| 6 | **Overload Mode Chinese Text** | **FAIL** | Expected "⚡ 系统过载", got "⚡ CRITICAL OVERLOAD" |
+| 7 | **Auto-Recovery Works** | **PASS** | `AUTO_RETURN_DELAY = 3500` in store, `set({ machineState: 'idle', showActivation: false })` called |
+| 8 | **No Test Regression** | **PASS** | 438/438 tests pass across 23 test files |
+| 9 | **Build Clean** | **PASS** | 0 TypeScript errors, 483.20KB JS, 50.83KB CSS |
 
 ---
 
-### Build and Test Summary
+### Bugs Found
 
-```
-npm run build: ✓ 0 TypeScript errors (439.05KB JS, 45.13KB CSS)
-npm test: ✓ 394/394 tests pass (21 test files)
-  - activationModes.test.ts: 20/20 ✓
-  - tutorialSystem.test.ts: 23/23 ✓
-```
-
----
-
-## Bugs Found
-
-No bugs found in the scope of this remediation sprint.
-
----
-
-## Required Fix Order
-
-N/A — All issues from Round 15 have been resolved.
-
----
-
-## What's Working Well
-
-1. **Persistence Race Condition FIXED** — The critical bug from Round 15 is now resolved. The `getInitialHasSeenWelcome()` function correctly reads localStorage synchronously before Zustand hydrates, preventing the modal from appearing on every page load.
-
-2. **Module Spacing Test FIXED** — The flaky floating-point precision issue is resolved by adjusting the threshold from 80 to 78, with a comment explaining the tolerance.
-
-3. **All Tests Passing** — Complete test suite passes including 23 tutorial system tests and 20 activation modes tests.
-
-4. **Beautiful Welcome Modal** — Animated entrance with floating particles, spinning magic circle SVG, gradient borders, and smooth exit animation.
-
-5. **Clean Code Architecture** — The fix is minimal and focused, using a dedicated `getInitialHasSeenWelcome()` helper function that properly handles errors and edge cases.
+1. **[CRITICAL] Overlay text language mismatch**
+   - **Description:** The `ActivationOverlay.tsx` component's `getTitle()` function returns English text instead of Chinese text as required by acceptance criteria 5 and 6.
+   - **Location:** `src/components/Preview/ActivationOverlay.tsx`, lines ~224-232
+   - **Current code:**
+     ```typescript
+     const getTitle = () => {
+       switch (phase) {
+         case 'failure':
+           return '⚠ SYSTEM FAILURE';
+         case 'overload':
+           return '⚡ CRITICAL OVERLOAD';
+         // ...
+       }
+     };
+     ```
+   - **Required code:**
+     ```typescript
+     const getTitle = () => {
+       switch (phase) {
+         case 'failure':
+           return '⚠ 机器故障';
+         case 'overload':
+           return '⚡ 系统过载';
+         // ...
+       }
+     };
+     ```
+   - **Impact:** Contract acceptance criteria 5 and 6 fail. Release cannot pass.
 
 ---
 
-## Regression Check
+### Required Fix Order
 
-| Feature | Status |
-|---------|--------|
-| Module panel (11 modules) | ✓ Verified |
-| Machine editor (drag/select/delete) | ✓ Code unchanged |
-| Properties panel | ✓ Code unchanged |
-| Activation system | ✓ Code unchanged |
-| Save to Codex | ✓ Code unchanged |
-| Export modal | ✓ Code unchanged |
-| Random Forge | ✓ Code unchanged |
-| Challenge Mode | ✓ Code unchanged |
-| Build | ✓ 0 TypeScript errors |
-| All tests | ✓ 394/394 pass |
-| **Tutorial persistence** | ✓ **FIXED** |
-| **Module spacing test** | ✓ **FIXED** |
+1. **Change `getTitle()` return values in ActivationOverlay.tsx** — Replace `'⚠ SYSTEM FAILURE'` with `'⚠ 机器故障'` and `'⚡ CRITICAL OVERLOAD'` with `'⚡ 系统过载'`
 
 ---
 
-## Files Changed Summary
+### What's Working Well
 
-### Modified Files
-1. **`src/components/Tutorial/WelcomeModal.tsx`** — Added `getInitialHasSeenWelcome()` function for synchronous localStorage read, both WelcomeModal and useWelcomeModal hook now use this to avoid Zustand hydration race condition.
+1. **Toolbar Integration** — Successfully integrated into App.tsx (line 209: `{viewMode === 'editor' && <Toolbar />}`) and visible in browser
+2. **Test Buttons** — Both "⚠ 测试故障" and "⚡ 测试过载" buttons render correctly and trigger respective activation modes
+3. **Overlay System** — Failure and overload overlays display with proper animations (shake, flicker, sparks)
+4. **Auto-Recovery** — Store correctly configured with 3.5s auto-return to idle state
+5. **Build System** — Clean production build with 0 TypeScript errors
+6. **Test Suite** — All 438 tests pass with no regressions
+7. **Module Library** — 14 module types with custom SVG artwork
 
-2. **`src/__tests__/activationModes.test.ts`** — Adjusted module spacing threshold from 80 to 78 to handle floating-point precision edge cases.
+---
+
+### Regression Check
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Module panel (14 modules) | ✓ Verified | All module types present with icons |
+| Toolbar with test buttons | ✓ Verified | Buttons visible and functional |
+| Activation overlays | ⚠ Partial | Overlays trigger but text is English |
+| Auto-recovery | ✓ Verified | 3.5s delay works |
+| Random Forge | ✓ Code verified | Works correctly |
+| Machine attributes | ✓ Code verified | Names, stats, tags generated |
+| Codex view | ✓ Code verified | Shows collection with filters |
+| Properties panel | ✓ Code verified | Shows module details when selected |
+| Build | ✓ 0 TypeScript errors | Clean production build |
+| All tests | ✓ 438/438 pass | Clean test suite |
+
+---
 
 ### Verification Commands
 ```bash
 npm run build    # Production build (0 TypeScript errors)
-npm test        # Unit tests (394 passing, 21 test files)
-npm test -- activationModes  # 20/20 pass
-npm test -- tutorialSystem   # 23/23 pass
+npm test        # Unit tests (438/438 pass, 23 test files)
+npm run dev     # Development server (port 5173)
 ```
+
+### Browser Test Commands Used
+```bash
+# Button visibility
+document.body.innerText.includes('测试故障')  // true
+document.body.innerText.includes('测试过载')  // true
+
+# Failure mode test
+Click "⚠ 测试故障" → "⚠ SYSTEM FAILURE" appears (NOT "⚠ 机器故障") ❌
+
+# Overload mode test
+Click "⚡ 测试过载" → "⚡ CRITICAL OVERLOAD" appears (NOT "⚡ 系统过载") ❌
+```
+
+---
+
+## Summary
+
+The Toolbar is fully integrated and test buttons are functional, triggering the correct activation modes. However, the overlay text uses English ("⚠ SYSTEM FAILURE" / "⚡ CRITICAL OVERLOAD") instead of the contractually required Chinese text ("⚠ 机器故障" / "⚡ 系统过载"). This single issue causes the round to FAIL per acceptance criteria 5 and 6.
+
+**Fix required:** Update `getTitle()` function in `src/components/Preview/ActivationOverlay.tsx` to return Chinese text values.

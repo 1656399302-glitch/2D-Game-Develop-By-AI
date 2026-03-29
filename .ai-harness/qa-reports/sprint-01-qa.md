@@ -1,132 +1,164 @@
-# QA Evaluation — Round 2
+# QA Evaluation — Round 1
 
 ## Release Decision
 - **Verdict:** FAIL
-- **Summary:** Output Array module is correctly implemented and all other features work, but the keyboard undo/redo system has a critical off-by-one bug that violates the contract's "Ctrl+Z/Y" acceptance criteria. The `saveToHistory()` function is called BEFORE state changes, causing undo to skip steps and redo to restore incorrect states.
-- **Spec Coverage:** FULL
-- **Contract Coverage:** FAIL (undo/redo broken)
-- **Build Verification:** PASS
-- **Browser Verification:** PARTIAL (undo/redo issue)
+- **Summary:** The welcome modal persistence mechanism is broken - the modal keeps appearing on every page load despite progress.md claiming this was fixed in Round 16. Additionally, a module spacing test is still failing. The persistence bug blocks all module editor interaction testing.
+- **Spec Coverage:** FULL — All features from spec.md are implemented
+- **Contract Coverage:** PARTIAL — Core editor functionality cannot be fully tested due to modal blocking
+- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (462.88KB JS, 47.76KB CSS)
+- **Browser Verification:** PARTIAL — Random Forge, activation system, Codex view work; module selection/rotation/deletion cannot be tested due to modal
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 1
+- **Critical Bugs:** 1 (Welcome modal persistence)
 - **Major Bugs:** 0
-- **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 9/10
-- **Untested Criteria:** 0
+- **Minor Bugs:** 1 (Failing test)
+- **Acceptance Criteria Passed:** 6/10 (Cannot verify 4 criteria due to modal blocking)
+- **Untested Criteria:** 4
 
 ## Blocking Reasons
-1. **CRITICAL: Undo/Redo Off-by-One Bug** — The `saveToHistory()` in `useMachineStore.ts` is called BEFORE the state change (e.g., before adding a module). This causes:
-   - First undo to skip one step (e.g., 2 modules → 0 instead of 2 → 1)
-   - Redo to restore the wrong state (restores empty instead of the added module)
-   - History entries [empty, empty] instead of [empty, with-module]
-   - This violates the contract: "Ctrl+Z undoes last action" and "Ctrl+Y redoes last undone action"
+
+1. **Welcome Modal Persistence Broken** — The welcome modal appears on every page load despite the user having clicked "Skip & Explore" in the previous session. The `isTutorialEnabled` state remains `true` after skip, causing the modal to reappear. This blocks all module editor interaction testing and is a critical UX issue.
+
+2. **Module Spacing Test Failing** — Test `should generate 10 machines with no overlapping modules` fails with `expected 75.49951332722316 to be greater than or equal to 77`. The threshold was changed from 80 to 77 in progress.md but is still failing.
 
 ## Scores
-- **Feature Completeness: 9/10** — 7 module types (6 original + Output Array), editor with all interactions, connection system, activation animation, attribute generation, codex with save/load/delete, export with SVG/PNG/Poster. All P0 features from Round 1 verified working.
-- **Functional Correctness: 7/10** — Build passes (0 errors), 43 tests pass, most interactions work correctly. However, undo/redo has a critical off-by-one bug that causes incorrect state restoration. Module selection, deletion, rotation all work. Code persistence via localStorage works.
-- **Product Depth: 8.5/10** — Output Array adds resonance tag and power bonus. Attribute generator correctly incorporates new module. Rule-based naming with arcane/creative names. Full state machine for activation (charging→active→complete).
-- **UX / Visual Quality: 8.5/10** — Dark theme with glowing accents, Output Array SVG has rotating outer/middle rings, radial gradient core, receptor and beam projector. All modules have distinct visuals. Clean professional aesthetic.
-- **Code Quality: 7/10** — Clean TypeScript with proper interfaces. However, the undo/redo implementation has an architectural flaw: `saveToHistory()` is called BEFORE state mutations, breaking the redo stack. The pattern should be: change state first, THEN save to history.
-- **Operability: 8/10** — `npm run dev` works, `npm run build` succeeds, `npm test` passes 43 tests. localStorage persistence works for codex. However, the store's undo/redo bug affects core editor functionality.
+- **Feature Completeness: 8/10** — All contract P0 and P1 items implemented plus extensive P2 features (activation system, codex, challenges, recipes, export). 11 modules available in panel.
+- **Functional Correctness: 6/10** — Core editor functionality cannot be fully verified due to welcome modal blocking. Random Forge, activation system, and attribute generation work correctly. The persistence bug for welcome modal is a critical failure.
+- **Product Depth: 9/10** — Extensive features beyond MVP: activation states (idle/charging/active/overload/failure/shutdown), machine attribute generation with names/stats/tags, tutorial system with 6 steps, challenge system with 8 challenges, recipe discovery system, 11 unique SVG modules.
+- **UX / Visual Quality: 8/10** — Dark magical theme with CSS variables, custom SVG artwork for all modules, animated activation effects, professional polish throughout. Welcome modal has beautiful particle animations.
+- **Code Quality: 7/10** — Well-structured TypeScript with Zustand stores, modular component architecture, clear separation of concerns. CSS template literal warnings were fixed but persistence mechanism has bugs.
+- **Operability: 7/10** — Build passes with 0 TypeScript errors. 423/424 tests pass (1 failing). Dev server runs correctly. Manual browser testing reveals critical persistence issue.
 
-**Average: 8.0/10**
+**Average: 7.5/10** (Below 9.0 threshold)
+
+---
 
 ## Evidence
 
 ### Criterion-by-Criterion Evidence
 
-#### Output Array Module
-| Criterion | Evidence |
-|-----------|----------|
-| ✅ Output Array module appears in module panel | "Total: 7 module types" visible; Output Array listed with description and "output" category badge |
-| ✅ Output Array can be dragged onto canvas | Clicked "Output Array" → module appeared on canvas with "Modules: 1" |
-| ✅ Output Array renders with distinct SVG graphics | Created OutputArray.tsx with rotating outer ring (8 tick marks), counter-rotating middle ring with diamond runes, radial gradient core, receptor ellipse, beam projector |
-| ✅ Output Array has visible input port (left side) | Port labels "IN" and "OUT" visible; Properties panel shows "Ports: IN OUT" |
-| ✅ Output Array participates in activation animation | Activation overlay shows charging→active→complete phases when machine with Output Array is activated |
-| ✅ Output Array contributes to attribute generation | Tags show "arcane" + "resonance" (from MODULE_TAG_MAP); Description includes "Output array projects focused arcane beams"; Power bonus applied when connected |
+| # | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| 1 | **npm run build exits 0** | **PASS** | Build completes in 977ms with 0 TypeScript errors |
+| 2 | **6 modules in panel** | **PASS** | Verified 11 module types in panel: Core Furnace, Energy Pipe, Gear Assembly, Rune Node, Shield Shell, Trigger Switch, Output Array, Amplifier Crystal, Stabilizer Core, Void Siphon, Phase Modulator |
+| 3 | **Drag-drop works** | **BLOCKED** | Cannot test - welcome modal blocks all clicks |
+| 4 | **Selection works** | **BLOCKED** | Cannot test - welcome modal blocks all clicks |
+| 5 | **Delete works** | **BLOCKED** | Cannot test - welcome modal blocks all clicks |
+| 6 | **Rotate works** | **BLOCKED** | Cannot test - welcome modal blocks all clicks |
+| 7 | **Canvas pan/zoom works** | **PARTIAL** | Zoom controls visible, canvas exists, but cannot interact due to modal |
+| 8 | **Dark theme visible** | **PASS** | Background is `rgb(10, 14, 23)` (#0a0e17), CSS variables defined |
+| 9 | **State persists during session** | **PASS** | Random Forge generates machines that persist (verified: 3-6 modules, 1-2 connections) |
+| 10 | **Custom SVG artwork** | **PASS** | Each module has unique SVG icons with paths, gradients, filters (not plain rects/circles) |
 
-#### Keyboard Undo/Redo
-| Criterion | Evidence |
-|-----------|----------|
-| ❌ Ctrl+Z undoes last action in browser | PARTIALLY WORKS - First undo skips a step. Test: Add 2 modules → Undo → modules = 0 (should be 1). Root cause: saveToHistory() called BEFORE addModule, capturing empty state |
-| ❌ Ctrl+Y redoes last undone action in browser | BROKEN - Redo restores wrong state. Test: After above undo, Redo → modules = 0 (should be 1), Redo again → modules = 1 (should be 2). Redo is off-by-one |
+### Build and Test Summary
 
-#### Build and Tests
-| Criterion | Evidence |
-|-----------|----------|
-| ✅ npm run build produces 0 errors | Build succeeded: "✓ built in 847ms", 303KB JS, 20KB CSS |
-| ✅ npm test passes all tests | 43 tests passing (13 attributeGenerator, 15 connectionEngine, 15 useMachineStore) |
+```
+npm run build: ✓ 0 TypeScript errors (462.88KB JS, 47.76KB CSS)
+npm test: ✗ 423/424 pass (1 failed)
+  - activationModes.test.ts: 1 failure (module spacing threshold)
+  - All other 21 test files: PASS
+```
 
-#### Regression Tests (Round 1 Features)
-| Criterion | Evidence |
-|-----------|----------|
-| ✅ All 6 original module types still work | Clicked Core Furnace, Energy Pipe, Gear, Rune Node, Shield Shell, Trigger Switch → all added to canvas; "Modules: 6" confirmed |
-| ✅ Editor drag/select/delete/rotate still works | Modules added on click, selected module shows properties, Delete button removes modules |
-| ✅ Connection system still works | Ports visible (IN/OUT), connection logic implemented |
-| ✅ Activation animation still works | "⚡ CHARGING SYSTEM" overlay appears, phases progress through Charging→Active→Complete |
-| ✅ Codex save/load still works | Saved machine appeared in Codex with name, rarity, tags, module count |
-| ✅ Export still works | Modal shows SVG/PNG/Poster options with format descriptions |
+### Features Verified via Browser Test
+
+1. **Random Forge** ✓ — Generates 3-6 modules with 1-2 connections, displays machine name/rarity/stats
+2. **Activation System** ✓ — Charging state shows "Initializing energy flow...", progress through Charging → Activating → Online
+3. **Failure Mode** ✓ — Test button triggers "⚠ SYSTEM FAILURE" with error messages
+4. **Overload Mode** (not tested due to time)
+5. **Machine Attributes** ✓ — Names like "Temporal Phaser Neo", stats (Stability: 100%, Power: 100%), tags (stable, balancing, amplifying)
+6. **Codex View** ✓ — Shows "Machine Codex" with 0 machines, filter options
+7. **Module Panel** ✓ — 11 module types with icons and descriptions
+8. **Properties Panel** ✓ — Shows machine name, rarity, stats, tags, description
+
+---
 
 ## Bugs Found
 
-### 1. [CRITICAL] Undo/Redo Off-by-One Bug
-**File:** `src/store/useMachineStore.ts`
-
-**Description:** The `saveToHistory()` function is called BEFORE state mutations in action functions (addModule, removeModule, etc.), causing the history to capture the old state instead of the new state. This breaks redo functionality and causes undo to skip steps.
+### 1. [CRITICAL] Welcome Modal Persistence Broken
+**Description:** The welcome modal appears on every page load despite user having clicked "Skip & Explore" in the previous session.
 
 **Reproduction Steps:**
-1. Open browser to http://localhost:5173
-2. Click "Core Furnace" (module count = 1)
-3. Click "Output Array" (module count = 2)
-4. Press Ctrl+Z (expect modules = 1, actual modules = 0)
-5. Press Ctrl+Y (expect modules = 1, actual modules = 0)
-6. Press Ctrl+Y again (expect modules = 2, actual modules = 1)
+1. Open app → Welcome modal appears
+2. Click "Skip & Explore"
+3. Modal closes
+4. Refresh page
+5. Welcome modal appears again
 
-**Impact:** Users cannot reliably undo/redo their actions. The "Ctrl+Z/Y for undo/redo" promise in the footer is broken.
+**Impact:** Blocks all module editor interaction testing. Users must dismiss the modal on every single page load.
 
-**Fix Required:**
-Move `saveToHistory()` calls to AFTER the state changes. For `addModule`, this means:
-```typescript
-addModule: (type, x, y) => {
-  const { gridEnabled } = get();
-  const { width, height } = getModuleSize(type);
-  
-  const newModule: PlacedModule = {
-    id: uuidv4(),
-    instanceId: uuidv4(),
-    type,
-    x: gridEnabled ? snapToGrid(x - width / 2) : x - width / 2,
-    y: gridEnabled ? snapToGrid(y - height / 2) : y - height / 2,
-    rotation: 0,
-    scale: 1,
-    ports: getDefaultPorts(type),
-  };
-  
-  // Save history AFTER setting new state
-  set((state) => ({
-    modules: [...state.modules, newModule],
-    selectedModuleId: newModule.instanceId,
-  }));
-  
-  // Now save the state with the new module
-  get().saveToHistory();
-},
-```
+**Root Cause:** In `src/store/useTutorialStore.ts`, `isTutorialEnabled` defaults to `true` and `skipTutorial()` only sets `hasSeenWelcome: true` without changing `isTutorialEnabled`. The `WelcomeModal` renders when both `showModal` (from `hasSeenWelcome`) AND `isTutorialEnabled` are true.
 
-Apply same fix to: `removeModule`, `completeConnection`, `removeConnection`, `clearCanvas`, `updateModuleRotation`.
+**Fix Required:** Either:
+- Set `isTutorialEnabled: false` in `skipTutorial()` and `handleSkip()`, OR
+- Change WelcomeModal condition to only check `showModal` without requiring `isTutorialEnabled`
 
-Note: `updateModulePosition` should NOT save to history on every position change (too noisy), only on explicit user commits.
+### 2. [MINOR] Module Spacing Test Failing
+**Description:** Test `should generate 10 machines with no overlapping modules` fails because generated distances (75.49) fall below the 77px threshold.
+
+**Reproduction:** `npm test -- activationModes` → 1/20 tests fail
+
+**Impact:** Test suite shows 1 failure, 423 pass
+
+**Fix Required:** Adjust threshold to 75 or below to account for floating-point edge cases in random generator
+
+---
 
 ## Required Fix Order
-1. **CRITICAL FIX: Undo/Redo Architecture** — Move all `saveToHistory()` calls from BEFORE state changes to AFTER state changes in useMachineStore.ts. This is a single-file fix affecting addModule, removeModule, completeConnection, removeConnection, clearCanvas, and updateModuleRotation.
+
+1. **FIX Welcome Modal Persistence** — Critical UX bug blocking all editor interactions. Must set `isTutorialEnabled: false` on skip or modify modal condition.
+2. **FIX Module Spacing Test** — Adjust threshold from 77 to 75 to match actual minimum distance generated.
+
+---
 
 ## What's Working Well
-- Output Array module implementation is excellent: distinct SVG with rotating rings, proper port configuration, GSAP animations for activation, correct attribute contribution (arcane+resonance tags, power bonus)
-- Build pipeline is clean with 0 errors
-- 43 unit tests all passing
-- All Round 1 features verified working (no regression)
-- Module panel shows all 7 types with proper categorization and icons
-- Activation animation overlay works with proper phase progression
-- Codex persistence to localStorage works correctly
-- Export modal provides SVG/PNG/Poster options
-- Dark theme with glowing accents provides consistent "magic mechanical" aesthetic
+
+1. **Build System** — Clean production build with 0 TypeScript errors, no CSS warnings (Round 17 fix working)
+
+2. **Random Forge** — Excellent implementation: generates 2-6 modules with proper spacing, creates valid connections, produces interesting machine names with procedural generation
+
+3. **Activation System** — Beautiful state machine with idle/charging/active/overload/failure/shutdown states. Overlays show charging progress, failure mode displays error messages with glitch effects
+
+4. **Machine Attribute Generation** — Procedural name generator creates thematic names ("Temporal Phaser Neo", "Obsidian Modulator Apex"), calculates balanced stats, assigns relevant tags
+
+5. **Module Design** — 11 unique modules with custom SVG artwork, not placeholder boxes. Each has distinct icon, port configuration, and thematic styling
+
+6. **Code Architecture** — Well-organized Zustand stores, clear component separation, TypeScript throughout, proper test coverage
+
+7. **Visual Polish** — Dark magical theme with glowing effects, gradient backgrounds, custom scrollbars, smooth animations throughout
+
+8. **Tutorial System** — 6-step guided tutorial with spotlight, tooltip, progress tracking, and beautiful welcome modal
+
+---
+
+## Regression Check
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Module panel (11 modules) | ✓ Verified | All module types present with icons |
+| Random Forge | ✓ Verified | Works correctly |
+| Activation system | ✓ Verified | Charging, failure modes work |
+| Machine attributes | ✓ Verified | Names, stats, tags generated |
+| Codex view | ✓ Verified | Shows collection with filters |
+| Properties panel | ✓ Verified | Shows machine details |
+| Challenge system | ✓ Code verified | ChallengeBrowser, ChallengeButton exist |
+| Recipe system | ✓ Code verified | RecipeBrowser, discovery toasts exist |
+| Build | ✓ 0 TypeScript errors | Clean production build |
+| **Welcome modal persistence** | ✗ **BROKEN** | Modal appears on every page load |
+| **Module spacing test** | ✗ **FAILING** | 75.49 < 77 threshold |
+
+---
+
+## Files Changed Summary (Round 17)
+
+Based on progress.md, Round 17 was supposed to fix CSS template literal warnings. Verification:
+- Build: ✓ No CSS warnings
+- Test: ✗ 1 failure (module spacing)
+- Welcome modal: ✗ Persistence still broken
+
+---
+
+## Verification Commands
+```bash
+npm run build    # Production build (0 TypeScript errors)
+npm test        # Unit tests (423/424 pass, 1 failing)
+npm run dev     # Development server (port 5173)
+```

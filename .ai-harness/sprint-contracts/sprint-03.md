@@ -1,137 +1,170 @@
-# Sprint Contract — Round 4
+# Sprint Contract — Round 5
 
 ## Scope
 
-**Enhancement sprint:** Expand the activation system with proper failure/overload simulation modes, improve visual effects, and add enhanced random generation with aesthetic control. No breaking changes to existing functionality.
+**This is a remediation-only sprint.** Round 4 completed the Toolbar component with test buttons (`⚠ 测试故障` and `⚡ 测试过载`) and verified activation modes work correctly. However, the Toolbar was never integrated into `App.tsx`, making the buttons inaccessible. This round fixes that single integration gap.
 
----
+No new features. No UI redesign. No changes to existing working code.
 
 ## Spec Traceability
 
-- **P0 items covered this round:** Activation state machine (idle, charging, active, overload, failure, shutdown) — enhanced with testable failure/overload modes
-- **P1 items covered this round:** None (all P1 complete from previous rounds)
-- **Remaining P0/P1 after this round:** None
-- **P2 intentionally deferred:** AI naming integration, community features, challenge mode
+### P0 Items Covered This Round
+1. **Integrate Toolbar into App.tsx** — Add import and render `<Toolbar />` component
+2. **Verify test buttons visible** — Browser verification of button text presence
+3. **Verify test buttons functional** — Clicking triggers respective activation modes
+
+### P1 Items Covered This Round
+1. **No test regression** — All 99 existing unit tests continue to pass
+2. **Build succeeds** — Production build continues with 0 TypeScript errors
+
+### Remaining P0/P1 After This Round
+- None. All P0/P1 items from spec are implemented and functional.
+
+### P2 Intentionally Deferred
+- PNG poster format export
+- AI naming/description integration
+- Community/sharing features
+- Additional module types
 
 ---
 
 ## Deliverables
 
-1. **`src/components/Preview/ActivationOverlay.tsx`** — Enhanced overlay with failure/overload mode simulation and Chinese UI text
-2. **`src/components/Editor/Toolbar.tsx`** — Add "Test Failure Mode" and "Test Overload Mode" buttons to the toolbar
-3. **`src/store/useMachineStore.ts`** — Add `activateFailureMode()` and `activateOverloadMode()` actions that:
-   - Transition machine state to appropriate mode
-   - Trigger corresponding visual effects
-   - Auto-return to idle after sequence completes (3500ms)
-4. **`src/__tests__/activationModes.test.ts`** — New test file validating:
-   - `activateFailureMode()` triggers failure state
-   - `activateOverloadMode()` triggers overload state
-   - Both modes auto-return to idle (after 3500ms)
-   - Machine attributes (failureRate) affect mode behavior
-5. **`src/utils/randomGenerator.ts`** — Enhanced random generation with:
-   - Configurable aesthetic constraints (min/max module count, connection rules)
-   - No overlapping module positions
-   - Minimum spacing of 80px between module centers
-   - At least 1 connection for valid machines with 2+ modules
-6. **SVG animation state definitions** — Add CSS/GSAP classes for:
-   - `.failure-mode` — shake animation + red flicker
-   - `.overload-mode` — pulse animation + screen shake
-   - Both states defined in `src/styles/animations.css`
+### 1. Modified `src/App.tsx`
+- **Action:** Add import: `import { Toolbar } from './components/Editor/Toolbar';`
+- **Action:** Add `<Toolbar />` component rendered in the editor layout (between header and main content area)
+- **Expected result:** Toolbar with test buttons renders in browser
+
+### 2. Working UI in Browser
+- **Expected result:** "⚠ 测试故障" button visible in rendered page
+- **Expected result:** "⚡ 测试过载" button visible in rendered page
+- **Expected result:** Both buttons functional — clicking triggers respective activation modes
+
+### 3. All tests pass
+- **Action:** Run `npm test` to verify 99 tests still pass
+- **Expected result:** 0 failures
+
+### 4. Build succeeds
+- **Action:** Run `npm run build` to verify TypeScript compilation
+- **Expected result:** Exit code 0 with 0 TypeScript errors
 
 ---
 
 ## Acceptance Criteria
 
-| # | Criterion | Verification |
-|---|-----------|--------------|
-| 1 | "Test Failure Mode" button exists in Toolbar | Button visible after component renders |
-| 2 | "Test Overload Mode" button exists in Toolbar | Button visible after component renders |
-| 3 | Clicking "Test Failure Mode" triggers failure animation sequence | Unit test: call `activateFailureMode()` → state === 'failure' |
-| 4 | Clicking "Test Overload Mode" triggers overload animation sequence | Unit test: call `activateOverloadMode()` → state === 'overload' |
-| 5 | Machine with high failureRate enters failure state faster | Test: set failureRate=0.9 → activate → state is 'failure' within 500ms |
-| 6 | Failure mode displays Chinese error messages | Overlay text includes "系统过载" or "机器故障" |
-| 7 | Overload mode displays Chinese warning messages | Overlay text includes "能量过载" or "临界警告" |
-| 8 | Normal activation flow unchanged | Existing activation test still passes |
-| 9 | Machine auto-returns to idle after failure sequence | Test: activateFailureMode() → wait 3500ms → state === 'idle' |
-| 10 | Machine auto-returns to idle after overload sequence | Test: activateOverloadMode() → wait 3500ms → state === 'idle' |
-| 11 | Random generator produces no overlapping modules | Test: generate 10 machines → no module pairs with distance < 80px |
-| 12 | Random generator creates valid connections for 2+ modules | Test: generate machine with 3 modules → connections >= 1 |
-| 13 | All existing 79 tests still pass | `npm test` shows 79+ passing |
+1. **Toolbar Button 1 Visible:** Browser query `document.body.innerText.includes('测试故障')` returns `true`
+2. **Toolbar Button 2 Visible:** Browser query `document.body.innerText.includes('测试过载')` returns `true`
+3. **Failure Mode Triggerable:** Clicking "测试故障" button triggers failure animation overlay
+4. **Overload Mode Triggerable:** Clicking "⚡ 测试过载" button triggers overload animation overlay
+5. **Failure Mode Chinese Text:** Failure overlay displays "⚠ 机器故障"
+6. **Overload Mode Chinese Text:** Overload overlay displays "⚡ 系统过载"
+7. **Auto-Recovery Works:** After test mode animation completes (~3500ms), machine returns to `idle` state
+8. **No Test Regression:** `npm test` passes with 99 tests (0 failures)
+9. **Build Clean:** `npm run build` produces 0 TypeScript errors
 
 ---
 
 ## Test Methods
 
-1. **Unit tests** — `activationModes.test.ts` validates:
-   - Store actions trigger correct state transitions
-   - Attribute-based timing behavior (failureRate affects time-to-failure)
-   - Auto-return to idle behavior with `jest.useFakeTimers()`
-2. **Random generator tests** — Validate aesthetic constraints:
-   - Module position distances (minimum 80px between centers)
-   - Connection validity rules (at least 1 connection for 2+ modules)
-3. **Integration tests** — Button click → store action → state change
-4. **Manual verification** — Run `npm run dev`, click test buttons, verify animations and Chinese text
+### Step 1: Verify App.tsx Integration
+Read `src/App.tsx`:
+1. Verify import line: `import { Toolbar } from './components/Editor/Toolbar';`
+2. Verify render location: `<Toolbar />` exists within editor layout JSX
+
+### Step 2: DOM Verification
+```bash
+npm run dev
+```
+Then in browser console:
+```javascript
+document.body.innerText.includes('测试故障')  // expect: true
+document.body.innerText.includes('测试过载')  // expect: true
+```
+
+### Step 3: Button Click Tests
+1. Click "⚠ 测试故障" button → verify failure overlay appears with "⚠ 机器故障" text
+2. Click "⚡ 测试过载" button → verify overload overlay appears with "⚡ 系统过载" text
+3. Wait 3.5 seconds → verify machine state returns to `idle`
+
+### Step 4: Unit Test Suite
+```bash
+npm test
+```
+Expected: 99 tests pass, 0 failures
+
+### Step 5: Production Build
+```bash
+npm run build
+```
+Expected: 0 TypeScript errors
 
 ---
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|------|------------|------------|
-| New animation states may conflict with existing GSAP animations | Medium | Use separate animation contexts; test thoroughly |
-| Test Failure/Overload buttons may confuse production users | Low | Label clearly as "Test" modes; auto-return prevents stuck states |
-| Random generator may produce edge cases | Low | Validate output; test with 100+ iterations |
-| Fake timers in tests may cause flakiness | Low | Use proper `act()` wrappers; test real timers separately |
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| CSS collision with Toolbar | Very Low | Low | Toolbar uses existing Tailwind classes consistent with app design |
+| Breaking existing tests | Very Low | High | Single file change, run test suite to verify |
+| Build errors | Very Low | High | Single import addition, no complex changes |
 
 ---
 
 ## Failure Conditions
 
-This round **MUST FAIL** if:
+This round **MUST FAIL** if ANY of the following occur:
 
-1. Any of the 13 acceptance criteria above fail
-2. `npm run build` produces any errors
-3. `npm test` has any failing tests (including existing 79)
-4. Normal activation flow is broken by new modes
-5. Machine gets stuck in failure/overload state and cannot reset
-6. Random generator produces modules that overlap (distance < 80px)
+1. Test buttons are not visible in browser (criteria 1-2 fail)
+2. Clicking test buttons does not trigger respective activation modes (criteria 3-4 fail)
+3. Any unit test fails (regression on criterion 8)
+4. Build produces TypeScript errors (criterion 9 fails)
 
 ---
 
 ## Done Definition
 
-Exactly this must be true before claiming completion:
+The round is complete ONLY when ALL of the following are true:
 
-1. New `activationModes.test.ts` passes all test cases
-2. "Test Failure Mode" button visible in Toolbar and triggers failure animation
-3. "Test Overload Mode" button visible in Toolbar and triggers overload animation
-4. All existing 79 tests still pass (`npm test`)
-5. Build succeeds without errors (`npm run build`)
-6. Normal activation (▶ Activate Machine) works exactly as before
-7. Unit test confirms: `activateFailureMode()` → state='failure' → wait(3500ms) → state='idle'
-8. Unit test confirms: `activateOverloadMode()` → state='overload' → wait(3500ms) → state='idle'
-9. Random generator tests confirm no overlapping modules
-10. Random generator tests confirm valid connections for multi-module machines
+1. ☐ `App.tsx` contains: `import { Toolbar } from './components/Editor/Toolbar';`
+2. ☐ `App.tsx` renders `<Toolbar />` within the editor layout JSX
+3. ☐ Browser DOM contains "测试故障" text
+4. ☐ Browser DOM contains "测试过载" text
+5. ☐ Clicking "测试故障" triggers failure overlay with "⚠ 机器故障" text
+6. ☐ Clicking "⚡ 测试过载" triggers overload overlay with "⚡ 系统过载" text
+7. ☐ Machine auto-returns to idle after ~3.5 seconds
+8. ☐ `npm test` shows 99 passing tests, 0 failures
+9. ☐ `npm run build` completes with 0 TypeScript errors
+10. ☐ Only `src/App.tsx` modified (no other files changed)
 
 ---
 
 ## Out of Scope
 
-- Adding new module types (7 types already implemented)
-- Changing undo/redo behavior (fixed in Round 3)
-- Modifying the codex system
-- Changing attribute generation logic (beyond failureRate/overloadRate effects on mode timing)
-- Adding AI naming integration
-- Community/social features
-- Changing export functionality
+The following are explicitly NOT being done in this round:
+
+- ❌ Any new module types
+- ❌ Any new features beyond Toolbar integration
+- ❌ Visual redesign or theme changes
+- ❌ Changes to ActivationOverlay.tsx (already correct per Round 4)
+- ❌ Changes to store actions (already correct per Round 4)
+- ❌ Changes to Toolbar.tsx (already correct per Round 4)
+- ❌ Changes to randomGenerator.ts (already correct per Round 4)
+- ❌ Changes to any module components (Canvas, ModulePanel, PropertiesPanel, CodexView, ExportModal)
+- ❌ Performance optimizations
+- ❌ Documentation updates
 
 ---
 
-## Revision History
+## Summary
 
-- **Round 4** — Initial contract (this version)
-  - Expanded acceptance criteria from 10 to 13
-  - Clarified auto-return timing (3500ms) in deliverables and criteria
-  - Specified random generator constraints (80px spacing, connection rules)
-  - Added Chinese text verification criteria (criteria 6-7)
-  - Added failureRate attribute timing test (criterion 5)
+Round 4 built the Toolbar component with test buttons for failure and overload modes. QA verified these work correctly. This round simply integrates the Toolbar into App.tsx so users can access these buttons in the browser.
+
+The project is at 9.3/10 with all P0/P1 features implemented and functional. This round restores accessibility to the test functionality that already exists but was unreachable.
+
+---
+
+## Review Notes
+
+- **Previous:** Round 3 (QA: 9.3/10) — Welcome modal persistence and module spacing fixed
+- **Previous:** Round 4 (QA: 9/9 verified, 99 tests pass) — Toolbar.tsx built but not integrated
+- **Current:** Round 5 — Integrate Toolbar into App.tsx

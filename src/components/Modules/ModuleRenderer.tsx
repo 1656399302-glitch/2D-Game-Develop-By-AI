@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import { gsap } from 'gsap';
-import { PlacedModule, Port, MachineState, MODULE_SIZES } from '../../types';
+import { PlacedModule, Port, MachineState, MODULE_SIZES, MODULE_ACCENT_COLORS } from '../../types';
 import { useMachineStore } from '../../store/useMachineStore';
 import { CoreFurnaceSVG } from './CoreFurnace';
 import { EnergyPipeSVG } from './EnergyPipe';
@@ -13,6 +13,9 @@ import { AmplifierCrystalSVG } from './AmplifierCrystal';
 import { StabilizerCoreSVG } from './StabilizerCore';
 import { VoidSiphonSVG } from './VoidSiphon';
 import { PhaseModulatorSVG } from './PhaseModulator';
+import { ResonanceChamberSVG } from './ResonanceChamber';
+import { FireCrystalSVG } from './FireCrystal';
+import { LightningConductorSVG } from './LightningConductor';
 
 interface ModuleRendererProps {
   module: PlacedModule;
@@ -32,34 +35,9 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
   
   const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
   
-  // Module accent colors based on type
+  // Get module accent color from registry
   const getModuleAccentColor = () => {
-    switch (module.type) {
-      case 'core-furnace':
-        return '#ff6b35';
-      case 'energy-pipe':
-        return '#00d4ff';
-      case 'gear':
-        return '#ffd700';
-      case 'rune-node':
-        return '#a855f7';
-      case 'shield-shell':
-        return '#22c55e';
-      case 'trigger-switch':
-        return '#ff3355';
-      case 'output-array':
-        return '#00ffcc';
-      case 'amplifier-crystal':
-        return '#9333ea';
-      case 'stabilizer-core':
-        return '#22c55e';
-      case 'void-siphon':
-        return '#a78bfa'; // Light purple for void
-      case 'phase-modulator':
-        return '#22d3ee'; // Cyan for phase
-      default:
-        return '#00d4ff';
-    }
+    return MODULE_ACCENT_COLORS[module.type] || '#00d4ff';
   };
   
   // GSAP animations based on machine state
@@ -196,6 +174,12 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
         return <VoidSiphonSVG {...props} />;
       case 'phase-modulator':
         return <PhaseModulatorSVG {...props} />;
+      case 'resonance-chamber':
+        return <ResonanceChamberSVG {...props} />;
+      case 'fire-crystal':
+        return <FireCrystalSVG {...props} />;
+      case 'lightning-conductor':
+        return <LightningConductorSVG {...props} />;
       default:
         return <rect width={size.width} height={size.height} fill="#333" />;
     }
@@ -227,6 +211,11 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
       onMouseDown={onMouseDown}
       style={{ cursor: 'move' }}
       className={`module-group ${isSelected ? 'module-selected' : ''}`}
+      role="button"
+      aria-label={`Module ${module.type}, position (${Math.round(module.x)}, ${Math.round(module.y)}), rotation ${module.rotation}°`}
+      tabIndex={0}
+      data-module-id={module.instanceId}
+      data-module-type={module.type}
     >
       {/* Activation glow - radial gradient expanding from module center */}
       <circle
@@ -274,6 +263,9 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
             onMouseUp={(e) => handlePortMouseUp(port, e)}
             style={{ cursor: 'crosshair' }}
             className="port-group"
+            role="button"
+            aria-label={`Input port ${idx + 1}`}
+            tabIndex={0}
           >
             {/* Port glow */}
             <circle
@@ -327,6 +319,9 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
             onMouseUp={(e) => handlePortMouseUp(port, e)}
             style={{ cursor: 'crosshair' }}
             className="port-group"
+            role="button"
+            aria-label={`Output port ${idx + 1}`}
+            tabIndex={0}
           >
             {/* Port glow */}
             <circle
@@ -367,3 +362,5 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
     </g>
   );
 }
+
+export default ModuleRenderer;

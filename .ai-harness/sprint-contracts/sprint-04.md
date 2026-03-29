@@ -1,114 +1,106 @@
-# Sprint Contract — Round 5
+# Sprint Contract — Round 4
 
 ## Scope
 
-**This is a remediation-only sprint.** The Toolbar.tsx component with test buttons exists and was verified correct in Round 4 QA. However, App.tsx never imports or renders it, making the buttons inaccessible to users. This round fixes that single integration gap.
-
-No new features. No UI redesign. No changes to existing working code.
+**Remediation Sprint**: Fix the single blocking bug from Round 3 QA that caused acceptance criteria 5 and 6 to fail. This is a targeted text-literal fix only.
 
 ## Spec Traceability
 
-### P0 Items (Must Complete This Round)
-- Import `Toolbar` component in `App.tsx`
-- Render `<Toolbar />` in the editor layout
-- Verify test buttons are visible and functional in browser
+### Round 3 QA Results Summary
+| Criterion | Status | This Sprint |
+|-----------|--------|-------------|
+| AC1: Toolbar Button 1 Visible | PASS | No action needed |
+| AC2: Toolbar Button 2 Visible | PASS | No action needed |
+| AC3: Failure Mode Triggerable | PASS | No action needed |
+| AC4: Overload Mode Triggerable | PASS | No action needed |
+| **AC5: Failure Mode Chinese Text** | **FAIL** | **Must fix** |
+| **AC6: Overload Mode Chinese Text** | **FAIL** | **Must fix** |
+| AC7: Auto-Recovery Works | PASS | No action needed |
+| AC8: No Test Regression | PASS | No action needed |
+| AC9: Build Clean | PASS | No action needed |
 
-### P1 Items (Must Not Regress)
-- All 99 existing unit tests continue to pass
-- Production build continues to succeed with 0 errors
-- Activation mode logic remains unchanged (already correct per Round 4)
-- Store actions `activateFailureMode()` and `activateOverloadMode()` work as before
+### Status After This Sprint
+- **P0 items**: All P0 items implemented (Round 3)
+- **P1 items**: All P1 items implemented (Round 3)
+- **Remaining P0/P1 after this round**: None
+- **P2 items**: Deferred (out of scope)
 
-### P2 Items (Intentionally Deferred)
-- None — this round is exclusively remediation
+## Root Cause
+
+`src/components/Preview/ActivationOverlay.tsx` lines ~224-232:
+```typescript
+const getTitle = () => {
+  switch (phase) {
+    case 'failure':
+      return '⚠ SYSTEM FAILURE';  // ← WRONG (English)
+    case 'overload':
+      return '⚡ CRITICAL OVERLOAD';  // ← WRONG (English)
+    // ...
+  }
+};
+```
 
 ## Deliverables
 
-1. **Modified `src/App.tsx`**
-   - Add import: `import { Toolbar } from './components/Editor/Toolbar';`
-   - Add `<Toolbar />` component rendered in the editor layout (between header and main content area)
-
-2. **Working UI in Browser**
-   - "⚠ 测试故障" button visible in rendered page
-   - "⚡ 测试过载" button visible in rendered page
-   - Both buttons functional — clicking triggers respective activation modes
+1. **Fixed `src/components/Preview/ActivationOverlay.tsx`**
+   - Line ~226: Change `return '⚠ SYSTEM FAILURE'` → `return '⚠ 机器故障'`
+   - Line ~229: Change `return '⚡ CRITICAL OVERLOAD'` → `return '⚡ 系统过载'`
 
 ## Acceptance Criteria
 
-1. **Toolbar Button 1 Visible:** Browser query `document.body.innerText.includes('测试故障')` returns `true`
-2. **Toolbar Button 2 Visible:** Browser query `document.body.innerText.includes('测试过载')` returns `true`
-3. **Failure Mode Triggerable:** Clicking "测试故障" button triggers failure animation overlay
-4. **Overload Mode Triggerable:** Clicking "测试过载" button triggers overload animation overlay
-5. **Failure Mode Chinese Text:** Failure overlay displays "⚠ 机器故障"
-6. **Overload Mode Chinese Text:** Overload overlay displays "⚡ 系统过载"
-7. **Auto-Recovery Works:** After test mode animation completes (~3500ms), machine returns to `idle` state
-8. **No Test Regression:** `npm test` passes with 99 tests (0 failures)
-9. **Build Clean:** `npm run build` produces 0 errors
+1. **AC1 (from Round 3 AC5)**: Clicking "⚠ 测试故障" triggers overlay displaying "⚠ 机器故障" — NOT English text
+2. **AC2 (from Round 3 AC6)**: Clicking "⚡ 测试过载" triggers overlay displaying "⚡ 系统过载" — NOT English text
+3. **AC3**: `npm run build` exits with code 0 and 0 TypeScript errors
+4. **AC4**: `npm test` shows 438/438 passing tests (no regressions)
 
 ## Test Methods
 
-1. **DOM Verification:** Run in browser console: `document.body.innerText.includes('测试故障')` → expect `true`
-2. **DOM Verification:** Run in browser console: `document.body.innerText.includes('测试过载')` → expect `true`
-3. **Button Click Test:** Click "测试故障" button → verify ActivationOverlay appears with failure styling
-4. **Button Click Test:** Click "测试过载" button → verify ActivationOverlay appears with overload styling
-5. **Text Inspection:** Verify failure overlay contains "⚠ 机器故障"
-6. **Text Inspection:** Verify overload overlay contains "⚡ 系统过载"
-7. **State Recovery:** Wait 3.5 seconds after triggering test mode → verify machine state returns to `idle`
-8. **Unit Test Suite:** Run `npm test` → expect 99 tests passing, 0 failures
-9. **Production Build:** Run `npm run build` → expect 0 errors
+1. **Browser verification** (per QA Round 3 method):
+   - Click "⚠ 测试故障" → `document.body.innerText.includes('⚠ 机器故障')` must return `true`
+   - Click "⚡ 测试过载" → `document.body.innerText.includes('⚡ 系统过载')` must return `true`
+
+2. **Build verification**:
+   - Execute `npm run build`
+   - Verify exit code is 0
+   - Verify 0 TypeScript errors
+
+3. **Test suite verification**:
+   - Execute `npm test`
+   - Verify exactly 438/438 tests pass
 
 ## Risks
 
-1. **Minimal — Single Integration Fix:** This is one import statement and one component render location. Toolbar.tsx code was already verified correct in Round 4 QA.
-2. **CSS Collision:** Toolbar uses existing color scheme (`#7f1d1d` for failure, `#78350f` for overload) with existing Tailwind classes. Consistent with application design.
-3. **No Risk to Existing Code:** No changes to ActivationOverlay, store, or any other component. Only App.tsx modified.
+1. **Risk level**: LOW — single file, two line changes
+2. **Risk mitigation**: No architectural changes; text literal replacement only
+3. **Risk mitigation**: 438/438 existing tests provide regression protection
 
 ## Failure Conditions
 
-This round **MUST FAIL** if any of the following are true:
+The round MUST fail if ANY of these conditions occur:
 
-1. Test buttons are not visible in browser after integration (criteria 1-2 fail)
-2. Clicking test buttons does not trigger respective activation modes (criteria 3-4 fail)
-3. Any unit test fails (regression on criterion 8)
-4. Build produces errors (criterion 9 fails)
+1. Overlay text is still in English after fix ("⚠ SYSTEM FAILURE" or "⚡ CRITICAL OVERLOAD" present)
+2. `npm run build` fails or exits with non-zero code
+3. TypeScript errors present in build output
+4. `npm test` shows fewer than 438/438 passing tests
+5. New bugs introduced in other overlay functionality (animation, auto-recovery, etc.)
 
 ## Done Definition
 
-The round is complete when **ALL** of the following are true:
+The round is **complete** when ALL of the following are true:
 
-1. ✅ `App.tsx` contains: `import { Toolbar } from './components/Editor/Toolbar';`
-2. ✅ `App.tsx` renders `<Toolbar />` within the editor layout
-3. ✅ Browser DOM contains "测试故障" text
-4. ✅ Browser DOM contains "测试过载" text
-5. ✅ Clicking "测试故障" triggers failure overlay with Chinese text
-6. ✅ Clicking "测试过载" triggers overload overlay with Chinese text
-7. ✅ Machine auto-returns to idle after ~3.5 seconds
-8. ✅ `npm test` shows 99 passing tests, 0 failures
-9. ✅ `npm run build` completes with 0 errors
+- [ ] `ActivationOverlay.tsx` `getTitle()` returns `'⚠ 机器故障'` when `phase === 'failure'`
+- [ ] `ActivationOverlay.tsx` `getTitle()` returns `'⚡ 系统过载'` when `phase === 'overload'`
+- [ ] `npm run build` exits with code 0 and 0 TypeScript errors
+- [ ] `npm test` shows 438/438 passing tests
+- [ ] Browser test confirms "⚠ 机器故障" appears in failure overlay
+- [ ] Browser test confirms "⚡ 系统过载" appears in overload overlay
+- [ ] All other overlay functionality (animations, auto-recovery) unchanged
 
 ## Out of Scope
 
-- No new features
-- No UI redesign or visual changes beyond integrating existing Toolbar
-- No changes to `ActivationOverlay.tsx` (already correct per Round 4)
-- No changes to store actions (already correct per Round 4)
-- No changes to `randomGenerator.ts` (already correct per Round 4)
-- No changes to any module components (Canvas, ModulePanel, PropertiesPanel, CodexView, ExportModal)
-- No additional unit tests needed (Toolbar rendering is browser-verifiable)
-
----
-
-## Context: Why This Contract Exists
-
-**Round 4 Outcome:** FAIL
-
-Round 4 QA confirmed that `Toolbar.tsx` exists with correct code but is **never imported or rendered in `App.tsx`**. Browser inspection proved test buttons were invisible to users. The contract deliverables were incomplete despite passing build and unit tests.
-
-**Root Cause:** Integration oversight — component was built but not wired into the application.
-
-**This Round's Purpose:** Fix the single missing import and render statement in App.tsx to make existing working code visible to users.
-
-**Evidence from Round 4 QA:**
-- `grep -r "Toolbar" src` found Toolbar never imported anywhere
-- Browser button list: `['Editor', 'Codex', '▶ Activate Machine', ...]` — no test buttons
-- Unit tests passed (99/99) but tested code paths that users could never reach
+- No new features or modules
+- No UI/UX changes beyond the two text literals
+- No state management modifications
+- No architecture changes
+- No additional test coverage (existing tests sufficient)
+- No other bug fixes (only AC5 and AC6 from Round 3)

@@ -1,6 +1,6 @@
 // Module Types
-export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array' | 'amplifier-crystal' | 'stabilizer-core' | 'void-siphon' | 'phase-modulator';
-export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output';
+export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array' | 'amplifier-crystal' | 'stabilizer-core' | 'void-siphon' | 'phase-modulator' | 'resonance-chamber' | 'fire-crystal' | 'lightning-conductor';
+export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output' | 'resonance' | 'elemental';
 export type PortType = 'input' | 'output';
 
 export interface Port {
@@ -130,6 +130,11 @@ export interface ExportOptions {
   width?: number;
   height?: number;
   scale?: number;
+  includeBackground?: boolean;
+  backgroundColor?: string;
+  borderStyle?: 'simple' | 'ornate' | 'minimal';
+  includeStats?: boolean;
+  includeDescription?: boolean;
 }
 
 // Event Types
@@ -152,6 +157,9 @@ export const MODULE_SIZES: Record<ModuleType, { width: number; height: number }>
   'stabilizer-core': { width: 80, height: 80 },
   'void-siphon': { width: 80, height: 80 },
   'phase-modulator': { width: 80, height: 80 },
+  'resonance-chamber': { width: 80, height: 80 },
+  'fire-crystal': { width: 80, height: 80 },
+  'lightning-conductor': { width: 80, height: 80 },
 };
 
 // Port position configuration - supports single position or array for multi-port modules
@@ -197,7 +205,7 @@ export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: PortConfig; output
     input: [{ x: 0, y: 25 }, { x: 0, y: 55 }], // 2 inputs (30px apart)
     output: { x: 80, y: 40 } 
   },
-  // New modules for Round 13
+  // Round 13 modules
   'void-siphon': { 
     input: { x: 40, y: 0 }, // 1 input at top center
     output: [{ x: 22.5, y: 80 }, { x: 57.5, y: 80 }] // 2 outputs at bottom (35px apart)
@@ -206,4 +214,35 @@ export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: PortConfig; output
     input: [{ x: 0, y: 25 }, { x: 0, y: 50 }], // 2 inputs left (25px apart)
     output: [{ x: 80, y: 25 }, { x: 80, y: 50 }] // 2 outputs right (25px apart)
   },
+  // Round 3 new modules
+  'resonance-chamber': { 
+    input: { x: 0, y: 40 }, // 1 input at left
+    output: { x: 80, y: 40 } // 1 output at right
+  },
+  'fire-crystal': { 
+    input: { x: 0, y: 40 }, // 1 input at left
+    output: { x: 80, y: 40 } // 1 output at right
+  },
+  'lightning-conductor': { 
+    input: { x: 0, y: 40 }, // 1 input at left
+    output: { x: 80, y: 40 } // 1 output at right
+  },
+};
+
+// Module accent colors
+export const MODULE_ACCENT_COLORS: Record<ModuleType, string> = {
+  'core-furnace': '#00d4ff',
+  'energy-pipe': '#7c3aed',
+  'gear': '#f59e0b',
+  'rune-node': '#a855f7',
+  'shield-shell': '#22c55e',
+  'trigger-switch': '#ef4444',
+  'output-array': '#fbbf24',
+  'amplifier-crystal': '#9333ea',
+  'stabilizer-core': '#22c55e',
+  'void-siphon': '#a78bfa',
+  'phase-modulator': '#22d3ee',
+  'resonance-chamber': '#06b6d4',
+  'fire-crystal': '#f97316',
+  'lightning-conductor': '#eab308',
 };

@@ -312,9 +312,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const getTitle = () => {
     switch (phase) {
       case 'failure':
-        return '⚠ SYSTEM FAILURE';
+        return '⚠ 机器故障';
       case 'overload':
-        return '⚡ CRITICAL OVERLOAD';
+        return '⚡ 系统过载';
       case 'charging':
         return 'CHARGING';
       case 'activating':

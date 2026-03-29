@@ -69,7 +69,7 @@ const MODULE_CATALOG: ModuleInfo[] = [
     category: 'core',
     description: 'Harmonic stabilization matrix with 2 inputs and 1 output. Balances energy fluctuations.',
   },
-  // New modules for Round 13
+  // Round 13 modules
   {
     type: 'void-siphon',
     name: 'Void Siphon',
@@ -82,6 +82,25 @@ const MODULE_CATALOG: ModuleInfo[] = [
     category: 'rune',
     description: 'Phase-shift matrix with 2 inputs and 2 outputs. Channels lightning energy with electric arcs.',
   },
+  // Round 3 new modules
+  {
+    type: 'resonance-chamber',
+    name: 'Resonance Chamber',
+    category: 'resonance',
+    description: 'Harmonic oscillation chamber with concentric energy rings. Amplifies resonance effects.',
+  },
+  {
+    type: 'fire-crystal',
+    name: 'Fire Crystal',
+    category: 'elemental',
+    description: 'Volatile fire elemental crystal with flickering flame patterns. Channels intense heat energy.',
+  },
+  {
+    type: 'lightning-conductor',
+    name: 'Lightning Conductor',
+    category: 'elemental',
+    description: 'High-voltage energy conductor with electric arcs. Channels lightning through hexagonal matrix.',
+  },
 ];
 
 const CATEGORY_COLORS: Record<ModuleCategory, string> = {
@@ -92,6 +111,8 @@ const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   shield: '#22c55e',
   trigger: '#ef4444',
   output: '#fbbf24',
+  resonance: '#06b6d4',
+  elemental: '#f97316',
 };
 
 // Get recipe for a module type
@@ -159,7 +180,11 @@ export function ModulePanel() {
   };
   
   return (
-    <div className="w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden">
+    <div 
+      className="module-panel w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden"
+      role="region"
+      aria-label="Module Palette"
+    >
       {/* Header */}
       <div className="p-4 border-b border-[#1e2a42]">
         <h2 className="text-sm font-semibold text-[#00d4ff] tracking-wider">
@@ -183,8 +208,9 @@ export function ModulePanel() {
                      hover:scale-[1.02] active:scale-[0.98]
                      animate-pulse-subtle"
           title="Generate a random machine with 2-6 modules"
+          aria-label="Random Forge - Generate a random machine"
         >
-          <span className="text-lg">🎲</span>
+          <span className="text-lg" aria-hidden="true">🎲</span>
           <span>Random Forge</span>
         </button>
         <p className="text-[10px] text-[#6b7280] mt-2 text-center">
@@ -193,7 +219,7 @@ export function ModulePanel() {
       </div>
       
       {/* Module List */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-2" role="listbox" aria-label="Available modules">
         <div className="space-y-2">
           {MODULE_CATALOG.map((module) => {
             const locked = isModuleLocked(module.type);
@@ -208,6 +234,10 @@ export function ModulePanel() {
                 onClick={() => handleClick(module.type, locked)}
                 onMouseEnter={() => locked && setHoveredLockedModule(module)}
                 onMouseLeave={() => setHoveredLockedModule(null)}
+                role="option"
+                aria-selected={false}
+                aria-disabled={locked}
+                aria-label={`${module.name}${locked ? ' (locked)' : ''}`}
                 className={`
                   arcane-card group relative transition-all duration-200
                   ${locked 
@@ -234,6 +264,7 @@ export function ModulePanel() {
                       backgroundColor: locked ? '#1f2937' : `${CATEGORY_COLORS[module.category]}20`,
                       border: locked ? '1px dashed #4b5563' : `1px solid ${CATEGORY_COLORS[module.category]}40`,
                     }}
+                    aria-hidden="true"
                   >
                     {locked ? (
                       <div className="flex items-center justify-center">
@@ -242,6 +273,7 @@ export function ModulePanel() {
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
+                          aria-hidden="true"
                         >
                           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -346,6 +378,16 @@ export function ModulePanel() {
         .animate-pulse-subtle {
           animation: pulse-subtle 2s ease-in-out infinite;
         }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+          .module-panel {
+            width: 100%;
+            max-height: 200px;
+            border-r: none;
+            border-bottom: 1px solid #1e2a42;
+          }
+        }
       `}</style>
     </div>
   );
@@ -354,7 +396,7 @@ export function ModulePanel() {
 function ModuleIcon({ type }: { type: ModuleType }) {
   const iconStyles: Record<ModuleType, React.ReactNode> = {
     'core-furnace': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <polygon 
           points="16,2 30,9 30,23 16,30 2,23 2,9" 
           fill="none" 
@@ -366,13 +408,13 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'energy-pipe': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <rect x="2" y="10" width="28" height="12" rx="3" fill="#2d1b4e" stroke="#7c3aed" strokeWidth="1.5"/>
         <line x1="8" y1="16" x2="24" y2="16" stroke="#a855f7" strokeWidth="2" strokeDasharray="4,2"/>
       </svg>
     ),
     'gear': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <circle cx="16" cy="16" r="12" fill="#1a1a2e" stroke="#f59e0b" strokeWidth="1.5"/>
         <circle cx="16" cy="16" r="7" fill="#2d2d2d" stroke="#fbbf24" strokeWidth="1"/>
         <g stroke="#f59e0b" strokeWidth="2">
@@ -385,7 +427,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'rune-node': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <circle cx="16" cy="16" r="13" fill="#1a1a2e" stroke="#9333ea" strokeWidth="1.5"/>
         <circle cx="16" cy="16" r="9" fill="#2d1b4e" stroke="#a855f7" strokeWidth="1"/>
         <path 
@@ -398,7 +440,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'shield-shell': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <path 
           d="M5,8 Q16,2 27,8 L28,20 Q16,26 4,20 Z" 
           fill="#1a1a2e" 
@@ -414,7 +456,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'trigger-switch': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <rect x="8" y="4" width="16" height="24" rx="3" fill="#1a1a2e" stroke="#ef4444" strokeWidth="1.5"/>
         <rect x="11" y="18" width="10" height="8" rx="2" fill="#2d2d2d" stroke="#f87171" strokeWidth="1"/>
         <circle cx="16" cy="22" r="3" fill="#dc2626" stroke="#ef4444" strokeWidth="1"/>
@@ -422,7 +464,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'output-array': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <circle cx="16" cy="16" r="14" fill="#1a1a2e" stroke="#fbbf24" strokeWidth="1.5"/>
         <circle cx="16" cy="16" r="10" fill="#2d2d2d" stroke="#f59e0b" strokeWidth="1"/>
         <circle cx="16" cy="16" r="5" fill="#f59e0b" opacity="0.6"/>
@@ -434,7 +476,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'amplifier-crystal': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         {/* Diamond shape */}
         <polygon
           points="16,2 28,16 16,30 4,16"
@@ -456,7 +498,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'stabilizer-core': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         {/* Octagon shape */}
         <polygon
           points="16,2 24,4 28,12 28,20 24,28 8,28 4,20 4,12 8,4"
@@ -481,7 +523,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'void-siphon': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         {/* Circular void body */}
         <circle cx="16" cy="16" r="14" fill="#1e1b4b" stroke="#a78bfa" strokeWidth="1.5"/>
         {/* Inner void circle */}
@@ -500,7 +542,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
     'phase-modulator': (
-      <svg width="32" height="32" viewBox="0 0 32 32">
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         {/* Hexagonal body */}
         <polygon
           points="16,2 26,8 26,20 16,26 6,20 6,8"
@@ -527,6 +569,74 @@ function ModuleIcon({ type }: { type: ModuleType }) {
         {/* Output indicators (right) */}
         <circle cx="30" cy="10" r="1.5" fill="#a5f3fc"/>
         <circle cx="30" cy="20" r="1.5" fill="#a5f3fc"/>
+      </svg>
+    ),
+    'resonance-chamber': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        {/* Outer resonance ring */}
+        <circle cx="16" cy="16" r="14" fill="#0c4a6e" stroke="#06b6d4" strokeWidth="1.5"/>
+        {/* Middle ring */}
+        <circle cx="16" cy="16" r="10" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.7"/>
+        {/* Inner ring */}
+        <circle cx="16" cy="16" r="6" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.5"/>
+        {/* Core */}
+        <circle cx="16" cy="16" r="4" fill="#0891b2"/>
+        <circle cx="16" cy="16" r="2" fill="#22d3ee"/>
+        {/* Spiral indicators */}
+        <circle cx="16" cy="2" r="1.5" fill="#06b6d4"/>
+        <circle cx="30" cy="16" r="1.5" fill="#22d3ee"/>
+        <circle cx="16" cy="30" r="1.5" fill="#06b6d4"/>
+        <circle cx="2" cy="16" r="1.5" fill="#22d3ee"/>
+      </svg>
+    ),
+    'fire-crystal': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        {/* Flame shape */}
+        <path
+          d="M16,2 Q24,10 22,18 Q26,12 26,20 Q30,18 22,28 Q18,24 16,28 Q14,24 10,28 Q2,18 6,20 Q6,12 10,18 Q8,10 16,2 Z"
+          fill="#7c2d12"
+          stroke="#f97316"
+          strokeWidth="1.5"
+        />
+        {/* Inner flame */}
+        <path
+          d="M16,8 Q20,14 19,18 Q22,14 21,20 Q24,18 18,26 Q16,22 14,26 Q8,18 11,20 Q10,14 13,18 Q12,14 16,8 Z"
+          fill="#ea580c"
+          stroke="#fb923c"
+          strokeWidth="0.5"
+        />
+        {/* Core */}
+        <ellipse cx="16" cy="18" rx="4" ry="5" fill="#f97316"/>
+        <ellipse cx="16" cy="17" rx="2" ry="3" fill="#fbbf24"/>
+      </svg>
+    ),
+    'lightning-conductor': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        {/* Hexagonal frame */}
+        <polygon
+          points="16,2 27,9 27,23 16,30 5,23 5,9"
+          fill="#1c1917"
+          stroke="#eab308"
+          strokeWidth="1.5"
+        />
+        {/* Inner hexagon */}
+        <polygon
+          points="16,6 24,11 24,21 16,26 8,21 8,11"
+          fill="none"
+          stroke="#facc15"
+          strokeWidth="0.5"
+          opacity="0.7"
+        />
+        {/* Lightning bolt */}
+        <path
+          d="M18,5 L14,14 L19,14 L12,27 L15,17 L10,17 Z"
+          fill="#eab308"
+          stroke="#fde047"
+          strokeWidth="0.5"
+        />
+        {/* Core glow */}
+        <circle cx="16" cy="16" r="3" fill="#ca8a04"/>
+        <circle cx="16" cy="16" r="1.5" fill="#facc15"/>
       </svg>
     ),
   };
