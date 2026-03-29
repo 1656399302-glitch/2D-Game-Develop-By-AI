@@ -1,192 +1,140 @@
-APPROVED
-
 # Sprint Contract — Round 6
 
 ## Scope
 
-This sprint focuses on **UX polish, visual enhancement, and missing quality-of-life features**. The core machine building and activation systems are fully functional from previous rounds. This sprint adds missing interactions, visual refinements, and keyboard shortcuts to make the editor feel more complete and professional.
+This sprint adds **Faction System with Tech Tree**, **User Stats Dashboard**, and **Enhanced Sharing** to the Arcane Machine Codex Workshop. These features deepen the meta-game progression and provide users with long-term engagement goals beyond individual machine creation.
 
 ## Spec Traceability
 
-### P0 items (Critical UX gaps — must complete this round)
-- **Canvas zoom controls** — Add zoom in/out/reset buttons to toolbar (from spec: "画布支持缩放")
-- **Keyboard shortcuts** — Delete key for deletion, Escape to deselect, Ctrl+Z/Y for undo/redo (from spec: "撤销重做")
-- **Module flip/mirror** — Add horizontal flip capability alongside existing rotation (from spec: "镜像")
-- **Connection feedback** — Visual error feedback when connections fail (from spec: "冲突提示")
+### P0 Items Covered This Round
+1. **Faction System** — 4 magical factions (Arcane Order, Mechanical Guild, Elemental Circle, Void Covenant) with alignment based on module usage
+2. **Tech Tree** — Unlocks and bonuses tied to faction progression
+3. **Stats Dashboard** — User statistics (machines created, challenges completed, playtime, favorite modules)
+4. **Faction-vs-faction battles** (from spec "派系科技树") — Purely cosmetic progression system
 
-### P1 items (Important polish — must complete this round)
-- **Enhanced activation effects** — Screen shake intensity variation, camera pulse animation
-- **Properties panel scale slider** — Allow direct scale adjustment (0.5x to 2x)
-- **Zoom to fit** — Button to auto-fit all modules in view
-- **Duplicate module** — Keyboard shortcut or toolbar button to duplicate selected module
+### P1 Items Covered This Round
+5. **Faction-branded Export** — Share cards include faction emblems and progression badges
+6. **Achievement System** — Milestone unlocks based on stats (first machine, 10 machines, all challenges, etc.)
 
-### P2 items (Intentionally deferred)
-- Auto-layout suggestion (grid arrangement for scattered modules)
-- Connection state indicator (invalid/pending connections styling)
-- Module count badges
+### Remaining P0/P1 After This Round
+- All P0 features from previous rounds remain implemented and functional:
+  - Module panel (14+ modules with Chinese names)
+  - Machine editor with canvas, toolbar, properties panel
+  - Activation system (idle/charging/active/overload/failure/shutdown states)
+  - Build/circuit system with 6 challenges
+  - Machine attributes generation (name, rarity, tags, stability, output type, faction, description)
+  - Codex system with list/detail views, filtering, sorting
+  - Random generation mode
+  - Export (SVG, PNG, share card)
+  - Keyboard shortcuts, ARIA labels, viewport culling, module tooltips
+- No P0/P1 items are being deferred this round
 
-### P0/P1 items covered this round
-- P0: Canvas zoom UI controls, keyboard shortcuts, module flip, connection feedback
-- P1: Enhanced activation effects, properties panel scale, zoom-to-fit, duplicate module
-
-### Remaining P0/P1 after this round
-- All P0/P1 items from spec are addressed. Remaining work is P2 extensions.
+### P2 Intentionally Deferred
+- AI naming/description API integration
+- Community sharing marketplace
+- Codex trading/exchange system
+- Multiplayer/cooperative mode
+- Audio system (sound effects or music)
+- Mobile touch optimization
 
 ## Deliverables
 
-1. **ZoomControls component** — Zoom in/out/reset/fit-all buttons added to toolbar area
-   - File: `src/components/Toolbar/ZoomControls.tsx` (or added to existing Toolbar.tsx)
-   
-2. **useKeyboardShortcuts hook** — Keyboard event handling for Delete, Escape, Ctrl+Z/Y, Ctrl+D, F
-   - File: `src/hooks/useKeyboardShortcuts.ts`
-   
-3. **Module flip action** — Horizontal flip toggle in properties panel and via F key
-   - Modified files: `src/components/PropertiesPanel/PropertiesPanel.tsx`, store actions
-   
-4. **ConnectionErrorFeedback** — Toast notification or visual indicator for failed connection attempts
-   - File: `src/components/Connection/ConnectionErrorToast.tsx`
-   
-5. **Enhanced activation effects** — Variable intensity screen shake, viewport pulse
-   - Modified file: `src/components/Preview/ActivationOverlay.tsx`
-   
-6. **Scale slider in PropertiesPanel** — Direct scale input via slider (0.5x to 2.0x)
-   - Modified file: `src/components/PropertiesPanel/PropertiesPanel.tsx`
-   
-7. **Zoom to fit function** — Auto-calculate viewport to show all modules with padding
-   - Modified file: `src/store/useViewportStore.ts` (or useMachineStore)
-   
-8. **Duplicate module action** — Copy selected module, placed offset by 20px right and down
-   - Modified file: `src/store/useMachineStore.ts`
+| File | Purpose |
+|------|---------|
+| `src/types/factions.ts` | Faction definitions, tech tree nodes, and types |
+| `src/store/useFactionStore.ts` | Zustand store for faction progress and unlocks |
+| `src/store/useStatsStore.ts` | Zustand store for user statistics tracking |
+| `src/components/Factions/FactionPanel.tsx` | UI for viewing faction alignment and progress |
+| `src/components/Factions/TechTree.tsx` | Visual tech tree with unlock nodes |
+| `src/components/Stats/StatsDashboard.tsx` | Dashboard showing user statistics |
+| `src/components/Achievements/AchievementToast.tsx` | Notification for unlocked achievements |
+| `src/components/Export/EnhancedShareCard.tsx` | Export with faction branding |
+| `src/utils/factionCalculator.ts` | Logic to determine faction alignment from machine composition |
+| `src/utils/achievementChecker.ts` | Logic to detect and award achievements |
 
 ## Acceptance Criteria
 
-All criteria must be verifiable through automated browser testing.
-
-1. **Zoom Controls Visible** — Zoom in/out/reset/fit buttons appear in toolbar; buttons have accessible labels
-   
-2. **Zoom In Works** — Clicking zoom-in button increases `viewport.zoom` by 0.1, caps at 2.0
-   
-3. **Zoom Out Works** — Clicking zoom-out button decreases `viewport.zoom` by 0.1, floors at 0.1
-   
-4. **Zoom Reset Works** — Clicking zoom-reset sets `viewport.zoom` to 1.0
-   
-5. **Zoom to Fit Works** — Clicking fit-all button adjusts viewport so all modules are visible with 50px padding
-   
-6. **Delete Key Works** — Pressing Delete removes selected module from canvas and store
-   
-7. **Escape Key Works** — Pressing Escape clears selection (selectedModuleId becomes null)
-   
-8. **Ctrl+Z Undo Works** — Pressing Ctrl+Z reverts last add/delete/move/connect action
-   
-9. **Ctrl+Y Redo Works** — Pressing Ctrl+Y restores previously undone action
-   
-10. **Ctrl+D Duplicate Works** — Pressing Ctrl+D creates copy of selected module, offset by (20, 20) pixels
-   
-11. **F Key Flip Works** — Pressing F toggles `flipped` state on selected module (scaleX: 1 ↔ -1)
-    
-12. **Connection Error Feedback** — Attempting to connect same-type ports shows error toast with text "连接类型冲突" or visual red flash on both ports
-    
-13. **Activation Shake Intensity** — Failure mode triggers CSS animation with 8px displacement, overload mode triggers 4px displacement
-    
-14. **Scale Slider in Properties** — Properties panel shows slider input; dragging slider updates module scale in real-time
+| ID | Criterion | Verification Method |
+|----|-----------|---------------------|
+| AC1 | **Faction Assignment** — Machine is tagged with a faction based on dominant module category usage | Unit test: `calculateFaction([fireCrystal, fireCrystal, fireCrystal])` returns `"elemental-circle"` |
+| AC2 | **Tech Tree Renders** — Displays 4 factions × 3 tiers = 12 nodes with locked/unlocked visual states | Unit test: Render `TechTree`, verify 12 SVG nodes exist with correct `.locked` or `.unlocked` classes |
+| AC3 | **Stats Track** — Counters increment on machine save, challenge complete, session time | Unit test: Call `statsStore.incrementMachines()`, `statsStore.incrementChallenges()`, verify values |
+| AC4 | **Achievements Fire** — At least 5 achievements trigger at defined thresholds | Unit test: Set `machineCount = 10`, verify `"10_machines"` achievement `onUnlock` callback called |
+| AC5 | **Faction Export** — Share card includes faction emblem SVG and tier badge | Unit test: Call `generateShareCard(machine)`, verify `factionEmblem` (SVG string) and `factionTier` (1-3) |
+| AC6 | **Build Passes** — `npm run build` exits 0 with 0 TypeScript errors | Run build, assert exit code 0 |
+| AC7 | **Tests Pass** — `npm test` shows all existing + new tests passing | Run tests, assert 100% pass rate (baseline: 449 existing) |
 
 ## Test Methods
 
-### Unit Tests
-```bash
-npm test -- --run
-```
-Tests located in:
-- `src/__tests__/useKeyboardShortcuts.test.ts` (new)
-- `src/__tests__/zoomControls.test.ts` (new)
-- `src/__tests__/moduleFlip.test.ts` (new)
-- `src/__tests__/connectionError.test.ts` (new)
-- `src/__tests__/activationEffects.test.ts` (new)
-- `src/__tests__/scaleSlider.test.ts` (new)
-- `src/__tests__/duplicateModule.test.ts` (new)
-
-### Browser Integration Tests
-```bash
-npx playwright test
-```
-Verified behaviors:
-1. Query toolbar buttons by text: `'Zoom In'`, `'Zoom Out'`, `'Reset'`, `'Fit All'`
-2. Verify viewport state changes via store inspection or visual indicator
-3. Verify module deletion by checking module count in store
-4. Verify selection cleared by checking `selectedModuleId === null`
-5. Verify duplicate by counting modules before/after Ctrl+D
-6. Verify flip by checking module's `flipped` property or `scaleX` CSS value
-7. Verify connection error by attempting invalid connection and checking toast or port styling
-8. Verify scale slider by dragging and checking module visual size or store value
-
-### Build Verification
-```bash
-npm run build
-```
-- Must complete with 0 TypeScript errors
-- Must produce output in `dist/` directory
+| Criterion | Test Command | Expected Result |
+|-----------|--------------|-----------------|
+| AC1: Faction Assignment | `npm test -- --testPathPattern=factionCalculator` | Test passes, returns correct faction ID |
+| AC2: Tech Tree Renders | `npm test -- --testPathPattern=TechTree` | Test passes, 12 nodes verified |
+| AC3: Stats Track | `npm test -- --testPathPattern=useStatsStore` | Test passes, counters increment |
+| AC4: Achievements Fire | `npm test -- --testPathPattern=achievementChecker` | Test passes, callbacks fire at thresholds |
+| AC5: Faction Export | `npm test -- --testPathPattern=EnhancedShareCard` | Test passes, export contains faction data |
+| AC6: Build Passes | `npm run build` | Exit code 0, no TypeScript errors |
+| AC7: Tests Pass | `npm test` | 449 + N tests pass, 0 failures |
 
 ## Risks
 
-1. **Viewport calculation edge cases** — Zoom to fit may produce unexpected results with 0 modules or extremely large canvas
-2. **Animation conflicts** — Enhanced shake effects may conflict with existing GSAP animations; test thoroughly
-3. **Keyboard event handling** — Global keyboard listeners may fire when input fields are focused; must check `e.target` before processing
-4. **Scale implementation** — Module scale changes may require connection path recalculation; verify connections remain valid
-5. **Undo/redo state management** — Adding new actions (flip, duplicate) to undo stack requires careful implementation
+| Risk | Mitigation |
+|------|------------|
+| **Faction Calculation Accuracy** — Module-to-faction mapping must reflect actual module types | Verify against `src/types/modules.ts` before implementation; unit test all module categories |
+| **Tech Tree Layout** — 12-node grid requires careful positioning | Use CSS grid with fixed cell sizes; test responsive behavior |
+| **Stats Persistence** — Stats must survive page reload | Use localStorage via Zustand persist; verify in test suite |
+| **Achievement Timing** — Notifications must not interfere with user flow | Use toast with auto-dismiss; debounce rapid unlocks |
 
 ## Failure Conditions
 
-The round fails if ANY of the following conditions occur:
+The round **fails** if any of the following occur:
 
-1. `npm run build` fails with TypeScript errors
-2. `npm test` drops below 99 passing tests (regression detected)
-3. Any acceptance criterion cannot be verified through automated test
-4. New features introduce console errors in browser
-5. Keyboard shortcuts fire when text input fields are focused (e.g., Delete shouldn't remove characters from text inputs)
-6. Zoom controls do not respect min/max bounds (zoom > 2.0 or < 0.1)
-7. Duplicate module does not appear at correct offset position
-8. Flip does not correctly toggle horizontal mirror (scaleX: 1 → -1 or -1 → 1)
-9. Connection error feedback is not visible to user (missing toast or visual indicator)
+1. `npm run build` exits non-zero or produces TypeScript errors
+2. Any existing test fails (regression) — 449 tests must continue to pass
+3. New features break existing module placement, activation, or export
+4. Faction assignment returns `undefined` or invalid faction ID for any module combination
+5. Tech tree renders fewer than 12 nodes
+6. Fewer than 5 achievements are defined or triggerable
+7. Stats store does not persist data across page reloads
+8. Faction panel is not accessible from main UI
 
 ## Done Definition
 
-**Exact conditions that must be true before the builder may claim the round complete:**
+All conditions **must** be true before claiming round complete:
 
-All 14 acceptance criteria must pass:
-- [ ] Zoom in/out/reset/fit buttons visible in toolbar
-- [ ] Zoom in increases zoom level by 0.1, max 2.0
-- [ ] Zoom out decreases zoom level by 0.1, min 0.1
-- [ ] Reset sets zoom to 1.0
-- [ ] Fit All shows all modules with padding
-- [ ] Delete key removes selected module
-- [ ] Escape clears selection
-- [ ] Ctrl+Z reverts last action
-- [ ] Ctrl+Y restores undone action
-- [ ] Ctrl+D duplicates selected module at offset (20, 20)
-- [ ] F key toggles module flip (horizontal mirror)
-- [ ] Connection errors show visual feedback
-- [ ] Activation shake varies by mode (8px failure, 4px overload)
-- [ ] Properties panel has working scale slider (0.5x to 2.0x)
-
-Plus all of the following:
-- [ ] `npm test` passes with ≥99 tests (no regression)
-- [ ] `npm run build` succeeds with 0 errors
-- [ ] No new console errors in browser
-- [ ] All keyboard shortcuts disabled when focused on text inputs
+- [ ] `npm run build` exits 0 with 0 TypeScript errors
+- [ ] `npm test` shows 100% pass rate (449 existing + all new tests pass, 0 failures)
+- [ ] `calculateFaction()` correctly maps all module types to faction IDs
+- [ ] Tech tree renders 12 nodes (4 factions × 3 tiers) with visible locked/unlocked states
+- [ ] Stats store increments `machinesCreated`, `challengesCompleted`, `totalPlaytime` on appropriate actions
+- [ ] At least 5 achievements defined in `achievementChecker.ts` with threshold conditions
+- [ ] Enhanced share card includes faction emblem SVG string and tier badge number
+- [ ] No breaking changes: editor, activation system, export modal all function correctly
+- [ ] Faction panel accessible from main UI
+- [ ] All new code has TypeScript types with no `any` types
 
 ## Out of Scope
 
-The following are explicitly NOT being done this round:
+This round explicitly does **NOT** include:
 
-- AI naming/description generation (future extension, requires API integration)
-- Community sharing or multiplayer features
-- Additional module types beyond existing 7 (core, pipe, gear, rune, shield, trigger, output)
-- Sound effects or audio
-- Mobile/touch optimizations
-- Dark mode themes (single theme only)
-- Tutorial mode or guided walkthrough
-- Achievement/badge system
-- Module coloring system (modules have fixed colors)
-- Auto-layout algorithm
-- Connection state indicators (invalid/pending styling)
-- Module count badges
+| Item | Reason |
+|------|--------|
+| AI naming API integration | Interface stub only, no actual AI |
+| Community marketplace | Requires backend and authentication |
+| Multiplayer/cooperative features | Single-user only |
+| Audio system (sound effects, music) | Visual-only this round |
+| Mobile touch optimization | Desktop-first implementation |
+| Theme toggle | Single dark theme maintained |
+| Faction-vs-faction combat | Purely cosmetic progression only |
+| Persistent achievement gallery | Toast notifications only this round |
+
+---
+
+## Notes for Reviewer
+
+- **Scope Focus:** Data layer + UI + persistence; no new editor interactions introduced
+- **Faction Calculation:** Server-side calculation simulated client-side for MVP based on machine composition
+- **Tech Tree:** Read-only this round; unlocks trigger visual changes only (no gameplay modifiers)
+- **Achievement Notifications:** Toast UI with auto-dismiss; no persistent gallery this round
+- **Test Baseline:** 449 tests from Round 5; new tests expected for all new components
+- **Persistence:** All stores use Zustand persist middleware with localStorage

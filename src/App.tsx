@@ -19,9 +19,18 @@ import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
 import { useTutorialStore } from './store/useTutorialStore';
 import { useRecipeStore } from './store/useRecipeStore';
+import { useStatsStore } from './store/useStatsStore';
+import { useFactionStore } from './store/useFactionStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
+import { calculateFaction } from './utils/factionCalculator';
+import { FactionPanel } from './components/Factions/FactionPanel';
+import { TechTree } from './components/Factions/TechTree';
+import { StatsDashboard } from './components/Stats/StatsDashboard';
+import { AchievementList } from './components/Achievements/AchievementList';
+import { AchievementToast } from './components/Achievements/AchievementToast';
+import { Achievement } from './types/factions';
 
 type ViewMode = 'editor' | 'codex';
 
@@ -33,6 +42,11 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [showRecipeBrowser, setShowRecipeBrowser] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
+  const [showFactionPanel, setShowFactionPanel] = useState(false);
+  const [showTechTree, setShowTechTree] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
   
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
@@ -47,6 +61,15 @@ function App() {
   const markStateAsLoaded = useMachineStore((state) => state.markStateAsLoaded);
   
   const addEntry = useCodexStore((state) => state.addEntry);
+  
+  // Stats store
+  const incrementMachinesCreated = useStatsStore((state) => state.incrementMachinesCreated);
+  const incrementActivations = useStatsStore((state) => state.incrementActivations);
+  const incrementCodexEntries = useStatsStore((state) => state.incrementCodexEntries);
+  const earnedAchievements = useStatsStore((state) => state.earnedAchievements);
+  
+  // Faction store
+  const incrementFactionCount = useFactionStore((state) => state.incrementFactionCount);
   
   // Recipe system
   const { checkTutorialUnlock } = useRecipeStore();
@@ -89,6 +112,11 @@ function App() {
     }
   }, [checkTutorialUnlock]);
   
+  // Handle achievement toast dismissal
+  const handleAchievementDismiss = useCallback(() => {
+    setCurrentAchievement(null);
+  }, []);
+  
   const handleSaveToCodex = useCallback(() => {
     if (modules.length === 0) {
       alert('请至少添加一个模块再保存到图鉴。');
@@ -97,8 +125,19 @@ function App() {
     
     const attributes = generateAttributes(modules, connections);
     const entry = addEntry(attributes.name, modules, connections, attributes);
+    
+    // Update stats
+    incrementMachinesCreated();
+    incrementCodexEntries();
+    
+    // Update faction counts
+    const faction = calculateFaction(modules);
+    if (faction) {
+      incrementFactionCount(faction);
+    }
+    
     alert(`机器 "${entry.name}" 已保存到图鉴! (${entry.codexId})`);
-  }, [modules, connections, addEntry]);
+  }, [modules, connections, addEntry, incrementMachinesCreated, incrementCodexEntries, incrementFactionCount]);
   
   const handleActivate = useCallback(() => {
     if (modules.length === 0) {
@@ -107,7 +146,10 @@ function App() {
     }
     setShowActivation(true);
     setMachineState('charging');
-  }, [modules, setMachineState, setShowActivation]);
+    
+    // Update stats
+    incrementActivations();
+  }, [modules, setMachineState, setShowActivation, incrementActivations]);
   
   const handleActivationComplete = useCallback(() => {
     setShowActivation(false);
@@ -177,6 +219,54 @@ function App() {
         
         {viewMode === 'editor' && (
           <div className="flex items-center gap-2">
+            {/* Faction buttons */}
+            <button
+              onClick={() => setShowFactionPanel(true)}
+              className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a78bfa] hover:text-white border border-[#1e2a42] hover:border-[#a78bfa]/30 transition-colors flex items-center gap-2"
+              title="派系系统"
+              aria-label="打开派系面板"
+            >
+              <span>⚔️</span>
+              <span>派系</span>
+            </button>
+            
+            <button
+              onClick={() => setShowTechTree(true)}
+              className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#22c55e] hover:text-white border border-[#1e2a42] hover:border-[#22c55e]/30 transition-colors flex items-center gap-2"
+              title="科技树"
+              aria-label="打开科技树"
+            >
+              <span>🌳</span>
+              <span>科技</span>
+            </button>
+            
+            <button
+              onClick={() => setShowStats(true)}
+              className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#22d3ee] hover:text-white border border-[#1e2a42] hover:border-[#22d3ee]/30 transition-colors flex items-center gap-2"
+              title="统计数据"
+              aria-label="打开统计面板"
+            >
+              <span>📊</span>
+              <span>统计</span>
+            </button>
+            
+            <button
+              onClick={() => setShowAchievements(true)}
+              className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#fbbf24] hover:text-white border border-[#1e2a42] hover:border-[#fbbf24]/30 transition-colors flex items-center gap-2"
+              title="成就"
+              aria-label="打开成就面板"
+            >
+              <span>🏆</span>
+              <span>成就</span>
+              {earnedAchievements.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#fbbf24]/20 text-xs">
+                  {earnedAchievements.length}
+                </span>
+              )}
+            </button>
+            
+            <div className="w-px h-6 bg-[#1e2a42] mx-1" aria-hidden="true" />
+            
             <button
               onClick={() => setShowRecipeBrowser(true)}
               className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a855f7] hover:text-white border border-[#1e2a42] hover:border-[#a855f7]/30 transition-colors flex items-center gap-2"
@@ -404,6 +494,13 @@ function App() {
                 </div>
                 
                 <div className="bg-[#0a0e17]/50 rounded-lg p-4 border border-[#1e2a42]">
+                  <h3 className="text-sm font-medium text-[#a855f7] mb-2">派系系统</h3>
+                  <p className="text-xs text-[#9ca3af]">
+                    选择你的魔法阵营并解锁科技树。不同派系有不同的模块和效果。
+                  </p>
+                </div>
+                
+                <div className="bg-[#0a0e17]/50 rounded-lg p-4 border border-[#1e2a42]">
                   <h3 className="text-sm font-medium text-[#a855f7] mb-2">提示</h3>
                   <ul className="text-xs text-[#9ca3af] space-y-1">
                     <li>• 从输出端口拖拽到输入端口来连接模块</li>
@@ -437,9 +534,35 @@ function App() {
         </div>
       )}
       
+      {/* Faction Panel Modal */}
+      {showFactionPanel && (
+        <FactionPanel onClose={() => setShowFactionPanel(false)} />
+      )}
+      
+      {/* Tech Tree Modal */}
+      {showTechTree && (
+        <TechTree onClose={() => setShowTechTree(false)} />
+      )}
+      
+      {/* Stats Dashboard Modal */}
+      {showStats && (
+        <StatsDashboard onClose={() => setShowStats(false)} />
+      )}
+      
+      {/* Achievement List Modal */}
+      {showAchievements && (
+        <AchievementList onClose={() => setShowAchievements(false)} />
+      )}
+      
       {/* Toast Notifications */}
       <ConnectionErrorToast />
       <RandomForgeToast />
+      
+      {/* Achievement Toast */}
+      <AchievementToast
+        achievement={currentAchievement}
+        onDismiss={handleAchievementDismiss}
+      />
       
       {/* Recipe Discovery Toast */}
       <RecipeToastManager />

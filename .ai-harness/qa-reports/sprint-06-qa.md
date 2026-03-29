@@ -1,108 +1,150 @@
-## QA Evaluation — Round 6
+# QA Evaluation — Round 6
 
-### Release Decision
+## Release Decision
 - **Verdict:** FAIL
-- **Summary:** All P0 and P1 features are implemented with UI buttons and the core logic works correctly, but keyboard shortcuts are broken due to a bug in the input field detection code that throws "target.closest is not a function" errors.
-- **Spec Coverage:** FULL (all requested features implemented)
-- **Contract Coverage:** PARTIAL (11/14 criteria fully verified, 3 criteria have keyboard shortcut issues)
-- **Build Verification:** PASS (0 TypeScript errors)
-- **Browser Verification:** PARTIAL (UI buttons work, keyboard shortcuts broken)
+- **Summary:** Critical failure - None of the 10 contract deliverable files exist. The builder claimed a "remediation sprint" but contract.md explicitly specifies Faction System, Tech Tree, Stats Dashboard, and Achievement System which are completely absent.
+- **Spec Coverage:** INSUFFICIENT — Contract specifies P0 features that don't exist
+- **Contract Coverage:** FAIL — 0/7 acceptance criteria can be verified (files missing)
+- **Build Verification:** PASS — `npm run build` exits 0 (491.42KB JS, 51.54KB CSS)
+- **Browser Verification:** PASS — App runs, but Round 6 features absent
 - **Placeholder UI:** NONE
-- **Critical Bugs:** 1 (keyboard shortcut bug)
-- **Major Bugs:** 0
+- **Critical Bugs:** 0 (feature absence, not bugs)
+- **Major Bugs:** 1 (contract scope mismatch)
 - **Minor Bugs:** 0
-- **Acceptance Criteria Passed:** 11/14 (zooms, delete/rotate/flip/duplicate buttons, scale slider, activation effects)
-- **Untested Criteria:** 3 (Delete key, Escape key, Ctrl+D/F keyboard shortcuts)
+- **Acceptance Criteria Passed:** 2/7 (AC6, AC7 only — build and tests)
+- **Untested Criteria:** 5 (AC1-AC5 cannot be tested — files don't exist)
 
-### Blocking Reasons
-1. **Keyboard shortcuts broken** — The `useKeyboardShortcuts` hook has a bug in the input field detection. When `e.target` is null or doesn't have a `closest` method, calling `target.closest('input')` throws "target.closest is not a function". This affects all keyboard shortcuts (R, F, Delete, Escape, Ctrl+Z/Y, Ctrl+D).
+---
 
-### Scores
-- **Feature Completeness: 9/10** — All P0 and P1 features from the contract are implemented (zoom controls, keyboard shortcuts hooks, module flip, connection feedback, enhanced activation effects, scale slider, zoom to fit, duplicate module). Missing: full keyboard shortcut functionality due to bug.
-- **Functional Correctness: 9/10** — Build succeeds with 0 errors, 149 unit tests pass. UI buttons work correctly for all operations. Store actions are correct. Browser console errors occur due to keyboard shortcut bug.
-- **Product Depth: 10/10** — All features have proper implementation depth including error handling, undo/redo support, and animation effects.
-- **UX / Visual Quality: 10/10** — UI buttons are styled consistently with the arcane theme. Zoom controls show proper labels and aria-labels. Activation overlays show correct Chinese text and shake intensity indicators.
-- **Code Quality: 8/10** — Code is well-structured but has a critical bug in the keyboard shortcut input field detection. The bug prevents the `closest()` method from being called safely.
-- **Operability: 10/10** — Dev server starts correctly, production build succeeds, all 149 tests pass, all UI functionality is operational.
+## Blocking Reasons
 
-**Average: 9.3/10**
+1. **MISSING: `src/types/factions.ts`** — Contract specifies this file must exist. Does not exist.
+2. **MISSING: `src/store/useFactionStore.ts`** — Contract specifies faction progress/unlocks store. Does not exist.
+3. **MISSING: `src/store/useStatsStore.ts`** — Contract specifies user statistics tracking store. Does not exist.
+4. **MISSING: `src/components/Factions/FactionPanel.tsx`** — Contract specifies UI for faction alignment. Does not exist.
+5. **MISSING: `src/components/Factions/TechTree.tsx`** — Contract specifies 12-node tech tree visualization. Does not exist.
+6. **MISSING: `src/components/Stats/StatsDashboard.tsx`** — Contract specifies user statistics dashboard. Does not exist.
+7. **MISSING: `src/components/Achievements/AchievementToast.tsx`** — Contract specifies achievement notifications. Does not exist.
+8. **MISSING: `src/components/Export/EnhancedShareCard.tsx`** — Contract specifies faction-branded export. Does not exist.
+9. **MISSING: `src/utils/factionCalculator.ts`** — Contract specifies module-to-faction mapping logic. Does not exist.
+10. **MISSING: `src/utils/achievementChecker.ts`** — Contract specifies achievement detection logic. Does not exist.
 
-### Evidence
+11. **CONTRACT MISMATCH:** The progress.md describes a "Remediation Sprint" that fixed keyboard shortcuts, but contract.md explicitly defines Round 6 as implementing Faction System, Tech Tree, Stats Dashboard, and Achievement System.
 
-#### Zoom Controls (Criteria 1-5)
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| Zoom In button visible | **PASS** | `document.querySelector('[aria-label="Zoom In"]')` found |
-| Zoom Out button visible | **PASS** | `document.querySelector('[aria-label="Zoom Out"]')` found |
-| Reset Zoom button visible | **PASS** | `document.querySelector('[aria-label="Reset Zoom"]')` found |
-| Fit All button visible | **PASS** | `document.querySelector('[aria-label="Fit All"]')` found |
-| Zoom In works | **PASS** | Click → 100% → 110% |
-| Zoom Out works | **PASS** | Click → 100% → 90% |
-| Reset works | **PASS** | Click → 90% → 100% |
-| Fit All works | **PASS** | Click adjusts viewport |
+---
 
-#### Module Operations (Criteria 6-11)
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| Delete button works | **PASS** | Click Delete button → Modules: 1 → Modules: 0 |
-| Delete key (keyboard) | **FAIL** | "target.closest is not a function" error |
-| Escape key (keyboard) | **FAIL** | "target.closest is not a function" error |
-| Ctrl+Z undo | **PASS** | Unit test passes, UI buttons functional |
-| Ctrl+Y redo | **PASS** | Unit test passes, UI buttons functional |
-| Ctrl+D duplicate button | **PASS** | Click → Modules: 1 → Modules: 2, offset 20px |
-| Ctrl+D duplicate (keyboard) | **FAIL** | "target.closest is not a function" error |
-| Flip button works | **PASS** | Click Flip button toggles flipped state |
-| F key flip (keyboard) | **FAIL** | "target.closest is not a function" error |
-| Rotate button works | **PASS** | Click Rotate → Rotation: 0° → 90° |
-| R key rotate (keyboard) | **FAIL** | "target.closest is not a function" error |
+## Scores
 
-#### Connection & Effects (Criteria 12-14)
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| Connection error toast | **PASS** | Component exists at `src/components/Connections/ConnectionErrorToast.tsx`, integrated in App.tsx, code sets `connectionError: '连接类型冲突'` for same-type ports |
-| Failure mode shake | **PASS** | Overlay shows "Shake Intensity: 8px" |
-| Overload mode shake | **PASS** | Overlay shows "Shake Intensity: 4px" |
-| Scale slider | **PASS** | Slider found with min=0.5, max=2.0, changing value updates UI to show 0.5x |
+- **Feature Completeness: 1/10** — Zero of the 10 contract deliverable files exist. Faction System (4 factions), Tech Tree (12 nodes), Stats Dashboard, Achievement System (5+ achievements), and Enhanced Share Card are all completely absent.
+- **Functional Correctness: 10/10** — Build passes with 0 TypeScript errors. 449/449 tests pass. No regressions in existing features.
+- **Product Depth: 1/10** — No progress toward Round 6's stated objectives. No faction system, no achievement system, no stats dashboard.
+- **UX / Visual Quality: 9/10** — Existing UI is unchanged and functional. No Round 6 UI elements to evaluate.
+- **Code Quality: 9/10** — Existing code quality is maintained. No new code for Round 6 features.
+- **Operability: 10/10** — App runs correctly. Dev server starts. Tests pass.
 
-#### Build & Tests
-| Test | Result |
-|------|--------|
-| `npm run build` | ✓ 0 TypeScript errors, 320KB JS, 27KB CSS |
-| `npm test` | ✓ 149 tests passing (12 test files) |
-| Browser console | ✗ "target.closest is not a function" error on keyboard events |
+**Average: 6.67/10**
 
-### Bugs Found
+---
 
-1. **[Critical] Keyboard shortcut input field detection bug**
-   - **Location:** `src/hooks/useKeyboardShortcuts.ts` lines 17-22
-   - **Description:** The input field detection code calls `target.closest('input')` and `target.closest('textarea')` without first checking if `target` has a `closest` method. When a synthetic keyboard event is dispatched or `e.target` is null, this causes "target.closest is not a function" error.
-   - **Reproduction steps:** Add a module, dispatch keyboard event via `document.dispatchEvent(new KeyboardEvent('keydown', {key: 'r'}))` → Error in console, R key doesn't rotate
-   - **Impact:** All keyboard shortcuts (R, F, Delete, Escape, Ctrl+Z/Y, Ctrl+D) are broken in automated testing scenarios and may fail in edge cases
-   - **Fix:** Add guard before calling `closest()`:
-   ```typescript
-   if (excludeWhenInputFocused) {
-     const target = e.target as HTMLElement;
-     if (target && typeof target.closest === 'function') {
-       const isInputField = 
-         target.tagName === 'INPUT' || 
-         target.tagName === 'TEXTAREA' || 
-         target.isContentEditable ||
-         target.closest('input') ||
-         target.closest('textarea');
-       if (isInputField) return;
-     }
-   }
-   ```
+## Evidence
 
-### Required Fix Order
-1. **Fix keyboard shortcut input field detection bug** — Add null/function check before calling `target.closest()` in `src/hooks/useKeyboardShortcuts.ts`
-2. **Verify all keyboard shortcuts work** — After fix, test R, F, Delete, Escape, Ctrl+Z/Y, Ctrl+D all work via keyboard
+| # | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| AC1 | **Faction Assignment** | **FAIL** | `src/utils/factionCalculator.ts` does not exist. Cannot test `calculateFaction()` function. |
+| AC2 | **Tech Tree Renders** | **FAIL** | `src/components/Factions/TechTree.tsx` does not exist. Cannot test 12-node rendering. |
+| AC3 | **Stats Track** | **FAIL** | `src/store/useStatsStore.ts` does not exist. Cannot test stats increment. |
+| AC4 | **Achievements Fire** | **FAIL** | `src/utils/achievementChecker.ts` does not exist. Cannot test achievement callbacks. |
+| AC5 | **Faction Export** | **FAIL** | `src/components/Export/EnhancedShareCard.tsx` does not exist. Cannot test faction branding. |
+| AC6 | **Build Passes** | **PASS** | `npm run build` exits 0, 0 TypeScript errors |
+| AC7 | **Tests Pass** | **PASS** | `npm test` shows 449/449 passing across 23 test files |
 
-### What's Working Well
-- **Zoom controls** — All 4 buttons (Zoom In, Zoom Out, Reset Zoom, Fit All) are visible, have proper aria-labels, and function correctly
-- **Module operations via buttons** — Delete, Rotate, Flip, Duplicate buttons all work correctly with proper 20px offset for duplicate
-- **Scale slider** — Properly implemented with 0.5x to 2.0x range, real-time updates, and visual labels
-- **Activation effects** — Failure mode shows 8px shake intensity, overload mode shows 4px shake intensity, correct Chinese text displayed
-- **Connection error handling** — Code properly sets error state for same-type port connections, toast component is integrated
-- **Build pipeline** — Clean production build with no errors, all 149 unit tests pass
-- **UI consistency** — All buttons styled consistently with the arcane theme, proper aria-labels for accessibility
+### Browser Verification
+
+| Check | Result | Evidence |
+|-------|--------|----------|
+| Faction Panel accessible | **NO** | UI contains no "派系" or "Faction" button/panel |
+| Stats Dashboard accessible | **NO** | UI contains no "Stats" or "统计" button/panel |
+| Achievement notifications | **NO** | UI contains no "成就" or "Achievement" UI |
+| Enhanced Share Card | **NO** | Export modal has no faction branding |
+
+---
+
+## Contract vs Reality
+
+| Contract Requirement | Status | Notes |
+|---------------------|--------|-------|
+| `src/types/factions.ts` | MISSING | File does not exist |
+| `src/store/useFactionStore.ts` | MISSING | File does not exist |
+| `src/store/useStatsStore.ts` | MISSING | File does not exist |
+| `src/components/Factions/FactionPanel.tsx` | MISSING | Directory `src/components/Factions/` does not exist |
+| `src/components/Factions/TechTree.tsx` | MISSING | Directory `src/components/Factions/` does not exist |
+| `src/components/Stats/StatsDashboard.tsx` | MISSING | Directory `src/components/Stats/` does not exist |
+| `src/components/Achievements/AchievementToast.tsx` | MISSING | Directory `src/components/Achievements/` does not exist |
+| `src/components/Export/EnhancedShareCard.tsx` | MISSING | Only `ExportModal.tsx` exists |
+| `src/utils/factionCalculator.ts` | MISSING | File does not exist |
+| `src/utils/achievementChecker.ts` | MISSING | File does not exist |
+
+---
+
+## Bugs Found
+
+1. **[CRITICAL] Contract Scope Mismatch** — The progress.md and feedback.md describe a "Remediation Sprint" that fixed keyboard shortcuts, but contract.md clearly defines Round 6 as implementing the Faction System with Tech Tree, Stats Dashboard, Achievement System, and Enhanced Sharing. None of these features exist.
+
+---
+
+## Required Fix Order
+
+1. **Create all 10 deliverable files** as specified in contract.md:
+   - `src/types/factions.ts` — Define 4 factions and tech tree node types
+   - `src/store/useFactionStore.ts` — Zustand store with localStorage persistence
+   - `src/store/useStatsStore.ts` — Zustand store for user statistics
+   - `src/components/Factions/FactionPanel.tsx` — Faction alignment UI
+   - `src/components/Factions/TechTree.tsx` — 12-node tech tree (4 factions × 3 tiers)
+   - `src/components/Stats/StatsDashboard.tsx` — Statistics display
+   - `src/components/Achievements/AchievementToast.tsx` — Achievement notifications
+   - `src/components/Export/EnhancedShareCard.tsx` — Faction-branded export
+   - `src/utils/factionCalculator.ts` — Module-to-faction mapping
+   - `src/utils/achievementChecker.ts` — Achievement detection logic
+
+2. **Add Faction Panel to App navigation** — Make faction panel accessible from main UI
+
+3. **Write tests for all new features** — Add tests for faction calculation, tech tree rendering, stats tracking, achievement firing, and enhanced export
+
+4. **Verify all acceptance criteria** — Ensure AC1-AC5 are testable and passing
+
+---
+
+## What's Working Well
+
+1. **Build System** — Clean production build with 0 TypeScript errors
+2. **Test Suite** — 449/449 tests pass with no regressions
+3. **Keyboard Shortcuts Fix** — Proper type guards using `instanceof Element`
+4. **Existing Editor Features** — All Round 1-5 features remain functional
+
+---
+
+## Summary
+
+The Round 6 implementation is **FAIL**. The contract clearly specifies 10 deliverable files and 7 acceptance criteria for the Faction System, Tech Tree, Stats Dashboard, Achievement System, and Enhanced Sharing features. None of these files exist in the codebase. The builder's progress.md describes a "remediation sprint" that only fixed keyboard shortcuts — this does not satisfy the contract requirements.
+
+**This round must be repeated with all contract-specified deliverables implemented.**
+
+---
+
+## Verification Commands
+
+```bash
+npm run build    # Production build (0 TypeScript errors)
+npm test         # Unit tests (449/449 pass, 23 test files)
+npm run dev      # Development server (port 5173)
+
+# Verify missing files:
+ls src/types/factions.ts              # Should exist
+ls src/store/useFactionStore.ts        # Should exist
+ls src/store/useStatsStore.ts          # Should exist
+ls src/components/Factions/            # Should exist
+ls src/components/Stats/               # Should exist
+ls src/components/Achievements/        # Should exist
+ls src/utils/factionCalculator.ts      # Should exist
+ls src/utils/achievementChecker.ts      # Should exist
+```
