@@ -9,6 +9,8 @@ import { ActivationOverlay } from './components/Preview/ActivationOverlay';
 import { ConnectionErrorToast } from './components/Connections/ConnectionErrorToast';
 import { RandomForgeToast } from './components/UI/RandomForgeToast';
 import { LoadPromptModal } from './components/UI/LoadPromptModal';
+import { ChallengeButton } from './components/Challenges/ChallengeButton';
+import { ChallengeBrowser } from './components/Challenges/ChallengeBrowser';
 import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -21,6 +23,7 @@ function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('editor');
   const [showExport, setShowExport] = useState(false);
   const [showLoadPrompt, setShowLoadPrompt] = useState(false);
+  const [showChallenges, setShowChallenges] = useState(false);
   
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
@@ -124,6 +127,7 @@ function App() {
             >
               📤 Export
             </button>
+            <ChallengeButton onClick={() => setShowChallenges(true)} />
           </div>
         )}
       </header>
@@ -165,6 +169,14 @@ function App() {
       
       {showActivation && (
         <ActivationOverlay onComplete={handleActivationComplete} />
+      )}
+      
+      {/* Challenge Browser Modal */}
+      {showChallenges && (
+        <ChallengeBrowser 
+          isOpen={showChallenges} 
+          onClose={() => setShowChallenges(false)} 
+        />
       )}
       
       {/* Load Prompt Modal - FIX: Removed hasLoadedSavedState check because it starts as false
