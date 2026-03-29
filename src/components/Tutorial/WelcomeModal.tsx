@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useTutorialStore } from '../../store/useTutorialStore';
 import { WELCOME_CONTENT } from '../../data/tutorialSteps';
 
@@ -7,13 +7,42 @@ interface WelcomeModalProps {
   onSkip: () => void;
 }
 
+const TUTORIAL_STORAGE_KEY = 'arcane-codex-tutorial';
+
+/**
+ * Synchronously read localStorage to get the initial hasSeenWelcome state.
+ * This avoids the Zustand hydration race condition where the store defaults
+ * to false before localStorage is read.
+ */
+const getInitialHasSeenWelcome = (): boolean => {
+  try {
+    const stored = localStorage.getItem(TUTORIAL_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return parsed.state?.hasSeenWelcome === true;
+    }
+  } catch {
+    // If localStorage is unavailable or parse fails, default to showing welcome
+  }
+  return false;
+};
+
 export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number; duration: number }>>([]);
 
+  // Get initial state synchronously from localStorage to avoid hydration race
+  const hasSeenWelcome = useMemo(() => getInitialHasSeenWelcome(), []);
+  const [showModal, setShowModal] = useState(!hasSeenWelcome);
+
+  // Also sync with store's isTutorialEnabled
+  const isTutorialEnabled = useTutorialStore((state) => state.isTutorialEnabled);
+
   useEffect(() => {
-    // Trigger entrance animation
-    setTimeout(() => setIsVisible(true), 50);
+    // Trigger entrance animation if we should show the modal
+    if (showModal) {
+      setTimeout(() => setIsVisible(true), 50);
+    }
 
     // Generate floating particles
     const newParticles = Array.from({ length: 20 }).map((_, i) => ({
@@ -23,17 +52,28 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
       duration: 3 + Math.random() * 2,
     }));
     setParticles(newParticles);
-  }, []);
+  }, [showModal]);
 
   const handleStartTutorial = () => {
     setIsVisible(false);
-    setTimeout(onStartTutorial, 300);
+    setTimeout(() => {
+      setShowModal(false);
+      onStartTutorial();
+    }, 300);
   };
 
   const handleSkip = () => {
     setIsVisible(false);
-    setTimeout(onSkip, 300);
+    setTimeout(() => {
+      setShowModal(false);
+      onSkip();
+    }, 300);
   };
+
+  // Don't render if we shouldn't show the modal
+  if (!showModal || !isTutorialEnabled) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -230,20 +270,17 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
 }
 
 // Hook to manage welcome modal visibility
+// IMPORTANT: This hook reads localStorage synchronously to avoid the Zustand
+// hydration race condition where hasSeenWelcome defaults to false before
+// the persisted state is loaded.
 export function useWelcomeModal() {
-  const { hasSeenWelcome, isTutorialEnabled, setHasSeenWelcome } = useTutorialStore();
-  const [showWelcome, setShowWelcome] = useState(false);
-
-  useEffect(() => {
-    // Show welcome modal for first-time users
-    if (!hasSeenWelcome && isTutorialEnabled) {
-      // Small delay to ensure the app has rendered
-      const timer = setTimeout(() => {
-        setShowWelcome(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSeenWelcome, isTutorialEnabled]);
+  const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
+  
+  // Read localStorage synchronously to get the true initial state
+  const hasSeenWelcome = useMemo(() => getInitialHasSeenWelcome(), []);
+  
+  // State for the modal visibility - starts as false if already seen
+  const [showWelcome, setShowWelcome] = useState(!hasSeenWelcome);
 
   const handleStartTutorial = () => {
     setShowWelcome(false);
