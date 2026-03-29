@@ -288,7 +288,11 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
 // IMPORTANT: This hook reads localStorage synchronously to avoid the Zustand
 // hydration race condition where hasSeenWelcome defaults to false before
 // the persisted state is loaded.
-export function useWelcomeModal() {
+// 
+// Parameters:
+// - setShowLoadPrompt: Optional setter from App.tsx to suppress the LoadPromptModal
+//   when WelcomeModal is skipped. This ensures the skip flow is seamless.
+export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
   const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
   const setTutorialEnabled = useTutorialStore((state) => state.setTutorialEnabled);
   const restoreSavedState = useMachineStore((state) => state.restoreSavedState);
@@ -311,12 +315,17 @@ export function useWelcomeModal() {
     // CRITICAL FIX: Also disable tutorial so modal doesn't reappear on refresh
     setTutorialEnabled(false);
     
-    // CRITICAL FIX: Restore saved state if it exists to prevent LoadPromptModal
-    // from appearing and potentially confusing the user to click "Start Fresh"
+    // CRITICAL FIX: Restore saved state if it exists
     if (hasSavedCanvasState()) {
       restoreSavedState();
     }
-  }, [setHasSeenWelcome, setTutorialEnabled, restoreSavedState]);
+    
+    // CRITICAL FIX: Suppress LoadPromptModal to prevent confusing UX
+    // where user might click "Start Fresh" and lose their work
+    if (setShowLoadPrompt) {
+      setShowLoadPrompt(false);
+    }
+  }, [setHasSeenWelcome, setTutorialEnabled, restoreSavedState, setShowLoadPrompt]);
 
   return {
     showWelcome,

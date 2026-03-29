@@ -1,37 +1,41 @@
-# QA Evaluation — Round 2
+# QA Evaluation — Round 3
 
 ## Release Decision
-- **Verdict:** PASS
-- **Summary:** All 7 acceptance criteria verified with comprehensive test coverage (604 tests pass). Build passes with 0 TypeScript errors. All new features implemented as specified in contract.
-- **Spec Coverage:** FULL — UX Enhancements and Editor Polish features implemented
-- **Contract Coverage:** PASS — 7/7 acceptance criteria verified
-- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (554.69KB JS, 56.48KB CSS)
-- **Browser Verification:** PARTIAL — Build and automated tests verify functionality; manual browser testing blocked by persistent welcome modal issue that resets canvas state on dismissal (cosmetic issue, not functional)
-- **Placeholder UI:** NONE — No TODO/FIXME comments in new code
-- **Critical Bugs:** 0
-- **Major Bugs:** 0
-- **Minor Bugs:** 1 (Welcome modal resets canvas state on dismiss - cosmetic, not blocking)
-- **Acceptance Criteria Passed:** 7/7
+- **Verdict:** FAIL
+- **Summary:** Canvas state is preserved after skipping welcome modal (modules remain, startFresh not called), but the LoadPromptModal still appears after dismissal, creating a confusing UX flow where users might click "Start Fresh" and clear the canvas—the very issue the fix was supposed to prevent.
+- **Spec Coverage:** FULL — All features functional
+- **Contract Coverage:** PARTIAL — AC1-AC4 technically pass but LoadPromptModal coordination issue undermines the fix
+- **Build Verification:** PASS — `npm run build` exits 0 with 0 TypeScript errors (554.88KB JS, 56.48KB CSS)
+- **Browser Verification:** PARTIAL — Canvas state preserved, but LoadPromptModal appears after welcome modal skip
+- **Placeholder UI:** NONE — No TODO/FIXME/placeholder comments
+- **Critical Bugs:** 0 (canvas state preserved, not cleared)
+- **Major Bugs:** 1 (LoadPromptModal appears after WelcomeModal skip)
+- **Minor Bugs:** 0
+- **Acceptance Criteria Passed:** 4/7 (AC1-AC4 technical requirements met, but incomplete implementation)
 - **Untested Criteria:** 0
 
 ---
 
 ## Blocking Reasons
 
-None. All acceptance criteria verified through code inspection and automated tests.
+1. **LoadPromptModal Still Appears After WelcomeModal Skip** — The fix in `WelcomeModal.tsx` calls `restoreSavedState()` but does not prevent the LoadPromptModal from appearing. When user skips the WelcomeModal, the LoadPromptModal shows underneath with "Resume Previous Work" and "Start Fresh" buttons. If user clicks "Start Fresh" (thinking it's how to dismiss the modal), the canvas gets cleared—the exact bug this round was supposed to fix.
+
+2. **Incomplete Fix Implementation** — The contract's fix description states "LoadPromptModal doesn't appear after skip (state is already restored)" but this promise is not fulfilled. The `handleSkip` function in WelcomeModal.tsx does not have access to the `showLoadPrompt` state setter in App.tsx, so it cannot suppress the modal.
+
+3. **Secondary Flow Bug** — The current fix only addresses the happy path (user doesn't interact with LoadPromptModal) but doesn't prevent the problematic flow where a confused user clicks "Start Fresh" and loses their work.
 
 ---
 
 ## Scores
 
-- **Feature Completeness: 10/10** — All 7 contract deliverables implemented: useSelectionStore, AlignmentToolbar, Canvas.tsx box selection, alignmentUtils, zOrderUtils, autoLayout, useKeyboardShortcuts modifications
-- **Functional Correctness: 10/10** — All 604 tests pass. Alignment calculations verified with edge case coverage. Z-order operations tested with swap and move scenarios. Auto-layout tested with grid, circular, line, and cascade patterns
-- **Product Depth: 9/10** — Comprehensive alignment options (6 types), layer controls (4 types), and auto-layout algorithms (4 layout styles). Minor gap: Could benefit from alignment preview before confirming
-- **UX / Visual Quality: 9/10** — Alignment toolbar properly styled with dark theme, neon accents matching project. Box selection rectangle styled with semi-transparent fill and dashed border. Alignment toolbar appears at 2+ modules, auto-arrange at 3+ modules. Minor gap: Alignment toolbar dropdown positioning could be improved
-- **Code Quality: 10/10** — Clean TypeScript with proper types. Well-organized utility functions with comprehensive edge case handling. No TODO/FIXME comments. Proper bounds clamping for all alignment operations
-- **Operability: 10/10** — App builds successfully. All tests pass. Keyboard shortcuts properly integrated. Canvas interactions properly coordinate between single/multi-selection stores
+- **Feature Completeness: 8/10** — 4 new test files created, 62 new tests added, WelcomeModal bug partially fixed
+- **Functional Correctness: 9/10** — All 676 tests pass, canvas state is preserved after skip, but LoadPromptModal coordination incomplete
+- **Product Depth: 8/10** — Comprehensive test coverage for modal and tutorial stores, but fix leaves critical UX gap
+- **UX / Visual Quality: 7/10** — WelcomeModal works, but secondary LoadPromptModal creates confusing flow
+- **Code Quality: 9/10** — Clean TypeScript, well-organized tests, proper mock patterns
+- **Operability: 9/10** — Build succeeds, tests pass, but browser reveals incomplete fix
 
-**Average: 9.67/10**
+**Average: 8.33/10**
 
 ---
 
@@ -41,107 +45,86 @@ None. All acceptance criteria verified through code inspection and automated tes
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| AC1 | Box Selection Works | **PASS** | Canvas.tsx lines 281-351 implement Shift+Drag box selection. `isBoxSelecting` state, `boxSelectionRect` calculation, `modulesInBoxSelection` detection, and `setSelection` call on mouse up. Rectangle styled with rgba(59,130,246,0.15) fill and dashed border |
-| AC2 | Multi-Select Operations Work | **PASS** | Canvas.tsx `handleMouseDown` calls `toggleSelection` on Shift+Click. useKeyboardShortcuts.ts lines 78-87 implement Ctrl+A with `selectAll(allModuleIds)`. useSelectionStore.test.ts lines 41-58 verify toggle and selectAll functionality |
-| AC3 | Alignment Tools Function Correctly | **PASS** | AlignmentToolbar.tsx provides all 6 alignment options. alignmentUtils.ts implements alignLeft, alignCenter, alignRight, alignTop, alignMiddle, alignBottom with proper bounds clamping. alignmentUtils.test.ts comprehensive coverage |
-| AC4 | Z-Order/Layer Controls Work | **PASS** | AlignmentToolbar.tsx layer dropdown with bringForward, sendBackward, bringToFront, sendToBack. zOrderUtils.ts implements swap and move operations. zOrderUtils.test.ts lines 9-127 comprehensive test coverage |
-| AC5 | Auto-Layout Suggestion Works | **PASS** | AlignmentToolbar.tsx auto-arrange button visible when 3+ modules. autoLayout.ts implements grid, circular, line, cascade layouts. autoLayout.test.ts comprehensive coverage. Container bounds clamping verified |
-| AC6 | Build Passes | **PASS** | `npm run build` exits 0. 604/604 tests pass across 31 test files. 0 TypeScript errors. Output: 554.69KB JS, 56.48KB CSS |
-| AC7 | No Placeholder UI | **PASS** | grep verified no TODO/FIXME/placeholder/stub in new files. All buttons have handlers. Alignment toolbar only visible when 2+ modules selected. Auto-arrange disabled when < 3 modules |
+| AC1 | Welcome Modal Skip Does Not Reset Canvas | **PASS** | Browser test: "模块: 1" shows after skip, machine name "Obsidian Modulator Eternal" with ID "C08C1FB1" visible, startFresh NOT called (verified by tests) |
+| AC2 | Welcome Modal Skip Disables Tutorial Permanently | **PASS** | Tests verify hasSeenWelcome=true and isTutorialEnabled=false after skip |
+| AC3 | Tutorial Store Persistence Works | **PASS** | 37 tests in TutorialStore.test.ts verify persistence behavior |
+| AC4 | No Regression in Load Prompt Flow | **PASS** | Tests verify restoreSavedState is called when saved state exists |
+| AC5 | All Existing Tests Continue to Pass | **PASS** | 676/676 tests pass across 34 files |
+| AC6 | Build Passes | **PASS** | npm run build exits 0, 0 TypeScript errors |
+| AC7 | New Tests Added and Passing | **PASS** | WelcomeModal.test.ts (19 tests), TutorialStore.test.ts (37 tests), App.test.ts (16 tests) |
+
+### Browser Verification Evidence
+
+**Test Flow:**
+1. localStorage cleared and seeded with 1 saved module
+2. Tutorial state set to show WelcomeModal (hasSeenWelcome=false)
+3. Page reloaded
+4. WelcomeModal visible: "Welcome, Arcane Architect!"
+5. Clicked "Skip & Explore" button
+6. After skip:
+   - WelcomeModal closed ✓
+   - Canvas shows 1 module ("模块: 1") ✓
+   - Machine has generated attributes (name: "Obsidian Modulator Eternal", ID: C08C1FB1) ✓
+   - **LoadPromptModal visible: "Welcome Back, Artificer" with "Start Fresh" button** ✗
+
+**Issue:** The LoadPromptModal appears after dismissing WelcomeModal, creating a confusing flow where users might click "Start Fresh" and clear the canvas.
 
 ### File Verification
 
 | File | Status | Details |
 |------|--------|---------|
-| `src/store/useSelectionStore.ts` | ✓ NEW | Multi-select state management with addToSelection, removeFromSelection, toggleSelection, clearSelection, selectAll, setSelection, box selection state |
-| `src/components/Editor/AlignmentToolbar.tsx` | ✓ NEW | Alignment dropdown (6 options), Layer dropdown (4 options), Auto-arrange button, Selection count display |
-| `src/components/Editor/Canvas.tsx` | ✓ MODIFIED | Box selection implementation with Shift+Drag, selection rectangle rendering, modulesInBoxSelection calculation |
-| `src/utils/alignmentUtils.ts` | ✓ NEW | calculateAlignmentBounds, alignLeft, alignCenter, alignRight, alignTop, alignMiddle, alignBottom, alignModules with bounds clamping |
-| `src/utils/zOrderUtils.ts` | ✓ NEW | bringForward, sendBackward, bringToFront, sendToBack, moveToZIndex |
-| `src/utils/autoLayout.ts` | ✓ NEW | autoArrange, autoArrangeCircular, autoArrangeLine, autoArrangeCascade with container bounds |
-| `src/hooks/useKeyboardShortcuts.ts` | ✓ MODIFIED | Ctrl+A select all, Ctrl+Shift+A deselect, Shift+Click toggle |
-| `src/store/useMachineStore.ts` | ✓ MODIFIED | Added updateModulesBatch and setModulesOrder for batch operations |
-| `src/__tests__/useSelectionStore.test.ts` | ✓ NEW | 13 tests covering selection operations and box selection |
-| `src/__tests__/alignmentUtils.test.ts` | ✓ NEW | 14 tests covering all alignment operations and bounds |
-| `src/__tests__/zOrderUtils.test.ts` | ✓ NEW | 24 tests covering all z-order operations |
-| `src/__tests__/autoLayout.test.ts` | ✓ NEW | Tests for grid, circular, line, cascade layouts |
-
-### Test Coverage Summary
-
-```
-npm test: 604/604 pass across 31 test files ✓
-npm run build: Success (554.69KB JS, 56.48KB CSS, 0 TypeScript errors)
-```
-
-### Implementation Details
-
-**Box Selection (AC1):**
-- Shift+Left click on empty canvas starts box selection (Canvas.tsx:281)
-- `boxStart` and `boxEnd` track rectangle coordinates
-- `modulesInBoxSelection` calculates which modules intersect the rectangle
-- On mouse up, `setSelection(Array.from(modulesInBoxSelection))` selects modules
-- Rectangle styled: `fill="rgba(59, 130, 246, 0.15)"` with dashed stroke
-
-**Multi-Select (AC2):**
-- Shift+Click calls `toggleSelection(moduleId)` (Canvas.tsx:277)
-- Ctrl+A calls `selectAll(allModuleIds)` with `store.selectModule(allModuleIds[0])` for primary selection
-- Selected modules show blue highlight border with selectionGlow filter
-
-**Alignment (AC3):**
-- All 6 options: left, center, right, top, middle, bottom
-- Bounds clamping ensures modules stay within 0-800 canvas bounds
-- Alignment calculated relative to bounds of selected modules
-
-**Layer Controls (AC4):**
-- bringForward: Swap with next module (higher index)
-- sendBackward: Swap with previous module (lower index)
-- bringToFront: Move to end of array (highest z-index)
-- sendToBack: Move to beginning of array (lowest z-index)
-
-**Auto-Layout (AC5):**
-- Grid layout: Columns calculated from containerWidth and maxColumns
-- Scale factor applied if grid exceeds container bounds
-- All 4 layout styles provided: grid, circular, line, cascade
+| `src/components/Tutorial/WelcomeModal.tsx` | ✓ MODIFIED | handleSkip calls restoreSavedState(), sets tutorial state |
+| `src/__tests__/WelcomeModal.test.ts` | ✓ NEW | 19 tests covering skip behavior |
+| `src/__tests__/TutorialStore.test.ts` | ✓ NEW | 37 tests for tutorial store |
+| `src/__tests__/App.test.ts` | ✓ NEW | 16 tests for modal coordination |
 
 ---
 
 ## Bugs Found
 
-1. [Minor] **Welcome Modal State Reset** — When welcome modal is dismissed (via Skip & Explore button), the machine store state is reset, clearing the canvas. This is a cosmetic issue that prevents comprehensive browser testing of the new features but does not affect the core functionality. Root cause appears to be in WelcomeModal.tsx skip handler, but this is out of scope for this round's contract.
+1. **[Major] LoadPromptModal Appears After WelcomeModal Skip**
+   - **Description:** When user clicks "Skip & Explore" on WelcomeModal, the LoadPromptModal appears instead of being suppressed. This creates a confusing UX where users might click "Start Fresh" thinking it's how to dismiss the modal.
+   - **Reproduction Steps:**
+     1. Clear localStorage
+     2. Save canvas state with 1+ modules
+     3. Set tutorial state to show WelcomeModal (hasSeenWelcome=false)
+     4. Reload page
+     5. Click "Skip & Explore" on WelcomeModal
+     6. Observe LoadPromptModal appears
+   - **Impact:** High - Users may accidentally clear their canvas by clicking "Start Fresh"
+   - **Root Cause:** `handleSkip` in WelcomeModal.tsx does not have access to App.tsx's `setShowLoadPrompt` state setter, so it cannot suppress the LoadPromptModal
 
 ---
 
 ## Required Fix Order
 
-None required. All acceptance criteria met.
+1. **Fix LoadPromptModal Coordination** — Modify App.tsx to pass `setShowLoadPrompt` to WelcomeModal, or use a different mechanism (like a store action or context) to suppress the LoadPromptModal when WelcomeModal is skipped. The fix should ensure that when user clicks "Skip & Explore":
+   - WelcomeModal closes
+   - Canvas state is restored (already working)
+   - LoadPromptModal does NOT appear (not working)
+
+2. **Add Integration Test for Full Flow** — Add a browser-level test that verifies the complete flow: skip WelcomeModal → verify LoadPromptModal does NOT appear → verify canvas has saved modules
 
 ---
 
 ## What's Working Well
 
-1. **Comprehensive Test Coverage** — All new utility functions have extensive test coverage with edge cases (empty arrays, single module, boundary conditions)
-2. **Proper State Coordination** — Selection store properly coordinates with machine store for single and multi-select scenarios
-3. **Bounds Clamping** — All alignment and layout operations properly clamp positions to stay within canvas bounds
-4. **Keyboard Shortcuts** — Ctrl+A for select all, Ctrl+Shift+A for deselect all properly integrated with existing shortcuts
-5. **Box Selection UX** — Selection rectangle styled consistently with project theme, cursor changes to crosshair during selection
-6. **Alignment Toolbar Visibility** — Toolbar only appears when 2+ modules selected (alignment) and 3+ modules selected (auto-arrange)
-7. **Z-Order Visualization** — Multi-selection highlights properly rendered with glow effect for selected modules
-8. **Build Quality** — Clean production build with no TypeScript errors, proper code splitting warnings (non-blocking)
+1. **Canvas State Preservation** — The core fix works: canvas state is preserved when skipping WelcomeModal. Modules remain in store and are visible on canvas.
+2. **Test Coverage** — Comprehensive unit tests for WelcomeModal behavior (19 tests), TutorialStore (37 tests), and App modal coordination (16 tests)
+3. **Tutorial State Persistence** — Tutorial state correctly persists to localStorage (hasSeenWelcome, isTutorialEnabled)
+4. **Build Quality** — Clean production build with no TypeScript errors
+5. **RestoreSavedState Logic** — The `restoreSavedState()` call works correctly when invoked
 
 ---
 
 ## Summary
 
-Round 2 QA evaluation complete. All 7 acceptance criteria verified through code inspection and automated tests:
+Round 3 QA evaluation reveals that while the core canvas state preservation works correctly, the LoadPromptModal still appears after dismissing the WelcomeModal. This undermines the intended fix because:
 
-1. **Box Selection** ✓ — Shift+Drag creates selection rectangle, modules selected on release
-2. **Multi-Select** ✓ — Shift+Click toggles, Ctrl+A selects all, visual highlighting
-3. **Alignment Tools** ✓ — All 6 options (left/center/right/top/middle/bottom) with bounds clamping
-4. **Layer Controls** ✓ — All 4 options (bring forward/backward/front/back) with proper reordering
-5. **Auto-Layout** ✓ — Grid arrangement when 3+ modules, preserves connections, bounds safe
-6. **Build Passes** ✓ — 604 tests pass, 0 TypeScript errors, production build success
-7. **No Placeholder UI** ✓ — All features functional, no TODO/FIXME comments
+1. The contract promised "LoadPromptModal doesn't appear after skip (state is already restored)"
+2. Users still see the LoadPromptModal with "Start Fresh" button
+3. A confused user might click "Start Fresh" and lose their work—the exact bug this round was supposed to prevent
 
-The implementation is complete and ready for release. The welcome modal state reset issue is a minor cosmetic concern that does not affect the core functionality of the new features.
+**The fix is incomplete.** The canvas state IS preserved (modules don't disappear), but the confusing modal flow is NOT resolved.
 
-**Recommendation: RELEASE**
+**Recommendation: REQUEST REVISION** — Fix the LoadPromptModal coordination issue before release.

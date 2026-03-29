@@ -75,11 +75,12 @@ function App() {
   const { checkTutorialUnlock } = useRecipeStore();
   
   // Welcome modal hook - handles tutorial start/skip internally
+  // Pass setShowLoadPrompt to suppress LoadPromptModal when WelcomeModal is skipped
   const {
     showWelcome,
     handleStartTutorial,
     handleSkip,
-  } = useWelcomeModal();
+  } = useWelcomeModal(setShowLoadPrompt);
 
   // Check for saved state on mount
   useEffect(() => {

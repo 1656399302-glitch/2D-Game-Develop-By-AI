@@ -2,59 +2,56 @@
   "round": 3,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
-  "commit": "171a642767ee5bc01fbe7ae483b2d307c1125e7b",
+  "commit": "0a52fb06e0777a6e494e9a5651bf0a626c64bd5b",
   "completed_items": [
-    "| 1 | npm run build exits 0 | VERIFIED - Build passes with 0 TypeScript errors (483.20KB JS, 50.83KB CSS) |",
-    "| 2 | npm test shows 100% pass | VERIFIED - 438/438 tests pass across 23 test files |",
-    "| 3 | Toolbar import in App.tsx | VERIFIED - Line 5: `import { Toolbar } from './components/Editor/Toolbar';` |",
-    "| 4 | Toolbar rendered in editor | VERIFIED - Lines 209-210: `{viewMode === 'editor' && <Toolbar />}` |",
-    "| 5 | Test failure button visible | VERIFIED - \"\u26a0 \u6d4b\u8bd5\u6545\u969c\" exists in Toolbar.tsx line 51 |",
-    "| 6 | Test overload button visible | VERIFIED - \"\u26a1 \u6d4b\u8bd5\u8fc7\u8f7d\" exists in Toolbar.tsx line 59 |",
-    "| 7 | MODULE_ACCENT_COLORS accessible | VERIFIED - Exported from types/index.ts, imported correctly |"
+    "| AC1 | Welcome Modal Skip Does Not Reset Canvas | **VERIFIED** | Tests verify `startFresh()` NOT called on skip; modules preserved |",
+    "| AC2 | Welcome Modal Skip Disables Tutorial Permanently | **VERIFIED** | Tests verify `hasSeenWelcome=true`, `isTutorialEnabled=false` |",
+    "| AC3 | Tutorial Store Persistence Works | **VERIFIED** | Tests verify localStorage persistence for tutorial state |",
+    "| AC4 | No Regression in Load Prompt Flow | **VERIFIED** | Tests verify `restoreSavedState()` called when saved state exists |",
+    "| AC5 | All Existing Tests Continue to Pass | **VERIFIED** | 676/676 tests pass |",
+    "| AC6 | Build Passes | **VERIFIED** | `npm run build` exits 0, 0 TypeScript errors |",
+    "| AC7 | New Tests Added and Passing | **VERIFIED** | 62 new tests across 3 test files |"
   ],
   "incomplete_items": [],
-  "failure_reasons": [
-    "**CRITICAL: Chinese text requirement not met** \u2014 Acceptance criteria 5 and 6 explicitly require Chinese text in the overlay (\"\u26a0 \u673a\u5668\u6545\u969c\" and \"\u26a1 \u7cfb\u7edf\u8fc7\u8f7d\"), but the implementation displays English text (\"\u26a0 SYSTEM FAILURE\" and \"\u26a1 CRITICAL OVERLOAD\"). This is a contract violation."
-  ],
+  "failure_reasons": [],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
-    ".ai-harness/handoffs/round-01.json",
     ".ai-harness/handoffs/round-02.json",
-    ".ai-harness/handoffs/round-03.json",
-    ".ai-harness/qa-reports/sprint-01-qa.md",
     ".ai-harness/qa-reports/sprint-02-qa.md",
     ".ai-harness/qa-reports/sprint-03-qa.md",
-    ".ai-harness/sprint-contracts/sprint-02.md",
+    ".ai-harness/runtime/resume-state.json",
     ".ai-harness/sprint-contracts/sprint-03.md",
     "_screenshot.png",
     "contract.md",
-    "dist/assets/index-BpLKdebB.js",
-    "dist/assets/index-CWNdDOSZ.css",
+    "dist/assets/index-DREKkbtt.js",
     "dist/index.html",
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/__tests__/newModules.test.ts",
-    "src/components/Editor/ModulePanel.tsx",
-    "src/components/Modules/ModuleRenderer.tsx",
-    "src/index.css",
-    "src/types/index.ts",
-    "src/utils/attributeGenerator.ts"
+    "src/__tests__/App.test.ts",
+    "src/__tests__/TutorialStore.test.ts",
+    "src/__tests__/WelcomeModal.test.ts",
+    "src/components/Tutorial/WelcomeModal.tsx"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
     "python harness.py dashboard"
   ],
-  "known_issues": [
-    "**CRITICAL: Chinese text requirement not met** \u2014 Acceptance criteria 5 and 6 explicitly require Chinese text in the overlay (\"\u26a0 \u673a\u5668\u6545\u969c\" and \"\u26a1 \u7cfb\u7edf\u8fc7\u8f7d\"), but the implementation displays English text (\"\u26a0 SYSTEM FAILURE\" and \"\u26a1 CRITICAL OVERLOAD\"). This is a contract violation."
-  ],
+  "known_issues": [],
   "next_priorities": [
-    "**CRITICAL: Chinese text requirement not met** \u2014 Acceptance criteria 5 and 6 explicitly require Chinese text in the overlay (\"\u26a0 \u673a\u5668\u6545\u969c\" and \"\u26a1 \u7cfb\u7edf\u8fc7\u8f7d\"), but the implementation displays English text (\"\u26a0 SYSTEM FAILURE\" and \"\u26a1 CRITICAL OVERLOAD\"). This is a contract violation."
+    "1. Canvas state is preserved when skipping tutorial",
+    "2. LoadPromptModal doesn't appear after skip (state is already restored)",
+    "3. `startFresh()` is NOT called on skip",
+    "1. **WelcomeModal.tsx**: Modified `handleSkip` to call `restoreSavedState()` if saved canvas state exists",
+    "2. **Added `hasSavedCanvasState()` helper function** to check for saved state",
+    "3. **Added comprehensive test coverage** for modal coordination",
+    "1. Verify build: `npm run build`",
+    "2. Run tests: `npm test`",
+    "3. Manual test: Add modules to canvas, refresh page, click \"Skip & Explore\", verify modules remain",
+    "4. Check localStorage: Tutorial state should show `hasSeenWelcome: true`"
   ],
-  "evaluator_failures": [
-    "**CRITICAL: Chinese text requirement not met** \u2014 Acceptance criteria 5 and 6 explicitly require Chinese text in the overlay (\"\u26a0 \u673a\u5668\u6545\u969c\" and \"\u26a1 \u7cfb\u7edf\u8fc7\u8f7d\"), but the implementation displays English text (\"\u26a0 SYSTEM FAILURE\" and \"\u26a1 CRITICAL OVERLOAD\"). This is a contract violation."
-  ],
+  "evaluator_failures": [],
   "restore_instructions": [
     "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",
     "Use .ai-harness/handoffs/latest.json as the first recovery artifact."

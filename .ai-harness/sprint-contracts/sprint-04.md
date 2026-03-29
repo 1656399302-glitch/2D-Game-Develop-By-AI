@@ -1,106 +1,120 @@
 # Sprint Contract — Round 4
 
+## APPROVED
+
 ## Scope
 
-**Remediation Sprint**: Fix the single blocking bug from Round 3 QA that caused acceptance criteria 5 and 6 to fail. This is a targeted text-literal fix only.
+**Remediation Sprint** — Fix the LoadPromptModal coordination issue identified in Round 3 QA feedback.
 
 ## Spec Traceability
 
-### Round 3 QA Results Summary
-| Criterion | Status | This Sprint |
-|-----------|--------|-------------|
-| AC1: Toolbar Button 1 Visible | PASS | No action needed |
-| AC2: Toolbar Button 2 Visible | PASS | No action needed |
-| AC3: Failure Mode Triggerable | PASS | No action needed |
-| AC4: Overload Mode Triggerable | PASS | No action needed |
-| **AC5: Failure Mode Chinese Text** | **FAIL** | **Must fix** |
-| **AC6: Overload Mode Chinese Text** | **FAIL** | **Must fix** |
-| AC7: Auto-Recovery Works | PASS | No action needed |
-| AC8: No Test Regression | PASS | No action needed |
-| AC9: Build Clean | PASS | No action needed |
+- **P0 items covered this round:**
+  - [FIX] LoadPromptModal coordination with WelcomeModal skip flow
 
-### Status After This Sprint
-- **P0 items**: All P0 items implemented (Round 3)
-- **P1 items**: All P1 items implemented (Round 3)
-- **Remaining P0/P1 after this round**: None
-- **P2 items**: Deferred (out of scope)
+- **P1 items covered this round:** None (remediation focus)
 
-## Root Cause
+- **Remaining P0/P1 after this round:** None related to this fix
 
-`src/components/Preview/ActivationOverlay.tsx` lines ~224-232:
-```typescript
-const getTitle = () => {
-  switch (phase) {
-    case 'failure':
-      return '⚠ SYSTEM FAILURE';  // ← WRONG (English)
-    case 'overload':
-      return '⚡ CRITICAL OVERLOAD';  // ← WRONG (English)
-    // ...
-  }
-};
-```
+- **P2 intentionally deferred:** All P2 items remain deferred
+
+## Background
+
+Round 3 QA revealed an **incomplete fix** for the WelcomeModal skip behavior:
+
+**The Problem:**
+- Canvas state IS preserved when skipping WelcomeModal (modules don't disappear) ✓
+- BUT LoadPromptModal still appears after WelcomeModal dismiss ✓
+- Users see "Start Fresh" button and may accidentally clear their work ✗
+
+**Root Cause:**
+- `handleSkip` in `useWelcomeModal` calls `restoreSavedState()` to restore modules
+- BUT `showLoadPrompt` state in App.tsx was set to `true` during mount
+- `handleSkip` does NOT have access to App.tsx's `setShowLoadPrompt` setter
+- LoadPromptModal renders because its condition `{showLoadPrompt && (<LoadPromptModal />)}` is still true
 
 ## Deliverables
 
-1. **Fixed `src/components/Preview/ActivationOverlay.tsx`**
-   - Line ~226: Change `return '⚠ SYSTEM FAILURE'` → `return '⚠ 机器故障'`
-   - Line ~229: Change `return '⚡ CRITICAL OVERLOAD'` → `return '⚡ 系统过载'`
+1. **Modified `useWelcomeModal` hook** (`src/components/Tutorial/WelcomeModal.tsx`)
+   - Accept `setShowLoadPrompt` as optional parameter
+   - Call `setShowLoadPrompt(false)` in `handleSkip` when provided
+
+2. **Modified `App.tsx`** (`src/App.tsx`)
+   - Pass `setShowLoadPrompt` to `useWelcomeModal` hook
+
+3. **Integration test for complete flow** (`src/__tests__/ModalCoordination.test.tsx`)
+   - Test: skip WelcomeModal → verify LoadPromptModal does NOT appear → verify canvas has saved modules
 
 ## Acceptance Criteria
 
-1. **AC1 (from Round 3 AC5)**: Clicking "⚠ 测试故障" triggers overlay displaying "⚠ 机器故障" — NOT English text
-2. **AC2 (from Round 3 AC6)**: Clicking "⚡ 测试过载" triggers overlay displaying "⚡ 系统过载" — NOT English text
-3. **AC3**: `npm run build` exits with code 0 and 0 TypeScript errors
-4. **AC4**: `npm test` shows 438/438 passing tests (no regressions)
+1. **AC1:** When user clicks "Skip & Explore" on WelcomeModal with saved state:
+   - WelcomeModal closes
+   - Canvas shows restored modules (state is preserved)
+   - LoadPromptModal does NOT appear
+
+2. **AC2:** When user clicks "Skip & Explore" on WelcomeModal without saved state:
+   - WelcomeModal closes
+   - Canvas is empty
+   - LoadPromptModal does NOT appear
+
+3. **AC3:** When user clicks "Start Tutorial" on WelcomeModal:
+   - WelcomeModal closes
+   - Tutorial begins
+   - LoadPromptModal does NOT appear
+
+4. **AC4:** All 676 existing tests continue to pass
+
+5. **AC5:** New integration test passes
 
 ## Test Methods
 
-1. **Browser verification** (per QA Round 3 method):
-   - Click "⚠ 测试故障" → `document.body.innerText.includes('⚠ 机器故障')` must return `true`
-   - Click "⚡ 测试过载" → `document.body.innerText.includes('⚡ 系统过载')` must return `true`
+1. **Unit Tests (existing):**
+   - `WelcomeModal.test.ts` — 19 tests (skip behavior)
+   - `TutorialStore.test.ts` — 37 tests (persistence)
+   - `App.test.ts` — 16 tests (modal coordination)
 
-2. **Build verification**:
-   - Execute `npm run build`
-   - Verify exit code is 0
-   - Verify 0 TypeScript errors
+2. **Integration Test (new):**
+   - `ModalCoordination.test.tsx` — Browser-level test verifying complete skip flow
+   - Steps: seed localStorage with saved state → reload → skip WelcomeModal → assert LoadPromptModal absent → assert canvas has modules
 
-3. **Test suite verification**:
-   - Execute `npm test`
-   - Verify exactly 438/438 tests pass
+3. **Manual Browser Verification:**
+   - Clear localStorage, add 1 module, reload page
+   - Click "Skip & Explore"
+   - Verify: WelcomeModal gone, LoadPromptModal NOT visible, canvas shows 1 module
 
 ## Risks
 
-1. **Risk level**: LOW — single file, two line changes
-2. **Risk mitigation**: No architectural changes; text literal replacement only
-3. **Risk mitigation**: 438/438 existing tests provide regression protection
+1. **Low Risk:** Simple state coordination fix with clear cause/effect
+2. **Minimal Code Change:** Only 3 files modified, no architectural changes
+3. **Existing Test Coverage:** Comprehensive unit tests already in place
 
 ## Failure Conditions
 
-The round MUST fail if ANY of these conditions occur:
-
-1. Overlay text is still in English after fix ("⚠ SYSTEM FAILURE" or "⚡ CRITICAL OVERLOAD" present)
-2. `npm run build` fails or exits with non-zero code
-3. TypeScript errors present in build output
-4. `npm test` shows fewer than 438/438 passing tests
-5. New bugs introduced in other overlay functionality (animation, auto-recovery, etc.)
+Round fails if ANY of:
+1. LoadPromptModal appears after WelcomeModal skip (critical UX bug)
+2. Canvas state is NOT preserved after WelcomeModal skip
+3. Any of 676 existing tests fail
+4. New integration test fails or is missing
+5. TypeScript compilation errors introduced
 
 ## Done Definition
 
-The round is **complete** when ALL of the following are true:
+**Exact conditions that must be true before claiming round complete:**
 
-- [ ] `ActivationOverlay.tsx` `getTitle()` returns `'⚠ 机器故障'` when `phase === 'failure'`
-- [ ] `ActivationOverlay.tsx` `getTitle()` returns `'⚡ 系统过载'` when `phase === 'overload'`
-- [ ] `npm run build` exits with code 0 and 0 TypeScript errors
-- [ ] `npm test` shows 438/438 passing tests
-- [ ] Browser test confirms "⚠ 机器故障" appears in failure overlay
-- [ ] Browser test confirms "⚡ 系统过载" appears in overload overlay
-- [ ] All other overlay functionality (animations, auto-recovery) unchanged
+1. ✓ `useWelcomeModal` accepts and uses `setShowLoadPrompt` parameter
+2. ✓ `App.tsx` passes `setShowLoadPrompt` to `useWelcomeModal`
+3. ✓ LoadPromptModal does NOT render when WelcomeModal is skipped with saved state
+4. ✓ Canvas modules are restored when WelcomeModal is skipped with saved state
+5. ✓ All 676 existing tests pass
+6. ✓ New `ModalCoordination.test.tsx` test file created and passing
+7. ✓ `npm run build` succeeds with 0 TypeScript errors
 
 ## Out of Scope
 
-- No new features or modules
-- No UI/UX changes beyond the two text literals
-- No state management modifications
-- No architecture changes
-- No additional test coverage (existing tests sufficient)
-- No other bug fixes (only AC5 and AC6 from Round 3)
+- Any feature additions beyond the bug fix
+- UI/UX design changes beyond the fix
+- Performance optimizations
+- Documentation updates
+- New module types or functionality
+- Changes to activation system
+- Changes to export system
+- Changes to codex/persistence system beyond this coordination fix
