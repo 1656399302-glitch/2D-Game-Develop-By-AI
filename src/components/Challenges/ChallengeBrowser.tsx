@@ -1,43 +1,51 @@
 import { useState, useMemo } from 'react';
 import {
-  Challenge,
-  CHALLENGES,
-  getDifficultyColor,
-  getDifficultyLabel,
-} from '../../types/challenges';
+  ChallengeDefinition,
+  CHALLENGE_DEFINITIONS,
+  getChallengeDifficultyColor,
+  getChallengeDifficultyLabel,
+  getChallengeCategoryLabel,
+  getChallengeCategoryIcon,
+} from '../../data/challenges';
 import { useChallengeStore } from '../../store/useChallengeStore';
-import { ChallengeValidationPanel } from './ChallengeValidationPanel';
-import { ChallengeCelebration } from './ChallengeCelebration';
+import { EnhancedChallengeCard } from './EnhancedChallengeCard';
+import { ChallengeTimer } from './ChallengeTimer';
 
 interface ChallengeBrowserProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type FilterTab = 'all' | 'available' | 'completed';
+type FilterTab = 'all' | 'creation' | 'collection' | 'activation' | 'mastery';
+type ViewMode = 'progress' | 'time-trial';
 
 /**
  * Modal browser for viewing and completing challenges
  */
 export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
-  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
-  const [celebrationChallenge, setCelebrationChallenge] = useState<Challenge | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('progress');
+  const [selectedChallenge, setSelectedChallenge] = useState<ChallengeDefinition | null>(null);
+  const [celebrationChallenge, setCelebrationChallenge] = useState<ChallengeDefinition | null>(null);
+  const [timeTrialActive, setTimeTrialActive] = useState(false);
 
   const { isCompleted, completeChallenge, getCompletedCount } = useChallengeStore();
 
   const filteredChallenges = useMemo(() => {
-    switch (activeTab) {
-      case 'available':
-        return CHALLENGES.filter((c) => !isCompleted(c.id));
-      case 'completed':
-        return CHALLENGES.filter((c) => isCompleted(c.id));
-      default:
-        return CHALLENGES;
+    if (activeTab === 'all') {
+      return CHALLENGE_DEFINITIONS;
     }
-  }, [activeTab, isCompleted]);
+    return CHALLENGE_DEFINITIONS.filter((c) => c.category === activeTab);
+  }, [activeTab]);
 
-  const handleClaimReward = (challenge: Challenge) => {
+  // Get progress for a challenge
+  const getChallengeProgress = (challengeId: string): number => {
+    // For now, return 0 - this would be connected to actual progress tracking
+    // In a full implementation, this would pull from a challenge progress store
+    return isCompleted(challengeId) ? 1 : 0;
+  };
+
+  const handleClaimReward = (challenge: ChallengeDefinition) => {
     completeChallenge(challenge.id);
     setCelebrationChallenge(challenge);
   };
@@ -49,6 +57,7 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
   const handleClose = () => {
     setSelectedChallenge(null);
     setActiveTab('all');
+    setTimeTrialActive(false);
     onClose();
   };
 
@@ -63,12 +72,37 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
             <div className="flex items-center gap-3">
               <span className="text-2xl">🏆</span>
               <div>
-                <h2 className="text-xl font-bold text-[#00d4ff]">Challenges</h2>
+                <h2 className="text-xl font-bold text-[#00d4ff]">挑战</h2>
                 <p className="text-xs text-[#4a5568]">
-                  {getCompletedCount()} of {CHALLENGES.length} completed
+                  {getCompletedCount()} of {CHALLENGE_DEFINITIONS.length} 已完成
                 </p>
               </div>
             </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-2 mr-4">
+              <button
+                onClick={() => setViewMode('progress')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  viewMode === 'progress'
+                    ? 'bg-[#00d4ff]/20 text-[#00d4ff]'
+                    : 'text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                进度模式
+              </button>
+              <button
+                onClick={() => setViewMode('time-trial')}
+                className={`px-3 py-1 text-xs rounded transition-colors ${
+                  viewMode === 'time-trial'
+                    ? 'bg-[#f59e0b]/20 text-[#f59e0b]'
+                    : 'text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                计时挑战
+              </button>
+            </div>
+
             <button
               onClick={handleClose}
               className="w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors"
@@ -77,9 +111,9 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
             </button>
           </div>
 
-          {/* Filter Tabs */}
+          {/* Category Filter Tabs */}
           <div className="flex border-b border-[#1e2a42]">
-            {(['all', 'available', 'completed'] as FilterTab[]).map((tab) => (
+            {(['all', 'creation', 'collection', 'activation', 'mastery'] as FilterTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -89,14 +123,7 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
                     : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2a42]/50'
                 }`}
               >
-                {tab === 'all' ? 'All Challenges' : tab === 'available' ? 'Available' : 'Completed'}
-                <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-[#1e2a42]">
-                  {tab === 'all'
-                    ? CHALLENGES.length
-                    : tab === 'available'
-                    ? CHALLENGES.length - getCompletedCount()
-                    : getCompletedCount()}
-                </span>
+                {tab === 'all' ? '全部' : getChallengeCategoryLabel(tab)}
               </button>
             ))}
           </div>
@@ -107,21 +134,16 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
             <div className="w-1/2 border-r border-[#1e2a42] overflow-y-auto">
               {filteredChallenges.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-[#4a5568]">
-                  <span className="text-4xl mb-2">
-                    {activeTab === 'completed' ? '🔒' : '📭'}
-                  </span>
-                  <p className="text-sm">
-                    {activeTab === 'completed'
-                      ? 'No completed challenges yet'
-                      : 'No challenges available'}
-                  </p>
+                  <span className="text-4xl mb-2">📭</span>
+                  <p className="text-sm">No challenges available</p>
                 </div>
               ) : (
                 <div className="p-4 space-y-3">
                   {filteredChallenges.map((challenge) => (
-                    <ChallengeCard
+                    <EnhancedChallengeCard
                       key={challenge.id}
                       challenge={challenge}
+                      currentProgress={getChallengeProgress(challenge.id)}
                       isCompleted={isCompleted(challenge.id)}
                       isSelected={selectedChallenge?.id === challenge.id}
                       onClick={() => setSelectedChallenge(challenge)}
@@ -131,17 +153,120 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
               )}
             </div>
 
-            {/* Validation Panel */}
+            {/* Detail Panel */}
             <div className="w-1/2 overflow-y-auto bg-[#0a0e17]/30">
               {selectedChallenge ? (
-                <ChallengeValidationPanel
-                  challenge={selectedChallenge}
-                  onClaimReward={handleClaimReward}
-                />
+                <div className="p-4">
+                  {/* Challenge Header */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">{getChallengeCategoryIcon(selectedChallenge.category)}</span>
+                      <h3 className="text-lg font-semibold text-white">
+                        {selectedChallenge.title}
+                      </h3>
+                      <span
+                        className="px-2 py-0.5 text-xs font-medium rounded"
+                        style={{
+                          backgroundColor: `${getChallengeDifficultyColor(selectedChallenge.difficulty)}20`,
+                          color: getChallengeDifficultyColor(selectedChallenge.difficulty),
+                        }}
+                      >
+                        {getChallengeDifficultyLabel(selectedChallenge.difficulty)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[#9ca3af]">
+                      {selectedChallenge.description}
+                    </p>
+                  </div>
+
+                  {/* Time Trial Mode */}
+                  {viewMode === 'time-trial' && (
+                    <div className="mb-4 p-4 rounded-lg bg-[#1e2a42]/50 border border-[#f59e0b]/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-[#f59e0b]">
+                          ⏱️ 计时挑战
+                        </span>
+                        {!timeTrialActive && (
+                          <button
+                            onClick={() => setTimeTrialActive(true)}
+                            className="px-3 py-1 text-xs rounded bg-[#f59e0b] text-[#0a0e17] font-medium"
+                          >
+                            开始计时
+                          </button>
+                        )}
+                      </div>
+                      {timeTrialActive && (
+                        <ChallengeTimer
+                          limit={300} // 5 minutes
+                          autoStart={true}
+                          onExpire={() => setTimeTrialActive(false)}
+                          className="justify-center"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Progress Section */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-[#4a5568]">进度</span>
+                      <span className="text-white">
+                        {getChallengeProgress(selectedChallenge.id)} / {selectedChallenge.target}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-[#1e2a42] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#00d4ff] to-[#06b6d4] transition-all"
+                        style={{
+                          width: `${Math.min(100, (getChallengeProgress(selectedChallenge.id) / selectedChallenge.target) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reward Section */}
+                  <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1e2a42] mb-4">
+                    <p className="text-xs text-[#4a5568] uppercase tracking-wider mb-2">
+                      奖励
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {selectedChallenge.reward.type === 'badge' ? '🎖️' : 
+                         selectedChallenge.reward.type === 'recipe' ? '📜' : '⭐'}
+                      </span>
+                      <div>
+                        <p className="text-[#fbbf24] font-medium">
+                          {selectedChallenge.reward.displayName}
+                        </p>
+                        <p className="text-xs text-[#9ca3af]">
+                          {selectedChallenge.reward.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="space-y-2">
+                    {isCompleted(selectedChallenge.id) ? (
+                      <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-[#f59e0b]/10 text-[#f59e0b]">
+                        <span>✓</span>
+                        <span className="font-medium">挑战已完成!</span>
+                        <span className="text-lg">🏆</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleClaimReward(selectedChallenge)}
+                        className="w-full bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] text-[#0a0e17] font-semibold py-3 px-4 rounded-lg hover:opacity-90 transition-all"
+                      >
+                        🎁 领取奖励
+                      </button>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-[#4a5568] p-8 text-center">
                   <span className="text-5xl mb-4 opacity-50">👆</span>
-                  <p className="text-sm">Select a challenge to view details</p>
+                  <p className="text-sm">选择一个挑战查看详情</p>
                 </div>
               )}
             </div>
@@ -151,19 +276,19 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
           <div className="px-6 py-3 border-t border-[#1e2a42] bg-[#0a0e17]/50">
             <div className="flex items-center justify-between">
               <p className="text-xs text-[#4a5568]">
-                Complete challenges to earn badges and titles!
+                完成挑战以获得徽章和奖励!
               </p>
               {getCompletedCount() > 0 && (
                 <button
                   onClick={() => {
-                    if (confirm('Reset all challenge progress? This cannot be undone.')) {
+                    if (confirm('重置所有挑战进度? 此操作无法撤销.')) {
                       useChallengeStore.getState().resetProgress();
                       setSelectedChallenge(null);
                     }
                   }}
                   className="text-xs text-[#ef4444] hover:text-[#f87171] transition-colors"
                 >
-                  Reset Progress
+                  重置进度
                 </button>
               )}
             </div>
@@ -173,7 +298,7 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
 
       {/* Celebration Overlay */}
       {celebrationChallenge && (
-        <ChallengeCelebration
+        <LegacyChallengeCelebration
           challenge={celebrationChallenge}
           onClose={handleCloseCelebration}
         />
@@ -182,83 +307,90 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
   );
 }
 
-interface ChallengeCardProps {
-  challenge: Challenge;
-  isCompleted: boolean;
-  isSelected: boolean;
-  onClick: () => void;
-}
-
-function ChallengeCard({ challenge, isCompleted, isSelected, onClick }: ChallengeCardProps) {
-  const difficultyColor = getDifficultyColor(challenge.difficulty);
-
+/**
+ * Legacy celebration component for ChallengeDefinition type
+ */
+function LegacyChallengeCelebration({
+  challenge,
+  onClose,
+}: {
+  challenge: ChallengeDefinition;
+  onClose: () => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left p-4 rounded-lg border transition-all ${
-        isSelected
-          ? 'border-[#00d4ff] bg-[#00d4ff]/10'
-          : isCompleted
-          ? 'border-[#f59e0b]/50 bg-[#f59e0b]/5 hover:border-[#f59e0b]'
-          : 'border-[#1e2a42] bg-[#121826] hover:border-[#00d4ff]/50 hover:bg-[#1e2a42]/50'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            {isCompleted && <span className="text-[#f59e0b]">✓</span>}
-            <h3
-              className={`font-semibold truncate ${
-                isCompleted ? 'text-[#f59e0b]' : 'text-white'
-              }`}
-            >
-              {challenge.title}
-            </h3>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="relative w-full max-w-md mx-4 bg-[#121826] border border-[#f59e0b]/50 rounded-2xl p-8 shadow-2xl">
+        {/* Decorative Corners */}
+        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-[#f59e0b] rounded-tl-2xl" />
+        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[#f59e0b] rounded-tr-2xl" />
+        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-[#f59e0b] rounded-bl-2xl" />
+        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-[#f59e0b] rounded-br-2xl" />
+
+        {/* Badge Icon */}
+        <div className="flex justify-center mb-4">
+          <div className="relative">
+            <div
+              className="w-24 h-24 rounded-full border-4 border-dashed border-[#f59e0b]/50 animate-spin-slow"
+              style={{ animationDuration: '8s' }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#f59e0b] to-[#fbbf24] flex items-center justify-center shadow-lg">
+                <span className="text-4xl">🏆</span>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-[#9ca3af] line-clamp-2">
-            {challenge.description}
-          </p>
         </div>
-        <span
-          className="px-2 py-0.5 text-xs font-medium rounded whitespace-nowrap"
-          style={{
-            backgroundColor: `${difficultyColor}20`,
-            color: difficultyColor,
-          }}
+
+        {/* Title */}
+        <h2 className="text-2xl font-bold text-[#f59e0b] text-center mb-2 animate-pulse">
+          挑战完成!
+        </h2>
+
+        {/* Challenge Name */}
+        <p className="text-lg text-white font-semibold text-center mb-6">
+          {challenge.title}
+        </p>
+
+        {/* Reward Section */}
+        <div className="bg-[#0a0e17] rounded-xl p-4 mb-6 border border-[#1e2a42]">
+          <p className="text-xs text-[#4a5568] uppercase tracking-wider mb-2 text-center">
+            奖励解锁
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-2xl">
+              {challenge.reward.type === 'badge' ? '🎖️' : 
+               challenge.reward.type === 'recipe' ? '📜' : '⭐'}
+            </span>
+            <div className="text-left">
+              <p className="text-[#fbbf24] font-semibold">
+                {challenge.reward.displayName}
+              </p>
+              <p className="text-xs text-[#9ca3af]">
+                {challenge.reward.description}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Continue Button */}
+        <button
+          onClick={onClose}
+          className="w-full bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] text-[#0a0e17] font-bold py-3 px-6 rounded-lg hover:opacity-90 transition-all transform hover:scale-105"
         >
-          {getDifficultyLabel(challenge.difficulty)}
-        </span>
+          继续
+        </button>
       </div>
 
-      {/* Requirement Preview */}
-      <div className="mt-3 flex flex-wrap gap-1">
-        {challenge.requirements.minModules && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e2a42] text-[#9ca3af]">
-            {challenge.requirements.minModules}+ modules
-          </span>
-        )}
-        {challenge.requirements.minConnections && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e2a42] text-[#9ca3af]">
-            {challenge.requirements.minConnections}+ connections
-          </span>
-        )}
-        {challenge.requirements.requiredTags && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e2a42] text-[#9ca3af]">
-            {challenge.requirements.requiredTags[0]}
-          </span>
-        )}
-        {challenge.requirements.requiredRarity && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e2a42] text-[#9ca3af]">
-            {challenge.requirements.requiredRarity}+
-          </span>
-        )}
-        {challenge.requirements.specificModuleTypes && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e2a42] text-[#9ca3af]">
-            {challenge.requirements.specificModuleTypes.length} specific
-          </span>
-        )}
-      </div>
-    </button>
+      <style>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 8s linear infinite;
+        }
+      `}</style>
+    </div>
   );
 }
 

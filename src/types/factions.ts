@@ -5,6 +5,19 @@
  * Factions provide thematic alignment for machines and unlock special abilities.
  */
 
+// Re-export faction reputation types
+export { FactionReputationLevel } from './factionReputation';
+export type { FactionReputation } from './factionReputation';
+
+export {
+  REPUTATION_THRESHOLDS,
+  NEXT_LEVEL_THRESHOLDS,
+  REPUTATION_LEVEL_INFO,
+  FACTION_VARIANT_MODULES,
+  getFactionVariantModule,
+  isVariantUnlockedForLevel,
+} from './factionReputation';
+
 // Faction identifiers
 export type FactionId = 'void' | 'inferno' | 'storm' | 'stellar';
 
@@ -210,6 +223,33 @@ export const ACHIEVEMENTS: Achievement[] = [
     icon: '🌑',
     condition: (stats) => (stats.factionCounts['void'] || 0) >= 5,
     faction: 'void',
+  },
+  {
+    id: 'inferno-master',
+    name: 'Inferno Master',
+    nameCn: '熔岩大师',
+    description: 'Create 5 Inferno-aligned machines',
+    icon: '🔥',
+    condition: (stats) => (stats.factionCounts['inferno'] || 0) >= 5,
+    faction: 'inferno',
+  },
+  {
+    id: 'storm-ruler',
+    name: 'Storm Ruler',
+    nameCn: '雷霆主宰',
+    description: 'Create 5 Storm-aligned machines',
+    icon: '⚡',
+    condition: (stats) => (stats.factionCounts['storm'] || 0) >= 5,
+    faction: 'storm',
+  },
+  {
+    id: 'stellar-harmonizer',
+    name: 'Stellar Harmonizer',
+    nameCn: '星辉和谐者',
+    description: 'Create 5 Stellar-aligned machines',
+    icon: '✨',
+    condition: (stats) => (stats.factionCounts['stellar'] || 0) >= 5,
+    faction: 'stellar',
   },
   {
     id: 'perfect-activation',

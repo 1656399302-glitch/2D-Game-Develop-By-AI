@@ -1,7 +1,16 @@
+/**
+ * Challenge Types - LEGACY SYSTEM
+ * 
+ * @deprecated Use `src/data/challenges.ts` with `CHALLENGE_DEFINITIONS` instead.
+ * This file contains the legacy validation-based challenge system.
+ * The new canonical system uses progress-based challenges.
+ */
+
 import { Rarity, ModuleType } from './index';
 
 /**
- * Challenge difficulty levels
+ * @deprecated Use `ChallengeDifficulty` from `src/data/challenges.ts` instead.
+ * Challenge difficulty levels (includes 'master' tier for validation-based challenges)
  */
 export type ChallengeDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'master';
 
@@ -47,6 +56,7 @@ export interface ChallengeReward {
 
 /**
  * A challenge that users can complete
+ * @deprecated Use `ChallengeDefinition` from `src/data/challenges.ts` instead.
  */
 export interface Challenge {
   /** Unique identifier */
@@ -89,6 +99,7 @@ export interface RequirementDetail {
 
 /**
  * Get difficulty color for styling
+ * @deprecated Use `getChallengeDifficultyColor` from `src/data/challenges.ts`
  */
 export function getDifficultyColor(difficulty: ChallengeDifficulty): string {
   const colors: Record<ChallengeDifficulty, string> = {
@@ -102,6 +113,7 @@ export function getDifficultyColor(difficulty: ChallengeDifficulty): string {
 
 /**
  * Get difficulty label for display
+ * @deprecated Use `getChallengeDifficultyLabel` from `src/data/challenges.ts`
  */
 export function getDifficultyLabel(difficulty: ChallengeDifficulty): string {
   const labels: Record<ChallengeDifficulty, string> = {
@@ -125,7 +137,8 @@ export function rarityMeetsRequirement(machineRarity: Rarity, requiredRarity: Ra
 }
 
 /**
- * 8 Preset Challenges
+ * 8 Preset Challenges (Validation-based)
+ * @deprecated Use `CHALLENGE_DEFINITIONS` from `src/data/challenges.ts` instead.
  */
 export const CHALLENGES: Challenge[] = [
   // BEGINNER (2 challenges)

@@ -488,7 +488,52 @@ function ModuleIcon({ type }: { type: ModuleType }) {
         <circle cx="16" cy="16" r="3" fill="#ca8a04"/>
       </svg>
     ),
-  };
+     'void-arcane-gear': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="12" fill="#1e1b4b" stroke="#c4b5fd" strokeWidth="1.5"/>
+        <circle cx="16" cy="16" r="7" fill="#2d1b4e" stroke="#a78bfa" strokeWidth="1"/>
+        <g stroke="#c4b5fd" strokeWidth="1.5">
+          <line x1="16" y1="2" x2="16" y2="9"/>
+          <line x1="16" y1="23" x2="16" y2="30"/>
+          <line x1="2" y1="16" x2="9" y2="16"/>
+          <line x1="23" y1="16" x2="30" y2="16"/>
+        </g>
+        <circle cx="16" cy="16" r="4" fill="#7c3aed"/>
+        <circle cx="16" cy="16" r="2" fill="#c4b5fd"/>
+      </svg>
+    ),
+    'inferno-blazing-core': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <polygon points="16,2 30,9 30,23 16,30 2,23 2,9" fill="#1c1917" stroke="#fb923c" strokeWidth="1.5"/>
+        <circle cx="16" cy="16" r="10" fill="#7c2d12" stroke="#f97316" strokeWidth="0.5" opacity="0.7"/>
+        <circle cx="16" cy="16" r="6" fill="#ea580c" stroke="#fbbf24" strokeWidth="0.5"/>
+        <circle cx="16" cy="16" r="3" fill="#f97316"/>
+        <circle cx="16" cy="16" r="1.5" fill="#fbbf24"/>
+      </svg>
+    ),
+    'storm-thundering-pipe': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="2" y="10" width="28" height="12" rx="3" fill="#164e63" stroke="#67e8f9" strokeWidth="1.5"/>
+        <line x1="8" y1="16" x2="24" y2="16" stroke="#22d3ee" strokeWidth="2" strokeDasharray="4,2"/>
+        <polygon points="16,6 24,11 24,21 16,26 8,21 8,11" fill="none" stroke="#22d3ee" strokeWidth="0.5" opacity="0.7"/>
+        <path d="M18,8 L14,15 L19,15 L13,24 L16,17 L11,17 Z" fill="#67e8f9" stroke="#a5f3fc" strokeWidth="0.5"/>
+        <circle cx="16" cy="16" r="2" fill="#22d3ee"/>
+      </svg>
+    ),
+    'stellar-harmonic-crystal': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" fill="#0c4a6e" stroke="#fcd34d" strokeWidth="1.5"/>
+        <circle cx="16" cy="16" r="10" fill="none" stroke="#fbbf24" strokeWidth="1" opacity="0.7"/>
+        <circle cx="16" cy="16" r="6" fill="none" stroke="#fde047" strokeWidth="1" opacity="0.5"/>
+        <circle cx="16" cy="16" r="4" fill="#b45309"/>
+        <circle cx="16" cy="16" r="2" fill="#fcd34d"/>
+        <circle cx="16" cy="2" r="1.5" fill="#fbbf24"/>
+        <circle cx="30" cy="16" r="1.5" fill="#fde047"/>
+        <circle cx="16" cy="30" r="1.5" fill="#fbbf24"/>
+        <circle cx="2" cy="16" r="1.5" fill="#fcd34d"/>
+      </svg>
+    ),
+};
   
   return iconStyles[type] || <span>?</span>;
 }

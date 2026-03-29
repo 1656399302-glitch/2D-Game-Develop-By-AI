@@ -1,5 +1,5 @@
 import { useChallengeStore } from '../../store/useChallengeStore';
-import { CHALLENGES } from '../../types/challenges';
+import { CHALLENGE_DEFINITIONS } from '../../data/challenges';
 
 interface ChallengeButtonProps {
   onClick: () => void;
@@ -11,7 +11,7 @@ interface ChallengeButtonProps {
  */
 export function ChallengeButton({ onClick }: ChallengeButtonProps) {
   const completedCount = useChallengeStore((state) => state.getCompletedCount());
-  const totalCount = CHALLENGES.length;
+  const totalCount = CHALLENGE_DEFINITIONS.length;
 
   return (
     <button

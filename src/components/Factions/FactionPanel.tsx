@@ -1,19 +1,24 @@
 /**
  * Faction Panel Component
  * 
- * Displays faction alignment selection and progress display.
+ * Displays faction alignment selection, progress display, and reputation system.
+ * Integrates with FactionReputationPanel for reputation tracking.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { FACTIONS, FactionId, TECH_TREE_REQUIREMENTS } from '../../types/factions';
 import { useFactionStore } from '../../store/useFactionStore';
 import { useStatsStore } from '../../store/useStatsStore';
+import { FactionReputationPanel } from './FactionReputationPanel';
+
+type FactionPanelTab = 'factions' | 'reputation';
 
 interface FactionPanelProps {
   onClose?: () => void;
 }
 
 export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
+  const [activeTab, setActiveTab] = useState<FactionPanelTab>('factions');
   const factionCounts = useFactionStore((state) => state.factionCounts);
   const selectedFaction = useFactionStore((state) => state.selectedFaction);
   const setSelectedFaction = useFactionStore((state) => state.setSelectedFaction);
@@ -48,7 +53,7 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
         
         {/* Header */}
         <div className="p-6 pb-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/20 flex items-center justify-center text-xl">
                 ⚔️
@@ -74,54 +79,88 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
             )}
           </div>
           
-          {/* Total progress */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-[#9ca3af]">派系参与度</span>
-              <span className="text-[#a78bfa]">{Math.round(totalProgress)}%</span>
-            </div>
-            <div className="h-2 bg-[#0a0e17] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#a78bfa] to-[#7c3aed] transition-all duration-500"
-                style={{ width: `${totalProgress}%` }}
-              />
-            </div>
+          {/* Tab Switcher */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('factions')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'factions'
+                  ? 'bg-[#7c3aed]/20 text-[#a78bfa]'
+                  : 'text-[#6b7280] hover:text-white'
+              }`}
+            >
+              派系选择
+            </button>
+            <button
+              onClick={() => setActiveTab('reputation')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'reputation'
+                  ? 'bg-[#f59e0b]/20 text-[#f59e0b]'
+                  : 'text-[#6b7280] hover:text-white'
+              }`}
+            >
+              ⚡ 声望系统
+            </button>
           </div>
         </div>
         
-        {/* Faction cards */}
-        <div className="px-6 pb-6 space-y-4 max-h-[60vh] overflow-y-auto">
-          {(Object.keys(FACTIONS) as FactionId[]).map((factionId) => (
-            <FactionCard
-              key={factionId}
-              factionId={factionId}
-              isSelected={selectedFaction === factionId}
-              onSelect={() => setSelectedFaction(factionId)}
-              machineCount={factionCounts[factionId]}
-            />
-          ))}
-        </div>
-        
-        {/* Legend */}
-        <div className="px-6 pb-6">
-          <div className="p-4 rounded-xl bg-[#0a0e17]/50 border border-[#1e2a42]">
-            <h4 className="text-sm font-medium text-[#9ca3af] mb-2">科技树解锁条件</h4>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#22c55e]" />
-                <span className="text-[#6b7280]">第一层: {TECH_TREE_REQUIREMENTS[1]} 台机器</span>
+        {/* Content based on active tab */}
+        {activeTab === 'factions' ? (
+          <>
+            {/* Total progress */}
+            <div className="px-6 pb-4">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-[#9ca3af]">派系参与度</span>
+                <span className="text-[#a78bfa]">{Math.round(totalProgress)}%</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#3b82f6]" />
-                <span className="text-[#6b7280]">第二层: {TECH_TREE_REQUIREMENTS[2]} 台机器</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#f59e0b]" />
-                <span className="text-[#6b7280]">第三层: {TECH_TREE_REQUIREMENTS[3]} 台机器</span>
+              <div className="h-2 bg-[#0a0e17] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#a78bfa] to-[#7c3aed] transition-all duration-500"
+                  style={{ width: `${totalProgress}%` }}
+                />
               </div>
             </div>
+            
+            {/* Faction cards */}
+            <div className="px-6 pb-6 space-y-4 max-h-[50vh] overflow-y-auto">
+              {(Object.keys(FACTIONS) as FactionId[]).map((factionId) => (
+                <FactionCard
+                  key={factionId}
+                  factionId={factionId}
+                  isSelected={selectedFaction === factionId}
+                  onSelect={() => setSelectedFaction(factionId)}
+                  machineCount={factionCounts[factionId]}
+                />
+              ))}
+            </div>
+            
+            {/* Legend */}
+            <div className="px-6 pb-6">
+              <div className="p-4 rounded-xl bg-[#0a0e17]/50 border border-[#1e2a42]">
+                <h4 className="text-sm font-medium text-[#9ca3af] mb-2">科技树解锁条件</h4>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-[#22c55e]" />
+                    <span className="text-[#6b7280]">第一层: {TECH_TREE_REQUIREMENTS[1]} 台机器</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-[#3b82f6]" />
+                    <span className="text-[#6b7280]">第二层: {TECH_TREE_REQUIREMENTS[2]} 台机器</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-[#f59e0b]" />
+                    <span className="text-[#6b7280]">第三层: {TECH_TREE_REQUIREMENTS[3]} 台机器</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Reputation Tab */
+          <div className="px-6 pb-6 max-h-[60vh] overflow-y-auto">
+            <FactionReputationPanel showDetails={true} />
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

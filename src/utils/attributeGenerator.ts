@@ -55,6 +55,11 @@ const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
   'resonance-chamber': ['resonance', 'arcane'], // resonance energy, arcane enhancement
   'fire-crystal': ['fire', 'explosive'], // fire energy, explosive output
   'lightning-conductor': ['lightning', 'amplifying'], // lightning energy, amplifies output
+  // Faction Variant Modules (Round 18)
+  'void-arcane-gear': ['void', 'mechanical', 'balancing'], // Void mechanical gear with balancing properties
+  'inferno-blazing-core': ['fire', 'arcane', 'explosive'], // Inferno core with arcane enhancement
+  'storm-thundering-pipe': ['lightning', 'mechanical', 'amplifying'], // Storm pipe with amplification
+  'stellar-harmonic-crystal': ['arcane', 'resonance', 'amplifying'], // Stellar crystal with resonance
 };
 
 const DESCRIPTIONS = [
@@ -194,6 +199,10 @@ function generateDescription(stats: MachineStats, modules: PlacedModule[]): stri
   const hasFireCrystal = modules.some((m) => m.type === 'fire-crystal');
   const hasResonanceChamber = modules.some((m) => m.type === 'resonance-chamber');
   const hasLightningConductor = modules.some((m) => m.type === 'lightning-conductor');
+  const hasVoidArcaneGear = modules.some((m) => m.type === 'void-arcane-gear');
+  const hasInfernoBlazingCore = modules.some((m) => m.type === 'inferno-blazing-core');
+  const hasStormThunderingPipe = modules.some((m) => m.type === 'storm-thundering-pipe');
+  const hasStellarHarmonicCrystal = modules.some((m) => m.type === 'stellar-harmonic-crystal');
   
   if (hasOutputArray) {
     desc += ' Output array projects focused arcane beams.';
@@ -212,6 +221,18 @@ function generateDescription(stats: MachineStats, modules: PlacedModule[]): stri
   }
   if (hasLightningConductor) {
     desc += ' Lightning conductors channel raw electrical fury.';
+  }
+  if (hasVoidArcaneGear) {
+    desc += ' The void arcane gear rotates with otherworldly grace.';
+  }
+  if (hasInfernoBlazingCore) {
+    desc += ' The inferno blazing core burns with supernatural intensity.';
+  }
+  if (hasStormThunderingPipe) {
+    desc += ' The storm thundering pipe crackles with electromagnetic power.';
+  }
+  if (hasStellarHarmonicCrystal) {
+    desc += ' The stellar harmonic crystal harmonizes cosmic frequencies.';
   }
   
   return desc;

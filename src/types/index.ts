@@ -1,5 +1,25 @@
 // Module Types
-export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array' | 'amplifier-crystal' | 'stabilizer-core' | 'void-siphon' | 'phase-modulator' | 'resonance-chamber' | 'fire-crystal' | 'lightning-conductor';
+export type ModuleType = 
+  | 'core-furnace' 
+  | 'energy-pipe' 
+  | 'gear' 
+  | 'rune-node' 
+  | 'shield-shell' 
+  | 'trigger-switch' 
+  | 'output-array' 
+  | 'amplifier-crystal' 
+  | 'stabilizer-core' 
+  | 'void-siphon' 
+  | 'phase-modulator' 
+  | 'resonance-chamber' 
+  | 'fire-crystal' 
+  | 'lightning-conductor'
+  // Faction Variant Modules (unlocked at Grandmaster rank)
+  | 'void-arcane-gear'
+  | 'inferno-blazing-core'
+  | 'storm-thundering-pipe'
+  | 'stellar-harmonic-crystal';
+
 export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output' | 'resonance' | 'elemental';
 export type PortType = 'input' | 'output';
 
@@ -172,6 +192,11 @@ export const MODULE_SIZES: Record<ModuleType, { width: number; height: number }>
   'resonance-chamber': { width: 80, height: 80 },
   'fire-crystal': { width: 80, height: 80 },
   'lightning-conductor': { width: 80, height: 80 },
+  // Faction Variant Modules
+  'void-arcane-gear': { width: 90, height: 90 },
+  'inferno-blazing-core': { width: 110, height: 110 },
+  'storm-thundering-pipe': { width: 130, height: 60 },
+  'stellar-harmonic-crystal': { width: 85, height: 85 },
 };
 
 // Port position configuration - supports single position or array for multi-port modules
@@ -239,6 +264,23 @@ export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: PortConfig; output
     input: { x: 0, y: 40 }, // 1 input at left
     output: { x: 80, y: 40 } // 1 output at right
   },
+  // Faction Variant Modules
+  'void-arcane-gear': { 
+    input: { x: 50, y: 0 }, 
+    output: { x: 50, y: 100 } 
+  },
+  'inferno-blazing-core': { 
+    input: { x: 25, y: 55 }, 
+    output: { x: 85, y: 55 } 
+  },
+  'storm-thundering-pipe': { 
+    input: { x: 0, y: 30 }, 
+    output: { x: 100, y: 30 } 
+  },
+  'stellar-harmonic-crystal': { 
+    input: { x: 0, y: 42 }, 
+    output: [{ x: 85, y: 25 }, { x: 85, y: 60 }] // 1 input, 2 outputs
+  },
 };
 
 // Module accent colors
@@ -257,6 +299,11 @@ export const MODULE_ACCENT_COLORS: Record<ModuleType, string> = {
   'resonance-chamber': '#06b6d4',
   'fire-crystal': '#f97316',
   'lightning-conductor': '#eab308',
+  // Faction Variant Modules
+  'void-arcane-gear': '#c4b5fd', // Lighter purple for variant
+  'inferno-blazing-core': '#fb923c', // Orange for variant
+  'storm-thundering-pipe': '#67e8f9', // Cyan for variant
+  'stellar-harmonic-crystal': '#fcd34d', // Gold for variant
 };
 
 // Resolution dimensions for export
