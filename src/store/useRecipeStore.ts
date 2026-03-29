@@ -34,6 +34,7 @@ interface RecipeStore extends RecipeStoreState {
   
   // Challenge integration
   checkChallengeUnlock: (challengeId: string) => void;
+  checkChallengeCountUnlock: (count: number) => void;
   checkTutorialUnlock: () => void;
   checkMachinesCreatedUnlock: (count: number) => void;
   checkActivationCountUnlock: (count: number) => void;
@@ -166,6 +167,20 @@ export const useRecipeStore = create<RecipeStore>()(
           recipe => 
             recipe.unlockCondition.type === 'challenge_complete' &&
             recipe.unlockCondition.value === challengeId
+        );
+        
+        recipesToUnlock.forEach(recipe => {
+          get().unlockRecipe(recipe.id);
+        });
+      },
+
+      // Check if completing a certain number of challenges unlocks any recipes
+      checkChallengeCountUnlock: (count: number) => {
+        const recipesToUnlock = RECIPE_DEFINITIONS.filter(
+          recipe => 
+            recipe.unlockCondition.type === 'challenge_count' &&
+            typeof recipe.unlockCondition.value === 'number' &&
+            recipe.unlockCondition.value <= count
         );
         
         recipesToUnlock.forEach(recipe => {

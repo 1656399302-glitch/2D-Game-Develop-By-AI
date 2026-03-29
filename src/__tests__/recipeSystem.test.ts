@@ -33,16 +33,18 @@ describe('Recipe System', () => {
   });
 
   describe('Recipe Definitions', () => {
-    it('should have 11 module recipes defined', () => {
+    it('should have 14 module recipes defined', () => {
       const moduleRecipes = RECIPE_DEFINITIONS.filter(r => r.moduleType);
-      expect(moduleRecipes.length).toBe(11);
+      expect(moduleRecipes.length).toBe(14);
     });
 
-    it('should have recipes for all module types', () => {
+    it('should have recipes for all module types including the 3 new ones', () => {
       const moduleTypes = [
         'core-furnace', 'energy-pipe', 'gear', 'rune-node',
         'shield-shell', 'trigger-switch', 'output-array',
-        'amplifier-crystal', 'stabilizer-core', 'void-siphon', 'phase-modulator'
+        'amplifier-crystal', 'stabilizer-core', 'void-siphon', 'phase-modulator',
+        // New modules from Round 6
+        'resonance-chamber', 'fire-crystal', 'lightning-conductor'
       ];
       
       for (const type of moduleTypes) {
@@ -50,6 +52,33 @@ describe('Recipe System', () => {
         expect(recipe).toBeDefined();
         expect(recipe?.moduleType).toBe(type);
       }
+    });
+
+    it('should include resonance-chamber recipe', () => {
+      const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'resonance-chamber');
+      expect(recipe).toBeDefined();
+      expect(recipe?.rarity).toBe('uncommon');
+      expect(recipe?.unlockCondition.type).toBe('machines_created');
+      expect(recipe?.unlockCondition.value).toBe(3);
+      expect(recipe?.unlockCondition.description).toBeTruthy();
+    });
+
+    it('should include fire-crystal recipe', () => {
+      const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'fire-crystal');
+      expect(recipe).toBeDefined();
+      expect(recipe?.rarity).toBe('uncommon');
+      expect(recipe?.unlockCondition.type).toBe('activation_count');
+      expect(recipe?.unlockCondition.value).toBe(10);
+      expect(recipe?.unlockCondition.description).toBeTruthy();
+    });
+
+    it('should include lightning-conductor recipe', () => {
+      const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'lightning-conductor');
+      expect(recipe).toBeDefined();
+      expect(recipe?.rarity).toBe('uncommon');
+      expect(recipe?.unlockCondition.type).toBe('challenge_count');
+      expect(recipe?.unlockCondition.value).toBe(3);
+      expect(recipe?.unlockCondition.description).toBeTruthy();
     });
 
     it('should have valid unlock conditions for all recipes', () => {
@@ -217,6 +246,12 @@ describe('Recipe System', () => {
         expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-amplifier-crystal');
       });
 
+      it('should unlock resonance-chamber when 3 machines created', () => {
+        useRecipeStore.getState().checkMachinesCreatedUnlock(3);
+        
+        expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-resonance-chamber');
+      });
+
       it('should not unlock if threshold not met', () => {
         useRecipeStore.getState().checkMachinesCreatedUnlock(4);
         
@@ -229,6 +264,12 @@ describe('Recipe System', () => {
         useRecipeStore.getState().checkActivationCountUnlock(50);
         
         expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-void-siphon');
+      });
+
+      it('should unlock fire-crystal after 10 activations', () => {
+        useRecipeStore.getState().checkActivationCountUnlock(10);
+        
+        expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-fire-crystal');
       });
     });
   });

@@ -1,120 +1,196 @@
-# Sprint Contract — Round 4
-
-## APPROVED
+# Sprint Contract — Round 6
 
 ## Scope
 
-**Remediation Sprint** — Fix the LoadPromptModal coordination issue identified in Round 3 QA feedback.
+**Primary Focus:** Remediation and Feature Completion
+
+This round addresses gaps identified in the codebase survey:
+
+1. **Missing Recipe Definitions** — Three newer modules (Resonance Chamber, Fire Crystal, Lightning Conductor) lack recipe definitions in `RECIPE_DEFINITIONS`
+2. **Auto-Layout UI Integration** — The `autoLayout.ts` utility exists but has no UI button to trigger it
+3. **Minor Polish** — Ensure recipe unlock tracking properly handles all module types
 
 ## Spec Traceability
 
-- **P0 items covered this round:**
-  - [FIX] LoadPromptModal coordination with WelcomeModal skip flow
+### P0 Items (Must Complete)
+- **Missing Recipes** — Add recipe definitions for Resonance Chamber, Fire Crystal, and Lightning Conductor with appropriate unlock conditions and rarity tiers
+- **Auto-Layout Button** — Add layout control button to Toolbar with grid/line/circle/cascade options
 
-- **P1 items covered this round:** None (remediation focus)
+### P1 Items (Should Complete)
+- **Recipe Unlock Consistency** — Verify all 14 module types have recipe entries
+- **Toolbar UX** — Ensure auto-layout options are discoverable
 
-- **Remaining P0/P1 after this round:** None related to this fix
-
-- **P2 intentionally deferred:** All P2 items remain deferred
-
-## Background
-
-Round 3 QA revealed an **incomplete fix** for the WelcomeModal skip behavior:
-
-**The Problem:**
-- Canvas state IS preserved when skipping WelcomeModal (modules don't disappear) ✓
-- BUT LoadPromptModal still appears after WelcomeModal dismiss ✓
-- Users see "Start Fresh" button and may accidentally clear their work ✗
-
-**Root Cause:**
-- `handleSkip` in `useWelcomeModal` calls `restoreSavedState()` to restore modules
-- BUT `showLoadPrompt` state in App.tsx was set to `true` during mount
-- `handleSkip` does NOT have access to App.tsx's `setShowLoadPrompt` setter
-- LoadPromptModal renders because its condition `{showLoadPrompt && (<LoadPromptModal />)}` is still true
+### P2 Items (Intentionally Deferred)
+- AI naming/description generation (spec mentions as future)
+- Community sharing features (spec mentions as future)
+- Codex trading/exchange (spec mentions as future)
 
 ## Deliverables
 
-1. **Modified `useWelcomeModal` hook** (`src/components/Tutorial/WelcomeModal.tsx`)
-   - Accept `setShowLoadPrompt` as optional parameter
-   - Call `setShowLoadPrompt(false)` in `handleSkip` when provided
+### 1. New File: `src/data/recipes.ts`
+Contains `RECIPE_DEFINITIONS` array with 14 recipes (11 existing + 3 new):
 
-2. **Modified `App.tsx`** (`src/App.tsx`)
-   - Pass `setShowLoadPrompt` to `useWelcomeModal` hook
+| Recipe ID | Module Type | Rarity | Unlock Condition |
+|-----------|-------------|--------|-------------------|
+| recipe-resonance-chamber | resonance-chamber | uncommon | Create 3 machines |
+| recipe-fire-crystal | fire-crystal | uncommon | Activate machines 10 times |
+| recipe-lightning-conductor | lightning-conductor | uncommon | Complete 3 challenges |
 
-3. **Integration test for complete flow** (`src/__tests__/ModalCoordination.test.tsx`)
-   - Test: skip WelcomeModal → verify LoadPromptModal does NOT appear → verify canvas has saved modules
+### 2. Modified File: `src/components/Editor/Toolbar.tsx`
+Add auto-layout controls:
+- Button labeled "自动布局" (Auto Layout) with accessible aria-label
+- Dropdown or segmented control with 4 layout options: grid (网格), line (线性), circle (环形), cascade (层叠)
+- Each option calls `autoArrange()` from `autoLayout.ts` with selected layout type
+- Keyboard navigable (Tab, Enter, Arrow keys)
+
+### 3. Modified File: `src/types/recipes.ts`
+Update `RECIPE_DEFINITIONS` import path from inline definition to point to new `src/data/recipes.ts`
+
+### 4. New File: `src/__tests__/recipes.test.ts`
+Unit tests for recipe definitions (see Test Methods below)
+
+### 5. New File: `src/__tests__/autoLayout.test.ts`
+Integration tests for auto-layout UI (see Test Methods below)
 
 ## Acceptance Criteria
 
-1. **AC1:** When user clicks "Skip & Explore" on WelcomeModal with saved state:
-   - WelcomeModal closes
-   - Canvas shows restored modules (state is preserved)
-   - LoadPromptModal does NOT appear
-
-2. **AC2:** When user clicks "Skip & Explore" on WelcomeModal without saved state:
-   - WelcomeModal closes
-   - Canvas is empty
-   - LoadPromptModal does NOT appear
-
-3. **AC3:** When user clicks "Start Tutorial" on WelcomeModal:
-   - WelcomeModal closes
-   - Tutorial begins
-   - LoadPromptModal does NOT appear
-
-4. **AC4:** All 676 existing tests continue to pass
-
-5. **AC5:** New integration test passes
+| # | Criterion | Verification Method |
+|---|-----------|---------------------|
+| AC1 | `RECIPE_DEFINITIONS` contains exactly 14 entries | `expect(RECIPE_DEFINITIONS.length).toBe(14)` |
+| AC2 | Recipes include resonance-chamber, fire-crystal, lightning-conductor | `expect(RECIPE_DEFINITIONS.some(r => r.moduleType === 'resonance-chamber'))` for each |
+| AC3 | Each new recipe has valid unlockCondition with type, value, and description fields | TypeScript compile + `forEach` test loop |
+| AC4 | Toolbar renders button with accessible label containing "布局" | `screen.getByRole('button', { name: /布局/i })` |
+| AC5 | Clicking auto-layout button triggers rearrangement | Functional test with seeded modules |
+| AC6 | All existing tests continue to pass | `npm test` exit code 0 |
+| AC7 | Build succeeds with 0 TypeScript errors | `npm run build` exit code 0 |
 
 ## Test Methods
 
-1. **Unit Tests (existing):**
-   - `WelcomeModal.test.ts` — 19 tests (skip behavior)
-   - `TutorialStore.test.ts` — 37 tests (persistence)
-   - `App.test.ts` — 16 tests (modal coordination)
+### 1. Recipe Definition Tests (`src/__tests__/recipes.test.ts`)
 
-2. **Integration Test (new):**
-   - `ModalCoordination.test.tsx` — Browser-level test verifying complete skip flow
-   - Steps: seed localStorage with saved state → reload → skip WelcomeModal → assert LoadPromptModal absent → assert canvas has modules
+```typescript
+import { RECIPE_DEFINITIONS } from '../../data/recipes';
 
-3. **Manual Browser Verification:**
-   - Clear localStorage, add 1 module, reload page
-   - Click "Skip & Explore"
-   - Verify: WelcomeModal gone, LoadPromptModal NOT visible, canvas shows 1 module
+describe('Recipe Definitions', () => {
+  test('should have 14 recipe definitions', () => {
+    expect(RECIPE_DEFINITIONS.length).toBe(14);
+  });
+  
+  test('should include resonance-chamber recipe', () => {
+    const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'resonance-chamber');
+    expect(recipe).toBeDefined();
+    expect(recipe?.rarity).toBe('uncommon');
+    expect(recipe?.unlockCondition.type).toBeDefined();
+    expect(recipe?.unlockCondition.value).toBeDefined();
+    expect(recipe?.unlockCondition.description).toBeTruthy();
+  });
+  
+  test('should include fire-crystal recipe', () => {
+    const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'fire-crystal');
+    expect(recipe).toBeDefined();
+    expect(recipe?.rarity).toBe('uncommon');
+  });
+  
+  test('should include lightning-conductor recipe', () => {
+    const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'lightning-conductor');
+    expect(recipe).toBeDefined();
+    expect(recipe?.rarity).toBe('uncommon');
+  });
+  
+  test('all 14 recipes should have valid unlock conditions', () => {
+    RECIPE_DEFINITIONS.forEach(recipe => {
+      expect(recipe.unlockCondition.type).toBeDefined();
+      expect(recipe.unlockCondition.value).toBeDefined();
+      expect(recipe.unlockCondition.description).toBeTruthy();
+    });
+  });
+
+  test('all recipes should have required fields', () => {
+    RECIPE_DEFINITIONS.forEach(recipe => {
+      expect(recipe.id).toBeDefined();
+      expect(recipe.moduleType).toBeDefined();
+      expect(recipe.rarity).toBeDefined();
+    });
+  });
+});
+```
+
+### 2. Auto-Layout Integration Tests (`src/__tests__/autoLayout.test.ts`)
+
+```typescript
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Toolbar } from '../../components/Editor/Toolbar';
+
+describe('Auto-Layout UI Integration', () => {
+  test('Toolbar should render auto-layout button with accessible label', () => {
+    render(<Toolbar />);
+    expect(screen.getByRole('button', { name: /布局/i })).toBeInTheDocument();
+  });
+  
+  test('Auto-layout dropdown should show 4 layout options', () => {
+    render(<Toolbar />);
+    const button = screen.getByRole('button', { name: /布局/i });
+    fireEvent.click(button);
+    expect(screen.getByText('网格')).toBeInTheDocument();
+    expect(screen.getByText('线性')).toBeInTheDocument();
+    expect(screen.getByText('环形')).toBeInTheDocument();
+    expect(screen.getByText('层叠')).toBeInTheDocument();
+  });
+});
+```
+
+### 3. Existing Test Regression
+
+```bash
+npm test  # Must show all tests passing (baseline: 449 from Round 5 QA)
+npm run build  # Must succeed with 0 errors
+```
 
 ## Risks
 
-1. **Low Risk:** Simple state coordination fix with clear cause/effect
-2. **Minimal Code Change:** Only 3 files modified, no architectural changes
-3. **Existing Test Coverage:** Comprehensive unit tests already in place
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Breaking existing recipe unlock logic | Low | High | Test all unlock paths, verify localStorage persistence |
+| Auto-layout causing connection path issues | Medium | Low | Connections use module IDs, not positions; autoArrange preserves connections |
+| TypeScript compilation errors from recipe refactor | Low | Medium | Ensure RECIPE_DEFINITIONS export path updated consistently |
+| Import path mismatch between old and new locations | Medium | High | Verify all consumers import from `src/data/recipes.ts` |
 
 ## Failure Conditions
 
-Round fails if ANY of:
-1. LoadPromptModal appears after WelcomeModal skip (critical UX bug)
-2. Canvas state is NOT preserved after WelcomeModal skip
-3. Any of 676 existing tests fail
-4. New integration test fails or is missing
-5. TypeScript compilation errors introduced
+This sprint **must fail** if:
+
+1. **Test failure** — Any new or existing test fails (`npm test` exit code ≠ 0)
+2. **Build failure** — `npm run build` exits with non-zero status or TypeScript errors
+3. **Missing recipes** — Any of the 3 new module types lack recipe definitions
+4. **Broken imports** — Runtime errors due to import path changes for RECIPE_DEFINITIONS
+5. **Fewer than 14 recipes** — RECIPE_DEFINITIONS.length !== 14
 
 ## Done Definition
 
-**Exact conditions that must be true before claiming round complete:**
+The round is complete when **all** of the following are true:
 
-1. ✓ `useWelcomeModal` accepts and uses `setShowLoadPrompt` parameter
-2. ✓ `App.tsx` passes `setShowLoadPrompt` to `useWelcomeModal`
-3. ✓ LoadPromptModal does NOT render when WelcomeModal is skipped with saved state
-4. ✓ Canvas modules are restored when WelcomeModal is skipped with saved state
-5. ✓ All 676 existing tests pass
-6. ✓ New `ModalCoordination.test.tsx` test file created and passing
-7. ✓ `npm run build` succeeds with 0 TypeScript errors
+1. ✅ `src/data/recipes.ts` created with exactly 14 recipe definitions
+2. ✅ All 3 new recipes (resonance-chamber, fire-crystal, lightning-conductor) have valid unlock conditions
+3. ✅ `src/types/recipes.ts` (or any file importing RECIPE_DEFINITIONS) updated to use new import path
+4. ✅ Toolbar includes "布局" button with dropdown showing 4 layout options
+5. ✅ `npm test` passes with all tests (baseline: 449, plus new tests)
+6. ✅ `npm run build` succeeds with 0 TypeScript errors
+7. ✅ No runtime errors when accessing Recipe Browser or Toolbar components
 
 ## Out of Scope
 
-- Any feature additions beyond the bug fix
-- UI/UX design changes beyond the fix
-- Performance optimizations
-- Documentation updates
-- New module types or functionality
-- Changes to activation system
-- Changes to export system
-- Changes to codex/persistence system beyond this coordination fix
+The following features from `spec.md` are **not** in scope for this round:
+
+- AI naming/description generation
+- Community sharing / social features
+- Codex trading or exchange system
+- Challenge mode creation UI
+- Faction tech tree beyond existing implementation
+- New module types beyond the 3 with missing recipes
+- Animation polish beyond bug fixes
+- Performance optimizations not directly related to new features
+- Auto-layout for connection lines (only module positions are rearranged)
+
+---
+
+**Contract prepared for Round 6 — Arcane Machine Codex Workshop**

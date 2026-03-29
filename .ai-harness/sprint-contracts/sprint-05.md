@@ -1,182 +1,196 @@
-# Sprint Contract — Round 5
-
-## APPROVED
+# Sprint Contract — Round 6
 
 ## Scope
 
-**Enhancement Sprint**: Improve accessibility, keyboard shortcuts, performance optimization, and UX polish. This sprint focuses on quality-of-life improvements without adding new core features. All changes must maintain backward compatibility and pass existing tests.
+**Primary Focus:** Remediation and Feature Completion
+
+This round addresses gaps identified in the codebase survey:
+
+1. **Missing Recipe Definitions** — Three newer modules (Resonance Chamber, Fire Crystal, Lightning Conductor) lack recipe definitions in `RECIPE_DEFINITIONS`
+2. **Auto-Layout UI Integration** — The `autoLayout.ts` utility exists but has no UI button to trigger it
+3. **Minor Polish** — Ensure recipe unlock tracking properly handles all module types
 
 ## Spec Traceability
 
-### Status from Previous Rounds
-| Category | Status |
-|----------|--------|
-| P0: Module editor (14 types) | ✓ Complete (Round 1-3) |
-| P0: Activation system (6 states) | ✓ Complete (Round 3) |
-| P0: Chinese text literals | ✓ Fixed (Round 4) |
-| P1: Challenge system | ✓ Complete (Round 4) |
-| P1: Recipe system | ✓ Complete (Round 4) |
-| P1: Tutorial system | ✓ Complete (Round 4) |
-| P1: Codex collection | ✓ Complete (Round 4) |
-| P1: Random forge | ✓ Complete (Round 4) |
-| P1: Export (SVG/PNG/Poster) | ✓ Complete (Round 4) |
+### P0 Items (Must Complete)
+- **Missing Recipes** — Add recipe definitions for Resonance Chamber, Fire Crystal, and Lightning Conductor with appropriate unlock conditions and rarity tiers
+- **Auto-Layout Button** — Add layout control button to Toolbar with grid/line/circle/cascade options
 
-### Status After This Sprint
-- **P0 items**: All P0 items remain complete
-- **P1 items**: All P1 items remain complete
-- **Remaining P0/P1 after this round**: None
-- **P2 items** (enhancements): Accessibility, keyboard shortcuts, performance, UX polish
+### P1 Items (Should Complete)
+- **Recipe Unlock Consistency** — Verify all 14 module types have recipe entries
+- **Toolbar UX** — Ensure auto-layout options are discoverable
+
+### P2 Items (Intentionally Deferred)
+- AI naming/description generation (spec mentions as future)
+- Community sharing features (spec mentions as future)
+- Codex trading/exchange (spec mentions as future)
 
 ## Deliverables
 
-### 1. Enhanced Accessibility (`src/hooks/useAccessibility.ts`)
-- Add ARIA labels to all interactive elements
-- Implement keyboard focus management
-- Add `role` attributes for screen reader support
-- Support for keyboard-only navigation
+### 1. New File: `src/data/recipes.ts`
+Contains `RECIPE_DEFINITIONS` array with 14 recipes (11 existing + 3 new):
 
-### 2. Expanded Keyboard Shortcuts (`src/hooks/useKeyboardShortcuts.ts`)
-- Add shortcuts for module deletion (Delete/Backspace)
-- Add shortcuts for copy/paste (Ctrl+C, Ctrl+V)
-- Add shortcuts for duplicate module (Ctrl+D)
-- Add shortcut for select all (Ctrl+A)
-- Add shortcut for save to codex (Ctrl+S)
-- Add shortcut for export modal (Ctrl+E)
+| Recipe ID | Module Type | Rarity | Unlock Condition |
+|-----------|-------------|--------|-------------------|
+| recipe-resonance-chamber | resonance-chamber | uncommon | Create 3 machines |
+| recipe-fire-crystal | fire-crystal | uncommon | Activate machines 10 times |
+| recipe-lightning-conductor | lightning-conductor | uncommon | Complete 3 challenges |
 
-### 3. Performance Optimization (`src/components/Editor/Canvas.tsx`)
-- Implement viewport culling (only render visible modules)
-- Use `will-change` CSS property for animated elements
-- Memoize module rendering to prevent unnecessary re-renders
-- Debounce viewport position updates during pan
+### 2. Modified File: `src/components/Editor/Toolbar.tsx`
+Add auto-layout controls:
+- Button labeled "自动布局" (Auto Layout) with accessible aria-label
+- Dropdown or segmented control with 4 layout options: grid (网格), line (线性), circle (环形), cascade (层叠)
+- Each option calls `autoArrange()` from `autoLayout.ts` with selected layout type
+- Keyboard navigable (Tab, Enter, Arrow keys)
 
-### 4. UX Polish Improvements
-- Enhanced empty state with animated hint
-- Improved connection error toast messages
-- Add "no modules" celebration when canvas is empty for first time
-- Tooltip hints for module panel items
+### 3. Modified File: `src/types/recipes.ts`
+Update `RECIPE_DEFINITIONS` import path from inline definition to point to new `src/data/recipes.ts`
 
-### 5. Module Thumbnail Previews (`src/components/Editor/ModulePanel.tsx`)
-- Add hover preview thumbnails for module types
-- Show module description on hover
-- Add category grouping visual separation
+### 4. New File: `src/__tests__/recipes.test.ts`
+Unit tests for recipe definitions (see Test Methods below)
+
+### 5. New File: `src/__tests__/autoLayout.test.ts`
+Integration tests for auto-layout UI (see Test Methods below)
 
 ## Acceptance Criteria
 
-1. **AC1**: `npm run build` exits with code 0 and 0 TypeScript errors
-2. **AC2**: `npm test` shows 438/438 passing tests (no regressions)
-3. **AC3**: All new keyboard shortcuts are functional:
-   - `Delete`/`Backspace`: Delete selected module
-   - `Ctrl+D`: Duplicate selected module
-   - `Ctrl+C`/`Ctrl+V`: Copy/paste modules
-   - `Ctrl+A`: Select all modules
-   - `Ctrl+S`: Save to codex
-   - `Ctrl+E`: Open export modal
-4. **AC4**: ARIA labels present on all toolbar buttons (verified via `getAllByRole('button')`)
-5. **AC5**: Canvas viewport culling reduces DOM nodes when zoomed out
-6. **AC6**: Empty state displays helpful hints for new users
-7. **AC7**: Module panel shows hover tooltips with module descriptions
+| # | Criterion | Verification Method |
+|---|-----------|---------------------|
+| AC1 | `RECIPE_DEFINITIONS` contains exactly 14 entries | `expect(RECIPE_DEFINITIONS.length).toBe(14)` |
+| AC2 | Recipes include resonance-chamber, fire-crystal, lightning-conductor | `expect(RECIPE_DEFINITIONS.some(r => r.moduleType === 'resonance-chamber'))` for each |
+| AC3 | Each new recipe has valid unlockCondition with type, value, and description fields | TypeScript compile + `forEach` test loop |
+| AC4 | Toolbar renders button with accessible label containing "布局" | `screen.getByRole('button', { name: /布局/i })` |
+| AC5 | Clicking auto-layout button triggers rearrangement | Functional test with seeded modules |
+| AC6 | All existing tests continue to pass | `npm test` exit code 0 |
+| AC7 | Build succeeds with 0 TypeScript errors | `npm run build` exit code 0 |
 
 ## Test Methods
 
-1. **Build verification**:
-   ```bash
-   npm run build
-   # Verify: exit code 0, 0 TypeScript errors
-   ```
+### 1. Recipe Definition Tests (`src/__tests__/recipes.test.ts`)
 
-2. **Test suite verification**:
-   ```bash
-   npm test
-   # Verify: 438/438 tests pass
-   ```
+```typescript
+import { RECIPE_DEFINITIONS } from '../../data/recipes';
 
-3. **Keyboard shortcut verification** (browser):
-   ```javascript
-   // Test delete shortcut
-   focusEditor(); selectModule(); pressKey('Delete'); verifyModuleDeleted();
-   
-   // Test duplicate shortcut  
-   focusEditor(); selectModule(); pressKey('Ctrl+D'); verifyModuleDuplicated();
-   
-   // Test copy/paste
-   focusEditor(); selectModule(); pressKey('Ctrl+C'); pressKey('Ctrl+V');
-   verifyModulePasted();
-   ```
+describe('Recipe Definitions', () => {
+  test('should have 14 recipe definitions', () => {
+    expect(RECIPE_DEFINITIONS.length).toBe(14);
+  });
+  
+  test('should include resonance-chamber recipe', () => {
+    const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'resonance-chamber');
+    expect(recipe).toBeDefined();
+    expect(recipe?.rarity).toBe('uncommon');
+    expect(recipe?.unlockCondition.type).toBeDefined();
+    expect(recipe?.unlockCondition.value).toBeDefined();
+    expect(recipe?.unlockCondition.description).toBeTruthy();
+  });
+  
+  test('should include fire-crystal recipe', () => {
+    const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'fire-crystal');
+    expect(recipe).toBeDefined();
+    expect(recipe?.rarity).toBe('uncommon');
+  });
+  
+  test('should include lightning-conductor recipe', () => {
+    const recipe = RECIPE_DEFINITIONS.find(r => r.moduleType === 'lightning-conductor');
+    expect(recipe).toBeDefined();
+    expect(recipe?.rarity).toBe('uncommon');
+  });
+  
+  test('all 14 recipes should have valid unlock conditions', () => {
+    RECIPE_DEFINITIONS.forEach(recipe => {
+      expect(recipe.unlockCondition.type).toBeDefined();
+      expect(recipe.unlockCondition.value).toBeDefined();
+      expect(recipe.unlockCondition.description).toBeTruthy();
+    });
+  });
 
-4. **Accessibility verification**:
-   ```javascript
-   // Check toolbar buttons have aria-labels
-   const buttons = document.querySelectorAll('[role="button"], button');
-   buttons.forEach(btn => assert(btn.getAttribute('aria-label') || btn.textContent));
-   ```
+  test('all recipes should have required fields', () => {
+    RECIPE_DEFINITIONS.forEach(recipe => {
+      expect(recipe.id).toBeDefined();
+      expect(recipe.moduleType).toBeDefined();
+      expect(recipe.rarity).toBeDefined();
+    });
+  });
+});
+```
 
-5. **Performance verification**:
-   ```javascript
-   // Place 20 modules, zoom out to 25%, verify only visible modules render
-   // Compare DOM node count at 100% zoom vs 25% zoom
-   ```
+### 2. Auto-Layout Integration Tests (`src/__tests__/autoLayout.test.ts`)
+
+```typescript
+import { render, screen, fireEvent } from '@testing-library/react';
+import { Toolbar } from '../../components/Editor/Toolbar';
+
+describe('Auto-Layout UI Integration', () => {
+  test('Toolbar should render auto-layout button with accessible label', () => {
+    render(<Toolbar />);
+    expect(screen.getByRole('button', { name: /布局/i })).toBeInTheDocument();
+  });
+  
+  test('Auto-layout dropdown should show 4 layout options', () => {
+    render(<Toolbar />);
+    const button = screen.getByRole('button', { name: /布局/i });
+    fireEvent.click(button);
+    expect(screen.getByText('网格')).toBeInTheDocument();
+    expect(screen.getByText('线性')).toBeInTheDocument();
+    expect(screen.getByText('环形')).toBeInTheDocument();
+    expect(screen.getByText('层叠')).toBeInTheDocument();
+  });
+});
+```
+
+### 3. Existing Test Regression
+
+```bash
+npm test  # Must show all tests passing (baseline: 449 from Round 5 QA)
+npm run build  # Must succeed with 0 errors
+```
 
 ## Risks
 
-1. **Risk level**: MEDIUM — multiple files modified
-2. **Risk mitigation**: All existing functionality unchanged; only new features added
-3. **Risk mitigation**: 438/438 existing tests provide regression protection
-4. **Risk mitigation**: Changes are additive (accessibility, shortcuts, performance)
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Breaking existing recipe unlock logic | Low | High | Test all unlock paths, verify localStorage persistence |
+| Auto-layout causing connection path issues | Medium | Low | Connections use module IDs, not positions; autoArrange preserves connections |
+| TypeScript compilation errors from recipe refactor | Low | Medium | Ensure RECIPE_DEFINITIONS export path updated consistently |
+| Import path mismatch between old and new locations | Medium | High | Verify all consumers import from `src/data/recipes.ts` |
 
 ## Failure Conditions
 
-The round MUST fail if ANY of these conditions occur:
+This sprint **must fail** if:
 
-1. `npm run build` fails or exits with non-zero code
-2. TypeScript errors present in build output
-3. `npm test` shows fewer than 438/438 passing tests
-4. New keyboard shortcuts conflict with browser defaults
-5. Accessibility changes break existing interactions
-6. Performance changes cause visual glitches in viewport
+1. **Test failure** — Any new or existing test fails (`npm test` exit code ≠ 0)
+2. **Build failure** — `npm run build` exits with non-zero status or TypeScript errors
+3. **Missing recipes** — Any of the 3 new module types lack recipe definitions
+4. **Broken imports** — Runtime errors due to import path changes for RECIPE_DEFINITIONS
+5. **Fewer than 14 recipes** — RECIPE_DEFINITIONS.length !== 14
 
 ## Done Definition
 
-The round is **complete** when ALL of the following are true:
+The round is complete when **all** of the following are true:
 
-- [ ] `npm run build` exits with code 0 and 0 TypeScript errors
-- [ ] `npm test` shows 438/438 passing tests
-- [ ] New keyboard shortcuts implemented in `src/hooks/useKeyboardShortcuts.ts`
-- [ ] ARIA labels added to toolbar buttons in `Toolbar.tsx`
-- [ ] Viewport culling logic added to `Canvas.tsx`
-- [ ] Module memoization added to `ModuleRenderer.tsx`
-- [ ] Empty state hints implemented in `Canvas.tsx`
-- [ ] Module hover tooltips added to `ModulePanel.tsx`
-- [ ] No regressions in existing functionality
+1. ✅ `src/data/recipes.ts` created with exactly 14 recipe definitions
+2. ✅ All 3 new recipes (resonance-chamber, fire-crystal, lightning-conductor) have valid unlock conditions
+3. ✅ `src/types/recipes.ts` (or any file importing RECIPE_DEFINITIONS) updated to use new import path
+4. ✅ Toolbar includes "布局" button with dropdown showing 4 layout options
+5. ✅ `npm test` passes with all tests (baseline: 449, plus new tests)
+6. ✅ `npm run build` succeeds with 0 TypeScript errors
+7. ✅ No runtime errors when accessing Recipe Browser or Toolbar components
 
 ## Out of Scope
 
-- No new module types
-- No new core features (activation states, challenge system, etc.)
-- No changes to existing animation timings
-- No API changes or state management restructuring
-- No database or persistence changes
-- No mobile responsiveness (P2 deferred)
-- No theme customization (P2 deferred)
-- No AI integration (P2 deferred)
+The following features from `spec.md` are **not** in scope for this round:
 
-## Technical Notes
+- AI naming/description generation
+- Community sharing / social features
+- Codex trading or exchange system
+- Challenge mode creation UI
+- Faction tech tree beyond existing implementation
+- New module types beyond the 3 with missing recipes
+- Animation polish beyond bug fixes
+- Performance optimizations not directly related to new features
+- Auto-layout for connection lines (only module positions are rearranged)
 
-### Accessibility Implementation Guidelines
-- Use semantic HTML (`<button>`, `<nav>`, `<main>`)
-- Add `aria-label` to icon-only buttons
-- Add `aria-describedby` for complex interactive elements
-- Support `Tab` navigation through all interactive elements
-- Add `role="region"` for major sections
+---
 
-### Performance Implementation Guidelines
-- Use `React.memo()` for `ModuleRenderer` component
-- Implement viewport bounds checking before rendering
-- Use `useMemo` for connection path calculations
-- Debounce zoom/pan handlers (16ms threshold)
-- Use CSS `will-change: transform` for animated containers
-
-### Keyboard Shortcut Guidelines
-- Prevent default browser behavior for shortcuts
-- Check for focused element (don't trigger when in input)
-- Provide visual feedback when shortcut is executed
-- Document shortcuts in UI tooltips
+**Contract prepared for Round 6 — Arcane Machine Codex Workshop**
