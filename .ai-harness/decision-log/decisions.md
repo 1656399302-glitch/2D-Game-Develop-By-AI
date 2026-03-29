@@ -201,3 +201,45 @@
 ## Round 7 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 7 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 8 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
+## Harness Mode
+- Rationale: Full multi-agent harness enabled because the task is treated as a long-running engineering workflow.
+
+## Planning
+- Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
+
+## Round 1 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
+## Harness Mode
+- Rationale: Full multi-agent harness enabled because the task is treated as a long-running engineering workflow.
+
+## Planning
+- Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
+
+## Round 1 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
+## Harness Mode
+- Rationale: Full multi-agent harness enabled because the task is treated as a long-running engineering workflow.
+
+## Planning
+- Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
+
+## Harness Mode
+- Rationale: Full multi-agent harness enabled because the task is treated as a long-running engineering workflow.
+
+## Planning
+- Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
+
+## Harness Mode
+- Rationale: Full multi-agent harness enabled because the task is treated as a long-running engineering workflow.
+
+## Planning
+- Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
+

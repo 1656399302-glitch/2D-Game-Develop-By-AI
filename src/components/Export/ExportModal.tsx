@@ -1,28 +1,37 @@
 import { useState, useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
-import { exportToSVG, exportToPNG, exportPoster, exportEnhancedPoster, downloadFile } from '../../utils/exportUtils';
+import { exportToSVG, exportToPNG, exportPoster, exportEnhancedPoster, exportFactionCard, downloadFile } from '../../utils/exportUtils';
 import { generateAttributes } from '../../utils/attributeGenerator';
+import { calculateFaction } from '../../utils/factionCalculator';
+import { EnhancedShareCard } from './EnhancedShareCard';
+import { FACTIONS } from '../../types/factions';
 
 interface ExportModalProps {
   onClose: () => void;
 }
 
-type ExportFormat = 'svg' | 'png' | 'poster' | 'enhanced-poster';
+type ExportFormat = 'svg' | 'png' | 'poster' | 'enhanced-poster' | 'faction-card';
 
 export function ExportModal({ onClose }: ExportModalProps) {
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
   
   const [format, setFormat] = useState<ExportFormat>('svg');
+  const [showFactionCard, setShowFactionCard] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportName, setExportName] = useState('arcane-machine');
+  
+  // Calculate faction and attributes for EnhancedShareCard
+  const dominantFaction = calculateFaction(modules);
+  const factionId = dominantFaction || 'stellar'; // Default to stellar if no faction modules
+  const faction = FACTIONS[factionId];
+  const attributes = generateAttributes(modules, connections);
   
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     
     try {
       const filename = exportName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-      const attributes = generateAttributes(modules, connections);
       
       switch (format) {
         case 'svg':
@@ -49,6 +58,10 @@ export function ExportModal({ onClose }: ExportModalProps) {
           const enhancedContent = exportEnhancedPoster(modules, connections, attributes);
           downloadFile(enhancedContent, `${filename}-enhanced-poster.svg`, 'image/svg+xml');
           break;
+          
+        case 'faction-card':
+          // This case is handled by EnhancedShareCard directly
+          break;
       }
       
       setTimeout(() => {
@@ -60,7 +73,56 @@ export function ExportModal({ onClose }: ExportModalProps) {
       setIsExporting(false);
       alert('Export failed. Please try again.');
     }
-  }, [format, exportName, modules, connections, onClose]);
+  }, [format, exportName, modules, connections, attributes, onClose]);
+  
+  const handleFactionCardExportSVG = useCallback(() => {
+    const factionCardContent = exportFactionCard(modules, connections, attributes, faction);
+    downloadFile(factionCardContent, `${attributes.name.replace(/\s+/g, '-').toLowerCase()}-share-card.svg`, 'image/svg+xml');
+  }, [modules, connections, attributes, faction]);
+  
+  const handleFactionCardExportPNG = useCallback(async () => {
+    const factionCardContent = exportFactionCard(modules, connections, attributes, faction);
+    // Convert SVG to PNG using canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    canvas.width = 800;
+    canvas.height = 600;
+    
+    const img = new Image();
+    const svgBlob = new Blob([factionCardContent], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    img.onload = () => {
+      ctx.fillStyle = '#0a0e17';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        downloadFile(blob, `${attributes.name.replace(/\s+/g, '-').toLowerCase()}-share-card.png`, 'image/png');
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    };
+    
+    img.src = url;
+  }, [modules, connections, attributes, faction]);
+  
+  // If showing faction card, render EnhancedShareCard
+  if (showFactionCard) {
+    return (
+      <EnhancedShareCard
+        faction={factionId}
+        attributes={attributes}
+        modules={modules}
+        connections={connections}
+        onExportSVG={handleFactionCardExportSVG}
+        onExportPNG={handleFactionCardExportPNG}
+        onClose={() => setShowFactionCard(false)}
+      />
+    );
+  }
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -121,22 +183,32 @@ export function ExportModal({ onClose }: ExportModalProps) {
                 selected={format === 'enhanced-poster'}
                 onClick={() => setFormat('enhanced-poster')}
               />
+              <FormatButton
+                format="faction-card"
+                label="Faction Card"
+                description="Branded export"
+                icon="⚔"
+                selected={format === 'faction-card'}
+                onClick={() => setFormat('faction-card')}
+              />
             </div>
           </div>
           
           {/* Filename */}
-          <div>
-            <label className="block text-sm font-medium text-[#9ca3af] mb-2">
-              Filename
-            </label>
-            <input
-              type="text"
-              value={exportName}
-              onChange={(e) => setExportName(e.target.value)}
-              className="arcane-input"
-              placeholder="arcane-machine"
-            />
-          </div>
+          {format !== 'faction-card' && (
+            <div>
+              <label className="block text-sm font-medium text-[#9ca3af] mb-2">
+                Filename
+              </label>
+              <input
+                type="text"
+                value={exportName}
+                onChange={(e) => setExportName(e.target.value)}
+                className="arcane-input"
+                placeholder="arcane-machine"
+              />
+            </div>
+          )}
           
           {/* Info */}
           <div className="text-xs text-[#4a5568] bg-[#0a0e17] rounded-lg p-3">
@@ -152,7 +224,27 @@ export function ExportModal({ onClose }: ExportModalProps) {
             {format === 'enhanced-poster' && (
               <p>Enhanced poster includes decorative corners, ornate name styling, attribute icons, and faction emblem.</p>
             )}
+            {format === 'faction-card' && (
+              <p>Faction Card export creates a branded share card with faction-colored border and theming based on your machine's dominant faction.</p>
+            )}
           </div>
+          
+          {/* Faction Preview for Faction Card */}
+          {format === 'faction-card' && (
+            <div className="mt-2 p-3 rounded-lg border" style={{ borderColor: faction.color + '40', backgroundColor: faction.color + '10' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{faction.icon}</span>
+                <div>
+                  <div className="text-sm font-medium" style={{ color: faction.color }}>
+                    {faction.nameCn} - {faction.name}
+                  </div>
+                  <div className="text-xs text-[#9ca3af]">
+                    Dominant faction based on your machine's module composition
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Actions */}
@@ -163,20 +255,29 @@ export function ExportModal({ onClose }: ExportModalProps) {
           >
             Cancel
           </button>
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex-1 arcane-button flex items-center justify-center gap-2"
-          >
-            {isExporting ? (
-              <>
-                <span className="spinner" />
-                Exporting...
-              </>
-            ) : (
-              <>📤 Export {format === 'enhanced-poster' ? 'Enhanced' : format.toUpperCase()}</>
-            )}
-          </button>
+          {format === 'faction-card' ? (
+            <button
+              onClick={() => setShowFactionCard(true)}
+              className="flex-1 arcane-button flex items-center justify-center gap-2"
+            >
+              ⚔ Open Faction Card
+            </button>
+          ) : (
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex-1 arcane-button flex items-center justify-center gap-2"
+            >
+              {isExporting ? (
+                <>
+                  <span className="spinner" />
+                  Exporting...
+                </>
+              ) : (
+                <>📤 Export {format === 'enhanced-poster' ? 'Enhanced' : format.toUpperCase()}</>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -269,11 +370,40 @@ function ExportPreview({ format }: { format: ExportFormat }) {
           <text x="75" y="107" textAnchor="middle" fontSize="5" fill="#fbbf24">⚗</text>
         </svg>
       )}
+      {format === 'faction-card' && (
+        <svg width="100" height="140" viewBox="0 0 100 140">
+          {/* Faction-branded card */}
+          <rect x="5" y="5" width="90" height="130" fill="#0a0e17" stroke="url(#factionPreviewGradient)" strokeWidth="3" rx="6"/>
+          <defs>
+            <linearGradient id="factionPreviewGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#a78bfa"/>
+              <stop offset="50%" stopColor="#7c3aed"/>
+              <stop offset="100%" stopColor="#a78bfa"/>
+            </linearGradient>
+          </defs>
+          {/* Corner decorations */}
+          <circle cx="15" cy="15" r="4" fill="#a78bfa" opacity="0.8"/>
+          <circle cx="85" cy="15" r="4" fill="#a78bfa" opacity="0.8"/>
+          <circle cx="15" cy="125" r="4" fill="#a78bfa" opacity="0.8"/>
+          <circle cx="85" cy="125" r="4" fill="#a78bfa" opacity="0.8"/>
+          {/* Faction badge */}
+          <rect x="15" y="20" width="70" height="25" rx="4" fill="#a78bfa" opacity="0.2" stroke="#a78bfa" strokeWidth="1"/>
+          <text x="50" y="37" textAnchor="middle" fontSize="8" fill="#a78bfa">⚔ 深渊派系</text>
+          {/* Title */}
+          <text x="50" y="75" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">VOID RESONATOR</text>
+          {/* Rarity */}
+          <rect x="25" y="85" width="50" height="15" rx="3" fill="#a855f7" opacity="0.2"/>
+          <text x="50" y="95" textAnchor="middle" fontSize="7" fill="#a855f7">EPIC</text>
+          {/* Module preview */}
+          <rect x="20" y="105" width="60" height="25" rx="3" fill="#1a1a2e" stroke="#a78bfa" strokeWidth="0.5"/>
+        </svg>
+      )}
       <p className="text-xs text-[#4a5568] mt-2">
         {format === 'svg' && 'Scalable Vector Graphics'}
         {format === 'png' && 'Raster Image (2x)'}
         {format === 'poster' && 'Social Share Card'}
         {format === 'enhanced-poster' && 'Deluxe Share Card'}
+        {format === 'faction-card' && 'Faction-Branded Card'}
       </p>
     </div>
   );

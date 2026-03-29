@@ -1,4 +1,5 @@
-import { PlacedModule, Connection, GeneratedAttributes, ExportOptions } from '../types';
+import { PlacedModule, Connection, GeneratedAttributes, ExportOptions, AttributeTag } from '../types';
+import { FactionConfig } from '../types/factions';
 
 export function exportToSVG(
   modules: PlacedModule[],
@@ -547,6 +548,195 @@ export function exportEnhancedPoster(
       ID: ${attributes.codexId}
     </text>
   </g>
+</svg>`;
+}
+
+/**
+ * Export Faction Card
+ * 
+ * Generates a faction-branded share card SVG matching the EnhancedShareCard component.
+ * The card includes faction-specific coloring, decorative borders, machine preview,
+ * stats panel, and tags - all themed to the dominant faction of the machine.
+ * 
+ * @param modules - Array of placed modules on the canvas
+ * @param connections - Array of connections between modules
+ * @param attributes - Generated machine attributes (name, rarity, stats, tags, etc.)
+ * @param faction - Faction configuration with colors and theming
+ * @returns SVG string suitable for download as .svg file
+ */
+export function exportFactionCard(
+  modules: PlacedModule[],
+  _connections: Connection[],
+  attributes: GeneratedAttributes,
+  faction: FactionConfig
+): string {
+  const cardWidth = 800;
+  const cardHeight = 600;
+  const factionColor = faction.color;
+  const factionSecondaryColor = faction.secondaryColor;
+  
+  // Rarity colors
+  const rarityColors: Record<string, { primary: string }> = {
+    common: { primary: '#9ca3af' },
+    uncommon: { primary: '#22c55e' },
+    rare: { primary: '#3b82f6' },
+    epic: { primary: '#a855f7' },
+    legendary: { primary: '#f59e0b' },
+  };
+  const rarityColor = rarityColors[attributes.rarity]?.primary || '#9ca3af';
+  const previewWidth = 400;
+  const previewHeight = 200;
+  const gridRows = Array.from({ length: 20 }).map((_, idx) => 
+    `<line x1="0" y1="${idx * 30}" x2="800" y2="${idx * 30}" stroke="${factionColor}" stroke-width="0.5"/>`
+  ).join('');
+  const gridCols = Array.from({ length: 27 }).map((_, idx) => 
+    `<line x1="${idx * 30}" y1="0" x2="${idx * 30}" y2="600" stroke="${factionColor}" stroke-width="0.5"/>`
+  ).join('');
+  
+  // Generate corner decorations
+  const corners = [
+    { x: 30, y: 30, rotate: 0 },
+    { x: 770, y: 30, rotate: 90 },
+    { x: 770, y: 570, rotate: 180 },
+    { x: 30, y: 570, rotate: 270 },
+  ].map((pos) => `
+    <g transform="translate(${pos.x}, ${pos.y}) rotate(${pos.rotate})">
+      <circle cx="0" cy="0" r="8" fill="${factionColor}" opacity="0.8"/>
+      <circle cx="0" cy="0" r="4" fill="#0a0e17"/>
+    </g>
+  `).join('');
+  
+  // Generate module preview circles
+  const moduleCircles = modules.slice(0, 6).map((_, idx) => {
+    const cx = 80 + (idx % 4) * 100;
+    const cy = 60 + Math.floor(idx / 4) * 80;
+    return `<circle cx="${cx}" cy="${cy}" r="30" fill="${factionColor}" opacity="0.3"/>`;
+  }).join('');
+  
+  // Generate stats
+  const stats = [
+    { label: '稳定性', value: attributes.stats.stability, max: 100, color: '#22c55e' },
+    { label: '输出功率', value: attributes.stats.powerOutput, max: 100, color: '#3b82f6' },
+    { label: '能耗', value: attributes.stats.energyCost, max: 100, color: '#f59e0b' },
+    { label: '故障率', value: attributes.stats.failureRate, max: 100, color: '#ef4444' },
+  ].map((stat, idx) => {
+    const x = idx * 175;
+    return `
+      <g transform="translate(${x}, 20)">
+        <text x="87.5" y="0" text-anchor="middle" fill="#9ca3af" font-size="12">${stat.label}</text>
+        <text x="87.5" y="35" text-anchor="middle" fill="${stat.color}" font-size="24" font-weight="bold">${stat.value}</text>
+        <rect x="10" y="50" width="155" height="8" rx="4" fill="#1e2a42"/>
+        <rect x="10" y="50" width="${155 * (stat.value / stat.max)}" height="8" rx="4" fill="${stat.color}"/>
+      </g>
+    `;
+  }).join('');
+  
+  // Generate tags
+  const tagsX = 100;
+  const tags = attributes.tags.map((tag: AttributeTag, idx: number) => `
+    <g transform="translate(${tagsX + idx * 80}, 90)">
+      <rect width="70" height="22" rx="4" fill="${factionColor}" opacity="0.2"/>
+      <text x="35" y="15" text-anchor="middle" fill="${factionColor}" font-size="11">#${tag}</text>
+    </g>
+  `).join('');
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" 
+     viewBox="0 0 ${cardWidth} ${cardHeight}" 
+     width="${cardWidth}" 
+     height="${cardHeight}">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="50%" stop-color="#121826"/>
+      <stop offset="100%" stop-color="#0a0e17"/>
+    </linearGradient>
+    
+    <!-- Faction gradient for borders -->
+    <linearGradient id="factionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="${factionColor}"/>
+      <stop offset="50%" stop-color="${factionSecondaryColor}"/>
+      <stop offset="100%" stop-color="${factionColor}"/>
+    </linearGradient>
+    
+    <!-- Glow filter -->
+    <filter id="cardGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Card background -->
+  <rect width="${cardWidth}" height="${cardHeight}" fill="url(#cardBg)"/>
+  
+  <!-- Decorative grid pattern -->
+  <g opacity="0.1">
+    ${gridRows}
+    ${gridCols}
+  </g>
+  
+  <!-- Outer border with faction gradient -->
+  <rect x="10" y="10" width="780" height="580" fill="none" stroke="url(#factionGradient)" stroke-width="3" rx="20"/>
+  
+  <!-- Inner border -->
+  <rect x="25" y="25" width="750" height="550" fill="none" stroke="${factionColor}" stroke-width="1" opacity="0.5" rx="15"/>
+  
+  <!-- Corner decorations -->
+  ${corners}
+  
+  <!-- Faction badge - top left -->
+  <g transform="translate(50, 50)">
+    <rect width="120" height="40" rx="8" fill="${factionColor}" opacity="0.2"/>
+    <rect width="120" height="40" rx="8" fill="none" stroke="${factionColor}" stroke-width="2"/>
+    <text x="60" y="26" text-anchor="middle" fill="${factionColor}" font-size="16" font-weight="bold">
+      ${faction.icon} ${faction.nameCn}
+    </text>
+  </g>
+  
+  <!-- Rarity badge - top right -->
+  <g transform="translate(650, 50)">
+    <rect width="100" height="40" rx="8" fill="${rarityColor}" opacity="0.2"/>
+    <rect width="100" height="40" rx="8" fill="none" stroke="${rarityColor}" stroke-width="2"/>
+    <text x="50" y="26" text-anchor="middle" fill="${rarityColor}" font-size="14" font-weight="bold" filter="url(#cardGlow)">
+      ${rarityColor.toUpperCase()}
+    </text>
+  </g>
+  
+  <!-- Machine title -->
+  <text x="400" y="150" text-anchor="middle" fill="white" font-size="36" font-weight="bold" filter="url(#cardGlow)">
+    ${attributes.name}
+  </text>
+  
+  <!-- Machine preview area -->
+  <g transform="translate(200, 180)">
+    <rect width="${previewWidth}" height="${previewHeight}" rx="10" fill="#0a0e17" opacity="0.5"/>
+    <rect width="${previewWidth}" height="${previewHeight}" rx="10" fill="none" stroke="${factionColor}" stroke-width="1" opacity="0.3"/>
+    
+    <!-- Module preview circles -->
+    ${moduleCircles}
+  </g>
+  
+  <!-- Stats panel -->
+  <g transform="translate(50, 420)">
+    <rect width="700" height="120" rx="10" fill="#0a0e17" opacity="0.8"/>
+    <rect width="700" height="120" rx="10" fill="none" stroke="${factionColor}" stroke-width="1" opacity="0.3"/>
+    
+    <!-- Stats bars -->
+    ${stats}
+    
+    <!-- Tags -->
+    <text x="20" y="100" fill="#9ca3af" font-size="11">属性标签:</text>
+    ${tags}
+  </g>
+  
+  <!-- Footer -->
+  <text x="400" y="570" text-anchor="middle" fill="#6b7280" font-size="12">
+    ARCANE MACHINE CODEX • ${attributes.codexId}
+  </text>
 </svg>`;
 }
 
