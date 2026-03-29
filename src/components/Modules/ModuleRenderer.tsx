@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from 'react';
+import { memo, useRef, useCallback, useEffect, useState } from 'react';
 import { gsap } from 'gsap';
 import { PlacedModule, Port, MachineState, MODULE_SIZES, MODULE_ACCENT_COLORS } from '../../types';
 import { useMachineStore } from '../../store/useMachineStore';
@@ -24,7 +24,13 @@ interface ModuleRendererProps {
   onMouseDown: (e: React.MouseEvent) => void;
 }
 
-export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }: ModuleRendererProps) {
+// Memoized component to prevent unnecessary re-renders
+export const ModuleRenderer = memo(function ModuleRenderer({ 
+  module, 
+  isSelected, 
+  machineState, 
+  onMouseDown 
+}: ModuleRendererProps) {
   const groupRef = useRef<SVGGElement>(null);
   const glowRef = useRef<SVGCircleElement>(null);
   const startConnection = useMachineStore((state) => state.startConnection);
@@ -33,12 +39,13 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
   // Track activation glow state
   const [showActivationGlow, setShowActivationGlow] = useState(false);
   
+  // Memoize size lookup
   const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
   
-  // Get module accent color from registry
-  const getModuleAccentColor = () => {
+  // Memoize accent color lookup
+  const getModuleAccentColor = useCallback(() => {
     return MODULE_ACCENT_COLORS[module.type] || '#00d4ff';
-  };
+  }, [module.type]);
   
   // GSAP animations based on machine state
   useEffect(() => {
@@ -129,7 +136,7 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
     }
   }, [showActivationGlow]);
   
-  // Handle port mouse down
+  // Handle port mouse down - memoized
   const handlePortMouseDown = useCallback((port: Port, e: React.MouseEvent) => {
     e.stopPropagation();
     if (port.type === 'output') {
@@ -137,7 +144,7 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
     }
   }, [module.instanceId, startConnection]);
   
-  // Handle port mouse up
+  // Handle port mouse up - memoized
   const handlePortMouseUp = useCallback((port: Port, e: React.MouseEvent) => {
     e.stopPropagation();
     if (port.type === 'input') {
@@ -145,7 +152,8 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
     }
   }, [module.instanceId, completeConnection]);
   
-  const renderModuleSVG = () => {
+  // Render module SVG based on type
+  const renderModuleSVG = useCallback(() => {
     const props = {
       isActive: machineState !== 'idle',
       isCharging: machineState === 'charging',
@@ -183,10 +191,10 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
       default:
         return <rect width={size.width} height={size.height} fill="#333" />;
     }
-  };
+  }, [module.type, machineState]);
   
   // Get port label with index for multi-port modules
-  const getPortLabel = (port: Port, index: number) => {
+  const getPortLabel = useCallback((port: Port, index: number) => {
     if (port.type === 'input') {
       const inputCount = module.ports.filter(p => p.type === 'input').length;
       return inputCount > 1 ? `IN${index + 1}` : 'IN';
@@ -194,7 +202,7 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
       const outputCount = module.ports.filter(p => p.type === 'output').length;
       return outputCount > 1 ? `OUT${index + 1}` : 'OUT';
     }
-  };
+  }, [module.ports]);
   
   // Group ports by type for proper labeling
   const inputPorts = module.ports.filter(p => p.type === 'input');
@@ -204,6 +212,9 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
   const centerX = size.width / 2;
   const centerY = size.height / 2;
   
+  // Generate aria-label for accessibility
+  const ariaLabel = `模块 ${module.type}, 位置 (${Math.round(module.x)}, ${Math.round(module.y)}), 旋转 ${module.rotation}°`;
+  
   return (
     <g
       ref={groupRef}
@@ -212,7 +223,7 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
       style={{ cursor: 'move' }}
       className={`module-group ${isSelected ? 'module-selected' : ''}`}
       role="button"
-      aria-label={`Module ${module.type}, position (${Math.round(module.x)}, ${Math.round(module.y)}), rotation ${module.rotation}°`}
+      aria-label={ariaLabel}
       tabIndex={0}
       data-module-id={module.instanceId}
       data-module-type={module.type}
@@ -264,7 +275,7 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
             style={{ cursor: 'crosshair' }}
             className="port-group"
             role="button"
-            aria-label={`Input port ${idx + 1}`}
+            aria-label={`输入端口 ${idx + 1}`}
             tabIndex={0}
           >
             {/* Port glow */}
@@ -320,7 +331,7 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
             style={{ cursor: 'crosshair' }}
             className="port-group"
             role="button"
-            aria-label={`Output port ${idx + 1}`}
+            aria-label={`输出端口 ${idx + 1}`}
             tabIndex={0}
           >
             {/* Port glow */}
@@ -361,6 +372,18 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
       })}
     </g>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - only re-render if these props change
+  return (
+    prevProps.module.instanceId === nextProps.module.instanceId &&
+    prevProps.module.x === nextProps.module.x &&
+    prevProps.module.y === nextProps.module.y &&
+    prevProps.module.rotation === nextProps.module.rotation &&
+    prevProps.module.scale === nextProps.module.scale &&
+    prevProps.module.flipped === nextProps.module.flipped &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.machineState === nextProps.machineState
+  );
+});
 
 export default ModuleRenderer;

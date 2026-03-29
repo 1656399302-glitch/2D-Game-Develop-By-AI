@@ -1,95 +1,182 @@
-APPROVED
-
 # Sprint Contract — Round 5
+
+## APPROVED
 
 ## Scope
 
-**Remediation Sprint** — Fixing 3 critical bugs identified in Round 4 QA evaluation:
-1. Test buttons don't trigger activation overlay (integration gap)
-2. Wrong Chinese text for failure mode
-3. Wrong Chinese text for overload mode
+**Enhancement Sprint**: Improve accessibility, keyboard shortcuts, performance optimization, and UX polish. This sprint focuses on quality-of-life improvements without adding new core features. All changes must maintain backward compatibility and pass existing tests.
 
 ## Spec Traceability
 
-### P0 items (must pass this round)
-- **ActivationOverlay integration with test buttons** — Toolbar test buttons must trigger the activation overlay
-- **Correct Chinese text for failure mode** — Must display "⚠ 机器故障"
-- **Correct Chinese text for overload mode** — Must display "⚡ 系统过载"
-- **Auto-recovery verification** — Machine returns to idle state after ~3500ms
+### Status from Previous Rounds
+| Category | Status |
+|----------|--------|
+| P0: Module editor (14 types) | ✓ Complete (Round 1-3) |
+| P0: Activation system (6 states) | ✓ Complete (Round 3) |
+| P0: Chinese text literals | ✓ Fixed (Round 4) |
+| P1: Challenge system | ✓ Complete (Round 4) |
+| P1: Recipe system | ✓ Complete (Round 4) |
+| P1: Tutorial system | ✓ Complete (Round 4) |
+| P1: Codex collection | ✓ Complete (Round 4) |
+| P1: Random forge | ✓ Complete (Round 4) |
+| P1: Export (SVG/PNG/Poster) | ✓ Complete (Round 4) |
 
-### P1 items
-- None this round (P1 work deferred from prior rounds)
-
-### P2 items (intentionally deferred)
-- AI naming assistant integration
-- Community sharing features
-- Challenge mode
-- Faction tech tree
+### Status After This Sprint
+- **P0 items**: All P0 items remain complete
+- **P1 items**: All P1 items remain complete
+- **Remaining P0/P1 after this round**: None
+- **P2 items** (enhancements): Accessibility, keyboard shortcuts, performance, UX polish
 
 ## Deliverables
 
-1. **Fixed Toolbar.tsx** — Test buttons wired to trigger `showActivation` state
-2. **Fixed ActivationOverlay.tsx** — Correct Chinese text for failure/overload modes
-3. **App.tsx integration** — No changes needed if using store-based state
+### 1. Enhanced Accessibility (`src/hooks/useAccessibility.ts`)
+- Add ARIA labels to all interactive elements
+- Implement keyboard focus management
+- Add `role` attributes for screen reader support
+- Support for keyboard-only navigation
+
+### 2. Expanded Keyboard Shortcuts (`src/hooks/useKeyboardShortcuts.ts`)
+- Add shortcuts for module deletion (Delete/Backspace)
+- Add shortcuts for copy/paste (Ctrl+C, Ctrl+V)
+- Add shortcuts for duplicate module (Ctrl+D)
+- Add shortcut for select all (Ctrl+A)
+- Add shortcut for save to codex (Ctrl+S)
+- Add shortcut for export modal (Ctrl+E)
+
+### 3. Performance Optimization (`src/components/Editor/Canvas.tsx`)
+- Implement viewport culling (only render visible modules)
+- Use `will-change` CSS property for animated elements
+- Memoize module rendering to prevent unnecessary re-renders
+- Debounce viewport position updates during pan
+
+### 4. UX Polish Improvements
+- Enhanced empty state with animated hint
+- Improved connection error toast messages
+- Add "no modules" celebration when canvas is empty for first time
+- Tooltip hints for module panel items
+
+### 5. Module Thumbnail Previews (`src/components/Editor/ModulePanel.tsx`)
+- Add hover preview thumbnails for module types
+- Show module description on hover
+- Add category grouping visual separation
 
 ## Acceptance Criteria
 
-1. **Toolbar Button 1 Visible** — "⚠ 测试故障" button exists in DOM
-2. **Toolbar Button 2 Visible** — "⚡ 测试过载" button exists in DOM
-3. **Failure Mode Triggerable** — Clicking "测试故障" shows ActivationOverlay with failure animation
-4. **Overload Mode Triggerable** — Clicking "测试过载" shows ActivationOverlay with overload animation
-5. **Failure Mode Chinese Text** — Overlay displays "⚠ 机器故障"
-6. **Overload Mode Chinese Text** — Overlay displays "⚡ 系统过载"
-7. **Auto-Recovery Works** — Machine returns to idle state after ~3500ms
-8. **No Test Regression** — All 99 existing unit tests pass
-9. **Build Clean** — Production build completes with 0 errors
+1. **AC1**: `npm run build` exits with code 0 and 0 TypeScript errors
+2. **AC2**: `npm test` shows 438/438 passing tests (no regressions)
+3. **AC3**: All new keyboard shortcuts are functional:
+   - `Delete`/`Backspace`: Delete selected module
+   - `Ctrl+D`: Duplicate selected module
+   - `Ctrl+C`/`Ctrl+V`: Copy/paste modules
+   - `Ctrl+A`: Select all modules
+   - `Ctrl+S`: Save to codex
+   - `Ctrl+E`: Open export modal
+4. **AC4**: ARIA labels present on all toolbar buttons (verified via `getAllByRole('button')`)
+5. **AC5**: Canvas viewport culling reduces DOM nodes when zoomed out
+6. **AC6**: Empty state displays helpful hints for new users
+7. **AC7**: Module panel shows hover tooltips with module descriptions
 
 ## Test Methods
 
-1. **Browser DOM query** — `document.body.innerText.includes('测试故障')` → `true`
-2. **Browser DOM query** — `document.body.innerText.includes('测试过载')` → `true`
-3. **Click test** — Click "测试故障", wait 500ms, verify overlay element exists: `document.querySelectorAll('[class*="fixed"]').length > 0`
-4. **Click test** — Click "测试过载", wait 500ms, verify overlay element exists
-5. **Text verification** — Overlay title text includes "⚠ 机器故障"
-6. **Text verification** — Overlay title text includes "⚡ 系统过载"
-7. **Auto-recovery** — Machine state returns to 'idle' within 4000ms of triggering test mode
-8. **Unit tests** — `npm test` passes all 99 tests
-9. **Build test** — `npm run build` produces 0 errors
+1. **Build verification**:
+   ```bash
+   npm run build
+   # Verify: exit code 0, 0 TypeScript errors
+   ```
+
+2. **Test suite verification**:
+   ```bash
+   npm test
+   # Verify: 438/438 tests pass
+   ```
+
+3. **Keyboard shortcut verification** (browser):
+   ```javascript
+   // Test delete shortcut
+   focusEditor(); selectModule(); pressKey('Delete'); verifyModuleDeleted();
+   
+   // Test duplicate shortcut  
+   focusEditor(); selectModule(); pressKey('Ctrl+D'); verifyModuleDuplicated();
+   
+   // Test copy/paste
+   focusEditor(); selectModule(); pressKey('Ctrl+C'); pressKey('Ctrl+V');
+   verifyModulePasted();
+   ```
+
+4. **Accessibility verification**:
+   ```javascript
+   // Check toolbar buttons have aria-labels
+   const buttons = document.querySelectorAll('[role="button"], button');
+   buttons.forEach(btn => assert(btn.getAttribute('aria-label') || btn.textContent));
+   ```
+
+5. **Performance verification**:
+   ```javascript
+   // Place 20 modules, zoom out to 25%, verify only visible modules render
+   // Compare DOM node count at 100% zoom vs 25% zoom
+   ```
 
 ## Risks
 
-1. **Low Risk** — Fix is integration-level only, not architectural
-2. **Minimal scope** — Only 3 specific files need changes: Toolbar.tsx, ActivationOverlay.tsx, possibly useMachineStore.ts
+1. **Risk level**: MEDIUM — multiple files modified
+2. **Risk mitigation**: All existing functionality unchanged; only new features added
+3. **Risk mitigation**: 438/438 existing tests provide regression protection
+4. **Risk mitigation**: Changes are additive (accessibility, shortcuts, performance)
 
 ## Failure Conditions
 
-1. Clicking "测试故障" does not show activation overlay
-2. Clicking "测试过载" does not show activation overlay
-3. Failure overlay text is not "⚠ 机器故障"
-4. Overload overlay text is not "⚡ 系统过载"
-5. Auto-recovery to idle state fails
-6. Any existing test regression
+The round MUST fail if ANY of these conditions occur:
+
+1. `npm run build` fails or exits with non-zero code
+2. TypeScript errors present in build output
+3. `npm test` shows fewer than 438/438 passing tests
+4. New keyboard shortcuts conflict with browser defaults
+5. Accessibility changes break existing interactions
+6. Performance changes cause visual glitches in viewport
 
 ## Done Definition
 
-All 9 acceptance criteria must pass:
-- [ ] Toolbar button "测试故障" visible in DOM
-- [ ] Toolbar button "测试过载" visible in DOM
-- [ ] Clicking "测试故障" shows failure overlay
-- [ ] Clicking "测试过载" shows overload overlay
-- [ ] Failure overlay displays "⚠ 机器故障"
-- [ ] Overload overlay displays "⚡ 系统过载"
-- [ ] Machine auto-returns to idle within 4 seconds
-- [ ] `npm test` passes 99 tests
-- [ ] `npm run build` produces 0 errors
+The round is **complete** when ALL of the following are true:
+
+- [ ] `npm run build` exits with code 0 and 0 TypeScript errors
+- [ ] `npm test` shows 438/438 passing tests
+- [ ] New keyboard shortcuts implemented in `src/hooks/useKeyboardShortcuts.ts`
+- [ ] ARIA labels added to toolbar buttons in `Toolbar.tsx`
+- [ ] Viewport culling logic added to `Canvas.tsx`
+- [ ] Module memoization added to `ModuleRenderer.tsx`
+- [ ] Empty state hints implemented in `Canvas.tsx`
+- [ ] Module hover tooltips added to `ModulePanel.tsx`
+- [ ] No regressions in existing functionality
 
 ## Out of Scope
 
-- Any new features beyond the 3 bug fixes
-- Visual polish of existing UI
-- Additional test coverage
-- Performance optimization
-- Mobile responsiveness
-- Accessibility improvements
-- Documentation updates
-- Any P1/P2 features from spec.md
+- No new module types
+- No new core features (activation states, challenge system, etc.)
+- No changes to existing animation timings
+- No API changes or state management restructuring
+- No database or persistence changes
+- No mobile responsiveness (P2 deferred)
+- No theme customization (P2 deferred)
+- No AI integration (P2 deferred)
+
+## Technical Notes
+
+### Accessibility Implementation Guidelines
+- Use semantic HTML (`<button>`, `<nav>`, `<main>`)
+- Add `aria-label` to icon-only buttons
+- Add `aria-describedby` for complex interactive elements
+- Support `Tab` navigation through all interactive elements
+- Add `role="region"` for major sections
+
+### Performance Implementation Guidelines
+- Use `React.memo()` for `ModuleRenderer` component
+- Implement viewport bounds checking before rendering
+- Use `useMemo` for connection path calculations
+- Debounce zoom/pan handlers (16ms threshold)
+- Use CSS `will-change: transform` for animated containers
+
+### Keyboard Shortcut Guidelines
+- Prevent default browser behavior for shortcuts
+- Check for focused element (don't trigger when in input)
+- Provide visual feedback when shortcut is executed
+- Document shortcuts in UI tooltips

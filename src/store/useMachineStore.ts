@@ -36,6 +36,14 @@ interface MachineStore {
   randomForgeToastVisible: boolean;
   randomForgeToastMessage: string;
   hasLoadedSavedState: boolean;
+  
+  // Clipboard for copy/paste
+  clipboardModules: PlacedModule[];
+  clipboardConnections: Connection[];
+  
+  // Modal states
+  showExportModal: boolean;
+  showCodexModal: boolean;
 
   // Actions
   addModule: (type: ModuleType, x: number, y: number) => void;
@@ -45,9 +53,14 @@ interface MachineStore {
   updateModuleScale: (instanceId: string, scale: number) => void;
   updateModuleFlip: (instanceId: string) => void;
   selectModule: (instanceId: string | null) => void;
+  selectAllModules: () => void;
   selectConnection: (connectionId: string | null) => void;
   deleteSelected: () => void;
   duplicateModule: (instanceId: string) => void;
+  
+  // Copy/Paste
+  copySelected: () => void;
+  pasteModules: () => void;
   
   // Connection actions
   startConnection: (moduleId: string, portId: string) => void;
@@ -89,6 +102,10 @@ interface MachineStore {
   showRandomForgeToast: (message: string) => void;
   hideRandomForgeToast: () => void;
   
+  // Modal controls
+  setShowExportModal: (show: boolean) => void;
+  setShowCodexModal: (show: boolean) => void;
+  
   // Persistence
   restoreSavedState: () => void;
   startFresh: () => void;
@@ -102,6 +119,7 @@ const MAX_ZOOM = 2.0;
 const ZOOM_STEP = 0.1;
 const DUPLICATE_OFFSET = 20;
 const AUTO_SAVE_DEBOUNCE = 500; // 500ms debounce for auto-save
+const CLIPBOARD_OFFSET = 30; // Offset for pasted modules
 
 // Debounce helper
 let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -195,6 +213,14 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   randomForgeToastVisible: false,
   randomForgeToastMessage: '',
   hasLoadedSavedState: false,
+  
+  // Clipboard
+  clipboardModules: [],
+  clipboardConnections: [],
+  
+  // Modal states
+  showExportModal: false,
+  showCodexModal: false,
 
   addModule: (type, x, y) => {
     const { gridEnabled } = get();
@@ -361,6 +387,16 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     set({ selectedModuleId: instanceId, selectedConnectionId: null });
   },
 
+  selectAllModules: () => {
+    const { modules } = get();
+    if (modules.length === 0) return;
+    
+    // Select all modules (set selected to first module for UI purposes)
+    // In a multi-select scenario, we would track selectedModuleIds as array
+    // For now, select the first one to show selection state
+    set({ selectedModuleId: modules[0].instanceId });
+  },
+
   selectConnection: (connectionId) => {
     set({ selectedConnectionId: connectionId, selectedModuleId: null });
   },
@@ -407,6 +443,99 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     });
     
     // THEN save to history (captures the new state)
+    get().saveToHistory();
+  },
+
+  copySelected: () => {
+    const { modules, connections, selectedModuleId } = get();
+    
+    if (!selectedModuleId) {
+      // Copy all modules if none selected
+      set({
+        clipboardModules: modules.map(m => ({ ...m })),
+        clipboardConnections: connections.map(c => ({ ...c })),
+      });
+      return;
+    }
+    
+    // Find selected module
+    const selectedModule = modules.find(m => m.instanceId === selectedModuleId);
+    if (!selectedModule) return;
+    
+    // Copy selected module and any connections between selected modules
+    const copiedModules = [selectedModule];
+    
+    // Also copy any connections that are between copied modules
+    const copiedConnections = connections.filter(c => 
+      c.sourceModuleId === selectedModuleId || c.targetModuleId === selectedModuleId
+    );
+    
+    set({
+      clipboardModules: copiedModules.map(m => ({ ...m, ports: [...m.ports.map(p => ({ ...p }))] })),
+      clipboardConnections: copiedConnections.map(c => ({ ...c })),
+    });
+  },
+
+  pasteModules: () => {
+    const { clipboardModules, clipboardConnections, modules } = get();
+    
+    if (clipboardModules.length === 0) return;
+    
+    // Create mapping from old instance IDs to new instance IDs
+    const idMapping = new Map<string, string>();
+    clipboardModules.forEach(m => {
+      idMapping.set(m.instanceId, uuidv4());
+    });
+    
+    // Create new modules with new IDs and offset position
+    const newModules: PlacedModule[] = clipboardModules.map(m => ({
+      ...m,
+      id: uuidv4(),
+      instanceId: idMapping.get(m.instanceId)!,
+      x: m.x + CLIPBOARD_OFFSET,
+      y: m.y + CLIPBOARD_OFFSET,
+      ports: m.ports.map(p => ({
+        ...p,
+        id: `${m.type}-${p.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      })),
+    }));
+    
+    // Create new connections with updated module IDs
+    const newConnections: Connection[] = clipboardConnections.map(c => ({
+      ...c,
+      id: uuidv4(),
+      sourceModuleId: idMapping.get(c.sourceModuleId) || c.sourceModuleId,
+      targetModuleId: idMapping.get(c.targetModuleId) || c.targetModuleId,
+    }));
+    
+    // Update connection paths
+    const allModules = [...modules, ...newModules];
+    const updatedConnections = newConnections.map(conn => {
+      const newPath = calculateConnectionPath(
+        allModules,
+        conn.sourceModuleId,
+        conn.sourcePortId,
+        conn.targetModuleId,
+        conn.targetPortId
+      );
+      return { ...conn, pathData: newPath };
+    });
+    
+    set((state) => {
+      // Trigger auto-save after state update
+      setTimeout(() => {
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
+      }, 0);
+      
+      return {
+        modules: [...state.modules, ...newModules],
+        connections: [...state.connections, ...updatedConnections],
+        selectedModuleId: newModules[0]?.instanceId || null,
+        generatedAttributes: null,
+      };
+    });
+    
     get().saveToHistory();
   },
 
@@ -793,6 +922,14 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   hideRandomForgeToast: () => {
     set({ randomForgeToastVisible: false });
+  },
+
+  setShowExportModal: (show) => {
+    set({ showExportModal: show });
+  },
+
+  setShowCodexModal: (show) => {
+    set({ showCodexModal: show });
   },
   
   // Persistence methods

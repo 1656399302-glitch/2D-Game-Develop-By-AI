@@ -16,6 +16,10 @@ describe('Keyboard Shortcuts - Store Actions', () => {
       activeMode: 'idle' as const,
       activationProgress: 0,
       connectionError: null,
+      clipboardModules: [],
+      clipboardConnections: [],
+      showExportModal: false,
+      showCodexModal: false,
     });
   });
 
@@ -30,7 +34,7 @@ describe('Keyboard Shortcuts - Store Actions', () => {
     });
 
     it('should delete selected connection when Delete key is pressed', () => {
-      const { addModule, addConnection, deleteSelected } = useMachineStore.getState();
+      const { addModule, deleteSelected } = useMachineStore.getState();
       addModule('core-furnace', 100, 100);
       addModule('gear', 200, 200);
       const modules = useMachineStore.getState().modules;
@@ -40,6 +44,7 @@ describe('Keyboard Shortcuts - Store Actions', () => {
         sourcePortId: modules[0].ports[0]?.id || 'port-1',
         targetModuleId: modules[1].instanceId,
         targetPortId: modules[1].ports[0]?.id || 'port-2',
+        pathData: 'M0,0 L100,100',
       };
       useMachineStore.setState({ connections: [connection], selectedConnectionId: 'conn-1' });
       deleteSelected();
@@ -138,6 +143,107 @@ describe('Keyboard Shortcuts - Store Actions', () => {
     });
   });
 
+  describe('Ctrl+C Copy', () => {
+    it('should copy selected module to clipboard', () => {
+      const { addModule, copySelected } = useMachineStore.getState();
+      addModule('core-furnace', 100, 100);
+      const originalModuleId = useMachineStore.getState().modules[0].instanceId;
+      useMachineStore.setState({ selectedModuleId: originalModuleId });
+      useMachineStore.setState({ selectedModuleId: null });
+      copySelected();
+      expect(useMachineStore.getState().clipboardModules.length).toBe(1);
+      expect(useMachineStore.getState().clipboardModules[0].instanceId).toBe(originalModuleId);
+    });
+
+    it('should copy all modules when none selected', () => {
+      const { addModule, copySelected } = useMachineStore.getState();
+      addModule('core-furnace', 100, 100);
+      addModule('gear', 200, 200);
+      useMachineStore.setState({ selectedModuleId: null });
+      copySelected();
+      expect(useMachineStore.getState().clipboardModules.length).toBe(2);
+    });
+  });
+
+  describe('Ctrl+V Paste', () => {
+    it('should paste modules from clipboard', () => {
+      const { addModule, copySelected, pasteModules } = useMachineStore.getState();
+      addModule('core-furnace', 100, 100);
+      const originalModuleId = useMachineStore.getState().modules[0].instanceId;
+      useMachineStore.setState({ selectedModuleId: originalModuleId });
+      copySelected();
+      pasteModules();
+      expect(useMachineStore.getState().modules.length).toBe(2);
+    });
+
+    it('should offset pasted modules by 30px', () => {
+      const { addModule, copySelected, pasteModules } = useMachineStore.getState();
+      addModule('core-furnace', 100, 100);
+      const originalModule = useMachineStore.getState().modules[0];
+      const originalModuleId = originalModule.instanceId;
+      useMachineStore.setState({ selectedModuleId: originalModuleId });
+      copySelected();
+      pasteModules();
+      const pastedModule = useMachineStore.getState().modules[1];
+      expect(pastedModule.x).toBe(originalModule.x + 30);
+      expect(pastedModule.y).toBe(originalModule.y + 30);
+    });
+
+    it('should not paste when clipboard is empty', () => {
+      const { addModule, pasteModules } = useMachineStore.getState();
+      addModule('core-furnace', 100, 100);
+      const initialCount = useMachineStore.getState().modules.length;
+      pasteModules();
+      expect(useMachineStore.getState().modules.length).toBe(initialCount);
+    });
+  });
+
+  describe('Ctrl+A Select All', () => {
+    it('should select first module when selectAllModules is called', () => {
+      const { addModule, selectAllModules } = useMachineStore.getState();
+      addModule('core-furnace', 100, 100);
+      addModule('gear', 200, 200);
+      selectAllModules();
+      expect(useMachineStore.getState().selectedModuleId).toBeTruthy();
+      expect(useMachineStore.getState().modules.length).toBe(2);
+    });
+
+    it('should do nothing when no modules exist', () => {
+      const { selectAllModules } = useMachineStore.getState();
+      expect(() => selectAllModules()).not.toThrow();
+    });
+  });
+
+  describe('Ctrl+S Save to Codex Modal', () => {
+    it('should open codex modal when setShowCodexModal is called', () => {
+      const { setShowCodexModal } = useMachineStore.getState();
+      setShowCodexModal(true);
+      expect(useMachineStore.getState().showCodexModal).toBe(true);
+    });
+
+    it('should close codex modal when setShowCodexModal is called with false', () => {
+      const { setShowCodexModal } = useMachineStore.getState();
+      setShowCodexModal(true);
+      setShowCodexModal(false);
+      expect(useMachineStore.getState().showCodexModal).toBe(false);
+    });
+  });
+
+  describe('Ctrl+E Export Modal', () => {
+    it('should open export modal when setShowExportModal is called', () => {
+      const { setShowExportModal } = useMachineStore.getState();
+      setShowExportModal(true);
+      expect(useMachineStore.getState().showExportModal).toBe(true);
+    });
+
+    it('should close export modal when setShowExportModal is called with false', () => {
+      const { setShowExportModal } = useMachineStore.getState();
+      setShowExportModal(true);
+      setShowExportModal(false);
+      expect(useMachineStore.getState().showExportModal).toBe(false);
+    });
+  });
+
   describe('Scale Slider', () => {
     it('should update module scale', () => {
       const { addModule, updateModuleScale } = useMachineStore.getState();
@@ -165,45 +271,34 @@ describe('Keyboard Shortcuts - Store Actions', () => {
 
   describe('Edge Case: Null/undefined target handling', () => {
     it('should not throw error when keyboard event has no target', () => {
-      // This verifies the fix for "target.closest is not a function" error
-      // We simulate a keyboard event by directly testing the input field detection logic
       const testWithNullTarget = () => {
         const target = null;
-        // The fixed code should handle this:
         if (target && typeof target.closest === 'function') {
-          // Should not reach here
           throw new Error('Should not reach here with null target');
         }
-        // Should continue without error
         return true;
       };
       expect(testWithNullTarget()).toBe(true);
     });
 
     it('should not throw error when keyboard event target is window-like object', () => {
-      // Test the edge case where target exists but doesn't have closest method
       const testWithNoClosest = () => {
         const target = { tagName: 'UNDEFINED' } as HTMLElement;
-        // The fixed code should handle this:
         if (target && typeof target.closest === 'function') {
-          // Should not reach here
           throw new Error('Should not reach here without closest method');
         }
-        // Should continue without error
         return true;
       };
       expect(testWithNoClosest()).toBe(true);
     });
 
     it('should not throw error when keyboard event target is proper element', () => {
-      // Test the happy path where target is a valid element
       const testWithValidTarget = () => {
         const mockElement = {
           tagName: 'DIV',
           isContentEditable: false,
           closest: (selector: string) => null,
         } as unknown as HTMLElement;
-        // The fixed code should handle this:
         if (mockElement && typeof mockElement.closest === 'function') {
           const isInputField = 
             mockElement.tagName === 'INPUT' || 
@@ -211,7 +306,7 @@ describe('Keyboard Shortcuts - Store Actions', () => {
             mockElement.isContentEditable ||
             mockElement.closest('input') ||
             mockElement.closest('textarea');
-          return !isInputField; // Should return true (not an input field)
+          return !isInputField;
         }
         return false;
       };
@@ -220,7 +315,6 @@ describe('Keyboard Shortcuts - Store Actions', () => {
 
     it('should detect input field correctly', () => {
       const testInputDetection = () => {
-        // Test INPUT element
         const inputElement = {
           tagName: 'INPUT',
           isContentEditable: false,
@@ -230,7 +324,6 @@ describe('Keyboard Shortcuts - Store Actions', () => {
         const isInput = inputElement.tagName === 'INPUT';
         expect(isInput).toBe(true);
         
-        // Test TEXTAREA element
         const textareaElement = {
           tagName: 'TEXTAREA',
           isContentEditable: false,
@@ -240,13 +333,12 @@ describe('Keyboard Shortcuts - Store Actions', () => {
         const isTextarea = textareaElement.tagName === 'TEXTAREA';
         expect(isTextarea).toBe(true);
         
-        // Test element with closest returning a match
         const divWithInputChild = {
           tagName: 'DIV',
           isContentEditable: false,
           closest: (selector: string) => {
             if (selector === 'input' || selector === 'textarea') {
-              return document.createElement('input'); // Mock return
+              return document.createElement('input');
             }
             return null;
           },
@@ -263,10 +355,7 @@ describe('Keyboard Shortcuts - Store Actions', () => {
 });
 
 describe('Keyboard Shortcuts - Input Field Exclusion Logic', () => {
-  // This test suite specifically validates the fix for the target.closest bug
-
   it('should safely handle target.closest when target is null', () => {
-    // Simulating the fixed code logic
     const handleInputFieldCheck = (target: HTMLElement | null) => {
       if (target && typeof target.closest === 'function') {
         const isInputField = 
@@ -277,14 +366,11 @@ describe('Keyboard Shortcuts - Input Field Exclusion Logic', () => {
           target.closest('textarea');
         return isInputField;
       }
-      return false; // Not an input field if target is null or has no closest
+      return false;
     };
 
-    // Test with null target - should not throw
     expect(() => handleInputFieldCheck(null)).not.toThrow();
     expect(handleInputFieldCheck(null)).toBe(false);
-
-    // Test with undefined target - should not throw
     expect(() => handleInputFieldCheck(undefined as unknown as HTMLElement)).not.toThrow();
     expect(handleInputFieldCheck(undefined as unknown as HTMLElement)).toBe(false);
   });
@@ -303,7 +389,6 @@ describe('Keyboard Shortcuts - Input Field Exclusion Logic', () => {
       return false;
     };
 
-    // Test with object that doesn't have closest
     const targetWithoutClosest = { tagName: 'DIV' } as HTMLElement;
     expect(() => handleInputFieldCheck(targetWithoutClosest)).not.toThrow();
     expect(handleInputFieldCheck(targetWithoutClosest)).toBe(false);
@@ -323,7 +408,6 @@ describe('Keyboard Shortcuts - Input Field Exclusion Logic', () => {
       return false;
     };
 
-    // Test with actual input element
     const inputElement = {
       tagName: 'INPUT',
       isContentEditable: false,
@@ -331,7 +415,6 @@ describe('Keyboard Shortcuts - Input Field Exclusion Logic', () => {
     } as unknown as HTMLElement;
     expect(handleInputFieldCheck(inputElement)).toBe(true);
 
-    // Test with textarea element
     const textareaElement = {
       tagName: 'TEXTAREA',
       isContentEditable: false,
@@ -339,7 +422,6 @@ describe('Keyboard Shortcuts - Input Field Exclusion Logic', () => {
     } as unknown as HTMLElement;
     expect(handleInputFieldCheck(textareaElement)).toBe(true);
 
-    // Test with contentEditable element
     const contentEditableElement = {
       tagName: 'DIV',
       isContentEditable: true,

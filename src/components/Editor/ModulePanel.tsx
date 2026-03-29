@@ -16,90 +16,87 @@ interface ModuleInfo {
 const MODULE_CATALOG: ModuleInfo[] = [
   {
     type: 'core-furnace',
-    name: 'Core Furnace',
+    name: '核心熔炉',
     category: 'core',
-    description: 'The heart of the machine. Generates and amplifies arcane energy.',
+    description: '机器的心脏。生成并放大奥术能量。',
   },
   {
     type: 'energy-pipe',
-    name: 'Energy Pipe',
+    name: '能量管道',
     category: 'pipe',
-    description: 'Transports energy between modules. Essential for connections.',
+    description: '在模块之间传输能量。连接的关键组件。',
   },
   {
     type: 'gear',
-    name: 'Gear Assembly',
+    name: '齿轮组件',
     category: 'gear',
-    description: 'Mechanical component that provides stability and balanced power.',
+    description: '机械组件，提供稳定性和均衡能量。',
   },
   {
     type: 'rune-node',
-    name: 'Rune Node',
+    name: '符文节点',
     category: 'rune',
-    description: 'Channels arcane power. Amplifies energy throughput.',
+    description: '引导奥术力量。增强能量吞吐量。',
   },
   {
     type: 'shield-shell',
-    name: 'Shield Shell',
+    name: '护盾外壳',
     category: 'shield',
-    description: 'Protective barrier module. Increases system stability.',
+    description: '防护屏障模块。提高系统稳定性。',
   },
   {
     type: 'trigger-switch',
-    name: 'Trigger Switch',
+    name: '触发开关',
     category: 'trigger',
-    description: 'Activation mechanism. Controls energy release timing.',
+    description: '激活机制。控制能量释放时机。',
   },
   {
     type: 'output-array',
-    name: 'Output Array',
+    name: '输出阵列',
     category: 'output',
-    description: 'Final terminus for energy circuits. Projects arcane beams and resonance.',
+    description: '能量回路的最终终端。投射奥术光束和共振。',
   },
-  // Multi-port modules
   {
     type: 'amplifier-crystal',
-    name: 'Amplifier Crystal',
+    name: '增幅水晶',
     category: 'rune',
-    description: 'Prismatic energy amplifier with 1 input and 2 outputs. Splits and amplifies arcane power.',
+    description: '棱镜能量增幅器，1个输入2个输出。分裂并放大奥术力量。',
   },
   {
     type: 'stabilizer-core',
-    name: 'Stabilizer Core',
+    name: '稳定核心',
     category: 'core',
-    description: 'Harmonic stabilization matrix with 2 inputs and 1 output. Balances energy fluctuations.',
+    description: '谐波稳定矩阵，2个输入1个输出。平衡能量波动。',
   },
-  // Round 13 modules
   {
     type: 'void-siphon',
-    name: 'Void Siphon',
+    name: '虚空虹吸',
     category: 'core',
-    description: 'Absorbs void energy with 1 input and 2 outputs. Pulls energy inward with swirling vortex patterns.',
+    description: '吸收虚空能量，1个输入2个输出。以漩涡模式向内吸收能量。',
   },
   {
     type: 'phase-modulator',
-    name: 'Phase Modulator',
+    name: '相位调制器',
     category: 'rune',
-    description: 'Phase-shift matrix with 2 inputs and 2 outputs. Channels lightning energy with electric arcs.',
+    description: '相位偏移矩阵，2个输入2个输出。以闪电弧引导雷电能量。',
   },
-  // Round 3 new modules
   {
     type: 'resonance-chamber',
-    name: 'Resonance Chamber',
+    name: '共振腔',
     category: 'resonance',
-    description: 'Harmonic oscillation chamber with concentric energy rings. Amplifies resonance effects.',
+    description: '谐波振荡室，具有同心能量环。放大共振效果。',
   },
   {
     type: 'fire-crystal',
-    name: 'Fire Crystal',
+    name: '火焰水晶',
     category: 'elemental',
-    description: 'Volatile fire elemental crystal with flickering flame patterns. Channels intense heat energy.',
+    description: '不稳定火元素水晶，具有闪烁火焰图案。引导强烈热能。',
   },
   {
     type: 'lightning-conductor',
-    name: 'Lightning Conductor',
+    name: '引雷导体',
     category: 'elemental',
-    description: 'High-voltage energy conductor with electric arcs. Channels lightning through hexagonal matrix.',
+    description: '高电压能量导体，带有闪电弧。以六边形矩阵引导雷电。',
   },
 ];
 
@@ -115,7 +112,18 @@ const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   elemental: '#f97316',
 };
 
-// Get recipe for a module type
+const CATEGORY_NAMES: Record<ModuleCategory, string> = {
+  core: '核心',
+  pipe: '管道',
+  gear: '齿轮',
+  rune: '符文',
+  shield: '护盾',
+  trigger: '触发',
+  output: '输出',
+  resonance: '共振',
+  elemental: '元素',
+};
+
 const getRecipeForModule = (type: ModuleType) => {
   return RECIPE_DEFINITIONS.find(r => r.moduleType === type);
 };
@@ -128,7 +136,9 @@ export function ModulePanel() {
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const viewport = useMachineStore((state) => state.viewport);
   const { isUnlocked } = useRecipeStore();
-  const [hoveredLockedModule, setHoveredLockedModule] = useState<ModuleInfo | null>(null);
+  
+  const [hoveredModule, setHoveredModule] = useState<ModuleInfo | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   
   const handleDragStart = useCallback((e: React.DragEvent, moduleType: ModuleType, locked: boolean) => {
     if (locked) {
@@ -141,59 +151,58 @@ export function ModulePanel() {
   
   const handleClick = useCallback((moduleType: ModuleType, locked: boolean) => {
     if (locked) return;
-    
-    // Add module at center of viewport
     const x = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
     const y = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
     addModule(moduleType, x, y);
   }, [addModule, viewport]);
   
   const handleRandomForge = useCallback(() => {
-    // Generate random machine
     const { modules, connections } = generateRandomMachine({
       canvasWidth: 800,
       canvasHeight: 600,
       minSpacing: 80,
     });
-    
-    // Generate attributes for the random machine
     const attributes = generateAttributes(modules, connections);
-    
-    // Load the generated machine into the canvas
     loadMachine(modules, connections);
-    
-    // Store the generated attributes
     setGeneratedAttributes(attributes);
-    
-    // Save to history so undo works
     saveToHistory();
-    
-    // Show success toast
-    showRandomForgeToast(`✨ ${attributes.name} Forged!`);
+    showRandomForgeToast(`✨ ${attributes.name} 锻造成功!`);
   }, [loadMachine, setGeneratedAttributes, saveToHistory, showRandomForgeToast]);
   
-  // Check if a module is locked
   const isModuleLocked = (type: ModuleType): boolean => {
     const recipe = getRecipeForModule(type);
     if (!recipe) return false;
     return !isUnlocked(recipe.id);
   };
   
+  const handleMouseEnter = (module: ModuleInfo, e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).closest('.module-item')?.getBoundingClientRect();
+    if (rect) {
+      setTooltipPosition({
+        x: rect.right + 10,
+        y: rect.top,
+      });
+    }
+    setHoveredModule(module);
+  };
+  
+  const handleMouseLeave = () => {
+    setHoveredModule(null);
+  };
+
   return (
     <div 
       className="module-panel w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden"
       role="region"
-      aria-label="Module Palette"
+      aria-label="模块面板"
     >
-      {/* Header */}
       <div className="p-4 border-b border-[#1e2a42]">
         <h2 className="text-sm font-semibold text-[#00d4ff] tracking-wider">
-          MODULE PALETTE
+          模块面板
         </h2>
-        <p className="text-xs text-[#4a5568] mt-1">Drag or click to add</p>
+        <p className="text-xs text-[#4a5568] mt-1">拖拽或点击添加</p>
       </div>
       
-      {/* Random Forge Button */}
       <div className="p-3 border-b border-[#1e2a42] bg-gradient-to-r from-[#1a1a2e] to-[#121826]">
         <button
           onClick={handleRandomForge}
@@ -207,19 +216,18 @@ export function ModulePanel() {
                      flex items-center justify-center gap-2
                      hover:scale-[1.02] active:scale-[0.98]
                      animate-pulse-subtle"
-          title="Generate a random machine with 2-6 modules"
-          aria-label="Random Forge - Generate a random machine"
+          title="随机生成2-6个模块的机器"
+          aria-label="随机锻造 - 生成随机机器"
         >
           <span className="text-lg" aria-hidden="true">🎲</span>
-          <span>Random Forge</span>
+          <span>随机锻造</span>
         </button>
         <p className="text-[10px] text-[#6b7280] mt-2 text-center">
-          Creates 2-6 random modules with connections
+          创建2-6个随机模块与连接
         </p>
       </div>
       
-      {/* Module List */}
-      <div className="flex-1 overflow-y-auto p-2" role="listbox" aria-label="Available modules">
+      <div className="flex-1 overflow-y-auto p-2" role="listbox" aria-label="可用模块">
         <div className="space-y-2">
           {MODULE_CATALOG.map((module) => {
             const locked = isModuleLocked(module.type);
@@ -232,14 +240,25 @@ export function ModulePanel() {
                 draggable={!locked}
                 onDragStart={(e) => handleDragStart(e, module.type, locked)}
                 onClick={() => handleClick(module.type, locked)}
-                onMouseEnter={() => locked && setHoveredLockedModule(module)}
-                onMouseLeave={() => setHoveredLockedModule(null)}
+                onMouseEnter={(e) => handleMouseEnter(module, e)}
+                onMouseLeave={handleMouseLeave}
+                onMouseMove={(e) => {
+                  if (hoveredModule?.type === module.type) {
+                    const rect = (e.target as HTMLElement).closest('.module-item')?.getBoundingClientRect();
+                    if (rect) {
+                      setTooltipPosition({
+                        x: Math.min(rect.right + 10, window.innerWidth - 280),
+                        y: Math.min(rect.top, window.innerHeight - 200),
+                      });
+                    }
+                  }
+                }}
                 role="option"
                 aria-selected={false}
                 aria-disabled={locked}
-                aria-label={`${module.name}${locked ? ' (locked)' : ''}`}
+                aria-label={`${module.name}${locked ? ' (已锁定)' : ''}`}
                 className={`
-                  arcane-card group relative transition-all duration-200
+                  module-item arcane-card group relative transition-all duration-200
                   ${locked 
                     ? 'cursor-not-allowed opacity-50 grayscale' 
                     : 'cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:shadow-lg'
@@ -254,7 +273,6 @@ export function ModulePanel() {
                 }}
               >
                 <div className="flex items-start gap-3">
-                  {/* Icon */}
                   <div 
                     className={`
                       w-12 h-12 rounded flex items-center justify-center text-2xl relative
@@ -284,7 +302,6 @@ export function ModulePanel() {
                     )}
                   </div>
                   
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <h3 className={`text-sm font-medium truncate ${locked ? 'text-gray-500' : 'text-white'}`}>
                       {module.name}
@@ -320,7 +337,7 @@ export function ModulePanel() {
                               color: CATEGORY_COLORS[module.category],
                             }}
                           >
-                            {module.category}
+                            {CATEGORY_NAMES[module.category]}
                           </span>
                         </div>
                       </>
@@ -328,7 +345,6 @@ export function ModulePanel() {
                   </div>
                 </div>
                 
-                {/* Locked overlay */}
                 {locked && (
                   <div 
                     className="absolute inset-0 rounded-lg pointer-events-none"
@@ -338,19 +354,8 @@ export function ModulePanel() {
                   />
                 )}
                 
-                {/* Hover preview for unlocked */}
                 {!locked && (
                   <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
-                )}
-                
-                {/* Rarity glow for locked modules on hover */}
-                {locked && hoveredLockedModule?.type === module.type && rarityStyle && (
-                  <div 
-                    className="absolute inset-0 rounded-lg pointer-events-none opacity-30"
-                    style={{
-                      boxShadow: `inset 0 0 20px ${rarityStyle.glow}`,
-                    }}
-                  />
                 )}
               </div>
             );
@@ -358,10 +363,38 @@ export function ModulePanel() {
         </div>
       </div>
       
-      {/* Footer */}
+      {hoveredModule && !isModuleLocked(hoveredModule.type) && (
+        <div 
+          className="fixed z-50 p-3 rounded-lg bg-[#1a1f2e] border border-[#00d4ff]/30 shadow-xl max-w-[260px] pointer-events-none"
+          style={{
+            left: `${tooltipPosition.x}px`,
+            top: `${tooltipPosition.y}px`,
+          }}
+          role="tooltip"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <span 
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: CATEGORY_COLORS[hoveredModule.category] }}
+              aria-hidden="true"
+            />
+            <h4 className="text-sm font-semibold text-white">{hoveredModule.name}</h4>
+          </div>
+          <p className="text-xs text-[#9ca3af] leading-relaxed">
+            {hoveredModule.description}
+          </p>
+          <div className="mt-2 pt-2 border-t border-[#1e2a42]">
+            <p className="text-[10px] text-[#6b7280]">
+              💡 提示: 点击或拖拽添加模块
+            </p>
+          </div>
+        </div>
+      )}
+      
       <div className="p-3 border-t border-[#1e2a42]">
         <p className="text-xs text-[#4a5568] text-center">
-          Total: {MODULE_CATALOG.length} module types
+          共 {MODULE_CATALOG.length} 种模块类型
         </p>
       </div>
       
@@ -379,7 +412,6 @@ export function ModulePanel() {
           animation: pulse-subtle 2s ease-in-out infinite;
         }
         
-        /* Mobile responsiveness */
         @media (max-width: 768px) {
           .module-panel {
             width: 100%;
@@ -397,12 +429,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
   const iconStyles: Record<ModuleType, React.ReactNode> = {
     'core-furnace': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        <polygon 
-          points="16,2 30,9 30,23 16,30 2,23 2,9" 
-          fill="none" 
-          stroke="#00d4ff" 
-          strokeWidth="1.5"
-        />
+        <polygon points="16,2 30,9 30,23 16,30 2,23 2,9" fill="none" stroke="#00d4ff" strokeWidth="1.5"/>
         <circle cx="16" cy="16" r="6" fill="#00d4ff" opacity="0.5"/>
         <circle cx="16" cy="16" r="3" fill="#00ffcc"/>
       </svg>
@@ -430,29 +457,14 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
         <circle cx="16" cy="16" r="13" fill="#1a1a2e" stroke="#9333ea" strokeWidth="1.5"/>
         <circle cx="16" cy="16" r="9" fill="#2d1b4e" stroke="#a855f7" strokeWidth="1"/>
-        <path 
-          d="M16,6 L20,14 L28,14 L22,19 L24,27 L16,23 L8,27 L10,19 L4,14 L12,14 Z" 
-          fill="none" 
-          stroke="#c084fc" 
-          strokeWidth="1"
-        />
+        <path d="M16,6 L20,14 L28,14 L22,19 L24,27 L16,23 L8,27 L10,19 L4,14 L12,14 Z" fill="none" stroke="#c084fc" strokeWidth="1"/>
         <circle cx="16" cy="16" r="3" fill="#9333ea"/>
       </svg>
     ),
     'shield-shell': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        <path 
-          d="M5,8 Q16,2 27,8 L28,20 Q16,26 4,20 Z" 
-          fill="#1a1a2e" 
-          stroke="#22c55e" 
-          strokeWidth="1.5"
-        />
-        <path 
-          d="M8,10 Q16,6 24,10 L25,19 Q16,23 7,19 Z" 
-          fill="#064e3b" 
-          stroke="#4ade80" 
-          strokeWidth="1"
-        />
+        <path d="M5,8 Q16,2 27,8 L28,20 Q16,26 4,20 Z" fill="#1a1a2e" stroke="#22c55e" strokeWidth="1.5"/>
+        <path d="M8,10 Q16,6 24,10 L25,19 Q16,23 7,19 Z" fill="#064e3b" stroke="#4ade80" strokeWidth="1"/>
       </svg>
     ),
     'trigger-switch': (
@@ -469,120 +481,69 @@ function ModuleIcon({ type }: { type: ModuleType }) {
         <circle cx="16" cy="16" r="10" fill="#2d2d2d" stroke="#f59e0b" strokeWidth="1"/>
         <circle cx="16" cy="16" r="5" fill="#f59e0b" opacity="0.6"/>
         <circle cx="16" cy="16" r="2" fill="#fef3c7"/>
-        {/* Energy beam */}
         <path d="M22,16 L28,14 L28,18 Z" fill="#fbbf24"/>
-        {/* Receptor */}
         <ellipse cx="5" cy="16" rx="3" ry="5" fill="#2d2d2d" stroke="#f59e0b" strokeWidth="1"/>
       </svg>
     ),
     'amplifier-crystal': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        {/* Diamond shape */}
-        <polygon
-          points="16,2 28,16 16,30 4,16"
-          fill="#2d1b4e"
-          stroke="#a855f7"
-          strokeWidth="1.5"
-        />
-        {/* Inner facets */}
+        <polygon points="16,2 28,16 16,30 4,16" fill="#2d1b4e" stroke="#a855f7" strokeWidth="1.5"/>
         <line x1="16" y1="2" x2="16" y2="30" stroke="#c084fc" strokeWidth="0.5" opacity="0.6"/>
         <line x1="4" y1="16" x2="28" y2="16" stroke="#c084fc" strokeWidth="0.5" opacity="0.6"/>
-        {/* Core */}
         <circle cx="16" cy="16" r="4" fill="#9333ea"/>
         <circle cx="16" cy="16" r="2" fill="#c084fc"/>
-        {/* Output indicators */}
         <circle cx="28" cy="10" r="2" fill="#a855f7"/>
         <circle cx="28" cy="22" r="2" fill="#a855f7"/>
-        {/* Input indicator */}
         <circle cx="4" cy="16" r="2" fill="#22c55e"/>
       </svg>
     ),
     'stabilizer-core': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        {/* Octagon shape */}
-        <polygon
-          points="16,2 24,4 28,12 28,20 24,28 8,28 4,20 4,12 8,4"
-          fill="#064e3b"
-          stroke="#22c55e"
-          strokeWidth="1.5"
-        />
-        {/* Concentric rings */}
+        <polygon points="16,2 24,4 28,12 28,20 24,28 8,28 4,20 4,12 8,4" fill="#064e3b" stroke="#22c55e" strokeWidth="1.5"/>
         <circle cx="16" cy="16" r="10" fill="none" stroke="#4ade80" strokeWidth="1" opacity="0.6"/>
         <circle cx="16" cy="16" r="6" fill="none" stroke="#86efac" strokeWidth="1" opacity="0.8"/>
-        {/* Center hub */}
         <circle cx="16" cy="16" r="3" fill="#22c55e"/>
         <circle cx="16" cy="16" r="1.5" fill="#fff"/>
-        {/* Cross symbol */}
         <rect x="14" y="8" width="4" height="16" rx="1" fill="#4ade80" opacity="0.5"/>
         <rect x="8" y="14" width="16" height="4" rx="1" fill="#4ade80" opacity="0.5"/>
-        {/* Input indicators */}
         <circle cx="4" cy="10" r="1.5" fill="#22c55e"/>
         <circle cx="4" cy="22" r="1.5" fill="#22c55e"/>
-        {/* Output indicator */}
         <circle cx="28" cy="16" r="1.5" fill="#4ade80"/>
       </svg>
     ),
     'void-siphon': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        {/* Circular void body */}
         <circle cx="16" cy="16" r="14" fill="#1e1b4b" stroke="#a78bfa" strokeWidth="1.5"/>
-        {/* Inner void circle */}
         <circle cx="16" cy="16" r="9" fill="none" stroke="#7c3aed" strokeWidth="0.5" opacity="0.6"/>
-        {/* Spiral arms */}
         <path d="M16,16 Q20,12 23,8" fill="none" stroke="#c4b5fd" strokeWidth="1" opacity="0.7"/>
         <path d="M16,16 Q12,20 9,23" fill="none" stroke="#a78bfa" strokeWidth="1" opacity="0.5"/>
-        {/* Central void core */}
         <circle cx="16" cy="16" r="4" fill="#4c1d95"/>
         <circle cx="16" cy="16" r="2" fill="#7c3aed"/>
-        {/* Input indicator (top) */}
         <circle cx="16" cy="2" r="1.5" fill="#c4b5fd"/>
-        {/* Output indicators (bottom) */}
         <circle cx="10" cy="28" r="1.5" fill="#a78bfa"/>
         <circle cx="22" cy="28" r="1.5" fill="#a78bfa"/>
       </svg>
     ),
     'phase-modulator': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        {/* Hexagonal body */}
-        <polygon
-          points="16,2 26,8 26,20 16,26 6,20 6,8"
-          fill="#164e63"
-          stroke="#22d3ee"
-          strokeWidth="1.5"
-        />
-        {/* Inner hexagon */}
-        <polygon
-          points="16,6 23,10 23,18 16,22 9,18 9,10"
-          fill="none"
-          stroke="#06b6d4"
-          strokeWidth="0.5"
-          opacity="0.6"
-        />
-        {/* Lightning arc */}
+        <polygon points="16,2 26,8 26,20 16,26 6,20 6,8" fill="#164e63" stroke="#22d3ee" strokeWidth="1.5"/>
+        <polygon points="16,6 23,10 23,18 16,22 9,18 9,10" fill="none" stroke="#06b6d4" strokeWidth="0.5" opacity="0.6"/>
         <path d="M10,16 L14,13 L18,17 L22,12" fill="none" stroke="#a5f3fc" strokeWidth="1" strokeLinecap="round"/>
-        {/* Central core */}
         <circle cx="16" cy="16" r="3" fill="#0891b2"/>
         <circle cx="16" cy="16" r="1.5" fill="#22d3ee"/>
-        {/* Input indicators (left) */}
         <circle cx="2" cy="10" r="1.5" fill="#22d3ee"/>
         <circle cx="2" cy="20" r="1.5" fill="#22d3ee"/>
-        {/* Output indicators (right) */}
         <circle cx="30" cy="10" r="1.5" fill="#a5f3fc"/>
         <circle cx="30" cy="20" r="1.5" fill="#a5f3fc"/>
       </svg>
     ),
     'resonance-chamber': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        {/* Outer resonance ring */}
         <circle cx="16" cy="16" r="14" fill="#0c4a6e" stroke="#06b6d4" strokeWidth="1.5"/>
-        {/* Middle ring */}
         <circle cx="16" cy="16" r="10" fill="none" stroke="#22d3ee" strokeWidth="1" opacity="0.7"/>
-        {/* Inner ring */}
         <circle cx="16" cy="16" r="6" fill="none" stroke="#67e8f9" strokeWidth="1" opacity="0.5"/>
-        {/* Core */}
         <circle cx="16" cy="16" r="4" fill="#0891b2"/>
         <circle cx="16" cy="16" r="2" fill="#22d3ee"/>
-        {/* Spiral indicators */}
         <circle cx="16" cy="2" r="1.5" fill="#06b6d4"/>
         <circle cx="30" cy="16" r="1.5" fill="#22d3ee"/>
         <circle cx="16" cy="30" r="1.5" fill="#06b6d4"/>
@@ -591,50 +552,17 @@ function ModuleIcon({ type }: { type: ModuleType }) {
     ),
     'fire-crystal': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        {/* Flame shape */}
-        <path
-          d="M16,2 Q24,10 22,18 Q26,12 26,20 Q30,18 22,28 Q18,24 16,28 Q14,24 10,28 Q2,18 6,20 Q6,12 10,18 Q8,10 16,2 Z"
-          fill="#7c2d12"
-          stroke="#f97316"
-          strokeWidth="1.5"
-        />
-        {/* Inner flame */}
-        <path
-          d="M16,8 Q20,14 19,18 Q22,14 21,20 Q24,18 18,26 Q16,22 14,26 Q8,18 11,20 Q10,14 13,18 Q12,14 16,8 Z"
-          fill="#ea580c"
-          stroke="#fb923c"
-          strokeWidth="0.5"
-        />
-        {/* Core */}
+        <path d="M16,2 Q24,10 22,18 Q26,12 26,20 Q30,18 22,28 Q18,24 16,28 Q14,24 10,28 Q2,18 6,20 Q6,12 10,18 Q8,10 16,2 Z" fill="#7c2d12" stroke="#f97316" strokeWidth="1.5"/>
+        <path d="M16,8 Q20,14 19,18 Q22,14 21,20 Q24,18 18,26 Q16,22 14,26 Q8,18 11,20 Q10,14 13,18 Q12,14 16,8 Z" fill="#ea580c" stroke="#fb923c" strokeWidth="0.5"/>
         <ellipse cx="16" cy="18" rx="4" ry="5" fill="#f97316"/>
         <ellipse cx="16" cy="17" rx="2" ry="3" fill="#fbbf24"/>
       </svg>
     ),
     'lightning-conductor': (
       <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-        {/* Hexagonal frame */}
-        <polygon
-          points="16,2 27,9 27,23 16,30 5,23 5,9"
-          fill="#1c1917"
-          stroke="#eab308"
-          strokeWidth="1.5"
-        />
-        {/* Inner hexagon */}
-        <polygon
-          points="16,6 24,11 24,21 16,26 8,21 8,11"
-          fill="none"
-          stroke="#facc15"
-          strokeWidth="0.5"
-          opacity="0.7"
-        />
-        {/* Lightning bolt */}
-        <path
-          d="M18,5 L14,14 L19,14 L12,27 L15,17 L10,17 Z"
-          fill="#eab308"
-          stroke="#fde047"
-          strokeWidth="0.5"
-        />
-        {/* Core glow */}
+        <polygon points="16,2 27,9 27,23 16,30 5,23 5,9" fill="#1c1917" stroke="#eab308" strokeWidth="1.5"/>
+        <polygon points="16,6 24,11 24,21 16,26 8,21 8,11" fill="none" stroke="#facc15" strokeWidth="0.5" opacity="0.7"/>
+        <path d="M18,5 L14,14 L19,14 L12,27 L15,17 L10,17 Z" fill="#eab308" stroke="#fde047" strokeWidth="0.5"/>
         <circle cx="16" cy="16" r="3" fill="#ca8a04"/>
         <circle cx="16" cy="16" r="1.5" fill="#facc15"/>
       </svg>
