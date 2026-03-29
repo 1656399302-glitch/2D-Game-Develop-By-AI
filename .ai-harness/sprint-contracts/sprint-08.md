@@ -1,215 +1,111 @@
-APPROVED — Round 8 Contract
-
----
+APPROVED
 
 # Sprint Contract — Round 8
 
 ## Scope
 
-**Primary Objective:** Integrate `EnhancedShareCard` into the ExportModal as a selectable "Faction Card" format option.
-
-**Theme:** Bug Remediation
-
-This round addresses the single minor bug identified in Round 7's QA evaluation: the `EnhancedShareCard` component exists and is properly implemented but is not accessible from the main UI.
-
----
+This sprint focuses on **polish, accessibility, and future extensibility**. Building on Round 7's successful Challenge/Achievement integration, this round addresses quality-of-life improvements, accessibility enhancements, and preparing the architecture for AI integration and community features mentioned in the spec.
 
 ## Spec Traceability
 
-### P0 items covered this round
-- **Bug Fix:** EnhancedShareCard not integrated into ExportModal → Integrate as 5th format option
+### P0 items covered this round:
+1. **Accessibility audit & improvements** — WCAG 2.1 AA compliance for editor interactions
+2. **Mobile responsiveness** — Proper handling for viewport sizes < 768px
+3. **Connection error feedback** — Improved visual feedback for invalid connections
+4. **Keyboard navigation** — Full keyboard accessibility for module panel, canvas, and modals
 
-### P1 items covered this round
-- **None** — All P1 items from prior rounds are complete
+### P1 items covered this round:
+1. **Performance optimization** — Debounced renders, reduced re-renders
+2. **AI integration stubs** — Type definitions and interfaces for future AI naming/description API
+3. **Error boundary** — Global error handling with graceful degradation
+4. **Loading states** — Better UX during async operations (export, random forge)
 
-### Remaining P0/P1 after this round
-- None
+### Remaining P0/P1 after this round:
+- P1: Community sharing square (requires backend — deferred)
+- P1: Faction tech tree visual polish (minor, can be P2)
+- P2: Module grouping/combining functionality
+- P2: Advanced auto-layout algorithm
 
-### P2 intentionally deferred
-- AI naming/description assistant integration
-- Community share square
-- Machine trading/exchange system
-- Challenge task mode
-- Rune recipe unlock system
-- Faction technology tree unlocks (visual only, no functional unlocks)
-
----
+### P2 intentionally deferred:
+- AI text generation integration (API not defined)
+- Social media authentication
+- Cloud save/sync
+- Multiplayer collaboration
 
 ## Deliverables
 
-1. **`src/components/Export/ExportModal.tsx`** (modified)
-   - Add `'faction-card'` to `ExportFormat` type
-   - Add "Faction Card" as 5th format button in the format selection grid
-   - When selected, render `EnhancedShareCard` component with:
-     - `faction` prop from `calculateFaction(modules)`
-     - `attributes` from `generateAttributes(modules, connections)`
-     - `modules` and `connections` from store
-     - `onExportSVG` and `onExportPNG` callbacks
-     - `onClose` callback returning to format selection
-
-2. **`src/utils/exportUtils.ts`** (modified)
-   - Add `exportFactionCard()` function that generates SVG data for EnhancedShareCard
-   - Return modular SVG string suitable for the faction-branded card format
-
-3. **`src/__tests__/enhancedShareCard.integration.test.ts`** (new file)
-   - Test: ExportModal includes 'faction-card' in format options
-   - Test: Selecting 'faction-card' renders EnhancedShareCard
-   - Test: Faction is correctly calculated from module composition
-   - Test: Export callbacks are invoked on button click
-
----
+1. **AccessibilityLayer.tsx** — Centralized accessibility utilities
+2. **useKeyboardNavigation.ts** — Custom hook for full keyboard navigation
+3. **AccessibleCanvas.tsx** — Enhanced canvas with screen reader support
+4. **AccessibleModulePanel.tsx** — Screen reader-friendly module selection
+5. **MobileCanvasLayout.tsx** — Responsive layout component for mobile
+6. **ConnectionErrorFeedback.tsx** — Improved error toast with suggestions
+7. **types/aiIntegration.ts** — Type definitions for future AI API
+8. **ErrorBoundary.tsx** — Global React error boundary
+9. **LoadingOverlay.tsx** — Consistent loading state component
+10. **contract.md** — This sprint contract
 
 ## Acceptance Criteria
 
-1. **[AC1]** ExportModal displays 5 format options: SVG, PNG, Poster, Enhanced, **Faction Card**
-2. **[AC2]** Selecting "Faction Card" shows EnhancedShareCard with faction-colored border
-3. **[AC3]** Faction is auto-calculated from current machine's module composition via `calculateFaction()`
-4. **[AC4]** Export SVG button in EnhancedShareCard downloads a `.svg` file
-5. **[AC5]** Export PNG button in EnhancedShareCard downloads a `.png` file
-6. **[AC6]** Close button in EnhancedShareCard returns to ExportModal format selection
-7. **[AC7]** `npm run build` exits with code 0 (no TypeScript errors)
-8. **[AC8]** `npm test` shows no NEW test failures (existing tests continue to pass)
-
----
+1. **AC1**: All interactive elements have proper ARIA labels and roles
+2. **AC2**: Tab navigation flows correctly through all UI regions
+3. **AC3**: Canvas supports arrow key movement for selected modules
+4. **AC4**: Module panel announces module count and selection state to screen readers
+5. **AC5**: Connection errors show specific guidance (e.g., "Cannot connect same port types")
+6. **AC6**: Export modal shows loading state during file generation
+7. **AC7**: Random forge shows brief loading indicator during generation
+8. **AC8**: Error boundary catches and displays friendly error messages
+9. **AC9**: Canvas layout adapts gracefully to viewport < 768px (scrollable, not broken)
+10. **AC10**: All 755 existing tests continue to pass
+11. **AC11**: Build succeeds with 0 TypeScript errors
 
 ## Test Methods
 
-### AC1-AC2: Faction Card UI Integration
-1. Open ExportModal
-2. Verify 5 format buttons visible: SVG, PNG, Poster, Enhanced, Faction Card
-3. Click "Faction Card" button
-4. Verify EnhancedShareCard modal appears with faction-colored border
-
-### AC3: Faction Calculation
-1. Place 3+ void-siphon or phase-modulator modules → verify purple border
-2. Place 3+ fire-crystal or core-furnace modules → verify orange border
-3. Place 3+ lightning-conductor or energy-pipe modules → verify cyan border
-
-### AC4-AC5: Export Functions
-1. Click "Export SVG" in EnhancedShareCard
-2. Verify file downloads with pattern `{machine-name}-share-card.svg`
-3. Click "Export PNG" in EnhancedShareCard
-4. Verify file downloads with pattern `{machine-name}-share-card.png`
-
-### AC6: Close Navigation
-1. Click "Close" in EnhancedShareCard
-2. Verify modal returns to ExportModal format selection
-3. Original 5 format buttons visible
-
-### AC7: Build Verification
-```bash
-npm run build
-# Exit code must be 0
-```
-
-### AC8: Test Suite
-```bash
-npm test
-# All existing tests pass
-# No new failures introduced
-```
-
----
+| # | Criterion | Test Method |
+|---|-----------|-------------|
+| AC1 | ARIA labels | Manual: `role` attributes in JSX + automated aria-* audit |
+| AC2 | Tab navigation | Manual: Tab through UI, verify logical order |
+| AC3 | Arrow keys | Manual: Select module, use arrow keys to move |
+| AC4 | Screen reader | Manual: Navigate module panel with VoiceOver/NVDA |
+| AC5 | Error messages | Unit test: Invalid connection triggers specific error |
+| AC6 | Export loading | Integration test: Export triggers loading state |
+| AC7 | Random forge loading | Integration test: Random forge shows indicator |
+| AC8 | Error boundary | Manual: Throw error, verify graceful display |
+| AC9 | Mobile layout | Manual: Resize viewport < 768px, verify usability |
+| AC10 | Tests pass | `npm test` → 755+ tests pass |
+| AC11 | Build success | `npm run build` → 0 TypeScript errors |
 
 ## Risks
 
-| Risk | Description | Mitigation | Severity |
-|------|-------------|------------|----------|
-| R1 | Machine with no faction modules shows neutral styling | EnhancedShareCard handles null faction with gray default | Low |
-| R2 | SVG-to-Canvas PNG export may have CORS issues | Uses blob URLs (already implemented in existing code) | Low |
-| R3 | Modal state conflict between ExportModal and EnhancedShareCard | Use local state `showFactionCard: boolean` | Low |
-
----
+1. **Accessibility over-engineering** — Risk of adding verbose code; mitigation: use shared utility hooks
+2. **Mobile layout scope creep** — Risk: full mobile redesign; mitigation: focus on usability, not full redesign
+3. **Breaking existing interactions** — Risk: keyboard shortcuts conflict; mitigation: test all existing shortcuts
 
 ## Failure Conditions
 
-This round **MUST FAIL** if:
-
-1. `npm run build` exits non-zero — TypeScript compilation errors
-2. EnhancedShareCard remains inaccessible from ExportModal
-3. Faction theming not applied — all cards show same color regardless of machine
-4. Export buttons do not trigger file downloads
-5. Any existing tests now fail (regression)
-
----
+1. Any existing test fails (755 → < 755)
+2. TypeScript compilation errors introduced
+3. New accessibility features break existing keyboard shortcuts
+4. Mobile layout makes desktop experience worse
 
 ## Done Definition
 
-All of the following must be TRUE before claiming Round 8 complete:
-
-1. ✅ ExportModal has exactly 5 format options including "Faction Card"
-2. ✅ Selecting "Faction Card" shows EnhancedShareCard modal
-3. ✅ Faction border color reflects machine's dominant faction
-4. ✅ SVG and PNG export buttons work in EnhancedShareCard
-5. ✅ Close button returns to ExportModal
-6. ✅ `npm run build` passes (0 TypeScript errors)
-7. ✅ `npm test` passes (no regressions)
-8. ✅ Integration test file created with ≥4 passing tests
-
----
+**All** of the following must be true:
+- [ ] `npm test` shows 755+ passing tests
+- [ ] `npm run build` succeeds with 0 TypeScript errors
+- [ ] All 11 acceptance criteria verified
+- [ ] No regressions in existing functionality
+- [ ] Code follows existing patterns and conventions
+- [ ] New accessibility features documented in component comments
 
 ## Out of Scope
 
-The following are explicitly NOT being done in Round 8:
-
-- ❌ Adding new faction-specific animations beyond what EnhancedShareCard already has
-- ❌ Implementing functional tech tree unlocks
-- ❌ AI text generation integration
-- ❌ Social sharing or community features
-- ❌ Additional achievement types
-- ❌ New module types or mechanics
-- ❌ Browser verification of other R7 components (already verified in R7 QA)
-- ❌ Performance optimization
-- ❌ Mobile-responsive layout changes
-- ❌ Tutorial content
-
----
-
-## Technical Notes
-
-### Integration Flow
-
-```
-ExportModal
-  │
-  ├── format: 'svg' | 'png' | 'poster' | 'enhanced-poster'
-  │     └── Existing export flow unchanged
-  │
-  └── format: 'faction-card'
-        └── EnhancedShareCard (full-screen modal)
-              ├── Props: faction, attributes, modules, connections
-              ├── Export buttons: handleExportSVG, handleExportPNG
-              └── Close: returns to format selection
-```
-
-### Faction Calculation
-
-```typescript
-import { calculateFaction } from '../../utils/factionCalculator';
-
-// In ExportModal:
-const dominantFaction = calculateFaction(modules);
-const attributes = generateAttributes(modules, connections);
-```
-
-### State Management
-
-```typescript
-const [format, setFormat] = useState<ExportFormat>('svg');
-const [showFactionCard, setShowFactionCard] = useState(false);
-
-// In format selection:
-{format === 'faction-card' ? (
-  <EnhancedShareCard
-    faction={dominantFaction}
-    attributes={attributes}
-    modules={modules}
-    connections={connections}
-    onExportSVG={handleExport}
-    onExportPNG={handleExport}
-    onClose={() => setShowFactionCard(false)}
-  />
-) : (
-  // Standard export modal UI
-)}
-```
+- Backend/server implementation
+- Database changes
+- New module types
+- New animation effects
+- Full mobile app (PWA)
+- Social media integration
+- AI API implementation (stubs only)
+- Performance profiling of large machines (100+ modules)
+- Internationalization (i18n)

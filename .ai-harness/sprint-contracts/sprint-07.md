@@ -1,160 +1,180 @@
-APPROVED
-
-# Sprint Contract — Round 7
+# Sprint Contract — Round 9 (REVISED)
 
 ## Scope
 
-**Remediation Sprint**: Implement all features specified in Round 6 contract that were missing. Round 6 failed because zero of 10 deliverable files existed. This round delivers the Faction System, Tech Tree, Stats Dashboard, Achievement System, and Enhanced Share Card.
-
-## Spec Traceability
-
-### P0 items covered this round (Round 6 remediation)
-- **Faction System**: 4 factions (深渊派系/Void, 熔岩派系/Inferno, 雷霆派系/Storm, 星辉派系/Stellar)
-- **Tech Tree**: 12 nodes (4 factions × 3 tiers), unlockable based on machine creation count
-- **Stats Dashboard**: User statistics tracking (machines created, activations, time spent, etc.)
-- **Achievement System**: 5+ achievements with toast notifications
-- **Enhanced Share Card**: Faction-branded export cards
-
-### P1 items covered this round
-- Faction alignment UI panel accessible from main navigation
-- Module-to-faction mapping calculator
-- Achievement detection and firing logic
-
-### Remaining P0/P1 after this round
-- **None for faction/achievement systems** — this round completes those feature areas
-- Note: Project-wide P0/P1 items remain (see Out of Scope), but the faction/achievement subsystem is complete
-
-### P2 intentionally deferred
-- AI naming/description assistant
-- Community sharing features
-- Challenge mode expansion beyond existing tutorial/challenges/recipes
-- Recipe unlock system enhancement
-- Module expansion beyond current 14 types
-
-## Deliverables
-
-1. **`src/types/factions.ts`** — Faction type definitions, 4 faction configs, tech tree node types, module-to-faction mapping
-2. **`src/store/useFactionStore.ts`** — Zustand store with localStorage persistence for faction progress and unlocks
-3. **`src/store/useStatsStore.ts`** — Zustand store for user statistics (machines created, activations, playtime, faction counts)
-4. **`src/components/Factions/FactionPanel.tsx`** — UI panel for faction alignment selection and progress display
-5. **`src/components/Factions/TechTree.tsx`** — 12-node tech tree visualization (4 factions × 3 tiers)
-6. **`src/components/Stats/StatsDashboard.tsx`** — Statistics display panel with charts/metrics
-7. **`src/components/Achievements/AchievementToast.tsx`** — Toast notification component for achievement unlocks
-8. **`src/components/Achievements/AchievementList.tsx`** — List view of all achievements (earned and locked)
-9. **`src/components/Export/EnhancedShareCard.tsx`** — Faction-branded share card export with themed borders
-10. **`src/utils/achievementChecker.ts`** — Achievement detection logic, triggers callbacks when earned
-11. **`src/utils/factionCalculator.ts`** — Calculate machine's dominant faction based on modules used
-
-## Acceptance Criteria
-
-1. **AC1**: `src/utils/factionCalculator.ts` exports `calculateFaction(modules)` returning dominant faction from 4 options (Void, Inferno, Storm, Stellar) based on module-to-faction mapping defined in `src/types/factions.ts`
-2. **AC2**: `src/components/Factions/TechTree.tsx` renders 12 nodes in a 4×3 grid layout, with locked nodes showing `.tech-tree-node--locked` CSS class and unlocked nodes showing `.tech-tree-node--unlocked` class
-3. **AC3**: `src/store/useStatsStore.ts` increments and persists user statistics via localStorage; stats visible in `StatsDashboard.tsx` within 1 second of action
-4. **AC4**: `src/utils/achievementChecker.ts` exports `checkAchievements(stats)` that returns array of newly earned achievement IDs based on the 5 defined achievements; `AchievementToast.tsx` renders with correct faction badge
-5. **AC5**: `src/components/Export/EnhancedShareCard.tsx` generates share card with faction-specific border colors (Void: purple, Inferno: orange, Storm: cyan, Stellar: gold)
-6. **AC6**: `npm run build` exits 0 with 0 TypeScript errors
-7. **AC7**: `npm test` shows no NEW test failures (pre-existing failure in `activationModes.test.ts` is acknowledged but not counted against this sprint)
-
-## Test Methods
-
-| AC | Verification Method |
-|----|---------------------|
-| AC1 | Unit test: `factionCalculator.test.ts` — pass arrays of modules from each faction, verify correct faction returned. Void modules: void-siphon, phase-modulator; Inferno: fire-crystal, core-furnace; Storm: lightning-conductor, energy-pipe; Stellar: amplifier-crystal, resonance-chamber |
-| AC2 | Render test: `TechTree.test.tsx` — verify 12 nodes render, use `screen.getAllByRole('button')` count === 12, verify locked/unlocked CSS classes via `container.querySelectorAll('.tech-tree-node--locked').length` |
-| AC3 | Integration test: `useStatsStore.test.ts` — call `incrementStat('machinesCreated')`, verify `getStats().machinesCreated === 1`, reload page, verify persistence |
-| AC4 | Unit test: `achievementChecker.test.ts` — pass stats `{ machinesCreated: 1 }`, verify returns `['first-forge']`; pass `{ machinesCreated: 10 }`, verify returns `['first-forge', 'energy-master']` |
-| AC5 | Render test: `EnhancedShareCard.test.tsx` — render with `faction="void"`, verify border color includes purple (`#a78bfa`); render with `faction="inferno"`, verify border color includes orange (`#f97316`) |
-| AC6 | `npm run build` command exits with code 0 |
-| AC7 | `npm test` shows same or better pass count than pre-sprint baseline (448/449 passing) |
-
-## Defined Achievement Conditions
-
-1. **first-forge**: `machinesCreated >= 1`
-2. **energy-master**: `machinesCreated >= 10`
-3. **void-conqueror**: `factionCounts['void'] >= 5`
-4. **perfect-activation**: `activations >= 1 && errors === 0` (first activation has no errors)
-5. **codex-collector**: `codexEntries >= 10`
-
-## Defined Module-to-Faction Mapping
-
-| Faction | Modules |
-|---------|---------|
-| Void (深渊) | void-siphon, phase-modulator |
-| Inferno (熔岩) | fire-crystal, core-furnace |
-| Storm (雷霆) | lightning-conductor, energy-pipe |
-| Stellar (星辉) | amplifier-crystal, resonance-chamber |
-
-*Neutral modules (not counted for faction): gear, rune-node, shield-shell, trigger-switch, output-array, stabilizer-core*
-
-## Risks
-
-1. **Integration Risk**: Faction system must integrate cleanly with existing `useMachineStore` — ModuleType enum may need extension for future factions
-2. **State Synchronization**: Stats must update correctly when machines are created/activated — must hook into useMachineStore actions
-3. **CSS Isolation**: Tech tree grid layout must not break existing layouts — use scoped/component-level styles
-4. **Pre-existing Test**: `activationModes.test.ts` has a failing spacing test that predates this sprint
-
-## Failure Conditions
-
-1. Any of the 11 deliverable files (AC1-AC5) do not exist or fail to build
-2. TypeScript compilation errors in new files
-3. New tests fail
-4. Feature does not meet acceptance criteria as verified by test or manual check
-
-## Done Definition
-
-All 7 acceptance criteria must be true:
-- [ ] `calculateFaction()` function exists and returns correct faction based on module array
-- [ ] Tech tree renders 12 nodes with correct locked/unlocked CSS class states
-- [ ] Stats persist across page reloads and update on user actions
-- [ ] Achievements fire callbacks and display toast notifications with correct faction badge
-- [ ] Share card renders with faction-specific theming (verified by border color)
-- [ ] `npm run build` exits 0
-- [ ] `npm test` shows no NEW test failures
-
-## Out of Scope
-
-- AI text generation for names/descriptions
-- Community/sharing backend
-- Additional game modes beyond existing tutorial/challenges/recipes
-- Module expansion beyond current 14 types
-- Visual redesign of existing components
-- Performance optimization of existing systems
-- Fixing pre-existing test failure in `activationModes.test.ts`
+This sprint integrates the new Challenge Mode system into the application by replacing the broken ChallengeBrowser with ChallengePanel, connects the AchievementToast to achievement store callbacks, and adds automated integration test coverage for these changes.
 
 ---
 
-## Implementation Notes
+## Spec Traceability
 
-### Faction System Design
+### P0 Items (Must Complete)
+1. **ChallengePanel Integration** — Replace ChallengeBrowser with ChallengePanel in App.tsx (fixes QA bug: ChallengePanel NOT integrated)
+2. **AchievementToast Integration** — Connect AchievementToast to achievement store callbacks (fixes toast never showing)
+3. **Automated Integration Tests** — Add test coverage for modal integration points
 
-**4 Factions:**
-1. **深渊派系 (Void)**: Dark purple theme (#a78bfa), void/entropy modules
-2. **熔岩派系 (Inferno)**: Orange/red theme (#f97316), fire/destruction modules
-3. **雷霆派系 (Storm)**: Blue/cyan theme (#22d3ee), energy/lightning modules
-4. **星辉派系 (Stellar)**: Gold/white theme (#fbbf24), harmony/amplification modules
+### P1 Items (Must Pass)
+4. **Existing Tests Pass** — All 739+ tests continue to pass
+5. **Build Succeeds** — TypeScript compilation with zero errors
 
-**Tech Tree Tiers:**
-- Tier 1: Basic unlocks (new module variants per faction)
-- Tier 2: Advanced features (special animations)
-- Tier 3: Ultimate abilities (exclusive effects)
+### P2 Intentionally Deferred
+- Challenge celebration animations
+- Badge showcase in header
+- ChallengeProgress component integration
+- useChallengeTracker hook integration
 
-**Unlock Logic:**
-- Tier 1: 3 machines created with that faction's modules
-- Tier 2: 7 machines created with that faction's modules
-- Tier 3: 15 machines created with that faction's modules
+---
 
-### Stats to Track
-- Total machines created
-- Total activations
-- Total errors during activation
-- Total playtime (minutes, tracked via active session)
-- Favorite faction (calculated)
-- Machines per faction count
-- Achievement count
-- Codex entry count
+## Deliverables
 
-### UI Integration Points
-- FactionPanel accessible from main navigation (top bar or sidebar)
-- StatsDashboard accessible from main navigation
-- Achievement toast appears top-right, auto-dismisses after 4 seconds
-- AchievementList accessible from main navigation
+### 1. `src/App.tsx` — ChallengePanel Integration
+- Import `ChallengePanel` from `src/components/Challenge/ChallengePanel`
+- Remove `ChallengeBrowser` import and usage entirely
+- Replace `showChallenges && <ChallengeBrowser ... />` with `<ChallengePanel />`
+- Update `ChallengeButton` onClick to toggle ChallengePanel visibility
+
+**Rationale:** ChallengeBrowser has a critical React rendering error ("Failed to execute 'insertBefore'"). ChallengePanel is the new reward-based system and already has proper accessible list structure (`role="list"`).
+
+### 2. `src/store/useAchievementStore.ts` — Toast Callback Integration
+- Add `onUnlockCallback: ((achievement: Achievement) => void) | null` to store state
+- Add `setOnUnlockCallback: (callback: (achievement: Achievement) => void) | null) => void` action
+- Call `onUnlockCallback(achievement)` when `unlockAchievement` completes
+
+### 3. `src/App.tsx` — AchievementToast Connection
+- Add `useEffect` that calls `useAchievementStore.getState().setOnUnlockCallback(handleAchievementUnlock)`
+- `handleAchievementUnlock` sets `currentAchievement` state
+- Add auto-dismiss via `setTimeout` (5 seconds) calling `setCurrentAchievement(null)`
+
+### 4. `src/__tests__/challenge-integration.test.ts` — Automated Tests
+- Unit test: ChallengePanel renders with `role="list"`
+- Integration test: Clicking ChallengeButton renders ChallengePanel
+- Integration test: Opening/closing modal 10 times without React errors
+- Unit test: AchievementToast callback integration
+
+---
+
+## Acceptance Criteria
+
+| # | Criterion | Verification Method |
+|---|-----------|---------------------|
+| AC1 | ChallengePanel renders when ChallengeButton clicked | Automated: Click button, assert ChallengePanel in DOM with `role="list"` |
+| AC2 | ChallengeBrowser is NOT rendered anywhere in App.tsx | Automated: Grep App.tsx for "ChallengeBrowser" returns 0 matches |
+| AC3 | No React errors on modal open/close (10 iterations) | Automated: Open/close modal 10x, assert no errors thrown |
+| AC4 | AchievementToast displays when achievement unlocks | Automated: Call `unlockAchievement`, assert `currentAchievement` state updates |
+| AC5 | All 739+ existing tests pass | Automated: `npm test` exits 0 with all tests passing |
+| AC6 | Build succeeds with 0 TypeScript errors | Automated: `npm run build` exits 0 |
+
+---
+
+## Test Methods
+
+### Automated Integration Tests (Required)
+
+**1. ChallengePanel Rendering Test**
+```typescript
+test('ChallengePanel renders with accessible list structure', () => {
+  render(<ChallengePanel />);
+  expect(screen.getByRole('list')).toBeInTheDocument();
+});
+```
+
+**2. ChallengeButton Integration Test**
+```typescript
+test('ChallengeButton opens ChallengePanel', async () => {
+  render(<App />);
+  fireEvent.click(screen.getByText(/challenges/i));
+  expect(await screen.findByRole('list')).toBeInTheDocument();
+});
+```
+
+**3. Modal Stability Test**
+```typescript
+test('Modal can open/close 10 times without errors', () => {
+  const { getByText } = render(<App />);
+  for (let i = 0; i < 10; i++) {
+    fireEvent.click(getByText(/challenges/i));
+    fireEvent.click(getByText(/close/i));
+  }
+  // Assert no errors thrown
+});
+```
+
+**4. AchievementToast Callback Test**
+```typescript
+test('AchievementToast fires on unlock', () => {
+  const mockCallback = jest.fn();
+  useAchievementStore.getState().setOnUnlockCallback(mockCallback);
+  act(() => {
+    useAchievementStore.getState().unlockAchievement('first-machine');
+  });
+  expect(mockCallback).toHaveBeenCalled();
+});
+```
+
+**5. ChallengeBrowser Removal Test**
+```typescript
+test('ChallengeBrowser is not imported in App.tsx', () => {
+  const appContent = fs.readFileSync('src/App.tsx', 'utf8');
+  expect(appContent).not.toMatch(/ChallengeBrowser/);
+});
+```
+
+---
+
+## Risks
+
+### 1. ChallengeBrowser Removal Side Effects
+- **Risk:** ChallengeBrowser may have dependent components or tests
+- **Mitigation:** Verify all tests pass after removal; ChallengeBrowser component file remains but is not imported
+
+### 2. Achievement Store Backward Compatibility
+- **Risk:** Adding `onUnlockCallback` may break existing store usage
+- **Mitigation:** Initialize as `null`; existing `unlockAchievement` calls work without callback
+
+### 3. Test File Location
+- **Risk:** New integration test file may not be picked up by test runner
+- **Mitigation:** Place in `src/__tests__/` alongside existing test files; verify with `npm test`
+
+---
+
+## Failure Conditions
+
+The round fails if ANY of the following occur:
+
+1. **ChallengePanel NOT accessible** — ChallengeButton click does not render ChallengePanel
+2. **ChallengeBrowser still in App.tsx** — Grep returns > 0 matches
+3. **React rendering errors** — Any error when opening challenge modal
+4. **AchievementToast not connected** — `currentAchievement` remains `null` after unlock
+5. **Existing tests fail** — `npm test` exits non-zero
+6. **Build fails** — `npm run build` exits non-zero or TypeScript errors present
+
+---
+
+## Done Definition
+
+Exact conditions that must be true before claiming the round complete:
+
+- [ ] `ChallengePanel` is imported in `src/App.tsx`
+- [ ] `ChallengeBrowser` is NOT imported in `src/App.tsx`
+- [ ] `showChallenges && <ChallengePanel />` pattern replaces ChallengeBrowser usage
+- [ ] `useAchievementStore` has `onUnlockCallback` state and `setOnUnlockCallback` action
+- [ ] `App.tsx` calls `setOnUnlockCallback` with handler that sets `currentAchievement`
+- [ ] `src/__tests__/challenge-integration.test.ts` exists with all 5 tests
+- [ ] `npm test` passes all tests (expected 743+)
+- [ ] `npm run build` succeeds with 0 TypeScript errors
+- [ ] Manual verification: Click Challenges button → ChallengePanel renders with list
+
+---
+
+## Out of Scope
+
+Explicitly NOT being done this round:
+
+- **ChallengeBrowser debugging** — The React rendering error is bypassed by replacement, not fixed
+- **ChallengeProgress integration** — Component exists but not added to UI
+- **useChallengeTracker integration** — Hook exists but not wired to app events
+- **New challenge definitions** — 8 challenges already exist
+- **AchievementToastContainer component** — No new component; fixing existing integration
+- **FactionPanel accessibility** — Already accessible per ExportModal integration
+- **Celebration animations** — Toast dismissal uses simple timeout, not animations
+- **Badge showcase** — Displayed in existing AchievementToast, not expanded

@@ -1,315 +1,111 @@
 APPROVED
 
----
-
-# Sprint Contract — Round 6
+# Sprint Contract — Round 8
 
 ## Scope
 
-**Primary Focus:** Challenge Mode System
-
-This round implements a complete Challenge Mode system that allows users to complete themed tasks to earn rewards, track progress, and unlock additional content. This integrates with the existing recipe unlock system and provides clear progression goals.
+This sprint focuses on **polish, accessibility, and future extensibility**. Building on Round 7's successful Challenge/Achievement integration, this round addresses quality-of-life improvements, accessibility enhancements, and preparing the architecture for AI integration and community features mentioned in the spec.
 
 ## Spec Traceability
 
-### P0 Items (Must Complete)
-- **Challenge Definitions** — Create a centralized challenge data structure with 8+ challenges across 3 difficulty tiers (beginner, intermediate, advanced)
-- **Challenge Store** — Zustand store to track challenge completion state, progress, and rewards
-- **Challenge UI Panel** — Accessible panel showing available challenges, status, and rewards
-- **Progress Tracking** — Track challenge completion counts for recipe unlock system integration
+### P0 items covered this round:
+1. **Accessibility audit & improvements** — WCAG 2.1 AA compliance for editor interactions
+2. **Mobile responsiveness** — Proper handling for viewport sizes < 768px
+3. **Connection error feedback** — Improved visual feedback for invalid connections
+4. **Keyboard navigation** — Full keyboard accessibility for module panel, canvas, and modals
 
-### P1 Items (Should Complete)
-- **Challenge Rewards** — Implement reward distribution (new recipes, badges, achievements)
-- **Challenge Categories** — Organize challenges by type (creation, collection, activation, mastery)
+### P1 items covered this round:
+1. **Performance optimization** — Debounced renders, reduced re-renders
+2. **AI integration stubs** — Type definitions and interfaces for future AI naming/description API
+3. **Error boundary** — Global error handling with graceful degradation
+4. **Loading states** — Better UX during async operations (export, random forge)
 
-### P2 Items (Intentionally Deferred)
-- AI naming/description generation
-- Community sharing features
-- Codex trading/exchange system
-- Faction tech tree beyond basic implementation
+### Remaining P0/P1 after this round:
+- P1: Community sharing square (requires backend — deferred)
+- P1: Faction tech tree visual polish (minor, can be P2)
+- P2: Module grouping/combining functionality
+- P2: Advanced auto-layout algorithm
+
+### P2 intentionally deferred:
+- AI text generation integration (API not defined)
+- Social media authentication
+- Cloud save/sync
+- Multiplayer collaboration
 
 ## Deliverables
 
-### 1. New File: `src/data/challenges.ts`
-Contains `CHALLENGE_DEFINITIONS` array with 8 challenges:
-
-| Challenge ID | Title | Description | Category | Difficulty | Reward |
-|--------------|-------|-------------|----------|------------|--------|
-| first-machine | 初代锻造 | Create your first machine | creation | beginner | +100 XP |
-| energy-master | 能量大师 | Connect 5 energy paths | mastery | beginner | Fire Crystal recipe |
-| codex-entry | 图鉴收藏家 | Save 3 machines to the codex | collection | beginner | +50 XP |
-| golden-gear | 黄金齿轮 | Create a machine with 5+ gears | creation | intermediate | Golden Gear badge |
-| overload-specialist | 过载专家 | Trigger an overload effect | activation | intermediate | Lightning Conductor recipe |
-| stability-master | 稳定大师 | Create a machine with 95%+ stability | mastery | intermediate | Resonance Chamber recipe |
-| legendary-forge | 传说锻造师 | Create 10 machines | creation | advanced | Legendary Forge badge |
-| activation-king | 激活之王 | Activate machines 50 times | activation | advanced | +500 XP |
-
-### 2. New File: `src/store/useChallengeStore.ts`
-Zustand store for challenge state management:
-- `challengeProgress`: Record of challenge completion states
-- `completedChallenges`: Set of completed challenge IDs
-- `totalXP`: Player experience points
-- `badges`: Array of earned badges
-- `checkChallengeCompletion(type, value)`: Check if a challenge condition is met
-- `claimReward(challengeId)`: Claim challenge reward
-- `getChallengesByCategory(category)`: Filter challenges by category
-- `getChallengesByDifficulty(difficulty)`: Filter challenges by difficulty
-- `resetChallenges()`: Reset all progress (for testing)
-
-### 3. Modified File: `src/components/Challenge/ChallengePanel.tsx`
-New component for challenge UI:
-- Tab in main navigation or accessible modal
-- Challenge list with progress indicators
-- Difficulty badges (beginner/intermediate/advanced)
-- Reward previews
-- Progress bars for numeric goals
-- Claim reward button (disabled until complete)
-- XP and badge display
-
-### 4. Modified File: `src/components/Challenge/ChallengeProgress.tsx`
-Visual component showing overall challenge progress:
-- Total challenges completed / total
-- XP progress bar
-- Badge showcase
-- Category breakdown
-
-### 5. New File: `src/hooks/useChallengeTracker.ts`
-React hook for tracking challenge-relevant events:
-- `trackMachineCreated()` — Call after machine save
-- `trackActivation()` — Call after machine activation
-- `trackConnectionCreated()` — Call after energy path creation
-- `trackOverloadTriggered()` — Call on overload
-- `trackStabilityAchieved(value)` — Call with stability percentage
-
-Implementation note: This hook should subscribe to relevant store actions or dispatch events that the useChallengeStore listens to, not maintain separate state.
-
-### 6. New File: `src/__tests__/challengeSystem.test.ts`
-Unit tests for challenge definitions and store
-
-### 7. Modified File: `src/store/useRecipeStore.ts`
-Integration point for challenge rewards:
-- `checkChallengeCountUnlock()` already exists, verify it works with new challenges
+1. **AccessibilityLayer.tsx** — Centralized accessibility utilities
+2. **useKeyboardNavigation.ts** — Custom hook for full keyboard navigation
+3. **AccessibleCanvas.tsx** — Enhanced canvas with screen reader support
+4. **AccessibleModulePanel.tsx** — Screen reader-friendly module selection
+5. **MobileCanvasLayout.tsx** — Responsive layout component for mobile
+6. **ConnectionErrorFeedback.tsx** — Improved error toast with suggestions
+7. **types/aiIntegration.ts** — Type definitions for future AI API
+8. **ErrorBoundary.tsx** — Global React error boundary
+9. **LoadingOverlay.tsx** — Consistent loading state component
+10. **contract.md** — This sprint contract
 
 ## Acceptance Criteria
 
-| # | Criterion | Verification Method |
-|---|-----------|---------------------|
-| AC1 | `CHALLENGE_DEFINITIONS` contains exactly 8 entries | `expect(CHALLENGE_DEFINITIONS.length).toBe(8)` |
-| AC2 | Challenges cover all 3 difficulty tiers | Each difficulty has at least 2 challenges |
-| AC3 | Challenges cover all 4 categories | creation, collection, activation, mastery |
-| AC4 | `useChallengeStore` has `checkChallengeCompletion` and `claimReward` methods | TypeScript interface check |
-| AC5 | ChallengePanel renders with accessible list structure | `getByRole('list')` in test |
-| AC6 | All existing tests continue to pass (704+) | `npm test` exit code 0 |
-| AC7 | Build succeeds with 0 TypeScript errors | `npm run build` exit code 0 |
+1. **AC1**: All interactive elements have proper ARIA labels and roles
+2. **AC2**: Tab navigation flows correctly through all UI regions
+3. **AC3**: Canvas supports arrow key movement for selected modules
+4. **AC4**: Module panel announces module count and selection state to screen readers
+5. **AC5**: Connection errors show specific guidance (e.g., "Cannot connect same port types")
+6. **AC6**: Export modal shows loading state during file generation
+7. **AC7**: Random forge shows brief loading indicator during generation
+8. **AC8**: Error boundary catches and displays friendly error messages
+9. **AC9**: Canvas layout adapts gracefully to viewport < 768px (scrollable, not broken)
+10. **AC10**: All 755 existing tests continue to pass
+11. **AC11**: Build succeeds with 0 TypeScript errors
 
 ## Test Methods
 
-### 1. Challenge Definitions Tests (`src/__tests__/challengeSystem.test.ts`)
-
-```typescript
-import { CHALLENGE_DEFINITIONS } from '../../data/challenges';
-
-describe('Challenge Definitions', () => {
-  test('should have exactly 8 challenges', () => {
-    expect(CHALLENGE_DEFINITIONS.length).toBe(8);
-  });
-
-  test('should have challenges in all difficulty tiers', () => {
-    const difficulties = CHALLENGE_DEFINITIONS.map(c => c.difficulty);
-    expect(difficulties).toContain('beginner');
-    expect(difficulties).toContain('intermediate');
-    expect(difficulties).toContain('advanced');
-    expect(new Set(difficulties).size).toBe(3);
-  });
-
-  test('should have challenges in all categories', () => {
-    const categories = CHALLENGE_DEFINITIONS.map(c => c.category);
-    expect(categories).toContain('creation');
-    expect(categories).toContain('collection');
-    expect(categories).toContain('activation');
-    expect(categories).toContain('mastery');
-    expect(new Set(categories).size).toBe(4);
-  });
-
-  test('each challenge should have valid reward', () => {
-    CHALLENGE_DEFINITIONS.forEach(challenge => {
-      expect(challenge.reward).toBeDefined();
-      expect(challenge.reward.type).toMatch(/^(xp|recipe|badge)$/);
-      if (challenge.reward.type === 'recipe') {
-        expect(challenge.reward.value).toBeDefined();
-      }
-      if (challenge.reward.type === 'badge') {
-        expect(challenge.reward.value).toBeDefined();
-      }
-    });
-  });
-
-  test('each challenge should have required fields', () => {
-    CHALLENGE_DEFINITIONS.forEach(challenge => {
-      expect(challenge.id).toBeDefined();
-      expect(challenge.title).toBeTruthy();
-      expect(challenge.description).toBeTruthy();
-      expect(challenge.category).toBeDefined();
-      expect(challenge.difficulty).toBeDefined();
-      expect(challenge.target).toBeDefined();
-      expect(challenge.reward).toBeDefined();
-    });
-  });
-});
-```
-
-### 2. Challenge Store Tests
-
-```typescript
-import { useChallengeStore } from '../../store/useChallengeStore';
-
-describe('useChallengeStore', () => {
-  beforeEach(() => {
-    useChallengeStore.getState().resetChallenges();
-  });
-
-  test('should initialize with empty completedChallenges', () => {
-    expect(useChallengeStore.getState().completedChallenges.size).toBe(0);
-  });
-
-  test('checkChallengeCompletion should return false for incomplete challenges', () => {
-    const result = useChallengeStore.getState().checkChallengeCompletion('first-machine', 0);
-    expect(result).toBe(false);
-  });
-
-  test('checkChallengeCompletion should return true when target met', () => {
-    const result = useChallengeStore.getState().checkChallengeCompletion('first-machine', 1);
-    expect(result).toBe(true);
-  });
-
-  test('claimReward should add challenge to completedChallenges', () => {
-    const store = useChallengeStore.getState();
-    store.claimReward('first-machine');
-    expect(store.completedChallenges.has('first-machine')).toBe(true);
-  });
-
-  test('claiming XP reward should increment totalXP by correct amount', () => {
-    const store = useChallengeStore.getState();
-    const initialXP = store.totalXP;
-    store.claimReward('first-machine'); // 100 XP reward
-    expect(store.totalXP).toBe(initialXP + 100);
-  });
-
-  test('claiming recipe reward should trigger recipe unlock check', () => {
-    const store = useChallengeStore.getState();
-    const recipeStore = require('../../store/useRecipeStore').useRecipeStore;
-    const initialUnlocked = recipeStore.getState().unlockedRecipes.length;
-    store.claimReward('energy-master'); // Fire Crystal recipe reward
-    // Verify recipe unlock mechanism was triggered
-    expect(recipeStore.getState().unlockedRecipes.length).toBeGreaterThanOrEqual(initialUnlocked);
-  });
-
-  test('claiming badge reward should add badge to badges array', () => {
-    const store = useChallengeStore.getState();
-    store.claimReward('golden-gear'); // Golden Gear badge
-    const badges = store.badges;
-    expect(badges.some(b => b.id === 'golden-gear' || b.name === 'Golden Gear')).toBe(true);
-  });
-});
-```
-
-### 3. ChallengeTracker Hook Tests
-
-```typescript
-import { renderHook, act } from '@testing-library/react';
-import { useChallengeTracker } from '../../hooks/useChallengeTracker';
-import { useChallengeStore } from '../../store/useChallengeStore';
-
-describe('useChallengeTracker', () => {
-  beforeEach(() => {
-    useChallengeStore.getState().resetChallenges();
-  });
-
-  test('trackMachineCreated should increment machine creation count', () => {
-    const { result } = renderHook(() => useChallengeTracker());
-    act(() => {
-      result.current.trackMachineCreated();
-    });
-    // Verify challenge progress was updated
-    const progress = useChallengeStore.getState().challengeProgress;
-    expect(progress.machinesCreated).toBe(1);
-  });
-
-  test('trackActivation should increment activation count', () => {
-    const { result } = renderHook(() => useChallengeTracker());
-    act(() => {
-      result.current.trackActivation();
-    });
-    const progress = useChallengeStore.getState().challengeProgress;
-    expect(progress.activationCount).toBe(1);
-  });
-
-  test('trackConnectionCreated should increment connection count', () => {
-    const { result } = renderHook(() => useChallengeTracker());
-    act(() => {
-      result.current.trackConnectionCreated();
-    });
-    const progress = useChallengeStore.getState().challengeProgress;
-    expect(progress.connectionsCreated).toBe(1);
-  });
-});
-```
-
-### 4. Existing Test Regression
-
-```bash
-npm test  # Must show all tests passing (baseline: 704 from Round 5 QA)
-npm run build  # Must succeed with 0 errors
-```
+| # | Criterion | Test Method |
+|---|-----------|-------------|
+| AC1 | ARIA labels | Manual: `role` attributes in JSX + automated aria-* audit |
+| AC2 | Tab navigation | Manual: Tab through UI, verify logical order |
+| AC3 | Arrow keys | Manual: Select module, use arrow keys to move |
+| AC4 | Screen reader | Manual: Navigate module panel with VoiceOver/NVDA |
+| AC5 | Error messages | Unit test: Invalid connection triggers specific error |
+| AC6 | Export loading | Integration test: Export triggers loading state |
+| AC7 | Random forge loading | Integration test: Random forge shows indicator |
+| AC8 | Error boundary | Manual: Throw error, verify graceful display |
+| AC9 | Mobile layout | Manual: Resize viewport < 768px, verify usability |
+| AC10 | Tests pass | `npm test` → 755+ tests pass |
+| AC11 | Build success | `npm run build` → 0 TypeScript errors |
 
 ## Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Challenge tracking not integrated with existing systems | Medium | High | Create `useChallengeTracker` hook that wraps existing store actions |
-| XP/badges storage conflicts with existing localStorage | Low | Medium | Use separate keys or namespace prefix |
-| Performance impact from challenge checks on every action | Low | Low | Debounce checks, only run on relevant events |
-| TypeScript errors from new store integration | Medium | Medium | Follow existing store patterns in `useRecipeStore` |
+1. **Accessibility over-engineering** — Risk of adding verbose code; mitigation: use shared utility hooks
+2. **Mobile layout scope creep** — Risk: full mobile redesign; mitigation: focus on usability, not full redesign
+3. **Breaking existing interactions** — Risk: keyboard shortcuts conflict; mitigation: test all existing shortcuts
 
 ## Failure Conditions
 
-This sprint **must fail** if:
-
-1. **Test failure** — Any new or existing test fails (`npm test` exit code ≠ 0)
-2. **Build failure** — `npm run build` exits with non-zero status or TypeScript errors
-3. **Fewer than 8 challenges** — CHALLENGE_DEFINITIONS.length !== 8
-4. **Missing categories** — Not all 4 categories (creation, collection, activation, mastery) represented
-5. **Missing difficulties** — Not all 3 difficulty tiers represented
-6. **Store methods missing** — `checkChallengeCompletion` or `claimReward` not implemented
+1. Any existing test fails (755 → < 755)
+2. TypeScript compilation errors introduced
+3. New accessibility features break existing keyboard shortcuts
+4. Mobile layout makes desktop experience worse
 
 ## Done Definition
 
-The round is complete when **all** of the following are true:
-
-1. ✅ `src/data/challenges.ts` created with exactly 8 challenge definitions
-2. ✅ All 4 categories (creation, collection, activation, mastery) represented
-3. ✅ All 3 difficulty tiers (beginner, intermediate, advanced) represented
-4. ✅ `useChallengeStore` implements `checkChallengeCompletion` and `claimReward`
-5. ✅ `ChallengePanel` component renders accessible challenge list
-6. ✅ `useChallengeTracker` hook provides tracking methods
-7. ✅ `npm test` passes with all tests (baseline: 704, plus new tests)
-8. ✅ `npm run build` succeeds with 0 TypeScript errors
-9. ✅ No runtime errors when accessing Challenge components
+**All** of the following must be true:
+- [ ] `npm test` shows 755+ passing tests
+- [ ] `npm run build` succeeds with 0 TypeScript errors
+- [ ] All 11 acceptance criteria verified
+- [ ] No regressions in existing functionality
+- [ ] Code follows existing patterns and conventions
+- [ ] New accessibility features documented in component comments
 
 ## Out of Scope
 
-The following features from `spec.md` are **not** in scope for this round:
-
-- AI naming/description generation
-- Community sharing / social features
-- Codex trading or exchange system
-- Faction technology trees
-- New module types beyond existing 14
-- Animation polish beyond bug fixes
-- Performance optimizations not directly related to new features
-- Challenge leaderboard or rankings
-- Timed/limited challenges
-
----
-
-**Contract prepared for Round 6 — Arcane Machine Codex Workshop**
+- Backend/server implementation
+- Database changes
+- New module types
+- New animation effects
+- Full mobile app (PWA)
+- Social media integration
+- AI API implementation (stubs only)
+- Performance profiling of large machines (100+ modules)
+- Internationalization (i18n)
