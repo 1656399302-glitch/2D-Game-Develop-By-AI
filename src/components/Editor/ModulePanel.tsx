@@ -1,8 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
+import { useRecipeStore } from '../../store/useRecipeStore';
 import { generateRandomMachine } from '../../utils/randomGenerator';
 import { generateAttributes } from '../../utils/attributeGenerator';
 import { ModuleType, ModuleCategory } from '../../types';
+import { RECIPE_DEFINITIONS, RARITY_COLORS } from '../../types/recipes';
 
 interface ModuleInfo {
   type: ModuleType;
@@ -92,6 +94,11 @@ const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   output: '#fbbf24',
 };
 
+// Get recipe for a module type
+const getRecipeForModule = (type: ModuleType) => {
+  return RECIPE_DEFINITIONS.find(r => r.moduleType === type);
+};
+
 export function ModulePanel() {
   const addModule = useMachineStore((state) => state.addModule);
   const loadMachine = useMachineStore((state) => state.loadMachine);
@@ -99,13 +106,21 @@ export function ModulePanel() {
   const showRandomForgeToast = useMachineStore((state) => state.showRandomForgeToast);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const viewport = useMachineStore((state) => state.viewport);
+  const { isUnlocked } = useRecipeStore();
+  const [hoveredLockedModule, setHoveredLockedModule] = useState<ModuleInfo | null>(null);
   
-  const handleDragStart = useCallback((e: React.DragEvent, moduleType: ModuleType) => {
+  const handleDragStart = useCallback((e: React.DragEvent, moduleType: ModuleType, locked: boolean) => {
+    if (locked) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('moduleType', moduleType);
     e.dataTransfer.effectAllowed = 'copy';
   }, []);
   
-  const handleClick = useCallback((moduleType: ModuleType) => {
+  const handleClick = useCallback((moduleType: ModuleType, locked: boolean) => {
+    if (locked) return;
+    
     // Add module at center of viewport
     const x = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
     const y = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
@@ -135,6 +150,13 @@ export function ModulePanel() {
     // Show success toast
     showRandomForgeToast(`✨ ${attributes.name} Forged!`);
   }, [loadMachine, setGeneratedAttributes, saveToHistory, showRandomForgeToast]);
+  
+  // Check if a module is locked
+  const isModuleLocked = (type: ModuleType): boolean => {
+    const recipe = getRecipeForModule(type);
+    if (!recipe) return false;
+    return !isUnlocked(recipe.id);
+  };
   
   return (
     <div className="w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden">
@@ -173,53 +195,134 @@ export function ModulePanel() {
       {/* Module List */}
       <div className="flex-1 overflow-y-auto p-2">
         <div className="space-y-2">
-          {MODULE_CATALOG.map((module) => (
-            <div
-              key={module.type}
-              draggable
-              onDragStart={(e) => handleDragStart(e, module.type)}
-              onClick={() => handleClick(module.type)}
-              className="arcane-card cursor-grab active:cursor-grabbing group relative"
-              style={{ borderLeftColor: CATEGORY_COLORS[module.category], borderLeftWidth: '3px' }}
-            >
-              <div className="flex items-start gap-3">
-                {/* Icon */}
-                <div 
-                  className="w-12 h-12 rounded flex items-center justify-center text-2xl"
-                  style={{ 
-                    backgroundColor: `${CATEGORY_COLORS[module.category]}20`,
-                    border: `1px solid ${CATEGORY_COLORS[module.category]}40`,
-                  }}
-                >
-                  <ModuleIcon type={module.type} />
-                </div>
-                
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-white truncate">
-                    {module.name}
-                  </h3>
-                  <p className="text-xs text-[#9ca3af] mt-1 line-clamp-2">
-                    {module.description}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span 
-                      className="text-xs px-2 py-0.5 rounded"
-                      style={{ 
-                        backgroundColor: `${CATEGORY_COLORS[module.category]}20`,
-                        color: CATEGORY_COLORS[module.category],
-                      }}
-                    >
-                      {module.category}
-                    </span>
+          {MODULE_CATALOG.map((module) => {
+            const locked = isModuleLocked(module.type);
+            const recipe = getRecipeForModule(module.type);
+            const rarityStyle = recipe ? RARITY_COLORS[recipe.rarity] : null;
+            
+            return (
+              <div
+                key={module.type}
+                draggable={!locked}
+                onDragStart={(e) => handleDragStart(e, module.type, locked)}
+                onClick={() => handleClick(module.type, locked)}
+                onMouseEnter={() => locked && setHoveredLockedModule(module)}
+                onMouseLeave={() => setHoveredLockedModule(null)}
+                className={`
+                  arcane-card group relative transition-all duration-200
+                  ${locked 
+                    ? 'cursor-not-allowed opacity-50 grayscale' 
+                    : 'cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:shadow-lg'
+                  }
+                `}
+                style={{ 
+                  borderLeftColor: CATEGORY_COLORS[module.category], 
+                  borderLeftWidth: '3px',
+                  ...(locked && rarityStyle ? {
+                    borderColor: `${rarityStyle.primary}40`,
+                  } : {})
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Icon */}
+                  <div 
+                    className={`
+                      w-12 h-12 rounded flex items-center justify-center text-2xl relative
+                      ${locked ? 'bg-gray-800' : ''}
+                    `}
+                    style={{ 
+                      backgroundColor: locked ? '#1f2937' : `${CATEGORY_COLORS[module.category]}20`,
+                      border: locked ? '1px dashed #4b5563' : `1px solid ${CATEGORY_COLORS[module.category]}40`,
+                    }}
+                  >
+                    {locked ? (
+                      <div className="flex items-center justify-center">
+                        <svg
+                          className="w-6 h-6 text-gray-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <ModuleIcon type={module.type} />
+                    )}
+                  </div>
+                  
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`text-sm font-medium truncate ${locked ? 'text-gray-500' : 'text-white'}`}>
+                      {module.name}
+                    </h3>
+                    {locked && recipe ? (
+                      <>
+                        <p className="text-xs text-gray-600 mt-1 italic">
+                          {recipe.hint}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span 
+                            className="text-xs px-2 py-0.5 rounded"
+                            style={{ 
+                              backgroundColor: `${rarityStyle?.primary}20`,
+                              color: rarityStyle?.primary,
+                              border: `1px solid ${rarityStyle?.primary}40`,
+                            }}
+                          >
+                            {recipe.rarity}
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-[#9ca3af] mt-1 line-clamp-2">
+                          {module.description}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span 
+                            className="text-xs px-2 py-0.5 rounded"
+                            style={{ 
+                              backgroundColor: `${CATEGORY_COLORS[module.category]}20`,
+                              color: CATEGORY_COLORS[module.category],
+                            }}
+                          >
+                            {module.category}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
+                
+                {/* Locked overlay */}
+                {locked && (
+                  <div 
+                    className="absolute inset-0 rounded-lg pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 100%)',
+                    }}
+                  />
+                )}
+                
+                {/* Hover preview for unlocked */}
+                {!locked && (
+                  <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
+                )}
+                
+                {/* Rarity glow for locked modules on hover */}
+                {locked && hoveredLockedModule?.type === module.type && rarityStyle && (
+                  <div 
+                    className="absolute inset-0 rounded-lg pointer-events-none opacity-30"
+                    style={{
+                      boxShadow: `inset 0 0 20px ${rarityStyle.glow}`,
+                    }}
+                  />
+                )}
               </div>
-              
-              {/* Hover preview */}
-              <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       

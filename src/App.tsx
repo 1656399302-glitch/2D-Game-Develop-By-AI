@@ -13,9 +13,12 @@ import { ChallengeButton } from './components/Challenges/ChallengeButton';
 import { ChallengeBrowser } from './components/Challenges/ChallengeBrowser';
 import { WelcomeModal, useWelcomeModal } from './components/Tutorial/WelcomeModal';
 import { TutorialOverlay } from './components/Tutorial/TutorialOverlay';
+import { RecipeBrowser } from './components/Recipes/RecipeBrowser';
+import { RecipeToastManager } from './components/Recipes/RecipeDiscoveryToast';
 import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
 import { useTutorialStore } from './store/useTutorialStore';
+import { useRecipeStore } from './store/useRecipeStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
@@ -28,6 +31,7 @@ function App() {
   const [showLoadPrompt, setShowLoadPrompt] = useState(false);
   const [showChallenges, setShowChallenges] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showRecipeBrowser, setShowRecipeBrowser] = useState(false);
   
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
@@ -38,6 +42,9 @@ function App() {
   const markStateAsLoaded = useMachineStore((state) => state.markStateAsLoaded);
   
   const addEntry = useCodexStore((state) => state.addEntry);
+  
+  // Recipe system
+  const { checkTutorialUnlock } = useRecipeStore();
   
   // Welcome modal hook - handles tutorial start/skip internally
   const {
@@ -57,6 +64,16 @@ function App() {
   
   // Use keyboard shortcuts hook
   useKeyboardShortcuts({ enabled: viewMode === 'editor' });
+  
+  // Tutorial completion handler - trigger recipe unlocks
+  useEffect(() => {
+    const tutorialStore = useTutorialStore.getState();
+    // Check if tutorial has been completed (currentStep >= steps.length)
+    const tutorialCompleted = tutorialStore.currentStep >= 6; // 6 is the number of tutorial steps
+    if (tutorialCompleted) {
+      checkTutorialUnlock();
+    }
+  }, [checkTutorialUnlock]);
   
   const handleSaveToCodex = useCallback(() => {
     if (modules.length === 0) {
@@ -86,7 +103,6 @@ function App() {
   // Tutorial callback handlers
   const handleModuleAdded = useCallback(() => {
     // This callback is called when user completes the drag module step
-    // Can be used to track analytics or show additional hints
   }, []);
   
   const handleModuleSelected = useCallback(() => {
@@ -147,6 +163,14 @@ function App() {
         
         {viewMode === 'editor' && (
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRecipeBrowser(true)}
+              className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a855f7] hover:text-white border border-[#1e2a42] hover:border-[#a855f7]/30 transition-colors flex items-center gap-2"
+              title="Recipe Codex - Discover new modules"
+            >
+              <span>📜</span>
+              <span>Recipes</span>
+            </button>
             <button
               onClick={handleShowHelp}
               className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#9ca3af] hover:text-white border border-[#1e2a42] hover:border-[#7c3aed]/30 transition-colors"
@@ -229,6 +253,12 @@ function App() {
         />
       )}
       
+      {/* Recipe Browser Modal */}
+      <RecipeBrowser 
+        isOpen={showRecipeBrowser} 
+        onClose={() => setShowRecipeBrowser(false)} 
+      />
+      
       {/* Load Prompt Modal */}
       {showLoadPrompt && (
         <LoadPromptModal />
@@ -289,6 +319,7 @@ function App() {
                     <li>• Use Random Forge for quick inspiration</li>
                     <li>• Save your best machines to the Codex</li>
                     <li>• Complete challenges to earn rewards</li>
+                    <li>• Open Recipe Codex to discover new modules</li>
                   </ul>
                 </div>
               </div>
@@ -318,6 +349,9 @@ function App() {
       {/* Toast Notifications */}
       <ConnectionErrorToast />
       <RandomForgeToast />
+      
+      {/* Recipe Discovery Toast */}
+      <RecipeToastManager />
       
       {/* Welcome Modal - for first-time users */}
       {showWelcome && (

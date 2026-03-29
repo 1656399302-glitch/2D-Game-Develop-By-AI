@@ -126,3 +126,21 @@
 ## Round 16 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 16 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 17 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
+## Round 17 Abort
+- Rationale: Build round 17 failed (max_iterations). Evaluation skipped because the builder did not finish cleanly.
+
+## Harness Mode
+- Rationale: Full multi-agent harness enabled because the task is treated as a long-running engineering workflow.
+
+## Planning
+- Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
+
+## Round 1 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

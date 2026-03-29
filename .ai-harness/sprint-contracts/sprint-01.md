@@ -1,318 +1,208 @@
-# Sprint Contract — Round 2
-
-**APPROVED**
+# APPROVED — Sprint Contract — Round 1
 
 ## Scope
 
-This sprint focuses on **remediation and P1 feature completion**. Round 1 passed QA with 8.83/10, establishing a functional MVP. This round addresses the 2 untested acceptance criteria (keyboard undo/redo) and adds the deferred "Output Array" module type, completing the spec-required 7 module types.
-
-**Primary Objectives:**
-1. Verify and fix keyboard undo/redo functionality (2 untested criteria from Round 1)
-2. Implement Output Array module (deferred P1 from Round 1)
-3. Ensure smooth integration without breaking existing functionality
-
----
+This sprint establishes the **MVP foundation** for the Arcane Machine Codex Workshop. The primary goal is creating a runnable, visually cohesive editor with working drag-and-drop module placement, a core subset of SVG modules, and basic state management architecture. No activation animations, no complex energy routing, no persistence yet — just a solid technical and visual foundation.
 
 ## Spec Traceability
 
-### P0 items (Round 1 — COMPLETE ✓)
-| Spec Requirement | Round 1 Status |
-|-----------------|----------------|
-| 机械装置编辑器 (Machine Editor) | ✅ Complete - drag, select, rotate, delete, undo/redo, grid |
-| 6 Core Modules | ✅ Complete - Core Furnace, Energy Pipe, Gear, Rune Node, Shield Shell, Trigger Switch |
-| 能量连接系统 (Energy Connection) | ✅ Complete - port-based connections with animated paths |
-| 激活预览系统 (Activation Preview) | ✅ Complete - idle→charging→active→complete phases |
-| 机器属性生成 (Attribute Generation) | ✅ Complete - rule-based name, rarity, stats, tags |
-| 图鉴系统 (Codex System) | ✅ Complete - save/load/delete with localStorage |
-| 导出能力 (Export) | ✅ Complete - SVG, PNG, Poster |
+### P0 items (Must Complete — MVP Core)
+1. **Project scaffolding** — React + TypeScript + Vite + Zustand + Tailwind CSS
+2. **Dark magical theme** — CSS variables, base typography, background treatment
+3. **SVG Module System foundation** — Configuration-driven module definitions
+4. **Core Module Library** — 6 module types with custom SVG artwork:
+   - Core Furnace (炉心)
+   - Energy Pipe (能量管道)
+   - Gear Mechanism (齿轮机构)
+   - Rune Node (符文节点)
+   - Protective Shell (防护外壳)
+   - Trigger Switch (触发开关)
+5. **Machine Editor Canvas** — SVG-based workspace with pan/zoom
+6. **Module Panel** — Draggable module palette
+7. **Drag-and-drop placement** — Modules can be dragged onto canvas and positioned
+8. **Selection system** — Click to select, visual highlight, transform handles
 
-### P1 items (This Round — Target)
-| Spec Requirement | Round 2 Status |
-|-----------------|----------------|
-| 法阵输出 (Output Array) module type | 🔲 Implement |
-| Keyboard undo/redo fix | 🔲 Verify and fix |
+### P1 items (Should Complete — MVP Polish)
+1. **Delete selected module** — Keyboard (Delete/Backspace) and UI button
+2. **Rotate selected module** — Rotation controls (90° increments) via UI buttons and keyboard (R key)
+3. **Layer ordering** — Bring to front / send to back
+4. **Grid snapping** — Visual grid on canvas for alignment
+5. **Canvas zoom controls** — Zoom in/out/reset buttons
 
-### P1 items (Future Rounds)
-- Module color customization
-- Module grouping
-- Advanced snap/alignment tools
-- AI naming integration interface
-- Community sharing
-- Challenge/task modes
-- Faction technology trees
-
-### P2 intentionally deferred
-- Animated background patterns
-- Sound effects
-- 3D perspective view
-- Collaborative editing
-- Cloud sync
-
----
+### P2 items (Intentionally Deferred)
+- Energy connection system with path rendering
+- Activation preview and animation system
+- Machine attribute/name generation
+- Codex/collection system
+- Random forge mode
+- Export functionality (SVG/PNG)
+- Tutorial system
+- Challenge mode
+- Persistence (localStorage)
+- Undo/redo system
 
 ## Deliverables
 
-### 1. Output Array Module Component
-**File:** `src/components/Modules/OutputArray.tsx`
-
-A new module type that serves as the output terminus for energy circuits:
-
-| Property | Value |
-|----------|-------|
-| **Type ID** | `output-array` |
-| **Category** | `output` |
-| **Size** | 80×80 |
-| **Ports** | 1× input (left side) |
-| **Visual Theme** | Radial arcane array with concentric rings and beam projector |
-| **Animation** | Rotating outer ring, pulsing inner core, energy reception glow |
-| **Tags** | `arcane`, `output`, `resonance` |
-| **Stats** | `stability: 20`, `power: 30`, `energy: 15` |
-
-**SVG Design Elements:**
-- Outer ring with tick marks (rotates on activation)
-- Middle ring with rune symbols
-- Inner core with radial gradient
-- Energy intake receptor on left side
-- Glow effect when receiving power
-
-### 2. Keyboard Undo/Redo Fix
-**File:** `src/App.tsx` (keyboard handling)
-
-**Issue:** Browser test limitation - dispatched keyboard events don't trigger React handlers properly.
-
-**Verification Method:** Manual browser test
-1. Add a module to canvas
-2. Press `Ctrl+Z`
-3. Verify module is removed
-4. Press `Ctrl+Y`
-5. Verify module is restored
-
-**If broken:** Review event listener attachment and React synthetic event handling.
-
-### 3. Updated Module Registry
-**File:** `src/types/index.ts`
-
-Add to `MODULE_DEFINITIONS`:
-```typescript
-{
-  id: 'output-array',
-  name: 'Output Array',
-  category: 'output',
-  width: 80,
-  height: 80,
-  ports: [
-    { id: 'in-1', type: 'input', position: { x: 0, y: 40 } }
-  ],
-  tags: ['arcane', 'output', 'resonance'],
-  stats: { stability: 20, power: 30, energy: 15 }
-}
+### Project Structure
+```
+src/
+├── components/
+│   ├── Editor/
+│   │   ├── MachineCanvas.tsx    # Main SVG workspace
+│   │   ├── ModulePanel.tsx      # Draggable module palette
+│   │   └── ModuleRenderer.tsx   # Renders individual modules
+│   ├── UI/
+│   │   ├── Toolbar.tsx          # Editor controls
+│   │   └── Button.tsx           # Shared button component
+│   └── App.tsx
+├── modules/
+│   ├── index.ts                 # Module registry
+│   ├── core-furnace.ts          # SVG template + metadata
+│   ├── energy-pipe.ts
+│   ├── gear-mechanism.ts
+│   ├── rune-node.ts
+│   ├── protective-shell.ts
+│   └── trigger-switch.ts
+├── store/
+│   ├── useEditorStore.ts        # Zustand store for canvas state
+│   └── types.ts                 # Store interfaces
+├── types/
+│   └── module.ts                # Module definition types
+├── styles/
+│   └── globals.css              # Theme variables, base styles
+├── main.tsx
+└── index.html
 ```
 
-### 4. Unit Tests for Output Array
-**File:** `src/utils/__tests__/attributeGenerator.test.ts`
-
-Add test case:
-```typescript
-it('should include output-array module in attribute calculation', () => {
-  const modules = [
-    { id: '1', type: 'core-furnace', ... },
-    { id: '2', type: 'output-array', ... }
-  ];
-  const result = generateAttributes(modules, []);
-  expect(result).toBeDefined();
-  expect(result.tags).toContain('arcane');
-});
-```
-
----
+### Key Files to CREATE
+1. **`src/modules/types.ts`** — Module definition interfaces (id, name, category, svgContent, ports, properties)
+2. **`src/modules/core-furnace.ts`** — Core Furnace module with animated SVG
+3. **`src/modules/energy-pipe.ts`** — Energy Pipe module SVG
+4. **`src/modules/gear-mechanism.ts`** — Gear Mechanism with rotation animation ready
+5. **`src/modules/rune-node.ts`** — Rune Node with glow effect
+6. **`src/modules/protective-shell.ts`** — Protective Shell frame module
+7. **`src/modules/trigger-switch.ts`** — Trigger Switch with toggle visual
+8. **`src/modules/index.ts`** — Module registry exports
+9. **`src/store/useEditorStore.ts`** — Zustand store with:
+   - `modules: PlacedModule[]` — modules on canvas
+   - `selectedId: string | null` — current selection
+   - `canvasTransform: { x, y, scale }` — pan/zoom state
+   - `addModule(moduleId, position)`
+   - `removeModule(id)`
+   - `selectModule(id)`
+   - `moveModule(id, position)`
+   - `rotateModule(id, degrees)`
+   - `bringToFront(id)` / `sendToBack(id)`
+10. **`src/components/Editor/MachineCanvas.tsx`** — SVG workspace with:
+    - ViewBox-based coordinate system
+    - Grid background pattern
+    - Mouse wheel zoom
+    - Drag-to-pan
+    - Drop zone for modules
+11. **`src/components/Editor/ModulePanel.tsx`** — Module palette:
+    - Grid of draggable module thumbnails
+    - Category headers
+    - Visual preview of each module
+12. **`src/components/Editor/ModuleRenderer.tsx`** — Renders a placed module:
+    - SVG content from module definition
+    - Selection highlight (glowing border)
+    - Rotation transform
+    - Transform handles (future)
+13. **`src/components/UI/Toolbar.tsx`** — Top toolbar with:
+    - Delete button
+    - Rotate buttons (90° CW/CCW)
+    - Layer controls (front/back)
+    - Zoom controls
+14. **`src/styles/globals.css`** — Theme system:
+    - CSS custom properties for colors
+    - Background gradients and textures
+    - Typography scale
+    - Glow effects
 
 ## Acceptance Criteria
 
-### Critical (Must Pass)
-- [ ] Output Array module appears in module panel
-- [ ] Output Array module can be dragged onto canvas
-- [ ] Output Array module renders with distinct SVG graphics
-- [ ] Output Array module has visible input port (left side)
-- [ ] Output Array module participates in activation animation
-- [ ] Output Array module contributes to attribute generation
-- [ ] Ctrl+Z undoes last action in browser
-- [ ] Ctrl+Y redoes last undone action in browser
-- [ ] `npm run build` produces 0 errors
-- [ ] `npm test` passes all tests
-
-### Verification Checklist
-- [ ] Output Array renders in module panel
-- [ ] Output Array drag-drop works
-- [ ] Output Array SVG matches design spec (rotating ring, inner core, receptor)
-- [ ] Output Array can receive connections from other modules
-- [ ] Output Array animates during activation (rotating ring, glow pulse)
-- [ ] Machine with Output Array generates correct attributes
-- [ ] Keyboard undo works: add module → Ctrl+Z → module removed
-- [ ] Keyboard redo works: Ctrl+Y → module restored
-- [ ] No regression: all Round 1 features still work
-
----
+1. **Project builds successfully** — `npm run build` exits 0 with 0 TypeScript errors
+2. **6 modules available in panel** — All module types appear with correct visual previews
+3. **Drag-drop works** — Dragging module from panel creates instance on canvas at drop position
+4. **Selection works** — Clicking module shows selection highlight (glowing border)
+5. **Delete works** — Delete key and UI button remove selected module
+6. **Rotate works** — Rotate buttons and R key change module orientation visually
+7. **Canvas pan/zoom works** — Mouse wheel zooms, drag on empty space pans
+8. **Dark theme visible** — Background is dark (#0a0a0f or similar), CSS variables defined for magical theme
+9. **State persists during session** — Modules remain after interactions (not across refresh)
+10. **Custom SVG artwork** — Each module uses thematic SVG shapes (paths, circles, gradients, filters), not plain rectangles
 
 ## Test Methods
 
-### 1. Manual Browser Verification (Keyboard Undo/Redo)
+### Manual Verification
+1. **Build**: `npm run build` → 0 TypeScript errors, 0 warnings
+2. **Dev server**: `npm run dev` → page loads without console errors
+3. **Module panel**: 6 module cards visible with distinct visuals
+4. **Drag-drop**: Drag "Core Furnace" to canvas → module appears at drop location
+5. **Multi-place**: Drag same module type 3x → all 3 appear independently
+6. **Selection**: Click module → orange glow border appears
+7. **Delete**: With module selected, press Delete → module disappears
+8. **Rotate**: Select module → press R → module rotates 90°
+9. **Pan**: Click and drag on empty canvas → viewport moves
+10. **Zoom**: Scroll wheel → canvas zooms in/out
+11. **Layer order**: Place 3 modules → use Bring to Front → verify z-order
 
-**Test Script:**
-```
-1. Open browser dev tools on running app
-2. Focus on canvas area
-3. Click "Core Furnace" in module panel
-4. Verify module appears on canvas
-5. Open browser console
-6. Execute: document.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))
-7. Verify module disappears from canvas
-8. Execute: document.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true }))
-9. Verify module reappears on canvas
-```
-
-**Pass Criteria:** Module disappears on Ctrl+Z and reappears on Ctrl+Y.
-
-### 2. Output Array Integration Test
-
-**Test Script (Playwright):**
-```
-1. Navigate to editor
-2. Find Output Array in module panel
-3. Click to add to canvas at (400, 300)
-4. Verify module element exists with data-type="output-array"
-5. Click module to select
-6. Verify properties panel shows "Type: Output Array"
-7. Add Core Furnace module
-8. Click Core Furnace output port
-9. Drag to Output Array input port
-10. Verify connection path exists
-11. Click "Activate Machine"
-12. Wait 2 seconds
-13. Verify Output Array shows active animation
-```
-
-**Pass Criteria:** All steps complete without errors.
-
-### 3. Attribute Generation Test
-
-**Test Script (Unit Test):**
-```typescript
-it('generates attributes with output-array module', () => {
-  const modules = createModules([
-    { type: 'core-furnace', x: 100, y: 100 },
-    { type: 'output-array', x: 300, y: 100 }
-  ]);
-  
-  const result = generateAttributes(modules, [
-    { sourceModuleId: modules[0].id, targetModuleId: modules[1].id }
-  ]);
-  
-  expect(result.tags).toContain('arcane');
-  expect(result.name).toBeTruthy();
-  expect(result.rarity).toBeDefined();
-});
-```
-
-**Pass Criteria:** Test passes, attributes include 'arcane' tag.
-
-### 4. Build and Test Verification
-
-**Commands:**
-```bash
-npm run build  # Must produce 0 errors
-npm test       # All tests pass
-```
-
----
+### Automated Tests (to be written)
+- `npm test -- moduleRegistry` — Verifies all 6 modules are registered
+- `npm test -- editorStore` — Verifies store actions work correctly
+- `npm test -- dragDrop` — Verifies drag-drop interaction logic
 
 ## Risks
 
-### Technical Risks
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Output Array animation conflicts with existing GSAP contexts | Low | Medium | Use isolated animation context per module |
-| Keyboard event handling has browser compatibility issues | Low | High | Test in Chrome, Firefox, Safari |
-| Adding new module type breaks existing connections | Low | High | Verify port positions don't overlap |
-
-### Scope Risks
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Output Array SVG takes longer than expected | Low | Medium | Use simplified design with CSS animations |
-| Keyboard fix requires architecture change | Low | High | Prioritize investigation early in sprint |
-
----
+1. **SVG Module Complexity** — Creating 6 distinct, attractive SVG modules in one sprint is time-consuming. Mitigate: Use simplified but cohesive geometric style.
+2. **Drag-Drop Implementation** — HTML5 drag-drop with SVG canvas can be tricky. Mitigate: Use pointer events and manual coordinate translation.
+3. **Pan/Zoom Conflicts** — Selection vs pan vs zoom can conflict. Mitigate: Clear interaction hierarchy (drag on empty = pan, click module = select, wheel = zoom).
+4. **State Architecture** — Getting Zustand store shape wrong will cause refactoring later. Mitigate: Keep it simple, add comments for future expansion.
 
 ## Failure Conditions
 
-This sprint **MUST FAIL** if any of the following occur:
-
-1. **Output Array not implemented**: Module type missing from panel or canvas
-2. **Build errors**: `npm run build` produces TypeScript or bundler errors
-3. **Regression**: Round 1 features (editor, connections, activation, codex, export) stop working
-4. **Keyboard undo/redo completely non-functional**: Not just test limitation but actual user-facing bug
-5. **Test failures**: `npm test` fails any existing test
-
-### Warning Flags (Discussion Points)
-- Output Array animation not visible during activation
-- Connection to Output Array port fails
-- Module panel scroll behavior breaks with new module
-- Attribute generator throws error with new module type
-
----
+1. **`npm run build` fails** — Any TypeScript errors or build errors
+2. **Fewer than 6 modules** — Not all required module types implemented
+3. **Drag-drop broken** — Cannot place modules on canvas
+4. **No visual theme** — Pages look like default Vite template (no dark background, no CSS variables)
+5. **Modules are placeholder boxes** — SVG artwork is just `<rect>` or `<circle>` with solid fill, no paths/gradients/filters
+6. **Selection doesn't work** — Cannot interact with placed modules
 
 ## Done Definition
 
-The sprint is **COMPLETE** when ALL of the following are true:
+Exact conditions that must be true before claiming round complete:
 
-### Functional Completeness
-- [ ] Output Array module appears in module panel
-- [ ] Output Array can be placed on canvas via drag-drop
-- [ ] Output Array has correct SVG visuals (rotating ring, core, receptor)
-- [ ] Output Array input port accepts connections
-- [ ] Output Array animates during machine activation
-- [ ] Ctrl+Z keyboard shortcut reverses last action
-- [ ] Ctrl+Y keyboard shortcut restores undone action
-
-### Technical Completeness
-- [ ] `npm run build` succeeds with 0 errors
-- [ ] `npm test` passes all 24+ tests
-- [ ] No TypeScript errors introduced
-- [ ] New module registered in MODULE_DEFINITIONS
-
-### Regression Prevention
-- [ ] All 6 Round 1 modules still work
-- [ ] Editor drag-drop still works
-- [ ] Connection system still works
-- [ ] Activation animation still works
-- [ ] Codex save/load still works
-- [ ] Export still works
-
----
+- [ ] `npm run build` exits with code 0, 0 TypeScript errors
+- [ ] All 6 module types defined in `src/modules/`
+- [ ] Each module has custom SVG artwork with paths, shapes, or gradients (not plain `<rect>`/`<circle>`)
+- [ ] ModulePanel displays all 6 modules with visual previews
+- [ ] MachineCanvas renders placed modules at correct positions
+- [ ] Drag from panel → drop on canvas → module created at drop point
+- [ ] Click module → selection highlight visible
+- [ ] Delete key → selected module removed from canvas
+- [ ] Rotate (R key or buttons) → selected module rotates visually
+- [ ] Mouse wheel → canvas zoom changes
+- [ ] Drag on empty canvas → canvas pans
+- [ ] Dark theme with magical aesthetic (dark background, CSS variables defined)
+- [ ] Keyboard shortcuts documented and working
 
 ## Out of Scope
 
-The following are explicitly **NOT** being done this round:
+The following features from spec.md are explicitly NOT included in this sprint:
 
-1. **Module color customization** — All modules use predefined colors
-2. **Module grouping** — Cannot group modules into assemblies
-3. **Copy/paste functionality** — Ctrl+C/Ctrl+V not implemented
-4. **Multiple selection** — Only single module selection
-5. **Additional module types beyond Output Array** — Only one new module
-6. **AI naming integration** — Attributes remain rule-based only
-7. **Sound effects** — Visual-only
-8. **Mobile responsiveness** — Desktop only
-9. **Faction system** — Future feature
-10. **Social sharing** — Future feature
-
----
-
-## Success Metrics
-
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Output Array completeness | 100% | Module in panel + canvas + animation + connection |
-| Keyboard undo/redo | 100% | Manual browser test passes |
-| Build status | 0 errors | `npm run build` exit code 0 |
-| Test pass rate | 100% | `npm test` all pass |
-| Regression count | 0 | All Round 1 features verified |
-| Module count | 7 total | 6 original + Output Array |
+- **Energy connection system** — Path rendering, port connections, flow animations
+- **Activation system** — Machine state machine, idle/active/overload states, startup animations
+- **Machine attributes** — Auto-generated names, rarity, stability, faction tags
+- **Codex/collection** — Saving machines, gallery view, persistence
+- **Random forge** — One-click random machine generation
+- **Export** — SVG export, PNG export, poster generation
+- **Tutorial system** — Welcome modal, guided steps, tooltips
+- **Challenge mode** — Timed challenges, scoring, unlocks
+- **Undo/redo** — Command pattern implementation
+- **Multi-select** — Box selection, group operations
+- **Snap-to-grid** — Automatic alignment
+- **Copy/paste** — Duplicate modules
+- **Module parameter editing** — Property panels, sliders, color pickers
+- **Module grouping** — Combine modules into assemblies
+- **Cloud/AI features** — Any external API integrations
+- **Mobile responsive** — Touch interactions (desktop only for MVP)

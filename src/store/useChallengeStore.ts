@@ -45,7 +45,20 @@ export const useChallengeStore = create<ChallengeStore>()(
           if (state.completedChallengeIds.includes(id)) {
             return state; // Already completed
           }
-          return { completedChallengeIds: [...state.completedChallengeIds, id] };
+          
+          const newCompleted = [...state.completedChallengeIds, id];
+          
+          // Trigger recipe unlocks for this challenge
+          // Use dynamic import to avoid circular dependency
+          setTimeout(() => {
+            import('./useRecipeStore').then(({ useRecipeStore }) => {
+              useRecipeStore.getState().checkChallengeUnlock(id);
+            }).catch(() => {
+              // Recipe store might not be available yet
+            });
+          }, 0);
+          
+          return { completedChallengeIds: newCompleted };
         });
       },
 
