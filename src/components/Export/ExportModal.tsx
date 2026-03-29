@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
-import { exportToSVG, exportToPNG, exportPoster, downloadFile } from '../../utils/exportUtils';
+import { exportToSVG, exportToPNG, exportPoster, exportEnhancedPoster, downloadFile } from '../../utils/exportUtils';
 import { generateAttributes } from '../../utils/attributeGenerator';
 
 interface ExportModalProps {
   onClose: () => void;
 }
 
-type ExportFormat = 'svg' | 'png' | 'poster';
+type ExportFormat = 'svg' | 'png' | 'poster' | 'enhanced-poster';
 
 export function ExportModal({ onClose }: ExportModalProps) {
   const modules = useMachineStore((state) => state.modules);
@@ -43,6 +43,11 @@ export function ExportModal({ onClose }: ExportModalProps) {
         case 'poster':
           const posterContent = exportPoster(modules, connections, attributes);
           downloadFile(posterContent, `${filename}-poster.svg`, 'image/svg+xml');
+          break;
+          
+        case 'enhanced-poster':
+          const enhancedContent = exportEnhancedPoster(modules, connections, attributes);
+          downloadFile(enhancedContent, `${filename}-enhanced-poster.svg`, 'image/svg+xml');
           break;
       }
       
@@ -83,11 +88,11 @@ export function ExportModal({ onClose }: ExportModalProps) {
             <label className="block text-sm font-medium text-[#9ca3af] mb-2">
               Export Format
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <FormatButton
                 format="svg"
                 label="SVG"
-                description="Vector format"
+                description="Vector"
                 icon="📐"
                 selected={format === 'svg'}
                 onClick={() => setFormat('svg')}
@@ -95,7 +100,7 @@ export function ExportModal({ onClose }: ExportModalProps) {
               <FormatButton
                 format="png"
                 label="PNG"
-                description="Raster image"
+                description="Raster"
                 icon="🖼"
                 selected={format === 'png'}
                 onClick={() => setFormat('png')}
@@ -107,6 +112,14 @@ export function ExportModal({ onClose }: ExportModalProps) {
                 icon="🎨"
                 selected={format === 'poster'}
                 onClick={() => setFormat('poster')}
+              />
+              <FormatButton
+                format="enhanced-poster"
+                label="Enhanced"
+                description="Deluxe card"
+                icon="✨"
+                selected={format === 'enhanced-poster'}
+                onClick={() => setFormat('enhanced-poster')}
               />
             </div>
           </div>
@@ -136,6 +149,9 @@ export function ExportModal({ onClose }: ExportModalProps) {
             {format === 'poster' && (
               <p>Poster export creates a styled share card with machine preview, stats, and decorative border.</p>
             )}
+            {format === 'enhanced-poster' && (
+              <p>Enhanced poster includes decorative corners, ornate name styling, attribute icons, and faction emblem.</p>
+            )}
           </div>
         </div>
         
@@ -158,7 +174,7 @@ export function ExportModal({ onClose }: ExportModalProps) {
                 Exporting...
               </>
             ) : (
-              <>📤 Export {format.toUpperCase()}</>
+              <>📤 Export {format === 'enhanced-poster' ? 'Enhanced' : format.toUpperCase()}</>
             )}
           </button>
         </div>
@@ -227,10 +243,37 @@ function ExportPreview({ format }: { format: ExportFormat }) {
           <text x="50" y="50" textAnchor="middle" fontSize="6" fill="#ffd700">MACHINE</text>
         </svg>
       )}
+      {format === 'enhanced-poster' && (
+        <svg width="100" height="140" viewBox="0 0 100 140">
+          <rect x="5" y="5" width="90" height="130" fill="#0a0e17" stroke="#00d4ff" strokeWidth="1.5" rx="4"/>
+          {/* Decorative corners */}
+          <path d="M5,20 L5,5 L20,5" fill="none" stroke="#ffd700" strokeWidth="2"/>
+          <path d="M80,5 L95,5 L95,20" fill="none" stroke="#ffd700" strokeWidth="2"/>
+          <path d="M95,120 L95,135 L80,135" fill="none" stroke="#ffd700" strokeWidth="2"/>
+          <path d="M20,135 L5,135 L5,120" fill="none" stroke="#ffd700" strokeWidth="2"/>
+          {/* Inner border */}
+          <rect x="10" y="10" width="80" height="80" fill="#121826" stroke="#7c3aed" strokeWidth="0.5" rx="2"/>
+          {/* Module preview */}
+          <rect x="15" y="30" width="20" height="20" fill="#1a1a2e" stroke="#00d4ff" strokeWidth="1" rx="2"/>
+          <rect x="40" y="35" width="30" height="10" fill="#2d1b4e" stroke="#7c3aed" strokeWidth="0.5" rx="1"/>
+          {/* Name with decorative elements */}
+          <text x="50" y="18" textAnchor="middle" fontSize="7" fill="#ffd700" fontFamily="serif">★ MACHINE NAME ★</text>
+          {/* Stats with icons */}
+          <text x="20" y="102" fontSize="5" fill="#4ade80">◆ STABILITY: 85%</text>
+          <text x="20" y="110" fontSize="5" fill="#f59e0b">⚡ POWER: 72</text>
+          <text x="20" y="118" fontSize="5" fill="#ef4444">⚠ FAILURE: 15%</text>
+          {/* Tags */}
+          <text x="20" y="128" fontSize="5" fill="#a855f7">Tags: arcane, amplifying</text>
+          {/* Faction emblem placeholder */}
+          <circle cx="75" cy="105" r="8" fill="none" stroke="#fbbf24" strokeWidth="1" strokeDasharray="2,2"/>
+          <text x="75" y="107" textAnchor="middle" fontSize="5" fill="#fbbf24">⚗</text>
+        </svg>
+      )}
       <p className="text-xs text-[#4a5568] mt-2">
         {format === 'svg' && 'Scalable Vector Graphics'}
         {format === 'png' && 'Raster Image (2x)'}
         {format === 'poster' && 'Social Share Card'}
+        {format === 'enhanced-poster' && 'Deluxe Share Card'}
       </p>
     </div>
   );

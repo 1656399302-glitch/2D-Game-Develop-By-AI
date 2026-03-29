@@ -54,7 +54,7 @@ const MODULE_CATALOG: ModuleInfo[] = [
     category: 'output',
     description: 'Final terminus for energy circuits. Projects arcane beams and resonance.',
   },
-  // New multi-port modules
+  // Multi-port modules
   {
     type: 'amplifier-crystal',
     name: 'Amplifier Crystal',
@@ -66,6 +66,19 @@ const MODULE_CATALOG: ModuleInfo[] = [
     name: 'Stabilizer Core',
     category: 'core',
     description: 'Harmonic stabilization matrix with 2 inputs and 1 output. Balances energy fluctuations.',
+  },
+  // New modules for Round 13
+  {
+    type: 'void-siphon',
+    name: 'Void Siphon',
+    category: 'core',
+    description: 'Absorbs void energy with 1 input and 2 outputs. Pulls energy inward with swirling vortex patterns.',
+  },
+  {
+    type: 'phase-modulator',
+    name: 'Phase Modulator',
+    category: 'rune',
+    description: 'Phase-shift matrix with 2 inputs and 2 outputs. Channels lightning energy with electric arcs.',
   },
 ];
 
@@ -362,6 +375,55 @@ function ModuleIcon({ type }: { type: ModuleType }) {
         <circle cx="4" cy="22" r="1.5" fill="#22c55e"/>
         {/* Output indicator */}
         <circle cx="28" cy="16" r="1.5" fill="#4ade80"/>
+      </svg>
+    ),
+    'void-siphon': (
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        {/* Circular void body */}
+        <circle cx="16" cy="16" r="14" fill="#1e1b4b" stroke="#a78bfa" strokeWidth="1.5"/>
+        {/* Inner void circle */}
+        <circle cx="16" cy="16" r="9" fill="none" stroke="#7c3aed" strokeWidth="0.5" opacity="0.6"/>
+        {/* Spiral arms */}
+        <path d="M16,16 Q20,12 23,8" fill="none" stroke="#c4b5fd" strokeWidth="1" opacity="0.7"/>
+        <path d="M16,16 Q12,20 9,23" fill="none" stroke="#a78bfa" strokeWidth="1" opacity="0.5"/>
+        {/* Central void core */}
+        <circle cx="16" cy="16" r="4" fill="#4c1d95"/>
+        <circle cx="16" cy="16" r="2" fill="#7c3aed"/>
+        {/* Input indicator (top) */}
+        <circle cx="16" cy="2" r="1.5" fill="#c4b5fd"/>
+        {/* Output indicators (bottom) */}
+        <circle cx="10" cy="28" r="1.5" fill="#a78bfa"/>
+        <circle cx="22" cy="28" r="1.5" fill="#a78bfa"/>
+      </svg>
+    ),
+    'phase-modulator': (
+      <svg width="32" height="32" viewBox="0 0 32 32">
+        {/* Hexagonal body */}
+        <polygon
+          points="16,2 26,8 26,20 16,26 6,20 6,8"
+          fill="#164e63"
+          stroke="#22d3ee"
+          strokeWidth="1.5"
+        />
+        {/* Inner hexagon */}
+        <polygon
+          points="16,6 23,10 23,18 16,22 9,18 9,10"
+          fill="none"
+          stroke="#06b6d4"
+          strokeWidth="0.5"
+          opacity="0.6"
+        />
+        {/* Lightning arc */}
+        <path d="M10,16 L14,13 L18,17 L22,12" fill="none" stroke="#a5f3fc" strokeWidth="1" strokeLinecap="round"/>
+        {/* Central core */}
+        <circle cx="16" cy="16" r="3" fill="#0891b2"/>
+        <circle cx="16" cy="16" r="1.5" fill="#22d3ee"/>
+        {/* Input indicators (left) */}
+        <circle cx="2" cy="10" r="1.5" fill="#22d3ee"/>
+        <circle cx="2" cy="20" r="1.5" fill="#22d3ee"/>
+        {/* Output indicators (right) */}
+        <circle cx="30" cy="10" r="1.5" fill="#a5f3fc"/>
+        <circle cx="30" cy="20" r="1.5" fill="#a5f3fc"/>
       </svg>
     ),
   };

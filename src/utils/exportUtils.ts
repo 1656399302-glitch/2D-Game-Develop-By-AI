@@ -146,6 +146,22 @@ function renderModuleToSVG(module: PlacedModule): string {
         <rect x="25" y="10" width="30" height="25" rx="2" fill="#2d2d2d" stroke="#f87171" stroke-width="1"/>
       </g>
     `,
+    'void-siphon': `
+      <g transform="${transform}">
+        <circle cx="40" cy="40" r="32" fill="#1e1b4b" stroke="#a78bfa" stroke-width="2"/>
+        <circle cx="40" cy="40" r="22" fill="none" stroke="#7c3aed" stroke-width="1"/>
+        <circle cx="40" cy="40" r="12" fill="#4c1d95"/>
+        <circle cx="40" cy="40" r="6" fill="#7c3aed"/>
+      </g>
+    `,
+    'phase-modulator': `
+      <g transform="${transform}">
+        <polygon points="40,4 68,18 68,52 40,66 12,52 12,18" fill="#164e63" stroke="#22d3ee" stroke-width="2"/>
+        <polygon points="40,12 60,23 60,47 40,58 20,47 20,23" fill="none" stroke="#06b6d4" stroke-width="1"/>
+        <circle cx="40" cy="40" r="8" fill="#0891b2"/>
+        <circle cx="40" cy="40" r="4" fill="#22d3ee"/>
+      </g>
+    `,
   };
   
   return moduleTemplates[module.type] || `<g transform="${transform}"><rect width="60" height="60" fill="#333"/></g>`;
@@ -163,6 +179,11 @@ function calculateBounds(modules: PlacedModule[]): { minX: number; minY: number;
     'rune-node': { width: 80, height: 80 },
     'shield-shell': { width: 100, height: 60 },
     'trigger-switch': { width: 60, height: 100 },
+    'output-array': { width: 80, height: 80 },
+    'amplifier-crystal': { width: 80, height: 80 },
+    'stabilizer-core': { width: 80, height: 80 },
+    'void-siphon': { width: 80, height: 80 },
+    'phase-modulator': { width: 80, height: 80 },
   };
   
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -317,6 +338,218 @@ export function exportPoster(
 </svg>`;
 }
 
+export function exportEnhancedPoster(
+  modules: PlacedModule[],
+  connections: Connection[],
+  attributes: GeneratedAttributes
+): string {
+  const bounds = calculateBounds(modules);
+  const posterWidth = 600;
+  const posterHeight = 850;
+  
+  // Calculate machine preview position
+  const previewHeight = 350;
+  const previewY = 100;
+  const machineScale = Math.min(450 / bounds.width, previewHeight / bounds.height, 1);
+  const offsetX = (posterWidth - bounds.width * machineScale) / 2 - bounds.minX * machineScale + bounds.width * (machineScale - 1) / 2;
+  const offsetY = previewY + (previewHeight - bounds.height * machineScale) / 2 - bounds.minY * machineScale;
+  
+  // Get background gradient based on dominant tag
+  const dominantTag = getDominantTag(attributes.tags);
+  const bgGradient = getTagGradient(dominantTag);
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" 
+     viewBox="0 0 ${posterWidth} ${posterHeight}" 
+     width="${posterWidth}" 
+     height="${posterHeight}">
+  <defs>
+    <linearGradient id="enhancedBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${bgGradient.start}"/>
+      <stop offset="100%" style="stop-color:${bgGradient.end}"/>
+    </linearGradient>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="50%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#fbbf24"/>
+    </linearGradient>
+    <filter id="enhancedGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="innerShadow">
+      <feOffset dx="0" dy="2"/>
+      <feGaussianBlur stdDeviation="2" result="offset-blur"/>
+      <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
+      <feFlood flood-color="#000" flood-opacity="0.3" result="color"/>
+      <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
+      <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="url(#enhancedBg)"/>
+  
+  <!-- Decorative corner ornaments -->
+  <g stroke="url(#goldGradient)" stroke-width="2" fill="none">
+    <!-- Top left -->
+    <path d="M10,50 L10,10 L50,10"/>
+    <path d="M15,40 L15,15 L40,15"/>
+    <circle cx="10" cy="10" r="3" fill="#fbbf24"/>
+    
+    <!-- Top right -->
+    <path d="M${posterWidth - 10},50 L${posterWidth - 10},10 L${posterWidth - 50},10"/>
+    <path d="M${posterWidth - 15},40 L${posterWidth - 15},15 L${posterWidth - 40},15"/>
+    <circle cx="${posterWidth - 10}" cy="10" r="3" fill="#fbbf24"/>
+    
+    <!-- Bottom left -->
+    <path d="M10,${posterHeight - 50} L10,${posterHeight - 10} L50,${posterHeight - 10}"/>
+    <path d="M15,${posterHeight - 40} L15,${posterHeight - 15} L40,${posterHeight - 15}"/>
+    <circle cx="10" cy="${posterHeight - 10}" r="3" fill="#fbbf24"/>
+    
+    <!-- Bottom right -->
+    <path d="M${posterWidth - 10},${posterHeight - 50} L${posterWidth - 10},${posterHeight - 10} L${posterWidth - 50},${posterHeight - 10}"/>
+    <path d="M${posterWidth - 15},${posterHeight - 40} L${posterWidth - 15},${posterHeight - 15} L${posterWidth - 40},${posterHeight - 15}"/>
+    <circle cx="${posterWidth - 10}" cy="${posterHeight - 10}" r="3" fill="#fbbf24"/>
+  </g>
+  
+  <!-- Outer border -->
+  <rect x="20" y="20" width="${posterWidth - 40}" height="${posterHeight - 40}" 
+        fill="none" stroke="url(#goldGradient)" stroke-width="2" rx="12"/>
+  
+  <!-- Inner border -->
+  <rect x="30" y="30" width="${posterWidth - 60}" height="${posterHeight - 60}" 
+        fill="none" stroke="${getRarityColorHex(attributes.rarity)}" stroke-width="1" rx="8" opacity="0.6"/>
+  
+  <!-- Title banner -->
+  <g transform="translate(${posterWidth / 2}, 55)">
+    <text x="0" y="0" text-anchor="middle" fill="#00d4ff" font-family="serif" font-size="14" letter-spacing="4">
+      ★ ARCANE MACHINE CODEX ★
+    </text>
+  </g>
+  
+  <!-- Machine Name with ornate styling -->
+  <g transform="translate(${posterWidth / 2}, 90)">
+    <text x="0" y="0" text-anchor="middle" fill="#ffd700" font-family="serif" font-size="28" font-weight="bold" filter="url(#enhancedGlow)">
+      ${attributes.name}
+    </text>
+    <!-- Decorative underline -->
+    <line x1="-120" y1="10" x2="-20" y2="10" stroke="#ffd700" stroke-width="1" opacity="0.6"/>
+    <circle cx="0" cy="10" r="3" fill="#ffd700"/>
+    <line x1="20" y1="10" x2="120" y2="10" stroke="#ffd700" stroke-width="1" opacity="0.6"/>
+  </g>
+  
+  <!-- Rarity Badge with icon -->
+  <g transform="translate(${posterWidth / 2}, 120)">
+    <rect x="-60" y="-12" width="120" height="24" rx="12" 
+          fill="${getRarityColorHex(attributes.rarity)}" opacity="0.2"/>
+    <rect x="-58" y="-10" width="116" height="20" rx="10" 
+          fill="none" stroke="${getRarityColorHex(attributes.rarity)}" stroke-width="1"/>
+    <text x="0" y="4" text-anchor="middle" fill="${getRarityColorHex(attributes.rarity)}" font-size="12" font-weight="bold" letter-spacing="2">
+      ${getRarityIcon(attributes.rarity)} ${attributes.rarity.toUpperCase()} ${getRarityIcon(attributes.rarity)}
+    </text>
+  </g>
+  
+  <!-- Machine Preview Container -->
+  <rect x="40" y="${previewY}" width="${posterWidth - 80}" height="${previewHeight}" 
+        fill="#0a0e17" stroke="#1e2a42" stroke-width="1" rx="8" filter="url(#innerShadow)"/>
+  
+  <!-- Machine Preview -->
+  <g transform="translate(${offsetX}, ${offsetY}) scale(${machineScale})">
+    ${connections.map(conn => `
+    <path d="${conn.pathData}" 
+          fill="none" 
+          stroke="#00ffcc" 
+          stroke-width="2.5" 
+          stroke-dasharray="6,3"
+          opacity="0.9"
+          filter="url(#enhancedGlow)"/>`
+    ).join('')}
+    ${modules.map(module => renderModuleToSVG(module)).join('')}
+  </g>
+  
+  <!-- Stats Panel -->
+  <g transform="translate(50, ${previewY + previewHeight + 20})">
+    <!-- Stats header -->
+    <text x="0" y="0" fill="#9ca3af" font-size="11" letter-spacing="2">◆ ATTRIBUTES</text>
+    <line x1="0" y1="8" x2="150" y2="8" stroke="#1e2a42" stroke-width="1"/>
+    
+    <!-- Stability -->
+    <g transform="translate(0, 25)">
+      <rect x="0" y="0" width="80" height="8" rx="4" fill="#1e2a42"/>
+      <rect x="0" y="0" width="${80 * attributes.stats.stability / 100}" height="8" rx="4" fill="#4ade80"/>
+      <text x="90" y="8" fill="#4ade80" font-size="10">◆ Stability</text>
+      <text x="160" y="8" fill="#4ade80" font-size="10" font-weight="bold">${attributes.stats.stability}%</text>
+    </g>
+    
+    <!-- Power -->
+    <g transform="translate(0, 45)">
+      <rect x="0" y="0" width="80" height="8" rx="4" fill="#1e2a42"/>
+      <rect x="0" y="0" width="${80 * attributes.stats.powerOutput / 100}" height="8" rx="4" fill="#f59e0b"/>
+      <text x="90" y="8" fill="#f59e0b" font-size="10">⚡ Power</text>
+      <text x="160" y="8" fill="#f59e0b" font-size="10" font-weight="bold">${attributes.stats.powerOutput}</text>
+    </g>
+    
+    <!-- Failure Rate -->
+    <g transform="translate(0, 65)">
+      <rect x="0" y="0" width="80" height="8" rx="4" fill="#1e2a42"/>
+      <rect x="0" y="0" width="${80 * attributes.stats.failureRate / 100}" height="8" rx="4" fill="#ef4444"/>
+      <text x="90" y="8" fill="#ef4444" font-size="10">⚠ Failure</text>
+      <text x="160" y="8" fill="#ef4444" font-size="10" font-weight="bold">${attributes.stats.failureRate}%</text>
+    </g>
+    
+    <!-- Energy Cost -->
+    <g transform="translate(0, 85)">
+      <rect x="0" y="0" width="80" height="8" rx="4" fill="#1e2a42"/>
+      <rect x="0" y="0" width="${80 * attributes.stats.energyCost / 100}" height="8" rx="4" fill="#06b6d4"/>
+      <text x="90" y="8" fill="#06b6d4" font-size="10">❖ Energy</text>
+      <text x="160" y="8" fill="#06b6d4" font-size="10" font-weight="bold">${attributes.stats.energyCost}</text>
+    </g>
+  </g>
+  
+  <!-- Tags Panel -->
+  <g transform="translate(250, ${previewY + previewHeight + 20})">
+    <text x="0" y="0" fill="#9ca3af" font-size="11" letter-spacing="2">◆ TAGS</text>
+    <line x1="0" y1="8" x2="150" y2="8" stroke="#1e2a42" stroke-width="1"/>
+    
+    ${attributes.tags.map((tag, idx) => `
+    <g transform="translate(0, ${25 + idx * 22})">
+      <rect x="0" y="-8" width="140" height="20" rx="4" fill="${getTagColor(tag)}" opacity="0.15"/>
+      <text x="10" y="4" fill="${getTagColor(tag)}" font-size="10" font-weight="bold">${getTagIcon(tag)}</text>
+      <text x="30" y="4" fill="${getTagColor(tag)}" font-size="10">${tag.charAt(0).toUpperCase() + tag.slice(1)}</text>
+    </g>`).join('')}
+  </g>
+  
+  <!-- Faction Emblem Placeholder -->
+  <g transform="translate(${posterWidth - 100}, ${previewY + previewHeight + 50})">
+    <circle cx="30" cy="30" r="28" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.6"/>
+    <circle cx="30" cy="30" r="22" fill="none" stroke="#fbbf24" stroke-width="1" opacity="0.4"/>
+    <text x="30" y="36" text-anchor="middle" fill="#fbbf24" font-size="20" opacity="0.7">⚗</text>
+    <text x="30" y="75" text-anchor="middle" fill="#6b7280" font-size="8">FACTION</text>
+  </g>
+  
+  <!-- Description -->
+  <g transform="translate(50, ${posterHeight - 130})">
+    <text fill="#9ca3af" font-size="10" font-family="serif" font-style="italic">
+      <tspan x="0" dy="0">${wrapText(attributes.description, 70)}</tspan>
+    </text>
+  </g>
+  
+  <!-- Footer -->
+  <g transform="translate(${posterWidth / 2}, ${posterHeight - 35})">
+    <text x="0" y="0" text-anchor="middle" fill="#4a5568" font-size="9">
+      Arcane Machine Codex Workshop
+    </text>
+    <text x="0" y="14" text-anchor="middle" fill="#374151" font-size="8">
+      ID: ${attributes.codexId}
+    </text>
+  </g>
+</svg>`;
+}
+
 function getRarityColorHex(rarity: string): string {
   const colors: Record<string, string> = {
     common: '#9ca3af',
@@ -326,6 +559,95 @@ function getRarityColorHex(rarity: string): string {
     legendary: '#f59e0b',
   };
   return colors[rarity] || '#9ca3af';
+}
+
+function getRarityIcon(rarity: string): string {
+  const icons: Record<string, string> = {
+    common: '○',
+    uncommon: '◈',
+    rare: '◆',
+    epic: '✦',
+    legendary: '★',
+  };
+  return icons[rarity] || '○';
+}
+
+function getDominantTag(tags: string[]): string {
+  const tagOrder = ['void', 'lightning', 'fire', 'arcane', 'mechanical', 'protective', 'balancing', 'amplifying', 'stable'];
+  for (const tag of tagOrder) {
+    if (tags.includes(tag as any)) {
+      return tag;
+    }
+  }
+  return 'arcane';
+}
+
+function getTagGradient(tag: string): { start: string; end: string } {
+  const gradients: Record<string, { start: string; end: string }> = {
+    void: { start: '#0f0a1e', end: '#1a1a2e' },
+    lightning: { start: '#0a1e2e', end: '#1a2a3e' },
+    fire: { start: '#1e0a0a', end: '#2e1a1a' },
+    arcane: { start: '#0a0f1e', end: '#1a1a2e' },
+    mechanical: { start: '#1e1a0a', end: '#2e2a1a' },
+    protective: { start: '#0a1e0a', end: '#1a2e1a' },
+    balancing: { start: '#0f1e1e', end: '#1f2e2e' },
+    amplifying: { start: '#1e0f2e', end: '#2e1f3e' },
+    stable: { start: '#0a1e1e', end: '#1a2e2e' },
+  };
+  return gradients[tag] || { start: '#0a0e17', end: '#1a1a2e' };
+}
+
+function getTagColor(tag: string): string {
+  const colors: Record<string, string> = {
+    void: '#a78bfa',
+    lightning: '#22d3ee',
+    fire: '#f97316',
+    arcane: '#a855f7',
+    mechanical: '#f59e0b',
+    protective: '#22c55e',
+    balancing: '#06b6d4',
+    amplifying: '#ec4899',
+    explosive: '#ef4444',
+    stable: '#84cc16',
+    resonance: '#f472b6',
+  };
+  return colors[tag] || '#9ca3af';
+}
+
+function getTagIcon(tag: string): string {
+  const icons: Record<string, string> = {
+    void: '◉',
+    lightning: '⚡',
+    fire: '🔥',
+    arcane: '✧',
+    mechanical: '⚙',
+    protective: '◇',
+    balancing: '≋',
+    amplifying: '↑',
+    explosive: '✱',
+    stable: '○',
+    resonance: '◌',
+  };
+  return icons[tag] || '◆';
+}
+
+function wrapText(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  const words = text.split(' ');
+  let lines: string[] = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    if ((currentLine + ' ' + word).trim().length <= maxChars) {
+      currentLine = (currentLine + ' ' + word).trim();
+    } else {
+      if (currentLine) lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  
+  return lines.join('</tspan><tspan x="0" dy="14">');
 }
 
 export function downloadFile(content: string | Blob, filename: string, mimeType: string): void {

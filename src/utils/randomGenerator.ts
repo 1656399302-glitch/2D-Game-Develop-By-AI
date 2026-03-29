@@ -31,6 +31,8 @@ const AVAILABLE_MODULE_TYPES: ModuleType[] = [
   'output-array',
   'amplifier-crystal',
   'stabilizer-core',
+  'void-siphon',
+  'phase-modulator',
 ];
 
 /**

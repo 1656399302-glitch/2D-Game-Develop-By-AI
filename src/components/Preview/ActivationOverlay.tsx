@@ -13,6 +13,7 @@ type Phase = 'charging' | 'activating' | 'online' | 'failure' | 'overload';
 const FAILURE_SHAKE_INTENSITY = 8;
 const OVERLOAD_SHAKE_INTENSITY = 8;
 const NORMAL_SHAKE_INTENSITY = 4;
+const CHARGING_SHAKE_INTENSITY = 2; // Subtle 2px shake during charging
 
 // Overload vignette
 const VIGNETTE_TARGET_OPACITY = 0.4;
@@ -21,16 +22,27 @@ const VIGNETTE_ANIMATION_DURATION = 200;
 // Flicker interval
 const FLICKER_INTERVAL = 50;
 
+// Flash effect
+const FLASH_DURATION = 100; // 100ms white flash at 0.3 opacity
+const FLASH_OPACITY = 0.3;
+
+// Particle burst at completion
+const PARTICLE_COUNT = 8;
+const PARTICLE_DURATION = 800;
+
 export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const [phase, setPhase] = useState<Phase>('charging');
   const [progress, setProgress] = useState(0);
   const [currentModuleIndex, setCurrentModuleIndex] = useState(-1);
   const [flicker, setFlicker] = useState(false);
   const [vignetteOpacity, setVignetteOpacity] = useState(0);
-  const [sparks, setSparks] = useState<{ id: number; x: number; y: number; vx: number; vy: number }[]>([]);
+  const [sparks, setSparks] = useState<{ id: number; x: number; y: number; vx: number; vy: number; size: number }[]>([]);
+  const [showFlash, setShowFlash] = useState(false);
+  const [particles, setParticles] = useState<{ id: number; angle: number; distance: number; size: number }[]>([]);
   
   const flickerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sparkAnimationRef = useRef<number | null>(null);
+  const particleAnimationRef = useRef<number | null>(null);
   
   const modules = useMachineStore((state) => state.modules);
   const machineState = useMachineStore((state) => state.machineState);
@@ -42,8 +54,48 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const rarity: Rarity = generatedAttributes?.rarity || 'common';
   const rarityColor = getRarityColor(rarity);
   
-  // Calculate phase from progress
-  // Phase is calculated dynamically from progress
+  // Trigger flash effect
+  const triggerFlash = useCallback(() => {
+    setShowFlash(true);
+    setTimeout(() => {
+      setShowFlash(false);
+    }, FLASH_DURATION);
+  }, []);
+  
+  // Generate particle burst at completion
+  const generateParticles = useCallback(() => {
+    const newParticles = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+      id: i,
+      angle: (i * 360) / PARTICLE_COUNT + (Math.random() * 20 - 10), // Spread evenly with slight variance
+      distance: 0,
+      size: 4 + Math.random() * 4, // 4-8px
+    }));
+    setParticles(newParticles);
+    
+    // Animate particles radiating outward
+    const startTime = performance.now();
+    const animateParticles = (time: number) => {
+      const elapsed = time - startTime;
+      if (elapsed > PARTICLE_DURATION) {
+        setParticles([]);
+        return;
+      }
+      
+      const progress = elapsed / PARTICLE_DURATION;
+      const easedProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+      
+      setParticles((prev) =>
+        prev.map((p) => ({
+          ...p,
+          distance: easedProgress * 150, // Radiate 150px
+        }))
+      );
+      
+      particleAnimationRef.current = requestAnimationFrame(animateParticles);
+    };
+    
+    particleAnimationRef.current = requestAnimationFrame(animateParticles);
+  }, []);
   
   // Generate sparks for overload effect
   const generateSparks = useCallback(() => {
@@ -53,6 +105,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       y: 50 + (Math.random() - 0.5) * 20,
       vx: (Math.random() - 0.5) * 2,
       vy: Math.random() * -2 - 1, // upward with gravity
+      size: 3 + Math.random() * 3,
     }));
     setSparks(newSparks);
     
@@ -87,6 +140,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     }
     if (sparkAnimationRef.current) {
       cancelAnimationFrame(sparkAnimationRef.current);
+    }
+    if (particleAnimationRef.current) {
+      cancelAnimationFrame(particleAnimationRef.current);
     }
     
     setMachineState('idle');
@@ -141,7 +197,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     }
   }, [machineState, generateSparks]);
   
-  // Normal activation flow
+  // Normal activation flow with enhanced effects
   useEffect(() => {
     if (machineState !== 'charging' && machineState !== 'active' && machineState !== 'shutdown') {
       return;
@@ -166,16 +222,23 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         setProgress(progressPercent * 30);
         
         if (progressPercent >= 1) {
+          // Flash on transition to activating
+          triggerFlash();
           setPhase('activating');
           setMachineState('active');
           startTime = Date.now();
           
-          // Stagger module animations
-          const moduleInterval = activatingDuration / (modules.length || 1);
-          modules.forEach((_, index) => {
-            setTimeout(() => {
-              setCurrentModuleIndex(index);
-            }, index * moduleInterval * 0.5);
+          // Stagger module animations based on module type and category
+          // Sequence: core modules → rune modules → connectors → output array
+          const categorizedModules = categorizeModulesForActivation(modules);
+          
+          categorizedModules.forEach((group, groupIndex) => {
+            group.forEach((_, moduleIndex) => {
+              const totalIndex = getTotalModuleIndex(categorizedModules, groupIndex, moduleIndex);
+              setTimeout(() => {
+                setCurrentModuleIndex(totalIndex);
+              }, moduleIndex * (activatingDuration / (modules.length || 1)) * 0.5);
+            });
           });
         }
       } else if (phase === 'activating') {
@@ -189,10 +252,15 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         }
         
         if (progressPercent >= 1) {
+          // Flash on transition to online
+          triggerFlash();
           setPhase('online');
           setMachineState('shutdown');
           startTime = Date.now();
           setProgress(80);
+          
+          // Generate particle burst at completion
+          generateParticles();
         }
       } else if (phase === 'online') {
         const progressPercent = Math.min(elapsed / onlineDuration, 1);
@@ -218,7 +286,40 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState]);
+  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState, triggerFlash, generateParticles]);
+  
+  // Categorize modules for activation sequence
+  const categorizeModulesForActivation = (mods: typeof modules) => {
+    const cores: typeof modules = [];
+    const runes: typeof modules = [];
+    const connectors: typeof modules = [];
+    const outputs: typeof modules = [];
+    
+    mods.forEach((m) => {
+      if (m.type === 'core-furnace' || m.type === 'stabilizer-core' || m.type === 'void-siphon') {
+        cores.push(m);
+      } else if (m.type === 'rune-node' || m.type === 'amplifier-crystal' || m.type === 'phase-modulator') {
+        runes.push(m);
+      } else if (m.type === 'energy-pipe' || m.type === 'gear') {
+        connectors.push(m);
+      } else if (m.type === 'output-array' || m.type === 'trigger-switch' || m.type === 'shield-shell') {
+        outputs.push(m);
+      } else {
+        connectors.push(m); // Default to connectors
+      }
+    });
+    
+    return [cores, runes, connectors, outputs];
+  };
+  
+  // Get total index across all categorized groups
+  const getTotalModuleIndex = (categorized: typeof modules[], groupIndex: number, moduleIndex: number): number => {
+    let total = 0;
+    for (let i = 0; i < groupIndex; i++) {
+      total += categorized[i].length;
+    }
+    return total + moduleIndex;
+  };
   
   // Determine border color based on phase
   const getBorderColor = () => {
@@ -232,7 +333,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     }
   };
   
-  // Determine title based on phase - Using spec text
+  // Determine title based on phase
   const getTitle = () => {
     switch (phase) {
       case 'failure':
@@ -276,7 +377,10 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     if (phase === 'overload') {
       return `overloadShake ${1000 / OVERLOAD_SHAKE_INTENSITY}s ease-in-out infinite`;
     }
-    if (phase === 'activating' || phase === 'charging') {
+    if (phase === 'charging') {
+      return `chargingShake ${1000 / CHARGING_SHAKE_INTENSITY}s ease-in-out infinite`;
+    }
+    if (phase === 'activating') {
       return `normalShake ${1000 / NORMAL_SHAKE_INTENSITY}s ease-in-out infinite`;
     }
     return 'none';
@@ -291,6 +395,32 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         animation: getShakeAnimation(),
       }}
     >
+      {/* White flash overlay for state transitions */}
+      {showFlash && (
+        <div
+          className="fixed inset-0 bg-white pointer-events-none"
+          style={{
+            opacity: FLASH_OPACITY,
+          }}
+        />
+      )}
+      
+      {/* Particle burst at completion */}
+      {particles.map((particle) => (
+        <div
+          key={particle.id}
+          className="absolute w-2 h-2 rounded-full bg-white pointer-events-none"
+          style={{
+            left: `calc(50% + ${Math.cos((particle.angle * Math.PI) / 180) * particle.distance}px)`,
+            top: `calc(50% + ${Math.sin((particle.angle * Math.PI) / 180) * particle.distance}px)`,
+            width: particle.size,
+            height: particle.size,
+            opacity: 1 - particle.distance / 150,
+            boxShadow: `0 0 ${particle.size * 2}px rgba(255, 255, 255, 0.8)`,
+          }}
+        />
+      ))}
+      
       {/* Red vignette for overload/failure */}
       {phase === 'failure' || phase === 'overload' ? (
         <div
@@ -306,10 +436,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       {phase === 'overload' && sparks.map((spark) => (
         <div
           key={spark.id}
-          className="absolute w-2 h-2 rounded-full bg-[#ffd700] pointer-events-none"
+          className="absolute rounded-full bg-[#ffd700] pointer-events-none"
           style={{
             left: `calc(50% + ${spark.x}vw)`,
             top: `calc(50% + ${spark.y}vh)`,
+            width: spark.size,
+            height: spark.size,
             boxShadow: '0 0 10px #ffd700',
           }}
         />
@@ -424,19 +556,20 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           </div>
         )}
         
-        {/* Module status */}
+        {/* Module status with categorized activation */}
         {phase === 'activating' && modules.length > 0 && (
           <div className="mt-4 p-3 bg-[#0a0e17] rounded-lg">
             <p className="text-xs text-[#4a5568] mb-2">Module Status:</p>
             <div className="flex flex-wrap gap-1">
               {modules.map((mod, index) => {
                 const isActive = index <= currentModuleIndex;
+                const moduleColor = getModuleActivationColor(mod.type);
                 return (
                   <span
                     key={mod.instanceId}
                     className={`text-xs px-2 py-1 rounded ${
                       isActive
-                        ? `bg-[${rarityColor}]/20 text-[${rarityColor}]`
+                        ? `bg-[${moduleColor}]/20 text-[${moduleColor}]`
                         : 'bg-[#1e2a42] text-[#4a5568]'
                     }`}
                   >
@@ -445,6 +578,14 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
                 );
               })}
             </div>
+            {/* Activation sequence indicator */}
+            <p className="text-[10px] text-[#6b7280] mt-2">
+              {currentModuleIndex < modules.filter(m => ['core-furnace', 'stabilizer-core', 'void-siphon'].includes(m.type)).length 
+                ? '→ Core modules activating...' 
+                : currentModuleIndex < modules.filter(m => ['rune-node', 'amplifier-crystal', 'phase-modulator'].includes(m.type)).length + 3
+                ? '→ Rune modules engaging...'
+                : '→ Connectors syncing...'}
+            </p>
           </div>
         )}
         
@@ -500,6 +641,14 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           50% { opacity: 0.2; }
         }
         
+        /* Charging shake - subtle 2px oscillation */
+        @keyframes chargingShake {
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(-${CHARGING_SHAKE_INTENSITY}px, ${CHARGING_SHAKE_INTENSITY}px); }
+          50% { transform: translate(${CHARGING_SHAKE_INTENSITY}px, -${CHARGING_SHAKE_INTENSITY}px); }
+          75% { transform: translate(-${CHARGING_SHAKE_INTENSITY}px, -${CHARGING_SHAKE_INTENSITY}px); }
+        }
+        
         /* Normal shake animation */
         @keyframes normalShake {
           0%, 100% { transform: translate(0, 0); }
@@ -543,4 +692,18 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       `}</style>
     </div>
   );
+}
+
+// Helper function to get color for module during activation
+function getModuleActivationColor(moduleType: string): string {
+  if (['core-furnace', 'stabilizer-core', 'void-siphon'].includes(moduleType)) {
+    return '#00d4ff'; // Core modules - cyan
+  }
+  if (['rune-node', 'amplifier-crystal', 'phase-modulator'].includes(moduleType)) {
+    return '#a855f7'; // Rune modules - purple
+  }
+  if (['energy-pipe', 'gear'].includes(moduleType)) {
+    return '#7c3aed'; // Connectors - violet
+  }
+  return '#22c55e'; // Output modules - green
 }

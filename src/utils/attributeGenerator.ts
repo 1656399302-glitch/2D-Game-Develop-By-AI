@@ -4,20 +4,23 @@ import { PlacedModule, Connection, GeneratedAttributes, Rarity, AttributeTag, Ma
 const PREFIXES = [
   'Void', 'Solar', 'Lunar', 'Arcane', 'Ethereal', 'Crimson', 'Azure', 'Obsidian',
   'Stellar', 'Nebula', 'Chrono', 'Phasic', 'Quantum', 'Prismatic', 'Crystalline',
-  'Abyssal', 'Celestial', 'Infernal', 'Frost', 'Thunder', 'Storm', 'Shadow', 'Radiant'
+  'Abyssal', 'Celestial', 'Infernal', 'Frost', 'Thunder', 'Storm', 'Shadow', 'Radiant',
+  'Temporal', 'Spectral', 'Nebular', 'Cosmic', 'Primal', 'Dimensional'
 ];
 
 const TYPES = [
   'Amplifier', 'Resonator', 'Converter', 'Disperser', 'Conduit', 'Engine',
   'Chamber', 'Matrix', 'Core', 'Actuator', 'Modulator', 'Capacitor', 'Reactor',
   'Distillator', 'Synchronizer', 'Harmonizer', 'Extractor', 'Infuser', 'Projector',
-  'Projector', 'Emissor', 'Resonator', 'Phaser'
+  'Projector', 'Emissor', 'Resonator', 'Phaser', 'Siphon', 'Conduit', 'Distorter',
+  'Transmuter', 'Catalyst', 'Stabilizer', 'Disruptor'
 ];
 
 const SUFFIXES = [
   'Prime', 'Mk-II', 'Alpha', 'Omega', 'Genesis', 'Apex', 'Zero', 'Infinite',
   'Supreme', 'Master', 'Elite', 'Advanced', 'Hyper', 'Ultra', 'Neo', 'Proto',
-  'Ancient', 'Forgotten', 'Eternal', 'Void', 'Stellar', 'Abyssal'
+  'Ancient', 'Forgotten', 'Eternal', 'Void', 'Stellar', 'Abyssal', 'Temporal',
+  'Phased', 'Quantum', 'Resonant', 'Harmonic'
 ];
 
 const TAG_EFFECTS: Record<AttributeTag, { stability: number; power: number; energy: number }> = {
@@ -42,9 +45,12 @@ const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
   'shield-shell': ['protective', 'stable'],
   'trigger-switch': ['explosive', 'amplifying'],
   'output-array': ['arcane', 'resonance'],
-  // New multi-port modules
+  // Multi-port modules
   'amplifier-crystal': ['arcane', 'amplifying'],
   'stabilizer-core': ['balancing', 'stable'],
+  // New modules for Round 13
+  'void-siphon': ['void', 'amplifying'], // void energy, amplifies output
+  'phase-modulator': ['lightning', 'balancing'], // lightning energy, balances phases
 };
 
 const DESCRIPTIONS = [
@@ -58,6 +64,11 @@ const DESCRIPTIONS = [
   'The core hums with contained potential, ready to be unleashed.',
   'Arcane resonance patterns weave through this remarkable apparatus.',
   'Power converges at the focal point, prepared for ultimate projection.',
+  'Dark energy swirls within, pulling matter toward an unknowable void.',
+  'Lightning arcs dance between phase nodes, shifting reality itself.',
+  'The machine vibrates with temporal dissonance, out of phase with normal spacetime.',
+  'A convergence of opposing forces held in delicate equilibrium.',
+  'The construct seems to exist in multiple states simultaneously.',
 ];
 
 function randomChoice<T>(arr: T[]): T {
@@ -100,6 +111,18 @@ function calculateStats(modules: PlacedModule[], connections: Connection[]): Mac
   const hasOutputArray = modules.some((m) => m.type === 'output-array');
   if (hasOutputArray && connections.length > 0) {
     totalPower += 10; // Bonus for having output terminus
+  }
+  
+  // Void Siphon bonus
+  const hasVoidSiphon = modules.some((m) => m.type === 'void-siphon');
+  if (hasVoidSiphon) {
+    totalPower += 5; // Void amplification bonus
+  }
+  
+  // Phase Modulator bonus
+  const hasPhaseModulator = modules.some((m) => m.type === 'phase-modulator');
+  if (hasPhaseModulator) {
+    totalStability += 3; // Phase balancing bonus
   }
   
   // Normalize stats
@@ -160,10 +183,19 @@ function generateDescription(stats: MachineStats, modules: PlacedModule[]): stri
     desc += ' Operating within nominal parameters.';
   }
   
-  // Check for output array
+  // Check for specific modules
   const hasOutputArray = modules.some((m) => m.type === 'output-array');
+  const hasVoidSiphon = modules.some((m) => m.type === 'void-siphon');
+  const hasPhaseModulator = modules.some((m) => m.type === 'phase-modulator');
+  
   if (hasOutputArray) {
     desc += ' Output array projects focused arcane beams.';
+  }
+  if (hasVoidSiphon) {
+    desc += ' The void siphon draws energy from an unknown dimension.';
+  }
+  if (hasPhaseModulator) {
+    desc += ' Phase modulator channels lightning with precision control.';
   }
   
   return desc;

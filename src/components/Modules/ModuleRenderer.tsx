@@ -11,6 +11,8 @@ import { TriggerSwitchSVG } from './TriggerSwitch';
 import { OutputArraySVG } from './OutputArray';
 import { AmplifierCrystalSVG } from './AmplifierCrystal';
 import { StabilizerCoreSVG } from './StabilizerCore';
+import { VoidSiphonSVG } from './VoidSiphon';
+import { PhaseModulatorSVG } from './PhaseModulator';
 
 interface ModuleRendererProps {
   module: PlacedModule;
@@ -51,6 +53,10 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
         return '#9333ea';
       case 'stabilizer-core':
         return '#22c55e';
+      case 'void-siphon':
+        return '#a78bfa'; // Light purple for void
+      case 'phase-modulator':
+        return '#22d3ee'; // Cyan for phase
       default:
         return '#00d4ff';
     }
@@ -186,6 +192,10 @@ export function ModuleRenderer({ module, isSelected, machineState, onMouseDown }
         return <AmplifierCrystalSVG {...props} />;
       case 'stabilizer-core':
         return <StabilizerCoreSVG {...props} />;
+      case 'void-siphon':
+        return <VoidSiphonSVG {...props} />;
+      case 'phase-modulator':
+        return <PhaseModulatorSVG {...props} />;
       default:
         return <rect width={size.width} height={size.height} fill="#333" />;
     }

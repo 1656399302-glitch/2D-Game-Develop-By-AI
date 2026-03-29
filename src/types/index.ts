@@ -1,5 +1,5 @@
 // Module Types
-export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array' | 'amplifier-crystal' | 'stabilizer-core';
+export type ModuleType = 'core-furnace' | 'energy-pipe' | 'gear' | 'rune-node' | 'shield-shell' | 'trigger-switch' | 'output-array' | 'amplifier-crystal' | 'stabilizer-core' | 'void-siphon' | 'phase-modulator';
 export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output';
 export type PortType = 'input' | 'output';
 
@@ -150,6 +150,8 @@ export const MODULE_SIZES: Record<ModuleType, { width: number; height: number }>
   'output-array': { width: 80, height: 80 },
   'amplifier-crystal': { width: 80, height: 80 },
   'stabilizer-core': { width: 80, height: 80 },
+  'void-siphon': { width: 80, height: 80 },
+  'phase-modulator': { width: 80, height: 80 },
 };
 
 // Port position configuration - supports single position or array for multi-port modules
@@ -194,5 +196,14 @@ export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: PortConfig; output
   'stabilizer-core': { 
     input: [{ x: 0, y: 25 }, { x: 0, y: 55 }], // 2 inputs (30px apart)
     output: { x: 80, y: 40 } 
+  },
+  // New modules for Round 13
+  'void-siphon': { 
+    input: { x: 40, y: 0 }, // 1 input at top center
+    output: [{ x: 22.5, y: 80 }, { x: 57.5, y: 80 }] // 2 outputs at bottom (35px apart)
+  },
+  'phase-modulator': { 
+    input: [{ x: 0, y: 25 }, { x: 0, y: 50 }], // 2 inputs left (25px apart)
+    output: [{ x: 80, y: 25 }, { x: 80, y: 50 }] // 2 outputs right (25px apart)
   },
 };
