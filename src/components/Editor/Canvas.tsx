@@ -9,9 +9,19 @@ import { EnergyPulseVisualizer } from '../Preview/EnergyPulseVisualizer';
 import { SelectionHandles } from './SelectionHandles';
 import { calculateShakeOffset } from '../../utils/activationChoreographer';
 import { MODULE_SIZES } from '../../types';
+import {
+  throttleViewportUpdates,
+  createVirtualizedModuleList,
+  filterVisibleConnections,
+  memoizeModuleRender,
+  VIEWPORT_CULLING_BUFFER,
+  THROTTLE_INTERVAL_60FPS,
+} from '../../utils/performanceUtils';
 
 const GRID_SIZE = 20;
 const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
+// AC8: Viewport culling with 50px buffer
+const VIEWPORT_CULLING_MARGIN = VIEWPORT_CULLING_BUFFER; // 50px
 
 // Lazy import LayersPanel to avoid circular dependency
 const LayersPanel = lazy(() => import('./LayersPanel').then(m => ({ default: m.LayersPanel })));
@@ -51,6 +61,10 @@ function getSnappedPosition(
     y: smartSnapToGrid(y, gridSize),
   };
 }
+
+// Performance utilities instances
+const memoizer = memoizeModuleRender();
+const viewportThrottler = throttleViewportUpdates({ minInterval: THROTTLE_INTERVAL_60FPS });
 
 export function Canvas() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -227,54 +241,31 @@ export function Canvas() {
     return () => clearInterval(activationInterval);
   }, [machineState, modules.length, setActivationModuleIndex]);
   
-  // Viewport culling - determine which modules are visible
-  const visibleModuleIds = useMemo(() => {
-    if (modules.length === 0) return new Set<string>();
+  // AC8: Viewport culling with 50px buffer - Using performance utils
+  const { visibleModules, visibleCount, totalCount } = useMemo(() => {
+    const result = createVirtualizedModuleList(
+      modules,
+      viewport,
+      viewportSize,
+      { bufferSize: VIEWPORT_CULLING_MARGIN } // 50px buffer per AC8
+    );
     
-    const margin = 100;
-    const visibleBounds = {
-      left: -viewport.x / viewport.zoom - margin,
-      right: (viewportSize.width - viewport.x) / viewport.zoom + margin,
-      top: -viewport.y / viewport.zoom - margin,
-      bottom: (viewportSize.height - viewport.y) / viewport.zoom + margin,
+    return {
+      visibleModules: result.visibleModules,
+      visibleCount: result.visibleCount,
+      totalCount: result.totalCount,
     };
-    
-    const visible = new Set<string>();
-    modules.forEach((module) => {
-      const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
-      const moduleLeft = module.x;
-      const moduleRight = module.x + size.width;
-      const moduleTop = module.y;
-      const moduleBottom = module.y + size.height;
-      
-      if (
-        moduleRight >= visibleBounds.left &&
-        moduleLeft <= visibleBounds.right &&
-        moduleBottom >= visibleBounds.top &&
-        moduleTop <= visibleBounds.bottom
-      ) {
-        visible.add(module.instanceId);
-      }
-    });
-    
-    return visible;
   }, [modules, viewport, viewportSize]);
   
-  // Get visible modules for rendering
-  const visibleModules = useMemo(() => {
-    return modules.filter(m => visibleModuleIds.has(m.instanceId));
-  }, [modules, visibleModuleIds]);
+  // Create set of visible module IDs for connection filtering
+  const visibleModuleIdSet = useMemo(() => {
+    return new Set(visibleModules.map(m => m.instanceId));
+  }, [visibleModules]);
   
-  // Get visible connections
-  const visibleConnectionIds = useMemo(() => {
-    const visibleConnections = new Set<string>();
-    connections.forEach((conn) => {
-      if (visibleModuleIds.has(conn.sourceModuleId) || visibleModuleIds.has(conn.targetModuleId)) {
-        visibleConnections.add(conn.id);
-      }
-    });
-    return visibleConnections;
-  }, [connections, visibleModuleIds]);
+  // AC8: Filter visible connections based on visible modules
+  const visibleConnections = useMemo(() => {
+    return filterVisibleConnections(connections, visibleModuleIdSet);
+  }, [connections, visibleModuleIdSet]);
   
   // Calculate box selection rectangle
   const boxSelectionRect = useMemo(() => {
@@ -417,18 +408,22 @@ export function Canvas() {
     }
   }, [viewport, getModuleAtPoint, getCanvasCoordinates, selectModule, selectConnection, isConnecting, cancelConnection, toggleSelection, clearSelection, selectedModuleIds, modules]);
   
-  // Handle mouse move
+  // Handle mouse move with throttled viewport updates
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
+      // Use throttled viewport update for better performance (AC3)
       if (viewportDebounceRef.current) {
         clearTimeout(viewportDebounceRef.current);
       }
       viewportDebounceRef.current = setTimeout(() => {
-        setViewport({
+        const newViewport = {
           x: e.clientX - dragStart.x,
           y: e.clientY - dragStart.y,
-        });
-      }, 16);
+        };
+        // Request throttled update
+        viewportThrottler.requestUpdate(newViewport);
+        setViewport(newViewport);
+      }, THROTTLE_INTERVAL_60FPS);
     } else if (isBoxSelecting) {
       const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
       setBoxEnd(canvasCoords);
@@ -497,7 +492,7 @@ export function Canvas() {
     dragStartRef.current = null;
   }, [isDragging, isBoxSelecting, modulesInBoxSelection, setSelection, saveToHistory]);
   
-  // Handle wheel for zoom
+  // Handle wheel for zoom with throttled updates
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -511,7 +506,11 @@ export function Canvas() {
       const newX = cursorX - (cursorX - viewport.x) * (newZoom / viewport.zoom);
       const newY = cursorY - (cursorY - viewport.y) * (newZoom / viewport.zoom);
       
-      setViewport({ x: newX, y: newY, zoom: newZoom });
+      const newViewport = { x: newX, y: newY, zoom: newZoom };
+      
+      // Use throttled update for zoom
+      viewportThrottler.requestUpdate(newViewport);
+      setViewport(newViewport);
     }
   }, [viewport, setViewport]);
   
@@ -727,19 +726,17 @@ export function Canvas() {
             pulseColor="#00ffcc"
           />
           
-          {/* Connections layer */}
+          {/* Connections layer - Using filtered visible connections */}
           <g id="connections-layer">
-            {connections
-              .filter(conn => visibleConnectionIds.has(conn.id))
-              .map((connection) => (
-                <EnergyPath
-                  key={connection.id}
-                  connection={connection}
-                  isSelected={connection.id === selectedConnectionId}
-                  isActive={isActivationActive}
-                  machineState={machineState}
-                />
-              ))
+            {visibleConnections.map((connection) => (
+              <EnergyPath
+                key={connection.id}
+                connection={connection}
+                isSelected={connection.id === selectedConnectionId}
+                isActive={isActivationActive}
+                machineState={machineState}
+              />
+            ))
             }
             
             {/* Connection preview */}
@@ -748,7 +745,7 @@ export function Canvas() {
             )}
           </g>
           
-          {/* Modules layer */}
+          {/* Modules layer - Using visible modules only (AC8 viewport culling) */}
           <g id="modules-layer">
             {visibleModules.map((module) => {
               // Check visibility property
@@ -756,6 +753,15 @@ export function Canvas() {
               if (!isVisible) return null;
               
               const moduleIdx = getModuleIndex(module.instanceId);
+              
+              // Cache module render for performance
+              memoizer.getCached(
+                module.instanceId,
+                module.rotation,
+                module.scale,
+                isModuleSelected(module.instanceId)
+              );
+              
               return (
                 <ModuleRenderer
                   key={module.instanceId}
@@ -846,12 +852,17 @@ export function Canvas() {
         </div>
       )}
       
-      {/* Zoom indicator */}
-      <div className="absolute bottom-4 left-4 px-3 py-1 rounded bg-[#121826] border border-[#1e2a42] text-xs text-[#9ca3af]" role="status" aria-live="polite">
+      {/* AC8: Zoom indicator with viewport culling info */}
+      <div 
+        className="absolute bottom-4 left-4 px-3 py-1 rounded bg-[#121826] border border-[#1e2a42] text-xs text-[#9ca3af]" 
+        role="status" 
+        aria-live="polite"
+        data-testid="viewport-info"
+      >
         Zoom: {Math.round(viewport.zoom * 100)}%
-        {visibleModuleIds.size < modules.length && (
-          <span className="ml-2 text-[#4a5568]">
-            ({visibleModuleIds.size}/{modules.length})
+        {totalCount > 0 && visibleCount < totalCount && (
+          <span className="ml-2 text-[#4a5568]" title={`Viewport culling: ${VIEWPORT_CULLING_MARGIN}px buffer`}>
+            ({visibleCount}/{totalCount})
           </span>
         )}
         {gridEnabled && (

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 
 /**
  * Touch gesture types
@@ -29,14 +29,16 @@ export interface TouchEnhancerConfig {
   enableTwoFingerPan?: boolean;
   /** Enable long-press context menu */
   enableLongPress?: boolean;
-  /** Minimum scale for pinch zoom */
+  /** Minimum scale for pinch zoom (AC1: 0.5x) */
   minScale?: number;
-  /** Maximum scale for pinch zoom */
+  /** Maximum scale for pinch zoom (AC1: 2.0x) */
   maxScale?: number;
   /** Long-press delay in ms */
   longPressDelay?: number;
   /** Pan threshold in px */
   panThreshold?: number;
+  /** Debounce threshold for gesture detection in ms (150ms per spec) */
+  gestureDebounce?: number;
 }
 
 /**
@@ -45,26 +47,47 @@ export interface TouchEnhancerConfig {
 export type TouchFeedback = 'ripple' | 'glow' | 'scale' | 'none';
 
 /**
- * Default configuration
+ * Touch point data for visualization
+ */
+interface TouchPoint {
+  x: number;
+  y: number;
+  id: number;
+  startTime: number;
+}
+
+/**
+ * Gesture trail data for visualization
+ */
+interface GestureTrail {
+  points: Array<{ x: number; y: number; timestamp: number }>;
+  type: GestureType | null;
+}
+
+/**
+ * Default configuration (updated for Round 28 contract)
  */
 const DEFAULT_CONFIG: Required<TouchEnhancerConfig> = {
   enablePinchZoom: true,
   enableTwoFingerPan: true,
   enableLongPress: true,
-  minScale: 0.5,
-  maxScale: 3,
+  minScale: 0.5,  // AC1: 0.5x - 2.0x range
+  maxScale: 2.0,  // AC1: 0.5x - 2.0x range
   longPressDelay: 500,
   panThreshold: 10,
+  gestureDebounce: 150, // 150ms threshold per contract
 };
 
 /**
  * Mobile Touch Enhancer Component
  * 
  * Provides enhanced touch interactions for mobile devices:
- * - Pinch-to-zoom on canvas
- * - Two-finger pan
+ * - Pinch-to-zoom on canvas (0.5x - 2.0x range as per AC1)
+ * - Two-finger pan (AC2)
  * - Long-press context menu
- * - Touch feedback animations
+ * - Touch point indicator - Visual feedback showing touch contact points (AC5)
+ * - Gesture visualization overlay - Animated arc/line during pan (AC6)
+ * - Touch/mouse coexistence (F6)
  * 
  * WCAG 2.1 AA Compliance:
  * - Touch targets minimum 44x44px
@@ -97,13 +120,23 @@ export function MobileTouchEnhancer({
     startTime: 0,
     startPosition: { x: 0, y: 0 },
     longPressTimer: null as ReturnType<typeof setTimeout> | null,
+    lastGestureTime: 0,
   });
+  
+  // Touch points for visualization (AC5: Touch point indicator)
+  const [touchPoints, setTouchPoints] = useState<TouchPoint[]>([]);
+  
+  // Gesture trail for visualization overlay (AC6: Gesture visualization overlay)
+  const [gestureTrail, setGestureTrail] = useState<GestureTrail>({ points: [], type: null });
   
   const [currentTransform, setCurrentTransform] = useState({
     scale: 1,
     translateX: 0,
     translateY: 0,
   });
+  
+  // Memoized touch point IDs
+  const touchPointIdRef = useRef(0);
   
   // Calculate distance between two touch points
   const getTouchDistance = useCallback((touches: TouchList): number => {
@@ -124,26 +157,54 @@ export function MobileTouchEnhancer({
     };
   }, []);
   
-  // Emit gesture event
-  const emitGesture = useCallback((type: GestureType, event: Partial<GestureEvent>) => {
-    if (onGesture) {
-      onGesture({
-        type,
-        centerX: event.centerX || 0,
-        centerY: event.centerY || 0,
-        scale: currentTransform.scale,
-        rotation: 0,
-        velocity: event.velocity || { x: 0, y: 0 },
-        ...event,
-      } as GestureEvent);
+  // Debounced gesture emit to reduce noise (150ms threshold per contract)
+  const emitGestureDebounced = useCallback((
+    type: GestureType,
+    event: Partial<GestureEvent>,
+    debounceMs: number = mergedConfig.gestureDebounce
+  ) => {
+    const state = touchStateRef.current;
+    const now = Date.now();
+    
+    // Only emit if enough time has passed since last gesture (debounce)
+    if (now - state.lastGestureTime >= debounceMs) {
+      state.lastGestureTime = now;
+      
+      if (onGesture) {
+        onGesture({
+          type,
+          centerX: event.centerX || 0,
+          centerY: event.centerY || 0,
+          scale: currentTransform.scale,
+          rotation: 0,
+          velocity: event.velocity || { x: 0, y: 0 },
+          ...event,
+        } as GestureEvent);
+      }
     }
-  }, [onGesture, currentTransform.scale]);
+  }, [onGesture, currentTransform.scale, mergedConfig.gestureDebounce]);
   
   // Handle touch start
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const state = touchStateRef.current;
     state.touchCount = e.touches.length;
     state.startTime = Date.now();
+    
+    // Update touch points for visualization (AC5)
+    const newTouchPoints: TouchPoint[] = [];
+    for (let i = 0; i < e.touches.length; i++) {
+      const touch = e.touches[i];
+      newTouchPoints.push({
+        x: touch.clientX,
+        y: touch.clientY,
+        id: touchPointIdRef.current++,
+        startTime: Date.now(),
+      });
+    }
+    setTouchPoints(newTouchPoints);
+    
+    // Reset gesture trail
+    setGestureTrail({ points: [], type: null });
     
     if (e.touches.length === 1) {
       state.startPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -152,7 +213,7 @@ export function MobileTouchEnhancer({
       // Setup long-press timer
       if (mergedConfig.enableLongPress) {
         state.longPressTimer = setTimeout(() => {
-          emitGesture('longPress', {
+          emitGestureDebounced('longPress', {
             centerX: e.touches[0].clientX,
             centerY: e.touches[0].clientY,
           });
@@ -169,8 +230,11 @@ export function MobileTouchEnhancer({
       state.initialDistance = getTouchDistance(e.touches);
       state.initialScale = currentTransform.scale;
       state.initialCenter = getTouchCenter(e.touches);
+      
+      // Set gesture trail type
+      setGestureTrail({ points: [], type: 'pinch' });
     }
-  }, [currentTransform, mergedConfig, getTouchDistance, getTouchCenter, emitGesture]);
+  }, [currentTransform, mergedConfig, getTouchDistance, getTouchCenter, emitGestureDebounced]);
   
   // Handle touch move
   const handleTouchMove = useCallback((e: TouchEvent) => {
@@ -182,13 +246,35 @@ export function MobileTouchEnhancer({
       state.longPressTimer = null;
     }
     
+    // Update touch points
+    const newTouchPoints: TouchPoint[] = [];
+    for (let i = 0; i < e.touches.length; i++) {
+      const touch = e.touches[i];
+      newTouchPoints.push({
+        x: touch.clientX,
+        y: touch.clientY,
+        id: touchPointIdRef.current++,
+        startTime: Date.now(),
+      });
+    }
+    setTouchPoints(newTouchPoints);
+    
+    // Update gesture trail (AC6)
+    if (e.touches.length >= 1) {
+      const center = getTouchCenter(e.touches);
+      setGestureTrail(prev => ({
+        points: [...prev.points.slice(-20), { x: center.x, y: center.y, timestamp: Date.now() }],
+        type: e.touches.length >= 2 ? 'pinch' : 'pan',
+      }));
+    }
+    
     if (e.touches.length === 2 && state.isPinching && mergedConfig.enablePinchZoom) {
       e.preventDefault();
       
       const currentDistance = getTouchDistance(e.touches);
       const center = getTouchCenter(e.touches);
       
-      // Calculate new scale
+      // Calculate new scale with 0.5x - 2.0x range (AC1)
       const scaleChange = currentDistance / state.initialDistance;
       const newScale = Math.min(
         Math.max(state.initialScale * scaleChange, mergedConfig.minScale),
@@ -207,7 +293,7 @@ export function MobileTouchEnhancer({
         translateY: state.initialPan.y + centerDelta.y,
       }));
       
-      emitGesture('pinch', {
+      emitGestureDebounced('pinch', {
         centerX: center.x,
         centerY: center.y,
         scale: newScale,
@@ -227,18 +313,41 @@ export function MobileTouchEnhancer({
         translateY: state.initialPan.y + panDelta.y,
       }));
       
-      emitGesture('pan', {
+      emitGestureDebounced('pan', {
         centerX: center.x,
         centerY: center.y,
         velocity: panDelta,
       });
+    } else if (e.touches.length === 1) {
+      // Single finger pan when pinch is disabled
+      const dx = e.touches[0].clientX - state.startPosition.x;
+      const dy = e.touches[0].clientY - state.startPosition.y;
+      
+      if (Math.abs(dx) > mergedConfig.panThreshold || Math.abs(dy) > mergedConfig.panThreshold) {
+        setCurrentTransform((prev) => ({
+          ...prev,
+          translateX: prev.translateX + dx * 0.1,
+          translateY: prev.translateY + dy * 0.1,
+        }));
+        
+        state.startPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        
+        emitGestureDebounced('pan', {
+          centerX: e.touches[0].clientX,
+          centerY: e.touches[0].clientY,
+          velocity: { x: dx, y: dy },
+        });
+      }
     }
-  }, [mergedConfig, getTouchDistance, getTouchCenter, emitGesture]);
+  }, [mergedConfig, getTouchDistance, getTouchCenter, emitGestureDebounced]);
   
   // Handle touch end
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     const state = touchStateRef.current;
     const duration = Date.now() - state.startTime;
+    
+    // Clear touch points
+    setTouchPoints([]);
     
     // Calculate velocity for swipe detection
     if (e.changedTouches.length === 1 && state.touchCount === 1) {
@@ -254,7 +363,7 @@ export function MobileTouchEnhancer({
           direction = dy > 0 ? 'down' : 'up';
         }
         
-        emitGesture('swipe', {
+        emitGestureDebounced('swipe', {
           centerX: e.changedTouches[0].clientX,
           centerY: e.changedTouches[0].clientY,
           direction,
@@ -262,7 +371,7 @@ export function MobileTouchEnhancer({
         });
       } else if (duration < 300) {
         // Detect tap
-        emitGesture('tap', {
+        emitGestureDebounced('tap', {
           centerX: e.changedTouches[0].clientX,
           centerY: e.changedTouches[0].clientY,
         });
@@ -278,7 +387,12 @@ export function MobileTouchEnhancer({
       state.initialDistance = 0;
       state.initialCenter = { x: 0, y: 0 };
     }
-  }, [mergedConfig.panThreshold, emitGesture]);
+    
+    // Clear gesture trail after delay
+    setTimeout(() => {
+      setGestureTrail({ points: [], type: null });
+    }, 300);
+  }, [mergedConfig.panThreshold, emitGestureDebounced]);
   
   // Attach touch event listeners
   useEffect(() => {
@@ -298,10 +412,59 @@ export function MobileTouchEnhancer({
     };
   }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
   
+  // Memoize touch point indicator positions
+  const touchPointIndicators = useMemo(() => {
+    return touchPoints.map((point, idx) => (
+      <div
+        key={point.id}
+        data-testid={`touch-point-indicator-${idx}`}
+        className="absolute w-8 h-8 rounded-full border-2 border-[#00d4ff] bg-[#00d4ff]/20 pointer-events-none animate-pulse"
+        style={{
+          left: point.x,
+          top: point.y,
+          transform: 'translate(-50%, -50%)',
+          boxShadow: '0 0 10px #00d4ff, 0 0 20px #00d4ff/50%',
+        }}
+      >
+        <div className="absolute inset-0 flex items-center justify-center text-[#00d4ff] text-xs font-bold">
+          {idx + 1}
+        </div>
+      </div>
+    ));
+  }, [touchPoints]);
+  
+  // Memoize gesture trail SVG
+  const gestureTrailPath = useMemo(() => {
+    if (gestureTrail.points.length < 2) return null;
+    
+    const pathData = gestureTrail.points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+      .join(' ');
+    
+    return pathData;
+  }, [gestureTrail.points]);
+  
+  // Memoize gesture direction indicator
+  const gestureDirectionIndicator = useMemo(() => {
+    if (gestureTrail.points.length < 2) return null;
+    
+    const lastTwo = gestureTrail.points.slice(-2);
+    const dx = lastTwo[1].x - lastTwo[0].x;
+    const dy = lastTwo[1].y - lastTwo[0].y;
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    
+    return {
+      x: lastTwo[1].x,
+      y: lastTwo[1].y,
+      angle,
+    };
+  }, [gestureTrail.points]);
+  
   return (
     <div
       ref={containerRef}
-      className={`touch-enhancer ${className}`}
+      className={`touch-enhancer relative ${className}`}
+      data-testid="touch-enhancer"
       style={{
         touchAction: 'none',
         userSelect: 'none',
@@ -320,6 +483,90 @@ export function MobileTouchEnhancer({
       >
         {children}
       </div>
+      
+      {/* Touch point indicators (AC5) */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" data-testid="touch-point-indicators">
+        {touchPointIndicators}
+      </div>
+      
+      {/* Gesture visualization overlay (AC6) */}
+      {gestureTrail.points.length >= 2 && gestureTrailPath && (
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          data-testid="gesture-visualization-overlay"
+          style={{ overflow: 'visible' }}
+        >
+          {/* Gesture trail path */}
+          <path
+            d={gestureTrailPath}
+            fill="none"
+            stroke="#00d4ff"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.8"
+            style={{
+              filter: 'drop-shadow(0 0 4px #00d4ff) drop-shadow(0 0 8px #00d4ff/50%)',
+            }}
+          />
+          
+          {/* Animated glow effect */}
+          <path
+            d={gestureTrailPath}
+            fill="none"
+            stroke="#00d4ff"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity="0.3"
+            style={{
+              filter: 'blur(4px)',
+            }}
+          />
+          
+          {/* Direction indicator */}
+          {gestureDirectionIndicator && gestureTrail.type === 'pan' && (
+            <g transform={`translate(${gestureDirectionIndicator.x}, ${gestureDirectionIndicator.y}) rotate(${gestureDirectionIndicator.angle})`}>
+              <polygon
+                points="12,0 -6,-6 -6,6"
+                fill="#00d4ff"
+                opacity="0.9"
+                style={{
+                  filter: 'drop-shadow(0 0 4px #00d4ff)',
+                }}
+              />
+            </g>
+          )}
+          
+          {/* Pinch indicator (two circles connected) */}
+          {gestureTrail.type === 'pinch' && gestureTrail.points.length >= 2 && (
+            <g>
+              {gestureTrail.points.slice(-2).map((point, idx) => (
+                <circle
+                  key={idx}
+                  cx={point.x}
+                  cy={point.y}
+                  r="8"
+                  fill="none"
+                  stroke="#00d4ff"
+                  strokeWidth="2"
+                  opacity="0.8"
+                  style={{
+                    filter: 'drop-shadow(0 0 4px #00d4ff)',
+                  }}
+                >
+                  <animate
+                    attributeName="r"
+                    values="6;12;6"
+                    dur="0.5s"
+                    repeatCount="indefinite"
+                  />
+                </circle>
+              ))}
+            </g>
+          )}
+        </svg>
+      )}
       
       {/* Touch feedback overlay */}
       {feedbackStyle !== 'none' && (
@@ -372,11 +619,12 @@ function TouchFeedbackLayer({
   if (style !== 'ripple') return null;
   
   return (
-    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" data-testid="touch-feedback-layer">
       {ripples.map((ripple) => (
         <span
           key={ripple.id}
           className="ripple-effect"
+          data-testid={`ripple-${ripple.id}`}
           style={{
             left: ripple.x,
             top: ripple.y,
