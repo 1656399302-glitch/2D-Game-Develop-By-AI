@@ -17,7 +17,6 @@ export {
 
 export type {
   ChallengeCategory,
-  ChallengeDifficulty,
   ChallengeRewardType,
   ChallengeReward,
   ChallengeUnlockCondition,
