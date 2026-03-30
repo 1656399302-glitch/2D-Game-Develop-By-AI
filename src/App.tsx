@@ -21,6 +21,7 @@ import { useStatsStore } from './store/useStatsStore';
 import { useFactionStore } from './store/useFactionStore';
 import { useAchievementStore } from './store/useAchievementStore';
 import { useCommunityStore } from './store/useCommunityStore';
+import { useMachineStatsStore } from './store/useMachineStatsStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
@@ -72,7 +73,6 @@ function AppContent() {
   const [showCodex, setShowCodex] = useState(false);
   const [showFactionPanel, setShowFactionPanel] = useState(false);
   const [showTechTree, setShowTechTree] = useState(false);
-  const [showStats, setShowStats] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
@@ -93,6 +93,10 @@ function AppContent() {
   const isGalleryOpen = useCommunityStore((state) => state.isGalleryOpen);
   const isPublishModalOpen = useCommunityStore((state) => state.isPublishModalOpen);
   const openPublishModal = useCommunityStore((state) => state.openPublishModal);
+  
+  // Machine stats store for statistics dashboard
+  const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
+  const closeStatsPanel = useMachineStatsStore((state) => state.closePanel);
   
   const addEntry = useCodexStore((state) => state.addEntry);
   
@@ -281,15 +285,6 @@ function AppContent() {
               >
                 <span>🌳</span>
                 <span>科技</span>
-              </button>
-              
-              <button
-                onClick={() => setShowStats(true)}
-                className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#22d3ee] hover:text-white border border-[#1e2a42] hover:border-[#22d3ee]/30 transition-colors flex items-center gap-2"
-                aria-label="打开统计面板"
-              >
-                <span>📊</span>
-                <span>统计</span>
               </button>
               
               <button
@@ -492,7 +487,9 @@ function AppContent() {
           </Suspense>
         )}
         
-        {showStats && <StatsDashboard onClose={() => setShowStats(false)} />}
+        {/* Machine Statistics Dashboard - controlled by useMachineStatsStore */}
+        {isStatsPanelOpen && <StatsDashboard onClose={closeStatsPanel} />}
+        
         {showAchievements && <AchievementList onClose={() => setShowAchievements(false)} />}
         
         {/* AI Assistant Slide-in Panel */}

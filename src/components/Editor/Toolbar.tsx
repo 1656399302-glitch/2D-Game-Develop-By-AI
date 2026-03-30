@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useCommunityStore } from '../../store/useCommunityStore';
+import { useMachineStatsStore } from '../../store/useMachineStatsStore';
 import { 
   autoArrange, 
   autoArrangeCircular, 
@@ -39,6 +40,8 @@ export function Toolbar() {
   const communityMachines = useCommunityStore((state) => state.communityMachines);
   const publishedMachines = useCommunityStore((state) => state.publishedMachines);
   const openGallery = useCommunityStore((state) => state.openGallery);
+  const toggleStatsPanel = useMachineStatsStore((state) => state.togglePanel);
+  const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
   
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
@@ -265,6 +268,26 @@ export function Toolbar() {
           <span className="px-1.5 py-0.5 rounded-full bg-[#7c3aed]/40 text-[10px] font-medium">
             {totalCommunityCount}
           </span>
+        </button>
+
+        {/* Statistics Button */}
+        <button
+          data-testid="stats-button"
+          onClick={toggleStatsPanel}
+          className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded border transition-colors ${
+            isStatsPanelOpen
+              ? 'bg-[#22c55e]/30 text-[#22c55e] border-[#22c55e]/50'
+              : 'bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/30 hover:bg-[#22c55e]/20'
+          }`}
+          title="机器统计 - 查看当前机器的分析指标"
+          aria-label="机器统计"
+          aria-pressed={isStatsPanelOpen}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <rect x="2" y="2" width="10" height="10" rx="1" />
+            <path d="M5 7v4M9 5v6M4 9v2M10 7v2" />
+          </svg>
+          <span>统计</span>
         </button>
         
         <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
