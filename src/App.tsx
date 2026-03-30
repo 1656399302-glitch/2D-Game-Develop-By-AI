@@ -118,6 +118,12 @@ function AppContent() {
   // Recipe system
   const { checkTutorialUnlock } = useRecipeStore();
   
+  // FIX: Store checkTutorialUnlock in ref to avoid dependency array issues
+  const checkTutorialUnlockRef = useRef(checkTutorialUnlock);
+  useEffect(() => {
+    checkTutorialUnlockRef.current = checkTutorialUnlock;
+  }, [checkTutorialUnlock]);
+  
   // Viewport size for responsive layout
   const viewport = useViewportSize();
   
@@ -150,13 +156,14 @@ function AppContent() {
   }, [showCodexModal]);
   
   // Tutorial completion handler - trigger recipe unlocks
+  // FIX: Use ref to avoid store action in dependency array
   useEffect(() => {
     const tutorialStore = useTutorialStore.getState();
     const tutorialCompleted = tutorialStore.currentStep >= 6;
     if (tutorialCompleted) {
-      checkTutorialUnlock();
+      checkTutorialUnlockRef.current();
     }
-  }, [checkTutorialUnlock]);
+  }, []); // Empty deps - only runs on mount, uses ref for stable reference
   
   // Connect AchievementToast to achievement store callbacks
   useEffect(() => {

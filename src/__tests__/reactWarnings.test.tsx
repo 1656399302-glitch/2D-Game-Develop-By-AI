@@ -1,5 +1,5 @@
 /**
- * React Warning Detection Tests (Round 30)
+ * React Warning Detection Tests (Round 31)
  * 
  * Tests to verify absence of React "Maximum update depth exceeded" warnings
  * after fixing useEffect dependency patterns.
@@ -33,7 +33,7 @@ function filterMaximumUpdateDepthWarnings(messages: string[]): string[] {
   );
 }
 
-describe('React Warning Detection - Round 30 Fixes', () => {
+describe('React Warning Detection - Round 31 Fixes', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
   
   beforeEach(() => {
@@ -47,12 +47,100 @@ describe('React Warning Detection - Round 30 Fixes', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  describe('AC1: App.tsx markStateAsLoaded Fix Pattern', () => {
+  describe('AC1: App.tsx checkTutorialUnlock Fix Pattern (Round 31)', () => {
     /**
-     * AC1: Verify the ref-based pattern for markStateAsLoaded doesn't cause warnings
-     * This mimics the fix applied in App.tsx
+     * AC1: Verify the ref-based pattern for checkTutorialUnlock doesn't cause warnings
+     * This mimics the fix applied in App.tsx for the checkTutorialUnlock useEffect
      */
-    it('should not warn when using ref-based pattern for store action (AC1)', () => {
+    it('should not warn when using ref-based pattern for checkTutorialUnlock (AC1)', () => {
+      const warnings: string[] = [];
+      consoleErrorSpy.mockImplementation((msg) => {
+        warnings.push(String(msg));
+      });
+      
+      // Mock store action
+      const mockCheckTutorialUnlock = vi.fn();
+      
+      const TestComponent = () => {
+        // FIX: Store checkTutorialUnlock in ref
+        const checkTutorialUnlockRef = useRef(mockCheckTutorialUnlock);
+        useEffect(() => {
+          checkTutorialUnlockRef.current = mockCheckTutorialUnlock;
+        }, [mockCheckTutorialUnlock]);
+        
+        // FIX: Use ref in effect, not store action in deps
+        useEffect(() => {
+          // Simulate tutorial completion check
+          const tutorialCompleted = true;
+          if (tutorialCompleted) {
+            checkTutorialUnlockRef.current();
+          }
+        }, []); // Empty deps - runs once on mount
+        
+        return <div>Test</div>;
+      };
+      
+      render(<TestComponent />);
+      
+      const relevantWarnings = filterMaximumUpdateDepthWarnings(warnings);
+      expect(relevantWarnings).toHaveLength(0);
+    });
+    
+    /**
+     * AC1: Verify the tutorial unlock check doesn't cause warnings on re-renders
+     */
+    it('should not warn during re-renders with checkTutorialUnlock ref (AC1)', () => {
+      const warnings: string[] = [];
+      consoleErrorSpy.mockImplementation((msg) => {
+        warnings.push(String(msg));
+      });
+      
+      const mockCheckTutorialUnlock = vi.fn();
+      
+      const TestReRenders = () => {
+        const [step, setStep] = useState(0);
+        
+        // FIX: Store in ref
+        const checkTutorialUnlockRef = useRef(mockCheckTutorialUnlock);
+        useEffect(() => {
+          checkTutorialUnlockRef.current = mockCheckTutorialUnlock;
+        }, [mockCheckTutorialUnlock]);
+        
+        // FIX: Use ref with empty deps
+        useEffect(() => {
+          const tutorialCompleted = step >= 6;
+          if (tutorialCompleted) {
+            checkTutorialUnlockRef.current();
+          }
+        }, []); // Empty deps - stable
+        
+        return (
+          <div>
+            <span>Step: {step}</span>
+            <button onClick={() => setStep(s => s + 1)}>Next</button>
+          </div>
+        );
+      };
+      
+      const { getByText } = render(<TestReRenders />);
+      
+      // Trigger multiple re-renders
+      for (let i = 0; i < 10; i++) {
+        act(() => {
+          fireEvent.click(getByText('Next'));
+        });
+      }
+      
+      const relevantWarnings = filterMaximumUpdateDepthWarnings(warnings);
+      expect(relevantWarnings).toHaveLength(0);
+    });
+  });
+
+  describe('AC1b: App.tsx markStateAsLoaded Fix Pattern (Round 30)', () => {
+    /**
+     * AC1b: Verify the ref-based pattern for markStateAsLoaded doesn't cause warnings
+     */
+    it('should not warn when using ref-based pattern for markStateAsLoaded (AC1b)', () => {
       const warnings: string[] = [];
       consoleErrorSpy.mockImplementation((msg) => {
         warnings.push(String(msg));
@@ -88,7 +176,6 @@ describe('React Warning Detection - Round 30 Fixes', () => {
   describe('AC2: ActivationOverlay.tsx Store Action Refs Fix Pattern', () => {
     /**
      * AC2: Verify the ref-based pattern for store actions doesn't cause warnings
-     * This mimics the fix applied in ActivationOverlay.tsx
      */
     it('should not warn when using refs for store actions (AC2)', () => {
       const warnings: string[] = [];
@@ -184,7 +271,6 @@ describe('React Warning Detection - Round 30 Fixes', () => {
   describe('AC3: MobileCanvasLayout.tsx prevIsMobileRef Fix Pattern', () => {
     /**
      * AC3: Verify the prevIsMobileRef comparison pattern doesn't cause warnings
-     * This mimics the fix applied in MobileCanvasLayout.tsx
      */
     it('should not warn when using prevIsMobileRef comparison (AC3)', () => {
       const warnings: string[] = [];
@@ -292,18 +378,13 @@ describe('React Warning Detection - Round 30 Fixes', () => {
           countRef.current = count;
         }, [count]);
         
-        // Use ref in stable callback
-        const increment = useCallback(() => {
-          setCount(countRef.current + 1);
-        }, []);
-        
         // Stable effect
         useEffect(() => {
           const interval = setInterval(() => {
-            increment();
+            setCount(c => c + 1);
           }, 100);
           return () => clearInterval(interval);
-        }, [increment]);
+        }, []);
         
         return <div>Count: {count}</div>;
       };
@@ -340,7 +421,7 @@ describe('React Warning Detection - Round 30 Fixes', () => {
         useEffect(() => {
           for (let i = 0; i < 10; i++) {
             setTimeout(() => {
-              setValue(valueRef.current + 1);
+              setValue(v => v + 1);
             }, i * 10);
           }
         }, []);
@@ -359,9 +440,44 @@ describe('React Warning Detection - Round 30 Fixes', () => {
     });
   });
 
-  describe('Fixed Pattern Verification Tests', () => {
+  describe('AC8: Comprehensive Pattern Verification', () => {
     /**
-     * Verify the App.tsx fix pattern is correct
+     * AC8: Verify checkTutorialUnlockRef pattern is correct
+     */
+    it('should use ref-based pattern for checkTutorialUnlock (pattern verification)', () => {
+      const mockFn = vi.fn();
+      
+      const PatternComponent = () => {
+        const fnRef = useRef(mockFn);
+        
+        // Pattern: Sync ref
+        useEffect(() => {
+          fnRef.current = mockFn;
+        }, [mockFn]);
+        
+        // Pattern: Use ref, not function in deps
+        useEffect(() => {
+          fnRef.current();
+        }, []); // Empty deps - stable
+        
+        return null;
+      };
+      
+      const warnings: string[] = [];
+      const spy = vi.spyOn(console, 'error').mockImplementation((msg) => {
+        warnings.push(String(msg));
+      });
+      
+      render(<PatternComponent />);
+      
+      const relevantWarnings = filterMaximumUpdateDepthWarnings(warnings);
+      expect(relevantWarnings).toHaveLength(0);
+      
+      spy.mockRestore();
+    });
+    
+    /**
+     * AC8: Verify markStateAsLoadedRef pattern is correct
      */
     it('should use ref-based pattern for markStateAsLoaded (pattern verification)', () => {
       const mockFn = vi.fn();
@@ -396,7 +512,7 @@ describe('React Warning Detection - Round 30 Fixes', () => {
     });
     
     /**
-     * Verify the ActivationOverlay.tsx fix pattern is correct
+     * AC8: Verify ActivationOverlay.tsx fix pattern is correct
      */
     it('should use refs for all store actions (pattern verification)', () => {
       const mockFn1 = vi.fn();
@@ -441,7 +557,7 @@ describe('React Warning Detection - Round 30 Fixes', () => {
     });
     
     /**
-     * Verify the MobileCanvasLayout.tsx fix pattern is correct
+     * AC8: Verify MobileCanvasLayout.tsx fix pattern is correct
      */
     it('should use prevIsMobileRef comparison pattern (pattern verification)', () => {
       const PatternComponent = () => {
