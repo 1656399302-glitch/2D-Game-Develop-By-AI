@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
+import { useCommunityStore } from '../../store/useCommunityStore';
 import { 
   autoArrange, 
   autoArrangeCircular, 
@@ -35,6 +36,9 @@ export function Toolbar() {
   const duplicateModule = useMachineStore((state) => state.duplicateModule);
   const updateModulesBatch = useMachineStore((state) => state.updateModulesBatch);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
+  const communityMachines = useCommunityStore((state) => state.communityMachines);
+  const publishedMachines = useCommunityStore((state) => state.publishedMachines);
+  const openGallery = useCommunityStore((state) => state.openGallery);
   
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
@@ -42,6 +46,9 @@ export function Toolbar() {
   
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
+  
+  // Total community count
+  const totalCommunityCount = communityMachines.length + publishedMachines.length;
   
   // Close menu when clicking outside
   useEffect(() => {
@@ -246,8 +253,24 @@ export function Toolbar() {
       
       {/* Right side - actions */}
       <div className="flex items-center gap-2">
+        {/* Community Gallery Button */}
+        <button
+          onClick={openGallery}
+          className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#7c3aed]/20 text-[#a78bfa] hover:bg-[#7c3aed]/30 border border-[#7c3aed]/40 transition-colors"
+          title="社区图鉴 - 浏览社区分享的机器"
+          aria-label="社区图鉴"
+        >
+          <span aria-hidden="true">🌐</span>
+          <span>社区</span>
+          <span className="px-1.5 py-0.5 rounded-full bg-[#7c3aed]/40 text-[10px] font-medium">
+            {totalCommunityCount}
+          </span>
+        </button>
+        
+        <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
+        
         {/* Zoom Controls */}
-        <div className="flex items-center gap-1 mr-2" role="group" aria-label="缩放控制">
+        <div className="flex items-center gap-1 mr-1" role="group" aria-label="缩放控制">
           <button
             onClick={zoomOut}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"

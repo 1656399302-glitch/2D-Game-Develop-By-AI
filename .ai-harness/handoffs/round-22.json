@@ -1,5 +1,5 @@
 {
-  "round": 23,
+  "round": 22,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
   "commit": "1f6b94920e4096837c28af5aadf1f36e52cd9672",
@@ -12,9 +12,7 @@
     "| AC9f | No broken imports | **VERIFIED** | No imports from src/types/challenges.ts |"
   ],
   "incomplete_items": [],
-  "failure_reasons": [
-    "Interrupted by SIGINT during build phase of round 23."
-  ],
+  "failure_reasons": [],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
@@ -23,16 +21,13 @@
     "feedback.md",
     "node_modules/.vite/vitest/results.json",
     "progress.md",
-    "src/components/Editor/Toolbar.tsx",
     "src/types/challenges.ts"
   ],
   "run_instructions": [
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
     "python harness.py dashboard"
   ],
-  "known_issues": [
-    "Interrupted by SIGINT during build phase of round 23."
-  ],
+  "known_issues": [],
   "next_priorities": [
     "1. **Pre-existing flaky test:** `activationModes.test.ts` occasionally fails due to random machine spacing threshold (74.5 vs 75). This is unrelated to this change and passes on re-run.",
     "1. Verify `grep \"ChallengeDifficulty\" src/types/challenges.ts` returns exit code 1",

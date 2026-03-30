@@ -9,6 +9,7 @@ import { ExportResolution, ExportAspectRatio, RESOLUTION_DIMS, ASPECT_RATIO_DIMS
 
 interface ExportModalProps {
   onClose: () => void;
+  onPublishToGallery?: () => void;
 }
 
 type ExportFormat = 'svg' | 'png' | 'poster' | 'enhanced-poster' | 'faction-card';
@@ -61,7 +62,7 @@ const EXPORT_PRESETS: ExportPreset[] = [
   },
 ];
 
-export function ExportModal({ onClose }: ExportModalProps) {
+export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
   
@@ -183,6 +184,13 @@ export function ExportModal({ onClose }: ExportModalProps) {
     
     img.src = url;
   }, [modules, connections, attributes, faction]);
+  
+  const handlePublishToGallery = useCallback(() => {
+    if (onPublishToGallery) {
+      onPublishToGallery();
+      onClose();
+    }
+  }, [onPublishToGallery, onClose]);
   
   // If showing faction card, render EnhancedShareCard
   if (showFactionCard) {
@@ -439,6 +447,22 @@ export function ExportModal({ onClose }: ExportModalProps) {
               </div>
             </div>
           )}
+          
+          {/* Publish to Gallery Button */}
+          {onPublishToGallery && (
+            <div className="pt-2 border-t border-[#1e2a42]">
+              <button
+                onClick={handlePublishToGallery}
+                className="w-full px-4 py-3 rounded-lg bg-[#7c3aed]/20 text-[#a78bfa] border border-[#7c3aed]/40 hover:bg-[#7c3aed]/30 transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="text-xl">🌐</span>
+                <span className="font-medium">Publish to Community Gallery</span>
+              </button>
+              <p className="mt-1 text-xs text-[#4a5568] text-center">
+                Share your machine with the community (session-scoped)
+              </p>
+            </div>
+          )}
         </div>
         
         {/* Actions */}
@@ -602,3 +626,5 @@ function ExportPreview({ format }: { format: ExportFormat }) {
     </div>
   );
 }
+
+export default ExportModal;
