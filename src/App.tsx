@@ -27,7 +27,7 @@ import { useStoreHydration } from './hooks/useStoreHydration';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
 import { calculateFaction } from './utils/factionCalculator';
-import { StatsDashboard } from './components/Stats/StatsDashboard';
+import { EnhancedStatsDashboard } from './components/Stats/EnhancedStatsDashboard';
 import { AchievementList } from './components/Achievements/AchievementList';
 import { AchievementToast } from './components/Achievements/AchievementToast';
 import { Achievement } from './types/factions';
@@ -510,8 +510,8 @@ function AppContent() {
           </Suspense>
         )}
         
-        {/* Machine Statistics Dashboard - controlled by useMachineStatsStore */}
-        {isStatsPanelOpen && <StatsDashboard onClose={closeStatsPanel} />}
+        {/* Machine Statistics Dashboard - Enhanced version with 5 tabs (Round 44 integration) */}
+        {isStatsPanelOpen && <EnhancedStatsDashboard onClose={closeStatsPanel} />}
         
         {showAchievements && <AchievementList onClose={() => setShowAchievements(false)} />}
         
