@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   CHALLENGE_DEFINITIONS,
   getChallengeDifficultyColor,
@@ -23,21 +23,53 @@ type DifficultyFilter = 'all' | ChallengeDifficulty;
  * Challenge Panel Component
  * Displays available challenges, progress, and rewards
  * 
+ * Uses getState() pattern for actions, with local state for reactive values.
+ * 
  * Uses EnhancedChallengeCard for proper accessibility with role="progressbar"
  */
 export function ChallengePanel() {
   const [activeCategory, setActiveCategory] = useState<CategoryTab>('all');
   const [activeDifficulty, setActiveDifficulty] = useState<DifficultyFilter>('all');
 
-  const {
-    totalXP,
-    badges,
-    getChallengeProgress,
-    isChallengeCompleted,
-    isRewardClaimed,
-    claimReward,
-    getCompletedChallenges,
-  } = useChallengeStore();
+  // Use local state for reactive values from store
+  const [totalXP, setTotalXP] = useState(0);
+  const [badges, setBadges] = useState<Array<{id: string; displayName: string; description: string}>>([]);
+
+  // Sync with store on mount and periodically
+  useEffect(() => {
+    const syncState = () => {
+      const state = useChallengeStore.getState();
+      setTotalXP(state.totalXP);
+      setBadges(state.badges);
+    };
+    
+    syncState();
+    
+    // Poll periodically for updates
+    const intervalId = setInterval(syncState, 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Use callbacks with getState() pattern for actions
+  const getChallengeProgress = useCallback((challengeId: string) => {
+    return useChallengeStore.getState().getChallengeProgress(challengeId);
+  }, []);
+
+  const isChallengeCompleted = useCallback((challengeId: string) => {
+    return useChallengeStore.getState().isChallengeCompleted(challengeId);
+  }, []);
+
+  const isRewardClaimed = useCallback((challengeId: string) => {
+    return useChallengeStore.getState().isRewardClaimed(challengeId);
+  }, []);
+
+  const claimReward = useCallback((challengeId: string) => {
+    useChallengeStore.getState().claimReward(challengeId);
+  }, []);
+
+  const getCompletedChallenges = useCallback(() => {
+    return useChallengeStore.getState().getCompletedChallenges();
+  }, []);
 
   // Filter challenges based on active filters
   const filteredChallenges = useMemo(() => {

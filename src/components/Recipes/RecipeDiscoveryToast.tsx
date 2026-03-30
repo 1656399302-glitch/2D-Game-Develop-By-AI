@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRecipeStore } from '../../store/useRecipeStore';
 import { Recipe, RARITY_COLORS } from '../../types/recipes';
 import { ModulePreview } from '../Modules/ModulePreview';
@@ -209,19 +209,39 @@ interface ToastManagerProps {
 }
 
 export const RecipeToastManager: React.FC<ToastManagerProps> = ({ onRecipeDiscovered }) => {
-  const { pendingDiscoveries, getNextPendingDiscovery, clearPendingDiscoveries, markAsSeen } = useRecipeStore();
+  // Use refs and callbacks with getState() pattern to avoid full store subscription
+  const pendingDiscoveriesRef = useRef(useRecipeStore.getState().pendingDiscoveries);
   const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
   
-  // Check for pending discoveries
+  // Use callbacks with getState() pattern to avoid subscription-based re-renders
+  const getPendingDiscoveries = useCallback(() => useRecipeStore.getState().pendingDiscoveries, []);
+  const getNextPendingDiscovery = useCallback(() => useRecipeStore.getState().getNextPendingDiscovery(), []);
+  const clearPendingDiscoveries = useCallback(() => useRecipeStore.getState().clearPendingDiscoveries(), []);
+  const markAsSeen = useCallback((id: string) => useRecipeStore.getState().markAsSeen(id), []);
+  
+  // Check for pending discoveries on mount and periodically
   useEffect(() => {
-    if (pendingDiscoveries.length > 0 && !currentRecipe) {
-      const recipe = getNextPendingDiscovery();
-      if (recipe) {
-        setCurrentRecipe(recipe);
-        onRecipeDiscovered?.(recipe);
+    const checkForPendingDiscoveries = () => {
+      const discoveries = getPendingDiscoveries();
+      pendingDiscoveriesRef.current = discoveries;
+      
+      if (discoveries.length > 0 && !currentRecipe) {
+        const recipe = getNextPendingDiscovery();
+        if (recipe) {
+          setCurrentRecipe(recipe);
+          onRecipeDiscovered?.(recipe);
+        }
       }
-    }
-  }, [pendingDiscoveries, currentRecipe, getNextPendingDiscovery, onRecipeDiscovered]);
+    };
+    
+    // Initial check
+    checkForPendingDiscoveries();
+    
+    // Poll periodically to check for new discoveries (without subscribing to store)
+    const intervalId = setInterval(checkForPendingDiscoveries, 1000);
+    
+    return () => clearInterval(intervalId);
+  }, [getPendingDiscoveries, getNextPendingDiscovery, onRecipeDiscovered, currentRecipe]);
   
   const handleDismiss = () => {
     if (currentRecipe) {
@@ -229,7 +249,7 @@ export const RecipeToastManager: React.FC<ToastManagerProps> = ({ onRecipeDiscov
     }
     setCurrentRecipe(null);
     
-    // Check for more pending discoveries
+    // Check for more pending discoveries after a delay
     setTimeout(() => {
       const next = getNextPendingDiscovery();
       if (next) {

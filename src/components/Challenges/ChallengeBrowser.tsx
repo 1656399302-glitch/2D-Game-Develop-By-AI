@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   ChallengeDefinition,
   CHALLENGE_DEFINITIONS,
@@ -21,6 +21,7 @@ type ViewMode = 'progress' | 'time-trial';
 
 /**
  * Modal browser for viewing and completing challenges
+ * Uses getState() pattern to avoid full store subscriptions
  */
 export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -29,7 +30,30 @@ export function ChallengeBrowser({ isOpen, onClose }: ChallengeBrowserProps) {
   const [celebrationChallenge, setCelebrationChallenge] = useState<ChallengeDefinition | null>(null);
   const [timeTrialActive, setTimeTrialActive] = useState(false);
 
-  const { isCompleted, completeChallenge, getCompletedCount } = useChallengeStore();
+  // Use refs for store methods to avoid subscription-based re-renders
+  const isCompletedRef = useRef(useChallengeStore.getState().isCompleted);
+  const completeChallengeRef = useRef(useChallengeStore.getState().completeChallenge);
+  const getCompletedCountRef = useRef(useChallengeStore.getState().getCompletedCount);
+
+  // Sync refs on mount
+  useEffect(() => {
+    isCompletedRef.current = useChallengeStore.getState().isCompleted;
+    completeChallengeRef.current = useChallengeStore.getState().completeChallenge;
+    getCompletedCountRef.current = useChallengeStore.getState().getCompletedCount;
+  }, []);
+
+  // Use callbacks with getState() pattern for one-time checks
+  const isCompleted = useCallback((challengeId: string) => {
+    return useChallengeStore.getState().isCompleted(challengeId);
+  }, []);
+
+  const completeChallenge = useCallback((challengeId: string) => {
+    useChallengeStore.getState().completeChallenge(challengeId);
+  }, []);
+
+  const getCompletedCount = useCallback(() => {
+    return useChallengeStore.getState().getCompletedCount();
+  }, []);
 
   const filteredChallenges = useMemo(() => {
     if (activeTab === 'all') {

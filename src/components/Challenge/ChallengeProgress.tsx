@@ -1,24 +1,52 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   CHALLENGE_DEFINITIONS,
   getChallengeCategoryLabel,
   ChallengeCategory,
 } from '../../data/challenges';
-import { useChallengeStore } from '../../store/useChallengeStore';
+import { useChallengeStore, ChallengeProgress as ChallengeProgressType } from '../../store/useChallengeStore';
 
 /**
  * Challenge Progress Component
  * Shows overall challenge progress with XP, badges, and category breakdown
+ * 
+ * Uses getState() pattern with local state for reactive values.
  */
 export function ChallengeProgress() {
-  const {
-    totalXP,
-    badges,
-    challengeProgress,
-    getCompletedChallenges,
-  } = useChallengeStore();
+  // Use local state for reactive values from store
+  const [totalXP, setTotalXP] = useState(0);
+  const [badges, setBadges] = useState<Array<{id: string; displayName: string; description: string}>>([]);
+  const [challengeProgress, setChallengeProgress] = useState<ChallengeProgressType>({
+    machinesCreated: 0,
+    machinesSaved: 0,
+    connectionsCreated: 0,
+    activations: 0,
+    overloadsTriggered: 0,
+    gearsCreated: 0,
+    highestStability: 0,
+  });
 
-  const completedChallenges = getCompletedChallenges();
+  // Sync with store on mount and periodically
+  useEffect(() => {
+    const syncState = () => {
+      const state = useChallengeStore.getState();
+      setTotalXP(state.totalXP);
+      setBadges(state.badges);
+      setChallengeProgress(state.challengeProgress);
+    };
+    
+    syncState();
+    
+    // Poll periodically for updates
+    const intervalId = setInterval(syncState, 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Use getState() for one-time reads in useMemo
+  const completedChallenges = useMemo(() => {
+    return useChallengeStore.getState().getCompletedChallenges();
+  }, []);
+
   const totalChallenges = CHALLENGE_DEFINITIONS.length;
 
   // Category breakdown
