@@ -21,40 +21,39 @@ export function TutorialOverlay({
   onMachineActivated,
   onMachineSaved,
 }: TutorialOverlayProps) {
-  // FIX: Use individual selectors for primitive values (not methods)
+  // Use individual selectors for primitive values (not methods)
   const isTutorialActive = useTutorialStore((state) => state.isTutorialActive);
   const currentStep = useTutorialStore((state) => state.currentStep);
 
-  // FIX: Store method references in refs to prevent stale closures
+  // Store method references in refs to prevent stale closures
+  // These are initialized once and updated when the component mounts
   const nextStepRef = useRef(useTutorialStore.getState().nextStep);
   const previousStepRef = useRef(useTutorialStore.getState().previousStep);
   const skipTutorialRef = useRef(useTutorialStore.getState().skipTutorial);
   const completeTutorialRef = useRef(useTutorialStore.getState().completeTutorial);
   const goToStepRef = useRef(useTutorialStore.getState().goToStep);
 
-  // FIX: Track previous step value for comparison
-  const previousStepValueRef = useRef(currentStep);
-
-  // FIX: Periodically sync refs with store to ensure they stay current
+  // FIX: Add empty dependency array - refs should only be initialized once on mount
+  // The functions in Zustand stores are stable and don't need to be re-synced
   useEffect(() => {
     nextStepRef.current = useTutorialStore.getState().nextStep;
     previousStepRef.current = useTutorialStore.getState().previousStep;
     skipTutorialRef.current = useTutorialStore.getState().skipTutorial;
     completeTutorialRef.current = useTutorialStore.getState().completeTutorial;
     goToStepRef.current = useTutorialStore.getState().goToStep;
-  });
+  }, []); // Empty deps - run exactly once on mount
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // FIX: Memoize currentStepData to prevent updateTargetPosition from recreating on every render
+  // Memoize currentStepData to prevent updateTargetPosition from recreating on every render
   const currentStepData = useMemo<TutorialStep | null>(() => {
     const step = getStepByNumber(currentStep);
     return step ?? null;
   }, [currentStep]);
 
-  // FIX: Store callbacks in refs to prevent effect dependency issues
+  // Store callbacks in refs to prevent effect dependency issues
   const onModuleAddedRef = useRef(onModuleAdded);
   const onModuleSelectedRef = useRef(onModuleSelected);
   const onModuleConnectedRef = useRef(onModuleConnected);
@@ -100,6 +99,9 @@ export function TutorialOverlay({
 
   // FIX: Debounce timer ref to ensure proper cleanup
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track previous step value for comparison
+  const previousStepValueRef = useRef(currentStep);
 
   // Update target position on step change and scroll/resize
   useEffect(() => {

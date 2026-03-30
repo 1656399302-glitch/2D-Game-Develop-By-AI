@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { Connection, PlacedModule } from '../../types';
 import { calculateActivationChoreography } from '../../utils/activationChoreographer';
 
@@ -28,9 +28,23 @@ export function EnergyPulseVisualizer({
   pulseColor = '#00ffcc',
 }: EnergyPulseVisualizerProps) {
   const containerRef = useRef<SVGGElement>(null);
-  const [activeWaves, setActiveWaves] = useState<PulseWave[]>([]);
+  // Use refs for all animation state to avoid setState in animation loop
+  const activeWavesRef = useRef<PulseWave[]>([]);
   const animationRef = useRef<number | null>(null);
   const waveIdCounter = useRef(0);
+  // Store dependencies in refs to access latest values without causing re-renders
+  const connectionsRef = useRef(connections);
+  const pulseSpeedRef = useRef(pulseSpeed);
+  const isActiveRef = useRef(isActive);
+  const startTimeRef = useRef(startTime);
+
+  // Update refs when props change
+  useEffect(() => {
+    connectionsRef.current = connections;
+    pulseSpeedRef.current = pulseSpeed;
+    isActiveRef.current = isActive;
+    startTimeRef.current = startTime;
+  }, [connections, pulseSpeed, isActive, startTime]);
   
   // Calculate choreography for timing
   const choreography = useMemo(() => {
@@ -39,7 +53,7 @@ export function EnergyPulseVisualizer({
   
   // Get connection path data for a connection
   const getConnectionPath = (connectionId: string): string | null => {
-    const conn = connections.find(c => c.id === connectionId);
+    const conn = connectionsRef.current.find(c => c.id === connectionId);
     return conn?.pathData || null;
   };
   
@@ -64,7 +78,7 @@ export function EnergyPulseVisualizer({
     return length || 200;
   };
   
-  // Start new wave on a connection
+  // Start new wave on a connection (updates ref only, no setState)
   const startWave = (connectionId: string) => {
     const newWave: PulseWave = {
       id: `pulse-${connectionId}-${waveIdCounter.current++}`,
@@ -73,13 +87,13 @@ export function EnergyPulseVisualizer({
       opacity: 1,
       scale: 1,
     };
-    setActiveWaves(prev => [...prev, newWave]);
+    activeWavesRef.current = [...activeWavesRef.current, newWave];
   };
   
-  // Animation loop
+  // Animation loop - uses refs only, no setState
   useEffect(() => {
     if (!isActive) {
-      setActiveWaves([]);
+      activeWavesRef.current = [];
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
@@ -88,7 +102,7 @@ export function EnergyPulseVisualizer({
     }
     
     const animate = () => {
-      const currentTime = performance.now() - startTime;
+      const currentTime = performance.now() - startTimeRef.current;
       
       // Check for new pulses based on choreography
       choreography.steps.forEach(step => {
@@ -97,9 +111,9 @@ export function EnergyPulseVisualizer({
           // Start wave when connection should light up
           if (elapsed >= 0 && elapsed < 50) { // Within 50ms of activation
             // Check if wave already exists for this connection at this time
-            const waveExists = activeWaves.some(
+            const waveExists = activeWavesRef.current.some(
               w => w.connectionId === conn.connectionId && 
-                   Math.abs(currentTime - startTime - conn.activationTime) < 200
+                   Math.abs(currentTime - startTimeRef.current - conn.activationTime) < 200
             );
             if (!waveExists) {
               startWave(conn.connectionId);
@@ -108,33 +122,37 @@ export function EnergyPulseVisualizer({
         });
       });
       
-      // Update wave positions
-      setActiveWaves(prev => {
-        return prev
-          .map(wave => {
-            const pathData = getConnectionPath(wave.connectionId);
-            if (!pathData) return null;
-            
-            const pathLength = getPathLength(pathData);
-            const elapsed = currentTime - startTime;
-            const progressPerMs = pulseSpeed / pathLength;
-            
-            // Calculate new position
-            const newOffset = wave.startOffset + elapsed * progressPerMs;
-            
-            if (newOffset > 1) {
-              return null; // Remove wave when complete
-            }
-            
-            return {
-              ...wave,
-              startOffset: newOffset,
-              opacity: 1 - (newOffset * 0.5), // Fade out as it travels
-              scale: 1 + newOffset * 0.5, // Grow slightly
-            };
-          })
-          .filter(Boolean) as PulseWave[];
-      });
+      // Update wave positions - modify ref directly, no setState
+      const pathLengthMap = new Map<string, number>();
+      
+      activeWavesRef.current = activeWavesRef.current
+        .map(wave => {
+          const pathData = getConnectionPath(wave.connectionId);
+          if (!pathData) return null;
+          
+          // Cache path lengths
+          if (!pathLengthMap.has(wave.connectionId)) {
+            pathLengthMap.set(wave.connectionId, getPathLength(pathData));
+          }
+          const pathLength = pathLengthMap.get(wave.connectionId) || 200;
+          const elapsed = currentTime - startTimeRef.current;
+          const progressPerMs = pulseSpeedRef.current / pathLength;
+          
+          // Calculate new position
+          const newOffset = wave.startOffset + elapsed * progressPerMs;
+          
+          if (newOffset > 1) {
+            return null; // Remove wave when complete
+          }
+          
+          return {
+            ...wave,
+            startOffset: newOffset,
+            opacity: 1 - (newOffset * 0.5), // Fade out as it travels
+            scale: 1 + newOffset * 0.5, // Grow slightly
+          };
+        })
+        .filter(Boolean) as PulseWave[];
       
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -146,12 +164,26 @@ export function EnergyPulseVisualizer({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isActive, startTime, pulseSpeed, connections, choreography, activeWaves]);
+  // NOTE: No dependencies here - this effect manages its own refs internally
+  // The effect runs once on mount and cleans up on unmount
+  // State updates from parent (isActive change) are handled via the outer effect below
+  }, [choreography]); // Only depend on choreography since other values are accessed via refs
+  
+  // Handle isActive changes by resetting/refreshing animation
+  useEffect(() => {
+    if (!isActive) {
+      activeWavesRef.current = [];
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+    }
+  }, [isActive]);
   
   // Render pulse waves on connections
   return (
     <g ref={containerRef} className="energy-pulse-visualizer">
-      {activeWaves.map(wave => {
+      {activeWavesRef.current.map(wave => {
         const pathData = getConnectionPath(wave.connectionId);
         if (!pathData) return null;
         
