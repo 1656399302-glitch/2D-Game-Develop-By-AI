@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import { useRef, useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useSelectionStore } from '../../store/useSelectionStore';
 import { ModuleRenderer } from '../Modules/ModuleRenderer';
@@ -6,13 +6,58 @@ import { EnergyPath } from '../Connections/EnergyPath';
 import { ConnectionPreview } from '../Connections/ConnectionPreview';
 import { AlignmentToolbar } from './AlignmentToolbar';
 import { EnergyPulseVisualizer } from '../Preview/EnergyPulseVisualizer';
+import { SelectionHandles } from './SelectionHandles';
 import { calculateShakeOffset } from '../../utils/activationChoreographer';
 import { MODULE_SIZES } from '../../types';
+
+const GRID_SIZE = 20;
+const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
+
+// Lazy import LayersPanel to avoid circular dependency
+const LayersPanel = lazy(() => import('./LayersPanel').then(m => ({ default: m.LayersPanel })));
+
+/**
+ * Snap a value to the nearest grid line if within threshold
+ */
+function smartSnapToGrid(value: number, gridSize: number = GRID_SIZE): number {
+  const remainder = value % gridSize;
+  const nearestGrid = Math.round(value / gridSize) * gridSize;
+  
+  // Check if within snap threshold
+  if (Math.abs(remainder) <= SNAP_THRESHOLD) {
+    return nearestGrid;
+  } else if (Math.abs(remainder - gridSize) <= SNAP_THRESHOLD) {
+    return nearestGrid;
+  }
+  
+  return value;
+}
+
+/**
+ * Get snapped position with smart threshold
+ */
+function getSnappedPosition(
+  x: number, 
+  y: number, 
+  gridEnabled: boolean, 
+  gridSize: number = GRID_SIZE
+): { x: number; y: number } {
+  if (!gridEnabled) {
+    return { x, y };
+  }
+  
+  return {
+    x: smartSnapToGrid(x, gridSize),
+    y: smartSnapToGrid(y, gridSize),
+  };
+}
 
 export function Canvas() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number; modulePositions: Map<string, { x: number; y: number }> } | null>(null);
+  
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -33,6 +78,9 @@ export function Canvas() {
   // Activation pulse visualization state
   const [activationPulseStartTime, setActivationPulseStartTime] = useState<number | null>(null);
   
+  // Show layers panel state
+  const [showLayersPanel, setShowLayersPanel] = useState(false);
+  
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
   const viewport = useMachineStore((state) => state.viewport);
@@ -50,6 +98,7 @@ export function Canvas() {
   const selectModule = useMachineStore((state) => state.selectModule);
   const selectConnection = useMachineStore((state) => state.selectConnection);
   const updateModulePosition = useMachineStore((state) => state.updateModulePosition);
+  const updateModulesBatch = useMachineStore((state) => state.updateModulesBatch);
   const updateConnectionPreview = useMachineStore((state) => state.updateConnectionPreview);
   const cancelConnection = useMachineStore((state) => state.cancelConnection);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
@@ -335,6 +384,25 @@ export function Canvas() {
           selectModule(clickedModuleId);
           setIsDragging(true);
           setDraggingModule(clickedModuleId);
+          
+          // Store initial positions for all selected modules
+          const positions = new Map<string, { x: number; y: number }>();
+          const idsToTrack = selectedModuleIds.includes(clickedModuleId) 
+            ? selectedModuleIds 
+            : [clickedModuleId];
+          
+          idsToTrack.forEach(id => {
+            const mod = modules.find(m => m.instanceId === id);
+            if (mod) {
+              positions.set(id, { x: mod.x, y: mod.y });
+            }
+          });
+          
+          dragStartRef.current = {
+            x: e.clientX,
+            y: e.clientY,
+            modulePositions: positions,
+          };
         }
       } else if (e.target === svgRef.current || (e.target as Element)?.id === 'canvas-background') {
         if (!e.shiftKey) {
@@ -347,7 +415,7 @@ export function Canvas() {
         }
       }
     }
-  }, [viewport, getModuleAtPoint, getCanvasCoordinates, selectModule, selectConnection, isConnecting, cancelConnection, toggleSelection, clearSelection]);
+  }, [viewport, getModuleAtPoint, getCanvasCoordinates, selectModule, selectConnection, isConnecting, cancelConnection, toggleSelection, clearSelection, selectedModuleIds, modules]);
   
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -366,12 +434,50 @@ export function Canvas() {
       setBoxEnd(canvasCoords);
     } else if (isDragging && draggingModule) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
-      updateModulePosition(draggingModule, coords.x, coords.y);
+      
+      // Check if we're dragging multiple modules
+      if (selectedModuleIds.includes(draggingModule) && selectedModuleIds.length > 1) {
+        // Batch update all selected modules
+        const updates: Array<{ instanceId: string; x: number; y: number }> = [];
+        
+        dragStartRef.current?.modulePositions.forEach((startPos, id) => {
+          const deltaX = (e.clientX - dragStartRef.current!.x) / viewport.zoom;
+          const deltaY = (e.clientY - dragStartRef.current!.y) / viewport.zoom;
+          
+          let newX = startPos.x + deltaX;
+          let newY = startPos.y + deltaY;
+          
+          // Apply smart snap-to-grid if enabled
+          if (gridEnabled) {
+            const snapped = getSnappedPosition(newX, newY, gridEnabled, GRID_SIZE);
+            newX = snapped.x;
+            newY = snapped.y;
+          }
+          
+          updates.push({ instanceId: id, x: newX, y: newY });
+        });
+        
+        if (updates.length > 0) {
+          updateModulesBatch(updates);
+        }
+      } else {
+        // Single module drag with smart snap-to-grid
+        let newX = coords.x;
+        let newY = coords.y;
+        
+        if (gridEnabled) {
+          const snapped = getSnappedPosition(newX, newY, gridEnabled, GRID_SIZE);
+          newX = snapped.x;
+          newY = snapped.y;
+        }
+        
+        updateModulePosition(draggingModule, newX, newY);
+      }
     } else if (isConnecting) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       updateConnectionPreview(coords.x, coords.y);
     }
-  }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setViewport, updateModulePosition, updateConnectionPreview]);
+  }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setViewport, updateModulePosition, updateModulesBatch, updateConnectionPreview, selectedModuleIds, viewport.zoom, gridEnabled]);
   
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
@@ -388,6 +494,7 @@ export function Canvas() {
     setDraggingModule(null);
     setIsBoxSelecting(false);
     boxStartCanvasRef.current = null;
+    dragStartRef.current = null;
   }, [isDragging, isBoxSelecting, modulesInBoxSelection, setSelection, saveToHistory]);
   
   // Handle wheel for zoom
@@ -420,7 +527,64 @@ export function Canvas() {
     setIsDragging(true);
     setDraggingModule(id);
     selectModule(id);
-  }, [selectModule, toggleSelection]);
+    
+    // Store initial positions
+    const positions = new Map<string, { x: number; y: number }>();
+    const idsToTrack = selectedModuleIds.includes(id) 
+      ? selectedModuleIds 
+      : [id];
+    
+    idsToTrack.forEach(moduleId => {
+      const mod = modules.find(m => m.instanceId === moduleId);
+      if (mod) {
+        positions.set(moduleId, { x: mod.x, y: mod.y });
+      }
+    });
+    
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      modulePositions: positions,
+    };
+  }, [selectModule, toggleSelection, selectedModuleIds, modules]);
+  
+  // Handle selection move (for group movement via SelectionHandles)
+  const handleSelectionMove = useCallback((deltaX: number, deltaY: number) => {
+    if (selectedModuleIds.length === 0) return;
+    
+    const updates: Array<{ instanceId: string; x: number; y: number }> = [];
+    
+    selectedModuleIds.forEach(id => {
+      const mod = modules.find(m => m.instanceId === id);
+      if (mod) {
+        let newX = mod.x + deltaX;
+        let newY = mod.y + deltaY;
+        
+        // Apply smart snap-to-grid if enabled
+        if (gridEnabled) {
+          const snapped = getSnappedPosition(newX, newY, gridEnabled, GRID_SIZE);
+          newX = snapped.x;
+          newY = snapped.y;
+        }
+        
+        updates.push({ instanceId: id, x: newX, y: newY });
+      }
+    });
+    
+    if (updates.length > 0) {
+      updateModulesBatch(updates);
+    }
+  }, [selectedModuleIds, modules, gridEnabled, updateModulesBatch]);
+  
+  // Handle selection rotate
+  const handleSelectionRotate = useCallback((_newRotation: number) => {
+    // Rotation handling can be implemented based on requirements
+  }, []);
+  
+  // Handle selection scale
+  const handleSelectionScale = useCallback((_newScale: number) => {
+    // Scale handling can be implemented based on requirements
+  }, []);
   
   // Grid pattern
   const gridSize = 20;
@@ -428,11 +592,13 @@ export function Canvas() {
   
   // Empty state hints
   const emptyStateHints = [
-    'Drag modules from the left panel to begin',
-    'Click on a module type to add it',
-    'Press Ctrl+D to duplicate selected module',
-    'Press R to rotate, F to flip',
-    'Connect ports by dragging between them',
+    '从左侧面板拖拽模块到画布开始',
+    '点击模块类型添加模块',
+    '按 Ctrl+D 复制选中的模块',
+    '按 R 旋转, F 翻转',
+    '在端口之间拖拽来连接',
+    '按 Ctrl+G 创建组',
+    '按 Ctrl+Shift+G 取消分组',
   ];
   
   // Check if module is selected
@@ -585,6 +751,10 @@ export function Canvas() {
           {/* Modules layer */}
           <g id="modules-layer">
             {visibleModules.map((module) => {
+              // Check visibility property
+              const isVisible = (module as any).isVisible !== false;
+              if (!isVisible) return null;
+              
               const moduleIdx = getModuleIndex(module.instanceId);
               return (
                 <ModuleRenderer
@@ -637,7 +807,44 @@ export function Canvas() {
             );
           })}
         </g>
+        
+        {/* Selection Handles - for multi-selection */}
+        <SelectionHandles
+          viewport={viewport}
+          onMove={handleSelectionMove}
+          onRotate={handleSelectionRotate}
+          onScale={handleSelectionScale}
+        />
       </svg>
+      
+      {/* Layers Panel Button */}
+      <button
+        data-testid="toggle-layers-panel"
+        onClick={() => setShowLayersPanel(!showLayersPanel)}
+        className={`
+          absolute top-4 right-4 px-3 py-2 rounded-lg text-sm transition-all z-10
+          ${showLayersPanel 
+            ? 'bg-[#3b82f6] text-white' 
+            : 'bg-[#121826] text-[#9ca3af] hover:text-white border border-[#1e2a42] hover:border-[#3b82f6]/30'
+          }
+        `}
+        title="图层面板"
+      >
+        📑 图层
+      </button>
+      
+      {/* Layers Panel (rendered outside SVG) */}
+      {showLayersPanel && (
+        <div className="absolute top-16 right-4 w-64 h-[calc(100%-8rem)] z-20">
+          <Suspense fallback={
+            <div className="w-full h-full bg-[#121826] border border-[#1e2a42] rounded-lg flex items-center justify-center">
+              <div className="w-6 h-6 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
+            <LayersPanel />
+          </Suspense>
+        </div>
+      )}
       
       {/* Zoom indicator */}
       <div className="absolute bottom-4 left-4 px-3 py-1 rounded bg-[#121826] border border-[#1e2a42] text-xs text-[#9ca3af]" role="status" aria-live="polite">
@@ -645,6 +852,11 @@ export function Canvas() {
         {visibleModuleIds.size < modules.length && (
           <span className="ml-2 text-[#4a5568]">
             ({visibleModuleIds.size}/{modules.length})
+          </span>
+        )}
+        {gridEnabled && (
+          <span className="ml-2 text-[#22c55e]" title={`网格吸附已开启 (${SNAP_THRESHOLD}px阈值)`}>
+            📐
           </span>
         )}
       </div>
@@ -657,9 +869,9 @@ export function Canvas() {
       )}
       
       {/* Multi-select indicator */}
-      {selectedModuleIds.length > 0 && (
+      {selectedModuleIds.length > 1 && (
         <div className="absolute bottom-4 right-4 px-3 py-1 rounded bg-[#1e4d8c] border border-[#3b82f6] text-xs text-[#93c5fd]">
-          {selectedModuleIds.length} 模块已选择
+          {selectedModuleIds.length} 模块已选择 (Ctrl+G 创建组)
         </div>
       )}
       
@@ -695,7 +907,7 @@ export function Canvas() {
             </div>
             <div className="mt-4 pt-4 border-t border-[#1e2a42]">
               <p className="text-xs text-[#4a5568]">
-                快捷键: <span className="text-[#9ca3af]">Ctrl+D</span> 复制 | <span className="text-[#9ca3af]">R</span> 旋转 | <span className="text-[#9ca3af]">F</span> 翻转 | <span className="text-[#9ca3af]">Delete</span> 删除 | <span className="text-[#9ca3af]">Shift+拖动</span> 框选
+                快捷键: <span className="text-[#9ca3af]">Ctrl+D</span> 复制 | <span className="text-[#9ca3af]">R</span> 旋转 | <span className="text-[#9ca3af]">F</span> 翻转 | <span className="text-[#9ca3af]">Delete</span> 删除 | <span className="text-[#9ca3af]">Shift+拖动</span> 框选 | <span className="text-[#9ca3af]">Ctrl+G</span> 分组
               </p>
             </div>
           </div>

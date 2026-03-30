@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useMachineStore } from '../store/useMachineStore';
 import { useSelectionStore } from '../store/useSelectionStore';
+import { createGroup, GroupInstance } from '../utils/groupingUtils';
 
 interface UseKeyboardShortcutsOptions {
   enabled?: boolean;
@@ -14,6 +15,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
   const [shortcutFeedback, setShortcutFeedback] = useState<string | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Group state - stores all created groups
+  const [groups, setGroups] = useState<GroupInstance[]>([]);
+
   // Show feedback toast
   const showFeedback = useCallback((message: string) => {
     setShortcutFeedback(message);
@@ -24,6 +28,132 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       setShortcutFeedback(null);
     }, 1500);
   }, []);
+
+  // Group selected modules
+  const groupSelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length < 2) {
+      showFeedback('需要选择至少2个模块才能创建组');
+      return;
+    }
+
+    try {
+      const newGroup = createGroup(selectedIds);
+      setGroups(prev => [...prev, newGroup]);
+      
+      // Update modules with group ID
+      const updatedModules = store.modules.map(m => {
+        if (newGroup.moduleIds.includes(m.instanceId)) {
+          return { ...m, groupId: newGroup.id, groupName: newGroup.name } as any;
+        }
+        return m;
+      });
+      
+      useMachineStore.setState({ modules: updatedModules });
+      store.saveToHistory();
+      showFeedback(`已创建组 "${newGroup.name}"`);
+    } catch (error) {
+      showFeedback('创建组失败');
+    }
+  }, [showFeedback]);
+
+  // Ungroup selected modules
+  const ungroupSelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length === 0) {
+      showFeedback('请先选择要取消分组的模块');
+      return;
+    }
+
+    // Find groups that contain any of the selected modules
+    const groupsToRemove = groups.filter(g => 
+      g.moduleIds.some(id => selectedIds.includes(id))
+    );
+
+    if (groupsToRemove.length === 0) {
+      showFeedback('选中的模块不在任何组中');
+      return;
+    }
+
+    // Remove group IDs from modules
+    const groupIdsToRemove = new Set(groupsToRemove.map(g => g.id));
+    const updatedModules = store.modules.map(m => {
+      if (groupIdsToRemove.has((m as any).groupId)) {
+        const { groupId: _, groupName: __, ...rest } = m as any;
+        return rest as any;
+      }
+      return m;
+    });
+
+    // Remove the groups
+    setGroups(prev => prev.filter(g => !groupIdsToRemove.has(g.id)));
+    useMachineStore.setState({ modules: updatedModules });
+    store.saveToHistory();
+    showFeedback(`已取消 ${groupsToRemove.length} 个组的分组`);
+  }, [groups, showFeedback]);
+
+  // Copy selected modules (enhanced)
+  const copySelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length === 0 && store.modules.length === 0) {
+      showFeedback('没有可复制的模块');
+      return;
+    }
+
+    store.copySelected();
+    showFeedback(selectedIds.length > 0 ? `已复制 ${selectedIds.length} 个模块` : '已复制所有模块');
+  }, [showFeedback]);
+
+  // Paste modules (enhanced - pastes at cursor position)
+  const pasteSelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    
+    if (store.clipboardModules.length === 0) {
+      showFeedback('剪贴板为空');
+      return;
+    }
+
+    store.pasteModules();
+    showFeedback(`已粘贴 ${store.clipboardModules.length} 个模块`);
+  }, [showFeedback]);
+
+  // Duplicate selected modules (enhanced - at offset)
+  const duplicateSelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length === 0) {
+      showFeedback('没有选中的模块');
+      return;
+    }
+
+    selectedIds.forEach(id => {
+      store.duplicateModule(id);
+    });
+    showFeedback(`已复制 ${selectedIds.length} 个模块`);
+  }, [showFeedback]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
@@ -49,6 +179,20 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
 
     const store = useMachineStore.getState();
     const selectionStore = useSelectionStore.getState();
+
+    // Ctrl+G for group
+    if ((e.key === 'g' || e.key === 'G') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      e.preventDefault();
+      groupSelectedModules();
+      return;
+    }
+
+    // Ctrl+Shift+G for ungroup
+    if ((e.key === 'g' || e.key === 'G') && (e.ctrlKey || e.metaKey) && e.shiftKey) {
+      e.preventDefault();
+      ungroupSelectedModules();
+      return;
+    }
 
     // Delete selected module or connection
     if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -79,8 +223,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey)) {
       if (store.selectedModuleId || store.modules.length > 0) {
         e.preventDefault();
-        store.copySelected();
-        showFeedback('已复制');
+        copySelectedModules();
       }
       return;
     }
@@ -89,8 +232,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     if ((e.key === 'v' || e.key === 'V') && (e.ctrlKey || e.metaKey)) {
       if (store.clipboardModules.length > 0) {
         e.preventDefault();
-        store.pasteModules();
-        showFeedback('已粘贴');
+        pasteSelectedModules();
       }
       return;
     }
@@ -109,12 +251,11 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       return;
     }
 
-    // Ctrl+D for deselect all (in addition to existing duplicate functionality)
+    // Ctrl+D for deselect all OR duplicate (depends on selection)
     if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
       if (store.selectedModuleId) {
         e.preventDefault();
-        store.duplicateModule(store.selectedModuleId);
-        showFeedback('已复制模块');
+        duplicateSelectedModules();
       }
       return;
     }
@@ -219,7 +360,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       return;
     }
 
-    // G for toggle grid
+    // G for toggle grid (when not using Ctrl+G)
     if (e.key === 'g' || e.key === 'G') {
       if (!e.ctrlKey && !e.metaKey) {
         e.preventDefault();
@@ -228,7 +369,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       }
       return;
     }
-  }, [enabled, excludeWhenInputFocused, showFeedback]);
+  }, [enabled, excludeWhenInputFocused, showFeedback, groupSelectedModules, ungroupSelectedModules, copySelectedModules, pasteSelectedModules, duplicateSelectedModules]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -246,6 +387,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
 
   return {
     shortcutFeedback,
+    groups,
+    groupSelectedModules,
+    ungroupSelectedModules,
   };
 }
 
