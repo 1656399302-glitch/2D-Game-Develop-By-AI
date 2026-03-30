@@ -947,3 +947,26 @@ export function downloadFile(content: string | Blob, filename: string, mimeType:
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Sanitize filename by converting to lowercase, replacing special characters with hyphens,
+ * collapsing consecutive hyphens, and trimming leading/trailing hyphens.
+ * 
+ * @param filename - The original filename to sanitize
+ * @returns A sanitized filename safe for file system use
+ */
+export function sanitizeFilename(filename: string): string {
+  // Step 1: Convert to lowercase
+  let result = filename.toLowerCase();
+  
+  // Step 2: Replace each non-alphanumeric character (except hyphens) with a single hyphen
+  result = result.replace(/[^a-z0-9]+/g, '-');
+  
+  // Step 3: Collapse consecutive hyphens into one
+  result = result.replace(/-+/g, '-');
+  
+  // Step 4: Trim leading and trailing hyphens
+  result = result.replace(/^-+/, '').replace(/-+$/, '');
+  
+  return result;
+}

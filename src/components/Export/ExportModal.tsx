@@ -18,6 +18,7 @@ type ExportFormat = 'svg' | 'png' | 'poster' | 'enhanced-poster' | 'faction-card
 interface ExportPreset {
   id: string;
   name: string;
+  nameEn: string;
   description: string;
   icon: string;
   format: ExportFormat;
@@ -30,6 +31,7 @@ const EXPORT_PRESETS: ExportPreset[] = [
   {
     id: 'social-media',
     name: '社交媒体',
+    nameEn: 'Social Media',
     description: 'PNG 2x 方形',
     icon: '📱',
     format: 'png',
@@ -39,6 +41,7 @@ const EXPORT_PRESETS: ExportPreset[] = [
   {
     id: 'print',
     name: '打印用途',
+    nameEn: 'Print',
     description: 'PNG 4x 高清',
     icon: '🖨',
     format: 'png',
@@ -47,6 +50,7 @@ const EXPORT_PRESETS: ExportPreset[] = [
   {
     id: 'icon',
     name: '图标导出',
+    nameEn: 'Icon',
     description: 'PNG 1x 透明',
     icon: '🔲',
     format: 'png',
@@ -56,6 +60,7 @@ const EXPORT_PRESETS: ExportPreset[] = [
   {
     id: 'presentation',
     name: '演示文稿',
+    nameEn: 'Presentation',
     description: 'SVG 矢量图',
     icon: '📊',
     format: 'svg',
@@ -66,6 +71,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
   
+  // Filename state persists across format changes - key requirement AC4
   const [format, setFormat] = useState<ExportFormat>('svg');
   const [showFactionCard, setShowFactionCard] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -82,7 +88,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   const faction = FACTIONS[factionId];
   const attributes = generateAttributes(modules, connections);
   
-  // Get expected output dimensions for current settings
+  // Get expected output dimensions for current settings - used in AC5
   const getExpectedDimensions = useCallback(() => {
     if (format === 'png') {
       return getResolutionDimensions(modules, resolution);
@@ -95,7 +101,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   
   const expectedDims = getExpectedDimensions();
   
-  // Apply preset configuration
+  // Apply preset configuration - key requirement AC6
   const applyPreset = useCallback((preset: ExportPreset) => {
     setFormat(preset.format);
     if (preset.resolution) setResolution(preset.resolution);
@@ -107,14 +113,14 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
     setIsExporting(true);
     
     try {
-      const filename = exportName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const sanitizedName = exportName.replace(/[^a-z0-9]/gi, '-').toLowerCase().replace(/-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
       
       switch (format) {
         case 'svg':
           const svgContent = exportToSVG(modules, connections, {
             format: 'svg',
           });
-          downloadFile(svgContent, `${filename}.svg`, 'image/svg+xml');
+          downloadFile(svgContent, `${sanitizedName}.svg`, 'image/svg+xml');
           break;
           
         case 'png':
@@ -122,17 +128,17 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
             scale: resolution,
             transparentBackground: transparentBackground,
           });
-          downloadFile(pngBlob, `${filename}.png`, 'image/png');
+          downloadFile(pngBlob, `${sanitizedName}.png`, 'image/png');
           break;
           
         case 'poster':
           const posterContent = exportPoster(modules, connections, attributes, aspectRatio);
-          downloadFile(posterContent, `${filename}-${aspectRatio}-poster.svg`, 'image/svg+xml');
+          downloadFile(posterContent, `${sanitizedName}-${aspectRatio}-poster.svg`, 'image/svg+xml');
           break;
           
         case 'enhanced-poster':
           const enhancedContent = exportEnhancedPoster(modules, connections, attributes, aspectRatio);
-          downloadFile(enhancedContent, `${filename}-${aspectRatio}-enhanced-poster.svg`, 'image/svg+xml');
+          downloadFile(enhancedContent, `${sanitizedName}-${aspectRatio}-enhanced-poster.svg`, 'image/svg+xml');
           break;
           
         case 'faction-card':
@@ -226,7 +232,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
           <ExportPreview format={format} />
         </div>
         
-        {/* Export Presets - P1 Item */}
+        {/* Export Presets - P1 Item - AC6 requirement */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-[#9ca3af] mb-2">
             快速预设
@@ -235,11 +241,13 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
             {EXPORT_PRESETS.map((preset) => (
               <button
                 key={preset.id}
+                role="button"
                 onClick={() => applyPreset(preset)}
                 className="p-2 rounded-lg border border-[#1e2a42] hover:border-[#00d4ff]/50 bg-[#0a0e17] hover:bg-[#00d4ff]/5 transition-all text-center"
+                aria-label={preset.nameEn}
               >
                 <div className="text-xl mb-1">{preset.icon}</div>
-                <div className="text-xs font-medium text-white">{preset.name}</div>
+                <div className="text-xs font-medium text-white">{preset.nameEn}</div>
                 <div className="text-xs text-[#4a5568]">{preset.description}</div>
               </button>
             ))}
@@ -248,8 +256,8 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
         
         {/* Options */}
         <div className="space-y-4">
-          {/* Format Selection */}
-          <div>
+          {/* Format Selection with proper tab roles */}
+          <div role="tablist" aria-label="Export format">
             <label className="block text-sm font-medium text-[#9ca3af] mb-2">
               Export Format
             </label>
@@ -310,10 +318,13 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
                   return (
                     <button
                       key={res}
+                      role="button"
+                      aria-label={`Resolution ${res}`}
+                      aria-pressed={resolution === res}
                       onClick={() => setResolution(res)}
                       className={`p-2 rounded-lg border transition-all text-center ${
                         resolution === res
-                          ? 'border-[#00d4ff] bg-[#00d4ff]/10'
+                          ? 'border-[#00d4ff] bg-[#00d4ff]/10 selected'
                           : 'border-[#1e2a42] hover:border-[#00d4ff]/50'
                       }`}
                     >
@@ -334,6 +345,9 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
+                  role="checkbox"
+                  aria-checked={transparentBackground}
+                  aria-label="transparent background"
                   checked={transparentBackground}
                   onChange={(e) => setTransparentBackground(e.target.checked)}
                   className="sr-only peer"
@@ -365,10 +379,13 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
                   return (
                     <button
                       key={ratio}
+                      role="button"
+                      aria-label={labels[ratio]}
+                      aria-pressed={aspectRatio === ratio}
                       onClick={() => setAspectRatio(ratio)}
                       className={`p-2 rounded-lg border transition-all text-center ${
                         aspectRatio === ratio
-                          ? 'border-[#00d4ff] bg-[#00d4ff]/10'
+                          ? 'border-[#00d4ff] bg-[#00d4ff]/10 selected'
                           : 'border-[#1e2a42] hover:border-[#00d4ff]/50'
                       }`}
                     >
@@ -383,7 +400,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
             </div>
           )}
           
-          {/* P0: Filename Input - Persists across format changes */}
+          {/* P0: Filename Input - Persists across format changes - AC4 requirement */}
           {format !== 'faction-card' && (
             <div>
               <label className="block text-sm font-medium text-[#9ca3af] mb-2">
@@ -391,6 +408,9 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
               </label>
               <input
                 type="text"
+                role="textbox"
+                aria-label="filename"
+                name="filename"
                 value={exportName}
                 onChange={(e) => setExportName(e.target.value)}
                 className="w-full bg-[#0a0e17] border border-[#1e2a42] rounded-lg px-3 py-2 text-white placeholder-[#4a5568] focus:outline-none focus:border-[#00d4ff] transition-colors"
@@ -402,11 +422,14 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
             </div>
           )}
           
-          {/* Output Dimensions Preview */}
+          {/* P0: Output Dimensions Preview with data-testid - AC5 requirement */}
           <div className="p-3 bg-[#0a0e17] rounded-lg border border-[#1e2a42]">
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#9ca3af]">输出尺寸 (Output Size)</span>
-              <span className="text-sm font-mono text-[#00d4ff]">
+              <span 
+                className="text-sm font-mono text-[#00d4ff]"
+                data-testid="dimension-indicator"
+              >
                 {expectedDims.width} × {expectedDims.height} px
               </span>
             </div>
@@ -514,6 +537,8 @@ interface FormatButtonProps {
 function FormatButton({ label, description, icon, selected, onClick }: FormatButtonProps) {
   return (
     <button
+      role="tab"
+      aria-selected={selected}
       onClick={onClick}
       className={`p-3 rounded-lg border transition-all text-center ${
         selected

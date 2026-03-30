@@ -343,3 +343,48 @@ describe('Export Quality Enhancement Tests', () => {
     });
   });
 });
+
+// Import sanitizeFilename function
+import { sanitizeFilename } from '../utils/exportUtils';
+
+describe('AC4b: Filename Sanitization', () => {
+  it('replaces special characters with hyphens', () => {
+    // Spaces and special chars are replaced with single hyphens, then trimmed
+    const unsanitized = 'My Machine!';
+    const sanitized = sanitizeFilename(unsanitized);
+    expect(sanitized).toBe('my-machine');
+  });
+
+  it('converts to lowercase', () => {
+    const unsanitized = 'MY MACHINE';
+    const sanitized = sanitizeFilename(unsanitized);
+    expect(sanitized).toBe('my-machine');
+  });
+
+  it('trims leading hyphens after replacement', () => {
+    const unsanitized = '!!!machine';
+    const sanitized = sanitizeFilename(unsanitized);
+    expect(sanitized).toBe('machine');
+  });
+
+  it('trims trailing hyphens after replacement', () => {
+    const unsanitized = 'machine!!!';
+    const sanitized = sanitizeFilename(unsanitized);
+    expect(sanitized).toBe('machine');
+  });
+
+  it('handles mixed special characters, spaces, and trimming end-to-end', () => {
+    const unsanitized = '  My Machine! @#$%  ';
+    const sanitized = sanitizeFilename(unsanitized);
+    // After lowercase: '  my machine! @#$%  '
+    // After char replacement: '--my-machine------'
+    // After trim: 'my-machine'
+    expect(sanitized).toBe('my-machine');
+  });
+
+  it('collapses multiple consecutive hyphens into one', () => {
+    const unsanitized = 'machine---broken';
+    const sanitized = sanitizeFilename(unsanitized);
+    expect(sanitized).toBe('machine-broken');
+  });
+});
