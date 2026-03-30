@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { hydrateTutorialStore } from '../store/useTutorialStore';
 import { hydrateCodexStore } from '../store/useCodexStore';
 import { hydrateRecipeStore } from '../store/useRecipeStore';
@@ -9,95 +9,111 @@ import { hydrateChallengeStore } from '../store/useChallengeStore';
 import { hydrateCommunityStore } from '../store/useCommunityStore';
 
 /**
- * Store Hydration Hook
+ * Store Hydration Hook - REWRITTEN FOR ROUND 38
  * 
- * Provides controlled hydration for Zustand persist stores.
- * This prevents cascading state updates during initial app load.
+ * This hook provides controlled hydration for Zustand persist stores.
  * 
- * FIXED: Uses module-level state and listener pattern to:
- * - Prevent double hydration across multiple hook instances
- * - Avoid cascading setState calls that trigger update loops
- * - Share hydration state across all components using the hook
+ * PROBLEM WITH PREVIOUS APPROACH:
+ * - Module-level listeners array + setLocalState in callbacks caused cascading updates
+ * - Multiple listeners firing simultaneously triggered "Maximum update depth exceeded"
+ * 
+ * NEW APPROACH (Round 38):
+ * - Simple module-level flag to track hydration status
+ * - useRef to track if hydration has been triggered (prevents double-triggering)
+ * - useState only updates ONCE after hydration completes
+ * - NO listeners, NO callbacks, NO cascading state updates
+ * 
+ * This is a SIMPLE solution that avoids the complexity of the previous approach.
  */
 
 interface HydrationState {
   isHydrated: boolean;
 }
 
-// Module-level state to prevent double hydration and cascading updates
-let hasHydrated = false;
-let hydrationState: HydrationState = { isHydrated: false };
-let hydrationListeners: Array<(state: HydrationState) => void> = [];
+// Module-level flag to track if hydration has been initiated
+// This prevents multiple hydration attempts across React's StrictMode double-render
+let hydrationInitiated = false;
+
+// Track which stores have been hydrated
+const hydratedStores = new Set<string>();
 
 /**
- * Notifies all listeners of hydration state change
+ * Hydrate a single store by name (for debugging/tracking)
  */
-const notifyHydrationChange = () => {
-  hydrationListeners.forEach(listener => listener(hydrationState));
+const hydrateStore = (storeName: string, hydrateFn: () => void) => {
+  if (!hydratedStores.has(storeName)) {
+    hydratedStores.add(storeName);
+    hydrateFn();
+  }
 };
 
 /**
  * Hydrates all persist stores without triggering cascading state updates.
+ * This function runs ONCE per page load.
  */
 const hydrateAllStores = () => {
-  if (hasHydrated) return;
-  hasHydrated = true;
+  if (hydrationInitiated) return;
+  hydrationInitiated = true;
 
   // Hydrate all stores in sequence
-  hydrateTutorialStore();
-  hydrateCodexStore();
-  hydrateRecipeStore();
-  hydrateStatsStore();
-  hydrateFactionStore();
-  hydrateFactionReputationStore();
-  hydrateChallengeStore();
-  hydrateCommunityStore();
-
-  // Update state and notify all listeners
-  hydrationState = { isHydrated: true };
-  notifyHydrationChange();
+  hydrateStore('tutorial', hydrateTutorialStore);
+  hydrateStore('codex', hydrateCodexStore);
+  hydrateStore('recipe', hydrateRecipeStore);
+  hydrateStore('stats', hydrateStatsStore);
+  hydrateStore('faction', hydrateFactionStore);
+  hydrateStore('factionReputation', hydrateFactionReputationStore);
+  hydrateStore('challenge', hydrateChallengeStore);
+  hydrateStore('community', hydrateCommunityStore);
 };
 
 /**
  * Hook to manage store hydration
- * Triggers manual hydration for all persist stores after mount
- * Uses stable initialization to prevent cascading updates
+ * 
+ * This hook:
+ * 1. Triggers hydration ONCE on mount (via useEffect with empty deps)
+ * 2. Updates state ONCE after hydration
+ * 3. Returns stable { isHydrated } state
+ * 
+ * IMPORTANT: The useEffect has empty dependencies [] to ensure it runs exactly once.
+ * This is intentional - hydration should only happen once on app mount.
  */
-export function useStoreHydration() {
-  const [localState, setLocalState] = useState<HydrationState>(hydrationState);
+export function useStoreHydration(): HydrationState {
+  // Use useState to trigger re-renders after hydration
+  // Initial value is false (not hydrated)
+  const [isHydrated, setIsHydrated] = useState(false);
+  
+  // Use useRef to track if we've scheduled hydration
+  // This prevents StrictMode double-invocation issues
+  const hydrationScheduled = useRef(false);
 
   useEffect(() => {
-    // Register listener for state changes
-    const listener = (state: HydrationState) => {
-      setLocalState(state);
-    };
-    hydrationListeners.push(listener);
+    // Only trigger hydration once
+    if (hydrationScheduled.current) return;
+    hydrationScheduled.current = true;
 
-    // Trigger hydration if not already done
-    if (!hasHydrated) {
-      // Use requestAnimationFrame for stable initialization
-      const frameId = requestAnimationFrame(() => {
-        hydrateAllStores();
-      });
-      return () => {
-        hydrationListeners = hydrationListeners.filter(l => l !== listener);
-        cancelAnimationFrame(frameId);
-      };
-    }
+    // Schedule hydration for the next frame
+    // Using requestAnimationFrame ensures we don't block the initial render
+    const frameId = requestAnimationFrame(() => {
+      hydrateAllStores();
+      // Update state ONCE after hydration is triggered
+      // Note: We set this immediately after triggering, not after waiting for promises
+      // because the stores' internal state updates are what matters, not the promises
+      setIsHydrated(true);
+    });
 
     return () => {
-      hydrationListeners = hydrationListeners.filter(l => l !== listener);
+      cancelAnimationFrame(frameId);
     };
-  }, []);
+  }, []); // Empty deps - run exactly once on mount
 
-  return localState;
+  return { isHydrated };
 }
 
 /**
- * Hook to check if all stores are hydrated
- * Reuses the main useStoreHydration hook to share state
+ * Simple hook to check if stores are hydrated
+ * Returns true after hydration completes
  */
 export function useIsHydrated(): boolean {
-  const state = useStoreHydration();
-  return state.isHydrated;
+  const { isHydrated } = useStoreHydration();
+  return isHydrated;
 }
