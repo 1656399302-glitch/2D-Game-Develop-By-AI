@@ -51,56 +51,55 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number; duration: number }>>([]);
 
-  // CRITICAL: Read localStorage synchronously to get the true initial state
-  // This prevents the Zustand hydration race condition
-  const { hasSeenWelcome: localHasSeenWelcome, isTutorialEnabled: localIsTutorialEnabled } = useMemo(
-    () => getInitialTutorialState(),
-    []
-  );
-  
-  // Track if modal has been dismissed this session
+  // FIX: Track modal dismissal in a ref that survives re-renders
   const modalDismissedRef = useRef(false);
 
-  // FIX: Calculate visibility on mount only - no reactive dependencies on store
-  // This prevents the infinite loop caused by store subscriptions in useMemo/useState
+  // FIX: Always compute visibility directly from localStorage
+  // This ensures we use the same source of truth and avoids Zustand hydration issues
   const shouldShowModal = useMemo(() => {
     // Don't show if already dismissed this session
     if (modalDismissedRef.current) {
       return false;
     }
     
-    // Don't show if already seen before (from localStorage)
-    if (localHasSeenWelcome) {
+    // Read from localStorage synchronously
+    const { hasSeenWelcome, isTutorialEnabled } = getInitialTutorialState();
+    
+    // Don't show if already seen before
+    if (hasSeenWelcome) {
       return false;
     }
     
-    // Don't show if tutorial is disabled (from localStorage)
-    // Note: We check localStorage first as the source of truth for initial state
-    if (!localIsTutorialEnabled) {
+    // Don't show if tutorial is disabled
+    if (!isTutorialEnabled) {
       return false;
     }
     
     return true;
-  }, [localHasSeenWelcome, localIsTutorialEnabled]); // Only depends on localStorage, not store
+  }, []); // Empty deps - computed once on mount
 
   // FIX: Trigger entrance animation on mount - empty deps to prevent loops
-  // The check happens once at mount time only
+  // Use a ref to track if we've already shown the animation
+  const animationTriggeredRef = useRef(false);
   useEffect(() => {
-    if (!shouldShowModal) {
+    if (!shouldShowModal || animationTriggeredRef.current) {
       return;
     }
     
+    animationTriggeredRef.current = true;
     // Small delay to ensure DOM is ready
     const timer = setTimeout(() => setIsVisible(true), 50);
     return () => clearTimeout(timer);
-  }, []); // Empty deps - runs once on mount, uses closure value
+  }, []); // Empty deps - runs once on mount
 
-  // FIX: Generate particles on mount when modal should show
+  // FIX: Generate particles on mount when modal should show - empty deps
+  const particlesGeneratedRef = useRef(false);
   useEffect(() => {
-    if (!shouldShowModal) {
+    if (!shouldShowModal || particlesGeneratedRef.current) {
       return;
     }
     
+    particlesGeneratedRef.current = true;
     const newParticles = Array.from({ length: 20 }).map((_, i) => ({
       id: i,
       x: Math.random() * 100,
@@ -108,11 +107,11 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
       duration: 3 + Math.random() * 2,
     }));
     setParticles(newParticles);
-  }, []); // Empty deps - runs once on mount, uses closure value
+  }, []); // Empty deps - runs once on mount
 
   const handleStartTutorial = () => {
-    setIsVisible(false);
     modalDismissedRef.current = true;
+    setIsVisible(false);
     setTimeout(() => {
       onStartTutorial();
     }, 300);
@@ -329,73 +328,46 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   );
 }
 
-// Session-level flag to track if welcome modal has been dismissed
-// This survives across re-renders but not across page refreshes
-let welcomeModalDismissedThisSession = false;
-
 /**
- * Hook to manage welcome modal visibility
+ * Hook to manage welcome modal handlers
  * 
- * CRITICAL: This hook properly handles:
- * 1. Synchronous localStorage reads to avoid Zustand hydration race conditions
- * 2. Session-level dismissal tracking that persists across interactions
- * 3. Safe callback handling that doesn't create stale closures
- * 
- * NOTE: The getInitialTutorialState() function reads Zustand persist data correctly
- * by accessing parsed.state?.hasSeenWelcome and parsed.state?.isTutorialEnabled 
- * because Zustand wraps state in a 'state' key.
+ * FIX (Round 33): This hook now provides only handlers, not visibility state.
+ * Visibility is determined by localStorage directly in App.tsx and WelcomeModal.
+ * This prevents cascading updates from Zustand hydration timing.
  */
-export function useWelcomeModal(setShowLoadPrompt?: (show: boolean) => void) {
-  const setHasSeenWelcome = useTutorialStore((state) => state.setHasSeenWelcome);
-  const setTutorialEnabled = useTutorialStore((state) => state.setTutorialEnabled);
-  const restoreSavedState = useMachineStore((state) => state.restoreSavedState);
+export function useWelcomeModal() {
+  // FIX: Get store actions via refs instead of direct subscription
+  // This prevents the store from triggering re-renders during hydration
+  const setHasSeenWelcomeRef = useRef(useTutorialStore.getState().setHasSeenWelcome);
+  const setTutorialEnabledRef = useRef(useTutorialStore.getState().setTutorialEnabled);
+  const restoreSavedStateRef = useRef(useMachineStore.getState().restoreSavedState);
   
-  // CRITICAL: Read localStorage synchronously to get the true initial state
-  // This prevents the Zustand hydration race condition
-  const initialState = useMemo(() => getInitialTutorialState(), []);
-  
-  // If already dismissed this session, don't show
-  // OR if already seen (hasSeenWelcome is true)
-  // OR if tutorial is disabled (isTutorialEnabled is false)
-  const hasSeenWelcome = welcomeModalDismissedThisSession || initialState.hasSeenWelcome || !initialState.isTutorialEnabled;
-  
-  // State for the modal visibility - starts as false if already seen
-  const [showWelcome, setShowWelcome] = useState(!hasSeenWelcome);
-
-  // Memoize the setShowLoadPrompt to prevent stale closures
-  const setLoadPrompt = useCallback((show: boolean) => {
-    if (setShowLoadPrompt) {
-      setShowLoadPrompt(show);
-    }
-  }, [setShowLoadPrompt]);
+  // FIX: Sync refs with store state to ensure we have the latest actions
+  // but don't trigger re-renders when they change
+  useEffect(() => {
+    setHasSeenWelcomeRef.current = useTutorialStore.getState().setHasSeenWelcome;
+    setTutorialEnabledRef.current = useTutorialStore.getState().setTutorialEnabled;
+    restoreSavedStateRef.current = useMachineStore.getState().restoreSavedState;
+  }, []);
 
   const handleStartTutorial = useCallback(() => {
-    welcomeModalDismissedThisSession = true;
-    setShowWelcome(false);
-    setHasSeenWelcome(true);
+    // Use ref to call the action - no state subscription
+    setHasSeenWelcomeRef.current(true);
     // Don't restore saved state when starting tutorial - user wants to learn first
-  }, [setHasSeenWelcome]);
+  }, []);
 
   const handleSkip = useCallback(() => {
-    welcomeModalDismissedThisSession = true;
-    setShowWelcome(false);
-    setHasSeenWelcome(true);
-    // Also disable tutorial so modal doesn't reappear on refresh
-    setTutorialEnabled(false);
+    // Use refs to call the actions - no state subscription
+    setHasSeenWelcomeRef.current(true);
+    setTutorialEnabledRef.current(false);
     
     // Restore saved state if it exists
     if (hasSavedCanvasState()) {
-      restoreSavedState();
+      restoreSavedStateRef.current();
     }
-    
-    // Suppress LoadPromptModal to prevent confusing UX
-    // where user might click "Start Fresh" and lose their work
-    setLoadPrompt(false);
-  }, [setHasSeenWelcome, setTutorialEnabled, restoreSavedState, setLoadPrompt]);
+  }, []);
 
   return {
-    showWelcome,
-    setShowWelcome,
     handleStartTutorial,
     handleSkip,
   };

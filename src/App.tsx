@@ -36,6 +36,7 @@ import { MobileTouchEnhancer } from './components/Accessibility/MobileTouchEnhan
 import { CommunityGallery } from './components/Community/CommunityGallery';
 import { PublishModal } from './components/Community/PublishModal';
 import { PlacedModule, Connection } from './types';
+import { getInitialTutorialState } from './components/Tutorial/WelcomeModal';
 
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
@@ -127,12 +128,15 @@ function AppContent() {
   // Viewport size for responsive layout
   const viewport = useViewportSize();
   
-  // Welcome modal hook - handles tutorial start/skip internally
+  // FIX: Read localStorage synchronously to determine welcome modal visibility
+  // This prevents Zustand hydration race conditions
+  const { hasSeenWelcome } = getInitialTutorialState();
+  
+  // Welcome modal hook - provides handlers but modal visibility is controlled locally
   const {
-    showWelcome,
     handleStartTutorial,
     handleSkip,
-  } = useWelcomeModal(setShowLoadPrompt);
+  } = useWelcomeModal();
 
   // Check for saved state on mount - FIX: Use ref instead of store action in dependency
   useEffect(() => {
@@ -524,7 +528,9 @@ function AppContent() {
         {/* Publish to Gallery Modal */}
         {isPublishModalOpen && <PublishModal />}
         
-        {showWelcome && <WelcomeModal onStartTutorial={handleStartTutorial} onSkip={handleSkip} />}
+        {/* FIX: Always render WelcomeModal when user hasn't seen it before
+            WelcomeModal itself decides whether to show based on localStorage */}
+        {!hasSeenWelcome && <WelcomeModal onStartTutorial={handleStartTutorial} onSkip={handleSkip} />}
         
         <TutorialOverlay
           onModuleAdded={() => {}}

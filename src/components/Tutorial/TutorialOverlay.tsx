@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTutorialStore } from '../../store/useTutorialStore';
-import { getStepByNumber, TOTAL_TUTORIAL_STEPS } from '../../data/tutorialSteps';
+import { getStepByNumber, TOTAL_TUTORIAL_STEPS, TutorialStep } from '../../data/tutorialSteps';
 import { TutorialTooltip } from './TutorialTooltip';
 import { TutorialSpotlight } from './TutorialSpotlight';
 import { TutorialProgress } from './TutorialProgress';
@@ -36,19 +36,46 @@ export function TutorialOverlay({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const previousStepRef = useRef(currentStep);
 
-  // Get current step data
-  const currentStepData = getStepByNumber(currentStep);
+  // FIX: Memoize currentStepData to prevent updateTargetPosition from recreating on every render
+  // This breaks the potential loop where callback recreation -> effect re-run -> state change -> callback recreation
+  const currentStepData = useMemo<TutorialStep | null>(() => {
+    const step = getStepByNumber(currentStep);
+    return step ?? null;
+  }, [currentStep]);
 
-  // Find and track the target element
+  // FIX: Store callbacks in refs to prevent effect dependency issues
+  const onModuleAddedRef = useRef(onModuleAdded);
+  const onModuleSelectedRef = useRef(onModuleSelected);
+  const onModuleConnectedRef = useRef(onModuleConnected);
+  const onMachineActivatedRef = useRef(onMachineActivated);
+  const onMachineSavedRef = useRef(onMachineSaved);
+
+  useEffect(() => {
+    onModuleAddedRef.current = onModuleAdded;
+    onModuleSelectedRef.current = onModuleSelected;
+    onModuleConnectedRef.current = onModuleConnected;
+    onMachineActivatedRef.current = onMachineActivated;
+    onMachineSavedRef.current = onMachineSaved;
+  }, [onModuleAdded, onModuleSelected, onModuleConnected, onMachineActivated, onMachineSaved]);
+
+  // FIX: updateTargetPosition only depends on primitive values from the store
+  // Using currentStep directly (number) and isTutorialActive (boolean) as dependencies
+  // The currentStepData is memoized, so the callback won't recreate unnecessarily
   const updateTargetPosition = useCallback(() => {
-    if (!isTutorialActive || !currentStepData) {
+    if (!isTutorialActive) {
+      setTargetRect(null);
+      return;
+    }
+
+    // Use the memoized currentStepData
+    if (!currentStepData) {
       setTargetRect(null);
       return;
     }
 
     const selector = currentStepData.targetSelector;
     const element = document.querySelector(selector);
-    
+
     if (element) {
       const rect = element.getBoundingClientRect();
       // Add padding if specified
@@ -62,17 +89,22 @@ export function TutorialOverlay({
     } else {
       setTargetRect(null);
     }
-  }, [isTutorialActive, currentStepData]);
+  }, [isTutorialActive, currentStepData]); // Only depends on stable values
 
   // Update target position on step change and scroll/resize
+  // FIX: Use empty deps with manual tracking to prevent cascading effects
   useEffect(() => {
     if (!isTutorialActive) return;
 
+    // Call updateTargetPosition immediately
     updateTargetPosition();
 
     // Listen for resize and scroll events
-    window.addEventListener('resize', updateTargetPosition);
-    window.addEventListener('scroll', updateTargetPosition, true);
+    const handleResize = () => updateTargetPosition();
+    const handleScroll = () => updateTargetPosition();
+    
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll, true);
 
     // Use MutationObserver to detect DOM changes
     const observer = new MutationObserver(() => {
@@ -87,42 +119,46 @@ export function TutorialOverlay({
     });
 
     return () => {
-      window.removeEventListener('resize', updateTargetPosition);
-      window.removeEventListener('scroll', updateTargetPosition, true);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll, true);
       observer.disconnect();
     };
-  }, [isTutorialActive, currentStep, updateTargetPosition]);
+  }, [isTutorialActive, currentStep, updateTargetPosition]); // Stable dependencies only
 
-  // Track step changes for callbacks
+  // Track step changes for callbacks - use ref to avoid setState in effect
   useEffect(() => {
     if (previousStepRef.current !== currentStep) {
       previousStepRef.current = currentStep;
     }
   }, [currentStep]);
 
-  // Trigger callbacks when advancing through steps
+  // Trigger callbacks when advancing through steps - FIX: use refs for callbacks
+  // FIX: Use empty deps and track previous step via ref to prevent cascading
   useEffect(() => {
     if (!isTutorialActive) return;
-    
-    // Trigger callbacks based on current step completion
-    switch (currentStep) {
-      case 2: // After drag module step (step 1 -> 2)
-        onModuleAdded?.();
-        break;
-      case 3: // After select/rotate step (step 2 -> 3)
-        onModuleSelected?.();
-        break;
-      case 4: // After connect step (step 3 -> 4)
-        onModuleConnected?.();
-        break;
-      case 5: // After activate step (step 4 -> 5)
-        onMachineActivated?.();
-        break;
-      case 6: // After save step - show completion (step 5 -> 6)
-        onMachineSaved?.();
-        break;
+    if (previousStepRef.current !== currentStep) {
+      previousStepRef.current = currentStep;
+      
+      // Trigger callbacks based on current step completion using refs
+      switch (currentStep) {
+        case 2: // After drag module step (step 1 -> 2)
+          onModuleAddedRef.current?.();
+          break;
+        case 3: // After select/rotate step (step 2 -> 3)
+          onModuleSelectedRef.current?.();
+          break;
+        case 4: // After connect step (step 3 -> 4)
+          onModuleConnectedRef.current?.();
+          break;
+        case 5: // After activate step (step 4 -> 5)
+          onMachineActivatedRef.current?.();
+          break;
+        case 6: // After save step - show completion (step 5 -> 6)
+          onMachineSavedRef.current?.();
+          break;
+      }
     }
-  }, [currentStep, isTutorialActive, onModuleAdded, onModuleSelected, onModuleConnected, onMachineActivated, onMachineSaved]);
+  }, [currentStep, isTutorialActive]); // Only primitive dependencies
 
   // Handle manual step navigation
   const handleNext = useCallback(() => {
