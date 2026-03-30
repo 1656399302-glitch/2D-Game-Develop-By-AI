@@ -92,6 +92,10 @@ const DEFAULT_CONFIG: Required<TouchEnhancerConfig> = {
  * WCAG 2.1 AA Compliance:
  * - Touch targets minimum 44x44px
  * - Visual feedback for all touch interactions
+ * 
+ * FIXED (Round 29): useEffect dependency arrays to prevent infinite update loops
+ * - Uses refs for mutable values that shouldn't trigger re-renders
+ * - Stable callback references via useCallback with stable dependencies
  */
 export function MobileTouchEnhancer({
   children,
@@ -123,10 +127,10 @@ export function MobileTouchEnhancer({
     lastGestureTime: 0,
   });
   
-  // Touch points for visualization (AC5: Touch point indicator)
+  // Touch points for visualization (AC5)
   const [touchPoints, setTouchPoints] = useState<TouchPoint[]>([]);
   
-  // Gesture trail for visualization overlay (AC6: Gesture visualization overlay)
+  // Gesture trail for visualization overlay (AC6)
   const [gestureTrail, setGestureTrail] = useState<GestureTrail>({ points: [], type: null });
   
   const [currentTransform, setCurrentTransform] = useState({
@@ -134,6 +138,26 @@ export function MobileTouchEnhancer({
     translateX: 0,
     translateY: 0,
   });
+  
+  // FIX: Use refs for values that are read in callbacks but shouldn't cause re-creation
+  // This prevents the infinite update loop caused by:
+  // setCurrentTransform -> currentTransform changes -> emitGestureDebounced re-created -> handlers re-created -> effect re-runs
+  const currentTransformRef = useRef(currentTransform);
+  useEffect(() => {
+    currentTransformRef.current = currentTransform;
+  }, [currentTransform]);
+  
+  // Store mergedConfig in ref so callbacks don't need to depend on it
+  const mergedConfigRef = useRef(mergedConfig);
+  useEffect(() => {
+    mergedConfigRef.current = mergedConfig;
+  }, [mergedConfig]);
+  
+  // Store onGesture callback in ref
+  const onGestureRef = useRef(onGesture);
+  useEffect(() => {
+    onGestureRef.current = onGesture;
+  }, [onGesture]);
   
   // Memoized touch point IDs
   const touchPointIdRef = useRef(0);
@@ -157,7 +181,7 @@ export function MobileTouchEnhancer({
     };
   }, []);
   
-  // Debounced gesture emit to reduce noise (150ms threshold per contract)
+  // FIX: Debounced gesture emit - uses refs instead of state to avoid dependency chain
   const emitGestureDebounced = useCallback((
     type: GestureType,
     event: Partial<GestureEvent>,
@@ -170,23 +194,25 @@ export function MobileTouchEnhancer({
     if (now - state.lastGestureTime >= debounceMs) {
       state.lastGestureTime = now;
       
-      if (onGesture) {
-        onGesture({
+      const callback = onGestureRef.current;
+      if (callback) {
+        callback({
           type,
           centerX: event.centerX || 0,
           centerY: event.centerY || 0,
-          scale: currentTransform.scale,
+          scale: currentTransformRef.current.scale, // Use ref instead of state
           rotation: 0,
           velocity: event.velocity || { x: 0, y: 0 },
           ...event,
         } as GestureEvent);
       }
     }
-  }, [onGesture, currentTransform.scale, mergedConfig.gestureDebounce]);
+  }, [mergedConfig.gestureDebounce]); // Only depend on primitive values, not callbacks or state
   
-  // Handle touch start
+  // FIX: Handle touch start - use refs for all values that might cause re-creation
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const state = touchStateRef.current;
+    const config = mergedConfigRef.current;
     state.touchCount = e.touches.length;
     state.startTime = Date.now();
     
@@ -208,18 +234,18 @@ export function MobileTouchEnhancer({
     
     if (e.touches.length === 1) {
       state.startPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      state.initialPan = { x: currentTransform.translateX, y: currentTransform.translateY };
+      state.initialPan = { x: currentTransformRef.current.translateX, y: currentTransformRef.current.translateY };
       
       // Setup long-press timer
-      if (mergedConfig.enableLongPress) {
+      if (config.enableLongPress) {
         state.longPressTimer = setTimeout(() => {
           emitGestureDebounced('longPress', {
             centerX: e.touches[0].clientX,
             centerY: e.touches[0].clientY,
           });
-        }, mergedConfig.longPressDelay);
+        }, config.longPressDelay);
       }
-    } else if (e.touches.length === 2 && mergedConfig.enablePinchZoom) {
+    } else if (e.touches.length === 2 && config.enablePinchZoom) {
       // Clear long-press timer
       if (state.longPressTimer) {
         clearTimeout(state.longPressTimer);
@@ -228,17 +254,18 @@ export function MobileTouchEnhancer({
       
       state.isPinching = true;
       state.initialDistance = getTouchDistance(e.touches);
-      state.initialScale = currentTransform.scale;
+      state.initialScale = currentTransformRef.current.scale;
       state.initialCenter = getTouchCenter(e.touches);
       
       // Set gesture trail type
       setGestureTrail({ points: [], type: 'pinch' });
     }
-  }, [currentTransform, mergedConfig, getTouchDistance, getTouchCenter, emitGestureDebounced]);
+  }, [getTouchDistance, getTouchCenter, emitGestureDebounced]); // No state dependencies - use refs instead
   
-  // Handle touch move
+  // FIX: Handle touch move - use refs for values that might cause re-creation
   const handleTouchMove = useCallback((e: TouchEvent) => {
     const state = touchStateRef.current;
+    const config = mergedConfigRef.current;
     
     // Clear long-press timer on move
     if (state.longPressTimer) {
@@ -268,7 +295,7 @@ export function MobileTouchEnhancer({
       }));
     }
     
-    if (e.touches.length === 2 && state.isPinching && mergedConfig.enablePinchZoom) {
+    if (e.touches.length === 2 && state.isPinching && config.enablePinchZoom) {
       e.preventDefault();
       
       const currentDistance = getTouchDistance(e.touches);
@@ -277,8 +304,8 @@ export function MobileTouchEnhancer({
       // Calculate new scale with 0.5x - 2.0x range (AC1)
       const scaleChange = currentDistance / state.initialDistance;
       const newScale = Math.min(
-        Math.max(state.initialScale * scaleChange, mergedConfig.minScale),
-        mergedConfig.maxScale
+        Math.max(state.initialScale * scaleChange, config.minScale),
+        config.maxScale
       );
       
       // Calculate pan offset
@@ -298,7 +325,7 @@ export function MobileTouchEnhancer({
         centerY: center.y,
         scale: newScale,
       });
-    } else if (e.touches.length === 2 && mergedConfig.enableTwoFingerPan) {
+    } else if (e.touches.length === 2 && config.enableTwoFingerPan) {
       e.preventDefault();
       
       const center = getTouchCenter(e.touches);
@@ -323,7 +350,7 @@ export function MobileTouchEnhancer({
       const dx = e.touches[0].clientX - state.startPosition.x;
       const dy = e.touches[0].clientY - state.startPosition.y;
       
-      if (Math.abs(dx) > mergedConfig.panThreshold || Math.abs(dy) > mergedConfig.panThreshold) {
+      if (Math.abs(dx) > config.panThreshold || Math.abs(dy) > config.panThreshold) {
         setCurrentTransform((prev) => ({
           ...prev,
           translateX: prev.translateX + dx * 0.1,
@@ -339,11 +366,12 @@ export function MobileTouchEnhancer({
         });
       }
     }
-  }, [mergedConfig, getTouchDistance, getTouchCenter, emitGestureDebounced]);
+  }, [getTouchDistance, getTouchCenter, emitGestureDebounced]); // No state dependencies - use refs instead
   
-  // Handle touch end
+  // FIX: Handle touch end - use refs for values that might cause re-creation
   const handleTouchEnd = useCallback((e: TouchEvent) => {
     const state = touchStateRef.current;
+    const config = mergedConfigRef.current;
     const duration = Date.now() - state.startTime;
     
     // Clear touch points
@@ -355,7 +383,7 @@ export function MobileTouchEnhancer({
       const dy = e.changedTouches[0].clientY - state.startPosition.y;
       
       // Detect swipe
-      if (Math.abs(dx) > mergedConfig.panThreshold || Math.abs(dy) > mergedConfig.panThreshold) {
+      if (Math.abs(dx) > config.panThreshold || Math.abs(dy) > config.panThreshold) {
         let direction: 'up' | 'down' | 'left' | 'right' = 'right';
         if (Math.abs(dx) > Math.abs(dy)) {
           direction = dx > 0 ? 'right' : 'left';
@@ -392,9 +420,10 @@ export function MobileTouchEnhancer({
     setTimeout(() => {
       setGestureTrail({ points: [], type: null });
     }, 300);
-  }, [mergedConfig.panThreshold, emitGestureDebounced]);
+  }, [emitGestureDebounced]); // Only depends on stable function, not config values directly
   
-  // Attach touch event listeners
+  // FIX: Attach touch event listeners with empty dependencies after defining stable handlers
+  // The handlers are now stable (no state dependencies), so this effect only runs on mount/unmount
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -410,7 +439,7 @@ export function MobileTouchEnhancer({
       container.removeEventListener('touchend', handleTouchEnd);
       container.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, []); // Empty dependency array - handlers are now stable due to ref usage
   
   // Memoize touch point indicator positions
   const touchPointIndicators = useMemo(() => {
@@ -591,6 +620,12 @@ function TouchFeedbackLayer({
 }) {
   const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
   const rippleIdRef = useRef(0);
+  const styleRef = useRef(style);
+  
+  // Keep style ref in sync
+  useEffect(() => {
+    styleRef.current = style;
+  }, [style]);
   
   useEffect(() => {
     const container = containerRef.current;

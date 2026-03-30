@@ -125,6 +125,19 @@ export function Canvas() {
   const setSelection = useSelectionStore((state) => state.setSelection);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
   
+  // FIX (Round 29): Use refs for stable function references to avoid dependency issues
+  // Store setActivationModuleIndex in a ref to use in effects without causing re-runs
+  const setActivationModuleIndexRef = useRef(setActivationModuleIndex);
+  useEffect(() => {
+    setActivationModuleIndexRef.current = setActivationModuleIndex;
+  }, [setActivationModuleIndex]);
+  
+  // Store modules length in ref for use in interval callback
+  const modulesLengthRef = useRef(modules.length);
+  useEffect(() => {
+    modulesLengthRef.current = modules.length;
+  }, [modules.length]);
+  
   // Update viewport size on resize
   useEffect(() => {
     const updateSize = () => {
@@ -221,11 +234,12 @@ export function Canvas() {
     }
   }, [machineState]);
   
-  // Track activation module index based on machine state
+  // FIX (Round 29): Track activation module index based on machine state
+  // Uses refs to avoid dependency on stable store actions that shouldn't cause re-runs
   useEffect(() => {
-    if (machineState !== 'active' || modules.length === 0) {
+    if (machineState !== 'active' || modulesLengthRef.current === 0) {
       if (machineState === 'idle' || machineState === 'shutdown') {
-        setActivationModuleIndex(-1);
+        setActivationModuleIndexRef.current(-1);
       }
       return;
     }
@@ -233,13 +247,13 @@ export function Canvas() {
     // Progressive module activation based on time
     const activationInterval = setInterval(() => {
       const currentIndex = useMachineStore.getState().activationModuleIndex;
-      if (currentIndex < modules.length - 1) {
-        setActivationModuleIndex(currentIndex + 1);
+      if (currentIndex < modulesLengthRef.current - 1) {
+        setActivationModuleIndexRef.current(currentIndex + 1);
       }
     }, 150); // Activate a new module every 150ms
     
     return () => clearInterval(activationInterval);
-  }, [machineState, modules.length, setActivationModuleIndex]);
+  }, [machineState]); // Only depend on machineState, not setActivationModuleIndex or modules.length
   
   // AC8: Viewport culling with 50px buffer - Using performance utils
   const { visibleModules, visibleCount, totalCount } = useMemo(() => {
