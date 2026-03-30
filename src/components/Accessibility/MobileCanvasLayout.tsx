@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 
 /**
@@ -93,13 +93,20 @@ export function MobileCanvasLayout({
   const viewport = useViewportSize();
   const modules = useMachineStore((state) => state.modules);
   
-  // Auto-collapse panels on mobile
+  // FIX: Store previous isMobile value in ref for comparison
+  const prevIsMobileRef = useRef<boolean>(viewport.isMobile);
+  
+  // FIX: Auto-collapse panels on mobile - use ref comparison to detect actual changes
   useEffect(() => {
-    if (viewport.isMobile) {
-      setLeftPanelOpen(false);
-      setRightPanelOpen(false);
+    // Only trigger if isMobile actually changed (not on every render)
+    if (viewport.isMobile !== prevIsMobileRef.current) {
+      prevIsMobileRef.current = viewport.isMobile;
+      if (viewport.isMobile) {
+        setLeftPanelOpen(false);
+        setRightPanelOpen(false);
+      }
     }
-  }, [viewport.isMobile]);
+  }, [viewport.isMobile]); // Only depends on primitive boolean, not object
 
   // Close panels when clicking outside on mobile
   const handleOverlayClick = useCallback(() => {

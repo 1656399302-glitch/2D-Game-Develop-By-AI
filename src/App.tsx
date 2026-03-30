@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense, useRef } from 'react';
 import { Canvas } from './components/Editor/Canvas';
 import { ModulePanel } from './components/Editor/ModulePanel';
 import { PropertiesPanel } from './components/Editor/PropertiesPanel';
@@ -89,6 +89,12 @@ function AppContent() {
   const setShowCodexModal = useMachineStore((state) => state.setShowCodexModal);
   const markStateAsLoaded = useMachineStore((state) => state.markStateAsLoaded);
   
+  // FIX: Store markStateAsLoaded in ref to avoid dependency array issues
+  const markStateAsLoadedRef = useRef(markStateAsLoaded);
+  useEffect(() => {
+    markStateAsLoadedRef.current = markStateAsLoaded;
+  }, [markStateAsLoaded]);
+  
   // Community store
   const isGalleryOpen = useCommunityStore((state) => state.isGalleryOpen);
   const isPublishModalOpen = useCommunityStore((state) => state.isPublishModalOpen);
@@ -122,14 +128,14 @@ function AppContent() {
     handleSkip,
   } = useWelcomeModal(setShowLoadPrompt);
 
-  // Check for saved state on mount
+  // Check for saved state on mount - FIX: Use ref instead of store action in dependency
   useEffect(() => {
     if (hasSavedState()) {
       setShowLoadPrompt(true);
     } else {
-      markStateAsLoaded();
+      markStateAsLoadedRef.current();
     }
-  }, [markStateAsLoaded]);
+  }, []); // Empty deps - runs once on mount
   
   // Use keyboard shortcuts hook
   const { shortcutFeedback } = useKeyboardShortcuts({ enabled: viewMode === 'editor' });

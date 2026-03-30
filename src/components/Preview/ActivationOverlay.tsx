@@ -61,15 +61,26 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   
   const modules = useMachineStore((state) => state.modules);
   const machineState = useMachineStore((state) => state.machineState);
-  const setMachineState = useMachineStore((state) => state.setMachineState);
-  const setShowActivation = useMachineStore((state) => state.setShowActivation);
   const generatedAttributes = useMachineStore((state) => state.generatedAttributes);
-  const startActivationZoom = useMachineStore((state) => state.startActivationZoom);
-  const endActivationZoom = useMachineStore((state) => state.endActivationZoom);
-  const setActivationModuleIndex = useMachineStore((state) => state.setActivationModuleIndex);
+  
+  // FIX: Store all store actions/callbacks in refs to avoid dependency array issues
+  const setMachineStateRef = useRef(useMachineStore.getState().setMachineState);
+  const setShowActivationRef = useRef(useMachineStore.getState().setShowActivation);
+  const startActivationZoomRef = useRef(useMachineStore.getState().startActivationZoom);
+  const endActivationZoomRef = useRef(useMachineStore.getState().endActivationZoom);
+  const setActivationModuleIndexRef = useRef(useMachineStore.getState().setActivationModuleIndex);
   
   const rarity: Rarity = generatedAttributes?.rarity || 'common';
   const rarityColor = getRarityColor(rarity);
+  
+  // FIX: Sync all refs when store actions change
+  useEffect(() => {
+    setMachineStateRef.current = useMachineStore.getState().setMachineState;
+    setShowActivationRef.current = useMachineStore.getState().setShowActivation;
+    startActivationZoomRef.current = useMachineStore.getState().startActivationZoom;
+    endActivationZoomRef.current = useMachineStore.getState().endActivationZoom;
+    setActivationModuleIndexRef.current = useMachineStore.getState().setActivationModuleIndex;
+  }, []);
   
   // Trigger flash effect
   const triggerFlash = useCallback(() => {
@@ -78,6 +89,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       setShowFlash(false);
     }, FLASH_DURATION);
   }, []);
+  
+  // Store triggerFlash in ref
+  const triggerFlashRef = useRef(triggerFlash);
+  useEffect(() => {
+    triggerFlashRef.current = triggerFlash;
+  }, [triggerFlash]);
   
   // Generate completion particles
   const generateParticles = useCallback(() => {
@@ -113,10 +130,22 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     particleAnimationRef.current = requestAnimationFrame(animateParticles);
   }, []);
   
+  // Store generateParticles in ref
+  const generateParticlesRef = useRef(generateParticles);
+  useEffect(() => {
+    generateParticlesRef.current = generateParticles;
+  }, [generateParticles]);
+  
   // Stop ambient particles
   const stopAmbientParticles = useCallback(() => {
     setShowAmbientParticles(false);
   }, []);
+  
+  // Store stopAmbientParticles in ref
+  const stopAmbientParticlesRef = useRef(stopAmbientParticles);
+  useEffect(() => {
+    stopAmbientParticlesRef.current = stopAmbientParticles;
+  }, [stopAmbientParticles]);
   
   // Trigger module burst effect
   const triggerModuleBurst = useCallback((moduleId: string) => {
@@ -129,6 +158,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       });
     }, 500);
   }, []);
+  
+  // Store triggerModuleBurst in ref
+  const triggerModuleBurstRef = useRef(triggerModuleBurst);
+  useEffect(() => {
+    triggerModuleBurstRef.current = triggerModuleBurst;
+  }, [triggerModuleBurst]);
   
   // Viewport shake effect
   const startShake = useCallback((intensity: number) => {
@@ -153,6 +188,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     shake();
   }, []);
   
+  // Store startShake in ref
+  const startShakeRef = useRef(startShake);
+  useEffect(() => {
+    startShakeRef.current = startShake;
+  }, [startShake]);
+  
   // Handle skip
   const handleSkip = useCallback(() => {
     // Clean up all animations
@@ -169,23 +210,35 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       cancelAnimationFrame(shakeAnimationRef.current);
     }
     
-    stopAmbientParticles();
-    setMachineState('idle');
-    setShowActivation(false);
+    stopAmbientParticlesRef.current();
+    setMachineStateRef.current('idle');
+    setShowActivationRef.current(false);
     setViewportOffset({ x: 0, y: 0 });
-    setActivationModuleIndex(-1);
-    endActivationZoom();
+    setActivationModuleIndexRef.current(-1);
+    endActivationZoomRef.current();
     onComplete();
-  }, [setMachineState, setShowActivation, onComplete, stopAmbientParticles, setActivationModuleIndex, endActivationZoom]);
+  }, [onComplete]);
   
-  // Failure mode effect with enhanced glitch
+  // Store onComplete in ref
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+  
+  // Store modules in ref
+  const modulesRef = useRef(modules);
+  useEffect(() => {
+    modulesRef.current = modules;
+  }, [modules]);
+  
+  // Failure mode effect with enhanced glitch - FIX: Use refs instead of direct function calls
   useEffect(() => {
     if (machineState === 'failure') {
       setPhase('failure');
       setProgress(100);
       setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
-      stopAmbientParticles();
-      endActivationZoom();
+      stopAmbientParticlesRef.current();
+      endActivationZoomRef.current();
       
       // Flicker effect
       flickerIntervalRef.current = setInterval(() => {
@@ -203,7 +256,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       }, GLITCH_INTERVAL * 2);
       
       // Start shake
-      startShake(FAILURE_SHAKE_INTENSITY);
+      startShakeRef.current(FAILURE_SHAKE_INTENSITY);
       
       return () => {
         if (flickerIntervalRef.current) {
@@ -217,8 +270,8 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       setPhase('overload');
       setProgress(100);
       setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
-      stopAmbientParticles();
-      endActivationZoom();
+      stopAmbientParticlesRef.current();
+      endActivationZoomRef.current();
       
       // Faster flicker for overload
       flickerIntervalRef.current = setInterval(() => {
@@ -238,7 +291,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
       }, GLITCH_INTERVAL * 3);
       
       // Start shake
-      startShake(OVERLOAD_SHAKE_INTENSITY);
+      startShakeRef.current(OVERLOAD_SHAKE_INTENSITY);
       
       return () => {
         if (flickerIntervalRef.current) {
@@ -249,20 +302,20 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         }
       };
     }
-  }, [machineState, startShake, stopAmbientParticles, endActivationZoom]);
+  }, [machineState]); // Only depends on machineState, not on callbacks
   
-  // Main activation sequence
+  // Main activation sequence - FIX: Use refs instead of direct function calls
   useEffect(() => {
     if (machineState !== 'charging' && machineState !== 'active' && machineState !== 'shutdown') {
       return;
     }
     
-    setMachineState('charging');
+    setMachineStateRef.current('charging');
     setShowAmbientParticles(true);
-    startShake(CHARGING_SHAKE_INTENSITY);
+    startShakeRef.current(CHARGING_SHAKE_INTENSITY);
     
     // Start activation zoom to focus on machine
-    startActivationZoom();
+    startActivationZoomRef.current();
     
     const chargingDuration = 800;
     const activatingDuration = 1200;
@@ -273,43 +326,44 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     
     const animate = () => {
       const elapsed = Date.now() - startTime;
+      const currentModules = modulesRef.current;
       
       if (phase === 'charging') {
         const progressPercent = Math.min(elapsed / chargingDuration, 1);
         setProgress(progressPercent * 30);
         
         if (progressPercent >= 1) {
-          triggerFlash();
+          triggerFlashRef.current();
           setPhase('activating');
-          setMachineState('active');
+          setMachineStateRef.current('active');
           startTime = Date.now();
-          startShake(NORMAL_SHAKE_INTENSITY);
-          setActivationModuleIndex(0);
+          startShakeRef.current(NORMAL_SHAKE_INTENSITY);
+          setActivationModuleIndexRef.current(0);
           
           // Trigger burst for first module (or trigger-switch if exists)
-          const triggerModule = modules.find(m => m.type === 'trigger-switch');
+          const triggerModule = currentModules.find(m => m.type === 'trigger-switch');
           if (triggerModule) {
-            triggerModuleBurst(triggerModule.instanceId);
-          } else if (modules.length > 0) {
-            triggerModuleBurst(modules[0].instanceId);
+            triggerModuleBurstRef.current(triggerModule.instanceId);
+          } else if (currentModules.length > 0) {
+            triggerModuleBurstRef.current(currentModules[0].instanceId);
           }
           
           // Set up sequential module activation
-          const categorizedModules = categorizeModulesForActivation(modules);
+          const categorizedModules = categorizeModulesForActivation(currentModules);
           
           categorizedModules.forEach((group, groupIndex) => {
             group.forEach((_, moduleIndex) => {
               const totalIndex = getTotalModuleIndex(categorizedModules, groupIndex, moduleIndex);
               setTimeout(() => {
                 setCurrentModuleIndex(totalIndex);
-                setActivationModuleIndex(totalIndex);
+                setActivationModuleIndexRef.current(totalIndex);
                 
                 // Trigger burst for this module
-                const module = modules[totalIndex];
+                const module = currentModules[totalIndex];
                 if (module) {
-                  triggerModuleBurst(module.instanceId);
+                  triggerModuleBurstRef.current(module.instanceId);
                 }
-              }, moduleIndex * (activatingDuration / (modules.length || 1)) * 0.4);
+              }, moduleIndex * (activatingDuration / (currentModules.length || 1)) * 0.4);
             });
           });
         }
@@ -317,27 +371,27 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         const progressPercent = Math.min(elapsed / activatingDuration, 1);
         setProgress(30 + progressPercent * 50);
         
-        if (modules.length > 0) {
-          const moduleProgress = (elapsed / activatingDuration) * modules.length;
-          const newIndex = Math.min(Math.floor(moduleProgress), modules.length - 1);
+        if (currentModules.length > 0) {
+          const moduleProgress = (elapsed / activatingDuration) * currentModules.length;
+          const newIndex = Math.min(Math.floor(moduleProgress), currentModules.length - 1);
           if (newIndex !== currentModuleIndex) {
             setCurrentModuleIndex(newIndex);
-            setActivationModuleIndex(newIndex);
+            setActivationModuleIndexRef.current(newIndex);
           }
         }
         
         if (progressPercent >= 1) {
-          triggerFlash();
+          triggerFlashRef.current();
           setPhase('online');
-          setMachineState('shutdown');
+          setMachineStateRef.current('shutdown');
           startTime = Date.now();
           setProgress(80);
           
-          generateParticles();
+          generateParticlesRef.current();
           
           // End activation zoom when complete
           setTimeout(() => {
-            endActivationZoom();
+            endActivationZoomRef.current();
           }, 200);
         }
       } else if (phase === 'online') {
@@ -347,12 +401,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         if (progressPercent >= 1) {
           setProgress(100);
           setTimeout(() => {
-            stopAmbientParticles();
+            stopAmbientParticlesRef.current();
             setViewportOffset({ x: 0, y: 0 });
-            setActivationModuleIndex(-1);
-            setMachineState('idle');
-            setShowActivation(false);
-            onComplete();
+            setActivationModuleIndexRef.current(-1);
+            setMachineStateRef.current('idle');
+            setShowActivationRef.current(false);
+            onCompleteRef.current();
           }, 300);
         }
       }
@@ -367,7 +421,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState, triggerFlash, generateParticles, startShake, stopAmbientParticles, startActivationZoom, endActivationZoom, setActivationModuleIndex, triggerModuleBurst, modules]);
+  }, [phase, progress, machineState]); // Only depends on primitives, not on store actions
   
   const categorizeModulesForActivation = (mods: typeof modules) => {
     const cores: typeof modules = [];
