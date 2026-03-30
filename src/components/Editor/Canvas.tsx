@@ -5,6 +5,7 @@ import { ModuleRenderer } from '../Modules/ModuleRenderer';
 import { EnergyPath } from '../Connections/EnergyPath';
 import { ConnectionPreview } from '../Connections/ConnectionPreview';
 import { AlignmentToolbar } from './AlignmentToolbar';
+import { EnergyPulseVisualizer } from '../Preview/EnergyPulseVisualizer';
 import { calculateShakeOffset } from '../../utils/activationChoreographer';
 import { MODULE_SIZES } from '../../types';
 
@@ -29,6 +30,9 @@ export function Canvas() {
   const shakeStartTimeRef = useRef<number | null>(null);
   const shakeAnimationRef = useRef<number | null>(null);
   
+  // Activation pulse visualization state
+  const [activationPulseStartTime, setActivationPulseStartTime] = useState<number | null>(null);
+  
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
   const viewport = useMachineStore((state) => state.viewport);
@@ -38,6 +42,8 @@ export function Canvas() {
   const connectionPreview = useMachineStore((state) => state.connectionPreview);
   const machineState = useMachineStore((state) => state.machineState);
   const gridEnabled = useMachineStore((state) => state.gridEnabled);
+  const activationZoom = useMachineStore((state) => state.activationZoom);
+  const activationModuleIndex = useMachineStore((state) => state.activationModuleIndex);
   
   const setViewport = useMachineStore((state) => state.setViewport);
   const addModule = useMachineStore((state) => state.addModule);
@@ -47,6 +53,8 @@ export function Canvas() {
   const updateConnectionPreview = useMachineStore((state) => state.updateConnectionPreview);
   const cancelConnection = useMachineStore((state) => state.cancelConnection);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
+  const updateActivationZoom = useMachineStore((state) => state.updateActivationZoom);
+  const setActivationModuleIndex = useMachineStore((state) => state.setActivationModuleIndex);
   
   // Selection store
   const selectedModuleIds = useSelectionStore((state) => state.selectedModuleIds);
@@ -85,7 +93,6 @@ export function Canvas() {
     const params = shakeParams[machineState];
     
     if (params.duration === 0) {
-      // Reset shake
       setShakeOffset({ x: 0, y: 0 });
       if (shakeAnimationRef.current) {
         cancelAnimationFrame(shakeAnimationRef.current);
@@ -95,7 +102,6 @@ export function Canvas() {
       return;
     }
     
-    // Start shake animation
     shakeStartTimeRef.current = performance.now();
     
     const animate = (currentTime: number) => {
@@ -124,12 +130,59 @@ export function Canvas() {
     };
   }, [machineState]);
   
+  // Activation zoom animation effect
+  useEffect(() => {
+    if (!activationZoom.isZooming) return;
+    
+    const animate = (currentTime: number) => {
+      updateActivationZoom(currentTime);
+      
+      // Continue animation if still zooming
+      const { activationZoom: currentZoom } = useMachineStore.getState();
+      if (currentZoom.isZooming) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [activationZoom.isZooming, updateActivationZoom]);
+  
+  // Track activation pulse start time
+  useEffect(() => {
+    if (machineState === 'charging' || machineState === 'active') {
+      if (activationPulseStartTime === null) {
+        setActivationPulseStartTime(performance.now());
+      }
+    } else {
+      setActivationPulseStartTime(null);
+    }
+  }, [machineState]);
+  
+  // Track activation module index based on machine state
+  useEffect(() => {
+    if (machineState !== 'active' || modules.length === 0) {
+      if (machineState === 'idle' || machineState === 'shutdown') {
+        setActivationModuleIndex(-1);
+      }
+      return;
+    }
+    
+    // Progressive module activation based on time
+    const activationInterval = setInterval(() => {
+      const currentIndex = useMachineStore.getState().activationModuleIndex;
+      if (currentIndex < modules.length - 1) {
+        setActivationModuleIndex(currentIndex + 1);
+      }
+    }, 150); // Activate a new module every 150ms
+    
+    return () => clearInterval(activationInterval);
+  }, [machineState, modules.length, setActivationModuleIndex]);
+  
   // Viewport culling - determine which modules are visible
   const visibleModuleIds = useMemo(() => {
     if (modules.length === 0) return new Set<string>();
     
-    // Calculate visible bounds in canvas coordinates
-    const margin = 100; // Extra margin for partially visible modules
+    const margin = 100;
     const visibleBounds = {
       left: -viewport.x / viewport.zoom - margin,
       right: (viewportSize.width - viewport.x) / viewport.zoom + margin,
@@ -145,7 +198,6 @@ export function Canvas() {
       const moduleTop = module.y;
       const moduleBottom = module.y + size.height;
       
-      // Check if module intersects with visible bounds
       if (
         moduleRight >= visibleBounds.left &&
         moduleLeft <= visibleBounds.right &&
@@ -164,7 +216,7 @@ export function Canvas() {
     return modules.filter(m => visibleModuleIds.has(m.instanceId));
   }, [modules, visibleModuleIds]);
   
-  // Get visible connections (only show connections where both endpoints are visible)
+  // Get visible connections
   const visibleConnectionIds = useMemo(() => {
     const visibleConnections = new Set<string>();
     connections.forEach((conn) => {
@@ -202,7 +254,6 @@ export function Canvas() {
       const moduleRight = module.x + size.width;
       const moduleBottom = module.y + size.height;
       
-      // Check if module intersects with selection rectangle
       if (
         module.x < boxSelectionRect.x + boxSelectionRect.width &&
         moduleRight > boxSelectionRect.x &&
@@ -244,7 +295,6 @@ export function Canvas() {
   const getModuleAtPoint = useCallback((clientX: number, clientY: number): string | null => {
     const coords = getCanvasCoordinates(clientX, clientY);
     
-    // Check modules in reverse order (top-most first)
     for (let i = modules.length - 1; i >= 0; i--) {
       const module = modules[i];
       const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
@@ -264,16 +314,13 @@ export function Canvas() {
   
   // Handle mouse down on canvas
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Check if clicking on a module first
     const clickedModuleId = getModuleAtPoint(e.clientX, e.clientY);
     
     if (e.button === 1 || (e.button === 0 && e.shiftKey && !clickedModuleId)) {
-      // Middle mouse or shift+left click on empty area for panning
       setIsPanning(true);
       setDragStart({ x: e.clientX - viewport.x, y: e.clientY - viewport.y });
       e.preventDefault();
     } else if (e.button === 0 && e.shiftKey && !clickedModuleId) {
-      // Shift+Left click on empty area starts box selection
       const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
       setIsBoxSelecting(true);
       setBoxStart(canvasCoords);
@@ -282,20 +329,15 @@ export function Canvas() {
       e.preventDefault();
     } else if (e.button === 0) {
       if (clickedModuleId) {
-        // Clicking on a module
         if (e.shiftKey) {
-          // Shift+Click toggles selection
           toggleSelection(clickedModuleId);
         } else {
-          // Regular click selects the module
           selectModule(clickedModuleId);
           setIsDragging(true);
           setDraggingModule(clickedModuleId);
         }
       } else if (e.target === svgRef.current || (e.target as Element)?.id === 'canvas-background') {
-        // Left click on empty canvas
         if (!e.shiftKey) {
-          // Regular click on empty area clears multi-selection
           clearSelection();
         }
         selectModule(null);
@@ -310,7 +352,6 @@ export function Canvas() {
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
-      // Debounce viewport updates during panning
       if (viewportDebounceRef.current) {
         clearTimeout(viewportDebounceRef.current);
       }
@@ -319,9 +360,8 @@ export function Canvas() {
           x: e.clientX - dragStart.x,
           y: e.clientY - dragStart.y,
         });
-      }, 16); // ~60fps
+      }, 16);
     } else if (isBoxSelecting) {
-      // Update box selection
       const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
       setBoxEnd(canvasCoords);
     } else if (isDragging && draggingModule) {
@@ -340,7 +380,6 @@ export function Canvas() {
     }
     
     if (isBoxSelecting && modulesInBoxSelection.size > 0) {
-      // Select all modules in the box
       setSelection(Array.from(modulesInBoxSelection));
     }
     
@@ -357,7 +396,6 @@ export function Canvas() {
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.25, Math.min(3, viewport.zoom * delta));
     
-    // Zoom towards cursor position
     if (svgRef.current) {
       const rect = svgRef.current.getBoundingClientRect();
       const cursorX = e.clientX - rect.left;
@@ -371,18 +409,17 @@ export function Canvas() {
   }, [viewport, setViewport]);
   
   // Handle module drag start
-  const handleModuleDragStart = useCallback((instanceId: string, e: React.MouseEvent) => {
+  const handleModuleDragStart = useCallback((id: string, e: React.MouseEvent) => {
     if (e.button !== 0) return;
     
-    // If shift key is held, toggle selection instead of dragging
     if (e.shiftKey) {
-      toggleSelection(instanceId);
+      toggleSelection(id);
       return;
     }
     
     setIsDragging(true);
-    setDraggingModule(instanceId);
-    selectModule(instanceId);
+    setDraggingModule(id);
+    selectModule(id);
   }, [selectModule, toggleSelection]);
   
   // Grid pattern
@@ -398,10 +435,26 @@ export function Canvas() {
     'Connect ports by dragging between them',
   ];
   
-  // Check if module is selected (either single or multi-select)
+  // Check if module is selected
   const isModuleSelected = useCallback((instanceId: string) => {
     return instanceId === selectedModuleId || selectedModuleIds.includes(instanceId);
   }, [selectedModuleId, selectedModuleIds]);
+  
+  // Check if module is activated (for activation glow effect)
+  const isModuleActivated = useCallback((_instanceId: string, moduleIndex: number) => {
+    if (machineState === 'idle') return false;
+    if (machineState === 'charging') return false;
+    if (machineState === 'failure' || machineState === 'overload') return true;
+    return moduleIndex <= activationModuleIndex;
+  }, [machineState, activationModuleIndex]);
+  
+  // Get module index in the modules array
+  const getModuleIndex = useCallback((instanceId: string) => {
+    return modules.findIndex(m => m.instanceId === instanceId);
+  }, [modules]);
+  
+  // Check if activation is active
+  const isActivationActive = machineState === 'charging' || machineState === 'active';
   
   return (
     <div 
@@ -492,13 +545,23 @@ export function Canvas() {
           />
         )}
         
-        {/* Content group with transform - includes viewport and camera shake */}
+        {/* Content group with transform */}
         <g 
           id="canvas-content"
           transform={`translate(${viewport.x + shakeOffset.x}, ${viewport.y + shakeOffset.y}) scale(${viewport.zoom})`}
           style={{ willChange: 'transform' }}
         >
-          {/* Connections layer - only render visible connections */}
+          {/* Energy Pulse Visualizer - renders pulse waves on connections */}
+          <EnergyPulseVisualizer
+            connections={connections}
+            modules={modules}
+            isActive={isActivationActive}
+            startTime={activationPulseStartTime || performance.now()}
+            pulseSpeed={400}
+            pulseColor="#00ffcc"
+          />
+          
+          {/* Connections layer */}
           <g id="connections-layer">
             {connections
               .filter(conn => visibleConnectionIds.has(conn.id))
@@ -507,7 +570,7 @@ export function Canvas() {
                   key={connection.id}
                   connection={connection}
                   isSelected={connection.id === selectedConnectionId}
-                  isActive={machineState !== 'idle'}
+                  isActive={isActivationActive}
                   machineState={machineState}
                 />
               ))
@@ -519,17 +582,22 @@ export function Canvas() {
             )}
           </g>
           
-          {/* Modules layer - only render visible modules (viewport culling) */}
+          {/* Modules layer */}
           <g id="modules-layer">
-            {visibleModules.map((module) => (
-              <ModuleRenderer
-                key={module.instanceId}
-                module={module}
-                isSelected={isModuleSelected(module.instanceId)}
-                machineState={machineState}
-                onMouseDown={(e) => handleModuleDragStart(module.instanceId, e)}
-              />
-            ))}
+            {visibleModules.map((module) => {
+              const moduleIdx = getModuleIndex(module.instanceId);
+              return (
+                <ModuleRenderer
+                  key={module.instanceId}
+                  module={module}
+                  isSelected={isModuleSelected(module.instanceId)}
+                  machineState={machineState}
+                  onMouseDown={(e) => handleModuleDragStart(module.instanceId, e)}
+                  isActivated={isModuleActivated(module.instanceId, moduleIdx)}
+                  activationIntensity={isModuleActivated(module.instanceId, moduleIdx) ? 1 : 0}
+                />
+              );
+            })}
           </g>
           
           {/* Box selection rectangle */}
@@ -581,6 +649,13 @@ export function Canvas() {
         )}
       </div>
       
+      {/* Activation zoom indicator */}
+      {activationZoom.isZooming && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded bg-[#00d4ff]/20 border border-[#00d4ff] text-xs text-[#00d4ff]">
+          聚焦机器...
+        </div>
+      )}
+      
       {/* Multi-select indicator */}
       {selectedModuleIds.length > 0 && (
         <div className="absolute bottom-4 right-4 px-3 py-1 rounded bg-[#1e4d8c] border border-[#3b82f6] text-xs text-[#93c5fd]">
@@ -588,7 +663,7 @@ export function Canvas() {
         </div>
       )}
       
-      {/* Enhanced Empty state with animated hints */}
+      {/* Enhanced Empty state */}
       {modules.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center p-8 rounded-lg bg-[#121826]/80 border border-[#1e2a42] max-w-md">
@@ -611,8 +686,8 @@ export function Canvas() {
             </div>
             <p className="text-[#9ca3af] text-lg mb-4 font-medium">开始构建你的魔法机器</p>
             <div className="text-sm text-[#6b7280] space-y-2">
-              {emptyStateHints.map((hint, index) => (
-                <p key={index} className="flex items-center justify-center gap-2">
+              {emptyStateHints.map((hint, idx) => (
+                <p key={idx} className="flex items-center justify-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#00d4ff]/40" aria-hidden="true" />
                   {hint}
                 </p>

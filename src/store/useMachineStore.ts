@@ -37,6 +37,19 @@ interface MachineStore {
   randomForgeToastMessage: string;
   hasLoadedSavedState: boolean;
   
+  // Activation zoom state for enhanced activation visuals
+  activationZoom: {
+    isZooming: boolean;
+    startViewport: ViewportState | null;
+    targetViewport: ViewportState | null;
+    startTime: number;
+    duration: number;
+  };
+  
+  // Activation module index for BFS order tracking
+  activationModuleIndex: number;
+  activationStartTime: number | null;
+  
   // Clipboard for copy/paste
   clipboardModules: PlacedModule[];
   clipboardConnections: Connection[];
@@ -81,6 +94,12 @@ interface MachineStore {
   zoomOut: () => void;
   zoomToFit: () => void;
   
+  // Activation zoom actions
+  startActivationZoom: () => void;
+  updateActivationZoom: (currentTime: number) => ViewportState;
+  endActivationZoom: () => void;
+  setActivationModuleIndex: (index: number) => void;
+  
   // Machine state
   setMachineState: (state: MachineState) => void;
   setShowActivation: (show: boolean) => void;
@@ -124,6 +143,7 @@ const ZOOM_STEP = 0.1;
 const DUPLICATE_OFFSET = 20;
 const AUTO_SAVE_DEBOUNCE = 500; // 500ms debounce for auto-save
 const CLIPBOARD_OFFSET = 30; // Offset for pasted modules
+const ACTIVATION_ZOOM_DURATION = 800; // Duration for zoom animation in ms
 
 // Debounce helper
 let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -146,6 +166,63 @@ const debouncedAutoSave = (
       savedAt: Date.now(),
     });
   }, AUTO_SAVE_DEBOUNCE);
+};
+
+/**
+ * Calculate viewport to zoom to fit all modules with padding
+ */
+const calculateZoomToFitViewport = (
+  modules: PlacedModule[],
+  viewportSize: { width: number; height: number }
+): ViewportState => {
+  if (modules.length === 0) {
+    return { x: 0, y: 0, zoom: 1 };
+  }
+  
+  const PADDING = 100; // Extra padding around machine content
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  modules.forEach((module) => {
+    const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+    minX = Math.min(minX, module.x);
+    minY = Math.min(minY, module.y);
+    maxX = Math.max(maxX, module.x + size.width);
+    maxY = Math.max(maxY, module.y + size.height);
+  });
+
+  const contentWidth = maxX - minX + PADDING * 2;
+  const contentHeight = maxY - minY + PADDING * 2;
+
+  // Calculate zoom to fit with a nice viewing area
+  const zoomX = viewportSize.width / contentWidth;
+  const zoomY = viewportSize.height / contentHeight;
+  const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(zoomX, zoomY)));
+
+  // Calculate offset to center content
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const newX = viewportSize.width / 2 - centerX * newZoom;
+  const newY = viewportSize.height / 2 - centerY * newZoom;
+
+  return { x: newX, y: newY, zoom: newZoom };
+};
+
+/**
+ * Interpolate between two viewport states
+ */
+const interpolateViewport = (
+  start: ViewportState,
+  end: ViewportState,
+  progress: number
+): ViewportState => {
+  // Use ease-out for smooth deceleration
+  const easedProgress = 1 - Math.pow(1 - progress, 3);
+  
+  return {
+    x: start.x + (end.x - start.x) * easedProgress,
+    y: start.y + (end.y - start.y) * easedProgress,
+    zoom: start.zoom + (end.zoom - start.zoom) * easedProgress,
+  };
 };
 
 /**
@@ -191,10 +268,6 @@ const snapToGrid = (value: number, gridSize: number = GRID_SIZE): number => {
   return Math.round(value / gridSize) * gridSize;
 };
 
-const getModuleSize = (type: ModuleType): { width: number; height: number } => {
-  return MODULE_SIZES[type] || { width: 80, height: 80 };
-};
-
 // Initialize with empty state in history
 const initialHistory: HistoryState[] = [{ modules: [], connections: [] }];
 
@@ -218,6 +291,19 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   randomForgeToastMessage: '',
   hasLoadedSavedState: false,
   
+  // Activation zoom state
+  activationZoom: {
+    isZooming: false,
+    startViewport: null,
+    targetViewport: null,
+    startTime: 0,
+    duration: ACTIVATION_ZOOM_DURATION,
+  },
+  
+  // Activation module index
+  activationModuleIndex: -1,
+  activationStartTime: null,
+  
   // Clipboard
   clipboardModules: [],
   clipboardConnections: [],
@@ -228,7 +314,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   addModule: (type, x, y) => {
     const { gridEnabled } = get();
-    const { width, height } = getModuleSize(type);
+    const { width, height } = MODULE_SIZES[type] || { width: 80, height: 80 };
     
     const newModule: PlacedModule = {
       id: uuidv4(),
@@ -326,11 +412,9 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         connections: updatedConnections,
       };
     });
-    // NOTE: Position changes don't save to history (too noisy - happens on every drag)
   },
 
   updateModuleRotation: (instanceId, rotation) => {
-    // First, set the new state
     set((_state) => {
       // Trigger auto-save after state update
       setTimeout(() => {
@@ -345,12 +429,10 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       };
     });
     
-    // THEN save to history (captures the new state)
     get().saveToHistory();
   },
 
   updateModuleScale: (instanceId, scale) => {
-    // Clamp scale between 0.5 and 2.0
     const clampedScale = Math.max(0.5, Math.min(2.0, scale));
     set((_state) => {
       // Trigger auto-save after state update
@@ -368,7 +450,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   updateModuleFlip: (instanceId) => {
-    // First, set the new state
     set((_state) => {
       // Trigger auto-save after state update
       setTimeout(() => {
@@ -383,7 +464,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       };
     });
     
-    // THEN save to history (captures the new state)
     get().saveToHistory();
   },
 
@@ -394,10 +474,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   selectAllModules: () => {
     const { modules } = get();
     if (modules.length === 0) return;
-    
-    // Select all modules (set selected to first module for UI purposes)
-    // In a multi-select scenario, we would track selectedModuleIds as array
-    // For now, select the first one to show selection state
     set({ selectedModuleId: modules[0].instanceId });
   },
 
@@ -431,7 +507,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       })),
     };
 
-    // First, set the new state
     set((state) => {
       // Trigger auto-save after state update
       setTimeout(() => {
@@ -442,20 +517,17 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       return {
         modules: [...state.modules, newModule],
         selectedModuleId: newModule.instanceId,
-        generatedAttributes: null, // Clear generated attributes when manually adding
+        generatedAttributes: null,
       };
     });
     
-    // THEN save to history (captures the new state)
     get().saveToHistory();
   },
 
-  // Batch update multiple modules at once (for alignment and auto-layout)
   updateModulesBatch: (updates) => {
     const { gridEnabled, modules, connections } = get();
     const updateMap = new Map(updates.map(u => [u.instanceId, u]));
 
-    // Update connection paths for affected modules
     const affectedModuleIds = new Set(updates.map(u => u.instanceId));
     const updatedConnections = connections.map((conn) => {
       if (affectedModuleIds.has(conn.sourceModuleId) || affectedModuleIds.has(conn.targetModuleId)) {
@@ -484,7 +556,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         return m;
       });
 
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -497,7 +568,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     });
   },
 
-  // Set module order (for z-index changes)
   setModulesOrder: (orderedModuleIds) => {
     const { modules } = get();
     const moduleMap = new Map(modules.map(m => [m.instanceId, m]));
@@ -505,12 +575,10 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       .map(id => moduleMap.get(id))
       .filter((m): m is PlacedModule => m !== undefined);
 
-    // Add any modules not in the ordered list at the end
     const remainingModules = modules.filter(m => !orderedModuleIds.includes(m.instanceId));
     const finalModules = [...orderedModules, ...remainingModules];
 
     set((_state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -521,7 +589,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       };
     });
 
-    // Save to history after z-order changes
     get().saveToHistory();
   },
 
@@ -529,7 +596,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const { modules, connections, selectedModuleId } = get();
     
     if (!selectedModuleId) {
-      // Copy all modules if none selected
       set({
         clipboardModules: modules.map(m => ({ ...m })),
         clipboardConnections: connections.map(c => ({ ...c })),
@@ -537,14 +603,10 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       return;
     }
     
-    // Find selected module
     const selectedModule = modules.find(m => m.instanceId === selectedModuleId);
     if (!selectedModule) return;
     
-    // Copy selected module and any connections between selected modules
     const copiedModules = [selectedModule];
-    
-    // Also copy any connections that are between copied modules
     const copiedConnections = connections.filter(c => 
       c.sourceModuleId === selectedModuleId || c.targetModuleId === selectedModuleId
     );
@@ -560,13 +622,11 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     
     if (clipboardModules.length === 0) return;
     
-    // Create mapping from old instance IDs to new instance IDs
     const idMapping = new Map<string, string>();
     clipboardModules.forEach(m => {
       idMapping.set(m.instanceId, uuidv4());
     });
     
-    // Create new modules with new IDs and offset position
     const newModules: PlacedModule[] = clipboardModules.map(m => ({
       ...m,
       id: uuidv4(),
@@ -579,7 +639,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       })),
     }));
     
-    // Create new connections with updated module IDs
     const newConnections: Connection[] = clipboardConnections.map(c => ({
       ...c,
       id: uuidv4(),
@@ -587,7 +646,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       targetModuleId: idMapping.get(c.targetModuleId) || c.targetModuleId,
     }));
     
-    // Update connection paths
     const allModules = [...modules, ...newModules];
     const updatedConnections = newConnections.map(conn => {
       const newPath = calculateConnectionPath(
@@ -601,7 +659,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     });
     
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -635,7 +692,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const { connectionStart, modules, connections } = get();
     if (!connectionStart) return;
 
-    // Validate connection
     const sourceModule = modules.find((m) => m.instanceId === connectionStart.moduleId);
     const targetModule = modules.find((m) => m.instanceId === targetModuleId);
 
@@ -652,7 +708,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       return;
     }
 
-    // Can't connect same type ports - show error
     if (sourcePort.type === targetPort.type) {
       set({ 
         isConnecting: false, 
@@ -660,14 +715,12 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         connectionPreview: null,
         connectionError: '连接类型冲突 - 不能连接相同类型的端口',
       });
-      // Clear error after 2 seconds
       setTimeout(() => {
         set({ connectionError: null });
       }, 2000);
       return;
     }
 
-    // Check if connection already exists
     const exists = connections.some(
       (c) =>
         (c.sourceModuleId === connectionStart.moduleId && c.sourcePortId === connectionStart.portId &&
@@ -706,9 +759,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       pathData,
     };
 
-    // First, set the new state
     set((_state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -722,7 +773,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       };
     });
     
-    // THEN save to history (captures the new state)
     get().saveToHistory();
   },
 
@@ -731,9 +781,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   removeConnection: (connectionId) => {
-    // First, set the new state
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -745,7 +793,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       };
     });
     
-    // THEN save to history (captures the new state)
     get().saveToHistory();
   },
 
@@ -755,7 +802,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   setViewport: (viewport) => {
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport: currentViewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
@@ -769,7 +815,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   resetViewport: () => {
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -783,7 +828,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const { viewport } = get();
     const newZoom = Math.min(MAX_ZOOM, viewport.zoom + ZOOM_STEP);
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport: currentViewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
@@ -797,7 +841,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const { viewport } = get();
     const newZoom = Math.max(MIN_ZOOM, viewport.zoom - ZOOM_STEP);
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport: currentViewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
@@ -809,9 +852,10 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   zoomToFit: () => {
     const { modules } = get();
+    const viewportSize = { width: 800, height: 600 };
+    
     if (modules.length === 0) {
       set((state) => {
-        // Trigger auto-save after state update
         setTimeout(() => {
           const { modules, connections, viewport, gridEnabled } = get();
           debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -822,45 +866,90 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       return;
     }
 
-    // Calculate bounding box of all modules
-    const PADDING = 50;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    modules.forEach((module) => {
-      const size = getModuleSize(module.type);
-      minX = Math.min(minX, module.x);
-      minY = Math.min(minY, module.y);
-      maxX = Math.max(maxX, module.x + size.width);
-      maxY = Math.max(maxY, module.y + size.height);
-    });
-
-    const contentWidth = maxX - minX + PADDING * 2;
-    const contentHeight = maxY - minY + PADDING * 2;
-
-    // Get viewport size (assuming 800x600 as default canvas size)
-    const viewportWidth = 800;
-    const viewportHeight = 600;
-
-    // Calculate zoom to fit
-    const zoomX = viewportWidth / contentWidth;
-    const zoomY = viewportHeight / contentHeight;
-    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(zoomX, zoomY)));
-
-    // Calculate offset to center content
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const newX = viewportWidth / 2 - centerX * newZoom;
-    const newY = viewportHeight / 2 - centerY * newZoom;
+    const newViewport = calculateZoomToFitViewport(modules, viewportSize);
 
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
-        const { modules, connections, viewport: currentViewport, gridEnabled } = get();
-        debouncedAutoSave(modules, connections, currentViewport, gridEnabled);
+        const { modules, connections, viewport, gridEnabled } = get();
+        debouncedAutoSave(modules, connections, viewport, gridEnabled);
       }, 0);
       
-      return { viewport: { x: newX, y: newY, zoom: newZoom }, gridEnabled: state.gridEnabled };
+      return { viewport: newViewport, gridEnabled: state.gridEnabled };
     });
+  },
+
+  // Activation zoom actions
+  startActivationZoom: () => {
+    const { viewport, modules } = get();
+    const viewportSize = { width: 800, height: 600 };
+    const targetViewport = calculateZoomToFitViewport(modules, viewportSize);
+    
+    set({
+      activationZoom: {
+        isZooming: true,
+        startViewport: { ...viewport },
+        targetViewport,
+        startTime: performance.now(),
+        duration: ACTIVATION_ZOOM_DURATION,
+      },
+      activationStartTime: performance.now(),
+      activationModuleIndex: -1,
+    });
+  },
+
+  updateActivationZoom: (currentTime) => {
+    const { activationZoom, setViewport } = get();
+    
+    if (!activationZoom.isZooming || !activationZoom.startViewport || !activationZoom.targetViewport) {
+      return get().viewport;
+    }
+    
+    const elapsed = currentTime - activationZoom.startTime;
+    const progress = Math.min(1, elapsed / activationZoom.duration);
+    
+    const newViewport = interpolateViewport(
+      activationZoom.startViewport,
+      activationZoom.targetViewport,
+      progress
+    );
+    
+    // Update the viewport
+    setViewport(newViewport);
+    
+    // Check if zoom is complete
+    if (progress >= 1) {
+      set({
+        activationZoom: {
+          ...activationZoom,
+          isZooming: false,
+        },
+      });
+    }
+    
+    return newViewport;
+  },
+
+  endActivationZoom: () => {
+    const { activationZoom, setViewport } = get();
+    
+    // If we were zooming, snap to final position
+    if (activationZoom.targetViewport) {
+      setViewport(activationZoom.targetViewport);
+    }
+    
+    set({
+      activationZoom: {
+        isZooming: false,
+        startViewport: null,
+        targetViewport: null,
+        startTime: 0,
+        duration: ACTIVATION_ZOOM_DURATION,
+      },
+    });
+  },
+
+  setActivationModuleIndex: (index) => {
+    set({ activationModuleIndex: index });
   },
 
   setMachineState: (state) => {
@@ -873,7 +962,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   activateFailureMode: () => {
     set({ machineState: 'failure', showActivation: true });
-    // Auto-return to idle after 3.5 seconds
     setTimeout(() => {
       set({ machineState: 'idle', showActivation: false });
     }, AUTO_RETURN_DELAY);
@@ -881,7 +969,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   activateOverloadMode: () => {
     set({ machineState: 'overload', showActivation: true });
-    // Auto-return to idle after 3.5 seconds
     setTimeout(() => {
       set({ machineState: 'idle', showActivation: false });
     }, AUTO_RETURN_DELAY);
@@ -889,7 +976,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   toggleGrid: () => {
     set((state) => {
-      // Trigger auto-save after state update
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -901,7 +987,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   undo: () => {
     const { historyIndex, history } = get();
-    // Undo is possible if there's a previous state to restore
     if (historyIndex > 0) {
       const prevState = history[historyIndex - 1];
       set({
@@ -910,7 +995,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         historyIndex: historyIndex - 1,
       });
       
-      // Trigger auto-save after undo
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -920,7 +1004,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   redo: () => {
     const { historyIndex, history } = get();
-    // Redo is possible if there's a future state
     if (historyIndex < history.length - 1) {
       const nextState = history[historyIndex + 1];
       set({
@@ -929,7 +1012,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         historyIndex: historyIndex + 1,
       });
       
-      // Trigger auto-save after redo
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -939,10 +1021,8 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   saveToHistory: () => {
     const { modules, connections, history, historyIndex } = get();
-    // When taking a new action, truncate any redo history
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push({ modules: [...modules], connections: [...connections] });
-    // Keep only last 50 states
     if (newHistory.length > 50) {
       newHistory.shift();
     }
@@ -953,7 +1033,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   clearCanvas: () => {
-    // Set cleared state (preserving history for undo)
     set({
       modules: [],
       connections: [],
@@ -962,10 +1041,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       generatedAttributes: null,
     });
     
-    // Save cleared state to history (enables undo to restore previous state)
     get().saveToHistory();
-    
-    // Clear persisted state
     clearCanvasState();
   },
 
@@ -977,10 +1053,9 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       selectedConnectionId: null,
       history: initialHistory,
       historyIndex: 0,
-      generatedAttributes: null, // Don't carry over attributes from previous machine
+      generatedAttributes: null,
     });
     
-    // Trigger auto-save after load
     setTimeout(() => {
       const { modules, connections, viewport, gridEnabled } = get();
       debouncedAutoSave(modules, connections, viewport, gridEnabled);
@@ -993,7 +1068,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   showRandomForgeToast: (message) => {
     set({ randomForgeToastVisible: true, randomForgeToastMessage: message });
-    // Auto-hide after 2.5 seconds
     setTimeout(() => {
       set({ randomForgeToastVisible: false });
     }, 2500);
@@ -1011,7 +1085,6 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     set({ showCodexModal: show });
   },
   
-  // Persistence methods
   restoreSavedState: () => {
     const savedState = loadCanvasState();
     if (savedState) {

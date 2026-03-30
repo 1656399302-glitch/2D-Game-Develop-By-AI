@@ -10,7 +10,7 @@ interface ActivationOverlayProps {
 
 type Phase = 'idle' | 'charging' | 'activating' | 'online' | 'failure' | 'overload' | 'shutdown';
 
-// Shake intensity constants (in pixels)
+// Shake intensity constants
 const FAILURE_SHAKE_INTENSITY = 8;
 const OVERLOAD_SHAKE_INTENSITY = 8;
 const NORMAL_SHAKE_INTENSITY = 4;
@@ -31,6 +31,10 @@ const FLASH_OPACITY = 0.3;
 const PARTICLE_COUNT = 12;
 const PARTICLE_DURATION = 1000;
 
+// Enhanced glitch/noise effect for failure mode
+const GLITCH_INTERVAL = 30;
+const NOISE_OPACITY = 0.05;
+
 export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const [phase, setPhase] = useState<Phase>('charging');
   const [progress, setProgress] = useState(0);
@@ -42,8 +46,16 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [showAmbientParticles, setShowAmbientParticles] = useState(false);
   
+  // Enhanced glitch/noise state
+  const [showGlitch, setShowGlitch] = useState(false);
+  const [noiseOffset, setNoiseOffset] = useState({ x: 0, y: 0 });
+  
+  // Module burst effects - track which modules should show bursts
+  const [, setActiveBursts] = useState<Set<string>>(new Set());
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const flickerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const glitchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const particleAnimationRef = useRef<number | null>(null);
   const shakeAnimationRef = useRef<number | null>(null);
   
@@ -52,6 +64,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   const setMachineState = useMachineStore((state) => state.setMachineState);
   const setShowActivation = useMachineStore((state) => state.setShowActivation);
   const generatedAttributes = useMachineStore((state) => state.generatedAttributes);
+  const startActivationZoom = useMachineStore((state) => state.startActivationZoom);
+  const endActivationZoom = useMachineStore((state) => state.endActivationZoom);
+  const setActivationModuleIndex = useMachineStore((state) => state.setActivationModuleIndex);
   
   const rarity: Rarity = generatedAttributes?.rarity || 'common';
   const rarityColor = getRarityColor(rarity);
@@ -103,6 +118,18 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     setShowAmbientParticles(false);
   }, []);
   
+  // Trigger module burst effect
+  const triggerModuleBurst = useCallback((moduleId: string) => {
+    setActiveBursts((prev) => new Set([...prev, moduleId]));
+    setTimeout(() => {
+      setActiveBursts((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(moduleId);
+        return newSet;
+      });
+    }, 500);
+  }, []);
+  
   // Viewport shake effect
   const startShake = useCallback((intensity: number) => {
     if (shakeAnimationRef.current) {
@@ -132,6 +159,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     if (flickerIntervalRef.current) {
       clearInterval(flickerIntervalRef.current);
     }
+    if (glitchIntervalRef.current) {
+      clearInterval(glitchIntervalRef.current);
+    }
     if (particleAnimationRef.current) {
       cancelAnimationFrame(particleAnimationRef.current);
     }
@@ -143,21 +173,34 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     setMachineState('idle');
     setShowActivation(false);
     setViewportOffset({ x: 0, y: 0 });
+    setActivationModuleIndex(-1);
+    endActivationZoom();
     onComplete();
-  }, [setMachineState, setShowActivation, onComplete, stopAmbientParticles]);
+  }, [setMachineState, setShowActivation, onComplete, stopAmbientParticles, setActivationModuleIndex, endActivationZoom]);
   
-  // Failure mode effect
+  // Failure mode effect with enhanced glitch
   useEffect(() => {
     if (machineState === 'failure') {
       setPhase('failure');
       setProgress(100);
       setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
       stopAmbientParticles();
+      endActivationZoom();
       
       // Flicker effect
       flickerIntervalRef.current = setInterval(() => {
         setFlicker((prev) => !prev);
       }, FLICKER_INTERVAL);
+      
+      // Enhanced glitch/noise effect for failure
+      glitchIntervalRef.current = setInterval(() => {
+        setShowGlitch(true);
+        setNoiseOffset({
+          x: (Math.random() - 0.5) * 20,
+          y: (Math.random() - 0.5) * 10,
+        });
+        setTimeout(() => setShowGlitch(false), GLITCH_INTERVAL);
+      }, GLITCH_INTERVAL * 2);
       
       // Start shake
       startShake(FAILURE_SHAKE_INTENSITY);
@@ -166,17 +209,33 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         if (flickerIntervalRef.current) {
           clearInterval(flickerIntervalRef.current);
         }
+        if (glitchIntervalRef.current) {
+          clearInterval(glitchIntervalRef.current);
+        }
       };
     } else if (machineState === 'overload') {
       setPhase('overload');
       setProgress(100);
       setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
       stopAmbientParticles();
+      endActivationZoom();
       
       // Faster flicker for overload
       flickerIntervalRef.current = setInterval(() => {
         setFlicker((prev) => !prev);
       }, FLICKER_INTERVAL / 2);
+      
+      // Enhanced glitch effect for overload (less intense than failure)
+      glitchIntervalRef.current = setInterval(() => {
+        if (Math.random() > 0.5) {
+          setShowGlitch(true);
+          setNoiseOffset({
+            x: (Math.random() - 0.5) * 10,
+            y: (Math.random() - 0.5) * 5,
+          });
+          setTimeout(() => setShowGlitch(false), GLITCH_INTERVAL);
+        }
+      }, GLITCH_INTERVAL * 3);
       
       // Start shake
       startShake(OVERLOAD_SHAKE_INTENSITY);
@@ -185,9 +244,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         if (flickerIntervalRef.current) {
           clearInterval(flickerIntervalRef.current);
         }
+        if (glitchIntervalRef.current) {
+          clearInterval(glitchIntervalRef.current);
+        }
       };
     }
-  }, [machineState, startShake, stopAmbientParticles]);
+  }, [machineState, startShake, stopAmbientParticles, endActivationZoom]);
   
   // Main activation sequence
   useEffect(() => {
@@ -198,6 +260,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     setMachineState('charging');
     setShowAmbientParticles(true);
     startShake(CHARGING_SHAKE_INTENSITY);
+    
+    // Start activation zoom to focus on machine
+    startActivationZoom();
     
     const chargingDuration = 800;
     const activatingDuration = 1200;
@@ -219,8 +284,17 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           setMachineState('active');
           startTime = Date.now();
           startShake(NORMAL_SHAKE_INTENSITY);
+          setActivationModuleIndex(0);
           
-          // Show module activation
+          // Trigger burst for first module (or trigger-switch if exists)
+          const triggerModule = modules.find(m => m.type === 'trigger-switch');
+          if (triggerModule) {
+            triggerModuleBurst(triggerModule.instanceId);
+          } else if (modules.length > 0) {
+            triggerModuleBurst(modules[0].instanceId);
+          }
+          
+          // Set up sequential module activation
           const categorizedModules = categorizeModulesForActivation(modules);
           
           categorizedModules.forEach((group, groupIndex) => {
@@ -228,7 +302,14 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
               const totalIndex = getTotalModuleIndex(categorizedModules, groupIndex, moduleIndex);
               setTimeout(() => {
                 setCurrentModuleIndex(totalIndex);
-              }, moduleIndex * (activatingDuration / (modules.length || 1)) * 0.5);
+                setActivationModuleIndex(totalIndex);
+                
+                // Trigger burst for this module
+                const module = modules[totalIndex];
+                if (module) {
+                  triggerModuleBurst(module.instanceId);
+                }
+              }, moduleIndex * (activatingDuration / (modules.length || 1)) * 0.4);
             });
           });
         }
@@ -238,7 +319,11 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         
         if (modules.length > 0) {
           const moduleProgress = (elapsed / activatingDuration) * modules.length;
-          setCurrentModuleIndex(Math.min(Math.floor(moduleProgress), modules.length - 1));
+          const newIndex = Math.min(Math.floor(moduleProgress), modules.length - 1);
+          if (newIndex !== currentModuleIndex) {
+            setCurrentModuleIndex(newIndex);
+            setActivationModuleIndex(newIndex);
+          }
         }
         
         if (progressPercent >= 1) {
@@ -249,6 +334,11 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           setProgress(80);
           
           generateParticles();
+          
+          // End activation zoom when complete
+          setTimeout(() => {
+            endActivationZoom();
+          }, 200);
         }
       } else if (phase === 'online') {
         const progressPercent = Math.min(elapsed / onlineDuration, 1);
@@ -259,6 +349,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           setTimeout(() => {
             stopAmbientParticles();
             setViewportOffset({ x: 0, y: 0 });
+            setActivationModuleIndex(-1);
             setMachineState('idle');
             setShowActivation(false);
             onComplete();
@@ -276,7 +367,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState, triggerFlash, generateParticles, startShake, stopAmbientParticles]);
+  }, [phase, modules.length, setMachineState, setShowActivation, onComplete, progress, machineState, triggerFlash, generateParticles, startShake, stopAmbientParticles, startActivationZoom, endActivationZoom, setActivationModuleIndex, triggerModuleBurst, modules]);
   
   const categorizeModulesForActivation = (mods: typeof modules) => {
     const cores: typeof modules = [];
@@ -405,10 +496,54 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         phase === 'failure' ? 'failure-mode' : ''
       } ${phase === 'overload' ? 'overload-mode' : ''}`}
       style={{
-        transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px)`,
+        transform: `translate(${viewportOffset.x + noiseOffset.x}px, ${viewportOffset.y + noiseOffset.y}px)`,
         transition: 'transform 50ms linear',
       }}
     >
+      {/* Enhanced Glitch/Noise overlay for failure/overload */}
+      {showGlitch && (phase === 'failure' || phase === 'overload') && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            background: `
+              repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(255, 51, 85, ${NOISE_OPACITY}) 2px,
+                rgba(255, 51, 85, ${NOISE_OPACITY}) 4px
+              ),
+              repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 2px,
+                rgba(255, 51, 85, ${NOISE_OPACITY * 0.5}) 2px,
+                rgba(255, 51, 85, ${NOISE_OPACITY * 0.5}) 4px
+              )
+            `,
+            animation: 'glitchNoise 0.1s steps(2) infinite',
+          }}
+        />
+      )}
+      
+      {/* Screen tear effect for failure mode */}
+      {phase === 'failure' && (
+        <div
+          className="fixed inset-0 pointer-events-none overflow-hidden"
+          style={{
+            background: `linear-gradient(
+              to bottom,
+              transparent 0%,
+              rgba(255, 51, 85, ${NOISE_OPACITY * 2}) 48%,
+              rgba(255, 51, 85, ${NOISE_OPACITY * 3}) 50%,
+              rgba(255, 51, 85, ${NOISE_OPACITY * 2}) 52%,
+              transparent 100%
+            )`,
+            transform: `translateY(${Math.random() * 20 - 10}px)`,
+          }}
+        />
+      )}
+      
       {/* Ambient dust particles */}
       {showAmbientParticles && (
         <AmbientDustEmitter
@@ -525,12 +660,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           </div>
         )}
         
-        {/* Failure details */}
+        {/* Failure details with enhanced glitch text */}
         {phase === 'failure' && (
           <div className="mt-4 p-3 bg-[#7f1d1d]/30 rounded-lg border border-[#ff3355]/30">
             <div className="flex items-center gap-2 text-[#ff3355]">
               <span className="text-xl">⚠</span>
-              <span className="text-sm font-medium">System failure detected</span>
+              <span className="text-sm font-medium glitch-text">System failure detected</span>
             </div>
             <div className="mt-2 text-xs text-[#9ca3af]">
               <p>• Energy circuit interrupted</p>
@@ -540,7 +675,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           </div>
         )}
         
-        {/* Overload details */}
+        {/* Overload details with enhanced visual */}
         {phase === 'overload' && (
           <div className="mt-4 p-3 bg-[#78350f]/30 rounded-lg border border-[#ff6b35]/30">
             <div className="flex items-center gap-2 text-[#ff6b35]">
@@ -570,6 +705,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
                     style={{
                       backgroundColor: isActive ? `${moduleColor}20` : '#1e2a42',
                       color: isActive ? moduleColor : '#4a5568',
+                      boxShadow: isActive ? `0 0 8px ${moduleColor}40` : 'none',
                     }}
                   >
                     {mod.type.split('-').map(w => w[0].toUpperCase()).join('') || '??'}
@@ -643,6 +779,23 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         @keyframes titlePulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
+        }
+        @keyframes glitchNoise {
+          0% { transform: translate(2px, 1px); }
+          25% { transform: translate(-2px, -1px); }
+          50% { transform: translate(1px, 2px); }
+          75% { transform: translate(-1px, -2px); }
+          100% { transform: translate(2px, 1px); }
+        }
+        .glitch-text {
+          animation: glitchText 0.3s steps(2) infinite;
+        }
+        @keyframes glitchText {
+          0% { text-shadow: 2px 0 #ff3355, -2px 0 #00ffcc; }
+          25% { text-shadow: -2px 0 #ff3355, 2px 0 #00ffcc; }
+          50% { text-shadow: 1px 2px #ff3355, -1px -2px #00ffcc; }
+          75% { text-shadow: -1px -2px #ff3355, 1px 2px #00ffcc; }
+          100% { text-shadow: 2px 0 #ff3355, -2px 0 #00ffcc; }
         }
       `}</style>
     </div>

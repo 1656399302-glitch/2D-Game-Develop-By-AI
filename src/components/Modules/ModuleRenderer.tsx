@@ -1,27 +1,17 @@
-import { memo, useRef, useCallback, useEffect, useState } from 'react';
+import { memo, useRef, useCallback, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { PlacedModule, Port, MachineState, MODULE_SIZES, MODULE_ACCENT_COLORS } from '../../types';
 import { useMachineStore } from '../../store/useMachineStore';
-import { CoreFurnaceSVG } from './CoreFurnace';
-import { EnergyPipeSVG } from './EnergyPipe';
-import { GearSVG } from './Gear';
-import { RuneNodeSVG } from './RuneNode';
-import { ShieldShellSVG } from './ShieldShell';
-import { TriggerSwitchSVG } from './TriggerSwitch';
-import { OutputArraySVG } from './OutputArray';
-import { AmplifierCrystalSVG } from './AmplifierCrystal';
-import { StabilizerCoreSVG } from './StabilizerCore';
-import { VoidSiphonSVG } from './VoidSiphon';
-import { PhaseModulatorSVG } from './PhaseModulator';
-import { ResonanceChamberSVG } from './ResonanceChamber';
-import { FireCrystalSVG } from './FireCrystal';
-import { LightningConductorSVG } from './LightningConductor';
 
 interface ModuleRendererProps {
   module: PlacedModule;
   isSelected: boolean;
   machineState: MachineState;
   onMouseDown: (e: React.MouseEvent) => void;
+  /** Whether this module is currently activated during activation sequence */
+  isActivated?: boolean;
+  /** Glow intensity from 0-1 for activation effect */
+  activationIntensity?: number;
 }
 
 // Memoized component to prevent unnecessary re-renders
@@ -29,15 +19,14 @@ export const ModuleRenderer = memo(function ModuleRenderer({
   module, 
   isSelected, 
   machineState, 
-  onMouseDown 
+  onMouseDown,
+  isActivated = false,
+  activationIntensity = 0,
 }: ModuleRendererProps) {
   const groupRef = useRef<SVGGElement>(null);
   const glowRef = useRef<SVGCircleElement>(null);
   const startConnection = useMachineStore((state) => state.startConnection);
   const completeConnection = useMachineStore((state) => state.completeConnection);
-  
-  // Track activation glow state
-  const [showActivationGlow, setShowActivationGlow] = useState(false);
   
   // Memoize size lookup
   const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
@@ -47,29 +36,37 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     return MODULE_ACCENT_COLORS[module.type] || '#00d4ff';
   }, [module.type]);
   
-  // GSAP animations based on machine state
+  // GSAP animations based on machine state with enhanced activation glow
   useEffect(() => {
     if (!groupRef.current) return;
     
     const ctx = gsap.context(() => {
+      // Base glow intensity based on activation
+      const baseGlowIntensity = activationIntensity;
+      
       if (machineState === 'idle') {
         gsap.to(groupRef.current, {
           filter: 'drop-shadow(0 0 0px transparent)',
           duration: 0.3,
         });
       } else if (machineState === 'charging') {
+        // Charging state - pulsing blue glow
         gsap.to(groupRef.current, {
-          filter: 'drop-shadow(0 0 8px #00d4ff)',
+          filter: `drop-shadow(0 0 ${8 + baseGlowIntensity * 8}px #00d4ff)`,
           duration: 0.5,
           repeat: -1,
           yoyo: true,
         });
       } else if (machineState === 'active') {
+        // Active state - enhanced glow for activated modules
+        const glowAmount = isActivated ? 16 : 8;
+        const glowColor = isActivated ? '#00ffcc' : '#00d4ff';
         gsap.to(groupRef.current, {
-          filter: 'drop-shadow(0 0 12px #00ffcc)',
-          duration: 0.3,
+          filter: `drop-shadow(0 0 ${glowAmount + baseGlowIntensity * 8}px ${glowColor})`,
+          duration: isActivated ? 0.2 : 0.3,
         });
       } else if (machineState === 'failure') {
+        // Failure state - red flickering glow with shake
         gsap.to(groupRef.current, {
           x: '+=5',
           yoyo: true,
@@ -79,17 +76,25 @@ export const ModuleRenderer = memo(function ModuleRenderer({
             gsap.set(groupRef.current, { x: 0, y: 0 });
           },
         });
-      } else if (machineState === 'overload') {
         gsap.to(groupRef.current, {
-          filter: 'drop-shadow(0 0 20px #ff3355)',
-          scale: 1.1,
+          filter: `drop-shadow(0 0 ${12 + baseGlowIntensity * 8}px #ff3355)`,
+          duration: 0.2,
+          repeat: -1,
+          yoyo: true,
+        });
+      } else if (machineState === 'overload') {
+        // Overload state - intense pulsing orange glow with scale
+        gsap.to(groupRef.current, {
+          filter: `drop-shadow(0 0 ${20 + baseGlowIntensity * 10}px #ff6b35)`,
+          scale: isActivated ? 1.15 : 1.1,
           duration: 0.2,
           yoyo: true,
           repeat: -1,
         });
       } else if (machineState === 'shutdown') {
+        // Shutdown state - fading dim glow
         gsap.to(groupRef.current, {
-          filter: 'drop-shadow(0 0 0px #666)',
+          filter: `drop-shadow(0 0 ${4}px #666)`,
           opacity: 0.5,
           duration: 0.5,
         });
@@ -97,14 +102,14 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     });
     
     return () => ctx.revert();
-  }, [machineState]);
+  }, [machineState, isActivated, activationIntensity]);
   
-  // Module activation glow effect
+  // Module activation glow effect - burst when module becomes activated
   useEffect(() => {
     if (!glowRef.current) return;
     
-    if (showActivationGlow) {
-      // Animate glow expansion
+    if (isActivated && machineState === 'active') {
+      // Trigger burst animation
       const ctx = gsap.context(() => {
         // Reset to initial state
         gsap.set(glowRef.current, {
@@ -114,17 +119,19 @@ export const ModuleRenderer = memo(function ModuleRenderer({
         
         // Animate expansion with ease-out
         gsap.to(glowRef.current, {
-          attr: { r: 60 },
+          attr: { r: 60 + activationIntensity * 20 },
           opacity: 0,
-          duration: 0.3, // 300ms
+          duration: 0.4,
           ease: 'power2.out',
         });
       });
       
       // Clean up after animation
       const timeout = setTimeout(() => {
-        setShowActivationGlow(false);
-      }, 350); // 300ms + 50ms tolerance
+        if (glowRef.current) {
+          gsap.set(glowRef.current, { opacity: 0 });
+        }
+      }, 450);
       
       return () => {
         ctx.revert();
@@ -134,9 +141,9 @@ export const ModuleRenderer = memo(function ModuleRenderer({
       // Hide glow immediately
       gsap.set(glowRef.current, { opacity: 0 });
     }
-  }, [showActivationGlow]);
+  }, [isActivated, machineState, activationIntensity]);
   
-  // Handle port mouse down - memoized
+  // Handle port mouse down
   const handlePortMouseDown = useCallback((port: Port, e: React.MouseEvent) => {
     e.stopPropagation();
     if (port.type === 'output') {
@@ -144,7 +151,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     }
   }, [module.instanceId, startConnection]);
   
-  // Handle port mouse up - memoized
+  // Handle port mouse up
   const handlePortMouseUp = useCallback((port: Port, e: React.MouseEvent) => {
     e.stopPropagation();
     if (port.type === 'input') {
@@ -193,7 +200,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     }
   }, [module.type, machineState]);
   
-  // Get port label with index for multi-port modules
+  // Get port label with index
   const getPortLabel = useCallback((port: Port, index: number) => {
     if (port.type === 'input') {
       const inputCount = module.ports.filter(p => p.type === 'input').length;
@@ -204,7 +211,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     }
   }, [module.ports]);
   
-  // Group ports by type for proper labeling
+  // Group ports by type
   const inputPorts = module.ports.filter(p => p.type === 'input');
   const outputPorts = module.ports.filter(p => p.type === 'output');
   
@@ -214,6 +221,14 @@ export const ModuleRenderer = memo(function ModuleRenderer({
   
   // Generate aria-label for accessibility
   const ariaLabel = `模块 ${module.type}, 位置 (${Math.round(module.x)}, ${Math.round(module.y)}), 旋转 ${module.rotation}°`;
+  
+  // Get glow color based on state
+  const getGlowColor = () => {
+    if (machineState === 'failure') return '#ff3355';
+    if (machineState === 'overload') return '#ff6b35';
+    if (machineState === 'active' && isActivated) return '#00ffcc';
+    return getModuleAccentColor();
+  };
   
   return (
     <g
@@ -227,6 +242,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
       tabIndex={0}
       data-module-id={module.instanceId}
       data-module-type={module.type}
+      data-activated={isActivated}
     >
       {/* Activation glow - radial gradient expanding from module center */}
       <circle
@@ -234,7 +250,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
         cx={centerX}
         cy={centerY}
         r="0"
-        fill={getModuleAccentColor()}
+        fill={getGlowColor()}
         opacity="0"
         filter="url(#glow)"
         style={{ pointerEvents: 'none' }}
@@ -285,7 +301,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
               className="transition-all duration-200"
             />
             
-            {/* Port circle - increased radius for visibility (6px default, 8px hover) */}
+            {/* Port circle */}
             <circle
               r="6"
               fill="#22c55e"
@@ -341,7 +357,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
               className="transition-all duration-200"
             />
             
-            {/* Port circle - increased radius for visibility (6px default, 8px hover) */}
+            {/* Port circle */}
             <circle
               r="6"
               fill="#00d4ff"
@@ -382,8 +398,26 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     prevProps.module.scale === nextProps.module.scale &&
     prevProps.module.flipped === nextProps.module.flipped &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.machineState === nextProps.machineState
+    prevProps.machineState === nextProps.machineState &&
+    prevProps.isActivated === nextProps.isActivated &&
+    prevProps.activationIntensity === nextProps.activationIntensity
   );
 });
+
+// Import all module SVGs
+import { CoreFurnaceSVG } from './CoreFurnace';
+import { EnergyPipeSVG } from './EnergyPipe';
+import { GearSVG } from './Gear';
+import { RuneNodeSVG } from './RuneNode';
+import { ShieldShellSVG } from './ShieldShell';
+import { TriggerSwitchSVG } from './TriggerSwitch';
+import { OutputArraySVG } from './OutputArray';
+import { AmplifierCrystalSVG } from './AmplifierCrystal';
+import { StabilizerCoreSVG } from './StabilizerCore';
+import { VoidSiphonSVG } from './VoidSiphon';
+import { PhaseModulatorSVG } from './PhaseModulator';
+import { ResonanceChamberSVG } from './ResonanceChamber';
+import { FireCrystalSVG } from './FireCrystal';
+import { LightningConductorSVG } from './LightningConductor';
 
 export default ModuleRenderer;
