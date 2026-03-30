@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useRecipeStore } from '../../store/useRecipeStore';
 import { useFactionReputationStore } from '../../store/useFactionReputationStore';
@@ -183,20 +183,23 @@ const checkIsModuleUnlocked = (type: ModuleType): boolean => {
 };
 
 export function ModulePanel() {
-  // FIX: Use individual selectors instead of destructuring entire store
   const addModule = useMachineStore((state) => state.addModule);
   const loadMachine = useMachineStore((state) => state.loadMachine);
   const setGeneratedAttributes = useMachineStore((state) => state.setGeneratedAttributes);
   const showRandomForgeToast = useMachineStore((state) => state.showRandomForgeToast);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const viewport = useMachineStore((state) => state.viewport);
-  
-  // FIX: Use selector for variant unlock status
-  const isVariantUnlocked = useFactionReputationStore((state) => state.isVariantUnlocked);
-  
+
+  // FIX: Create stable function to check variant unlock status using getState()
+  const checkVariantUnlocked = useMemo(() => {
+    return (factionId: string): boolean => {
+      return useFactionReputationStore.getState().isVariantUnlocked(factionId);
+    };
+  }, []);
+
   const [hoveredModule, setHoveredModule] = useState<ModuleInfo | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  
+
   const handleDragStart = useCallback((e: React.DragEvent, moduleType: ModuleType, locked: boolean) => {
     if (locked) {
       e.preventDefault();
@@ -205,14 +208,14 @@ export function ModulePanel() {
     e.dataTransfer.setData('moduleType', moduleType);
     e.dataTransfer.effectAllowed = 'copy';
   }, []);
-  
+
   const handleClick = useCallback((moduleType: ModuleType, locked: boolean) => {
     if (locked) return;
     const x = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
     const y = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
     addModule(moduleType, x, y);
   }, [addModule, viewport]);
-  
+
   const handleRandomForge = useCallback(() => {
     const { modules, connections } = generateRandomMachine({
       canvasWidth: 800,
@@ -225,7 +228,7 @@ export function ModulePanel() {
     saveToHistory();
     showRandomForgeToast(`✨ ${attributes.name} 锻造成功!`);
   }, [loadMachine, setGeneratedAttributes, saveToHistory, showRandomForgeToast]);
-  
+
   const handleMouseEnter = (module: ModuleInfo, e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).closest('.module-item')?.getBoundingClientRect();
     if (rect) {
@@ -236,7 +239,7 @@ export function ModulePanel() {
     }
     setHoveredModule(module);
   };
-  
+
   const handleMouseLeave = () => {
     setHoveredModule(null);
   };
@@ -245,10 +248,10 @@ export function ModulePanel() {
     const recipe = getRecipeForModule(module.type);
     const rarityStyle = recipe ? RARITY_COLORS[recipe.rarity] : null;
     const factionColor = getFactionColor(module.factionId);
-    
+
     // Determine if module is accessible (not locked by recipe or faction rank)
     const isAccessible = !locked && !factionLocked;
-    
+
     return (
       <div
         key={module.type}
@@ -274,13 +277,13 @@ export function ModulePanel() {
         aria-label={`${module.name}${!isAccessible ? ' (已锁定)' : ''}`}
         className={`
           module-item arcane-card group relative transition-all duration-200
-          ${!isAccessible 
-            ? 'cursor-not-allowed opacity-50 grayscale' 
+          ${!isAccessible
+            ? 'cursor-not-allowed opacity-50 grayscale'
             : 'cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:shadow-lg'
           }
         `}
-        style={{ 
-          borderLeftColor: factionColor || CATEGORY_COLORS[module.category], 
+        style={{
+          borderLeftColor: factionColor || CATEGORY_COLORS[module.category],
           borderLeftWidth: '3px',
           ...((!isAccessible) && rarityStyle ? {
             borderColor: `${rarityStyle.primary}40`,
@@ -288,12 +291,12 @@ export function ModulePanel() {
         }}
       >
         <div className="flex items-start gap-3">
-          <div 
+          <div
             className={`
               w-12 h-12 rounded flex items-center justify-center text-2xl relative
               ${!isAccessible ? 'bg-gray-800' : ''}
             `}
-            style={{ 
+            style={{
               backgroundColor: !isAccessible ? '#1f2937' : `${factionColor || CATEGORY_COLORS[module.category]}20`,
               border: !isAccessible ? '1px dashed #4b5563' : `1px solid ${factionColor || CATEGORY_COLORS[module.category]}40`,
             }}
@@ -316,7 +319,7 @@ export function ModulePanel() {
               <ModuleIcon type={module.type} />
             )}
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h3 className={`text-sm font-medium truncate ${!isAccessible ? 'text-gray-500' : 'text-white'}`}>
@@ -335,9 +338,9 @@ export function ModulePanel() {
                   {recipe.hint}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span 
+                  <span
                     className="text-xs px-2 py-0.5 rounded"
-                    style={{ 
+                    style={{
                       backgroundColor: `${rarityStyle?.primary}20`,
                       color: rarityStyle?.primary,
                       border: `1px solid ${rarityStyle?.primary}40`,
@@ -353,9 +356,9 @@ export function ModulePanel() {
                   需要宗师等级解锁
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span 
+                  <span
                     className="text-xs px-2 py-0.5 rounded"
-                    style={{ 
+                    style={{
                       backgroundColor: `${factionColor || '#a78bfa'}20`,
                       color: factionColor || '#a78bfa',
                       border: `1px solid ${factionColor || '#a78bfa'}40`,
@@ -371,9 +374,9 @@ export function ModulePanel() {
                   {module.description}
                 </p>
                 <div className="flex items-center gap-2 mt-2">
-                  <span 
+                  <span
                     className="text-xs px-2 py-0.5 rounded"
-                    style={{ 
+                    style={{
                       backgroundColor: `${factionColor || CATEGORY_COLORS[module.category]}20`,
                       color: factionColor || CATEGORY_COLORS[module.category],
                     }}
@@ -385,16 +388,16 @@ export function ModulePanel() {
             )}
           </div>
         </div>
-        
+
         {!isAccessible && (
-          <div 
+          <div
             className="absolute inset-0 rounded-lg pointer-events-none"
             style={{
               background: 'linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 100%)',
             }}
           />
         )}
-        
+
         {!locked && !factionLocked && (
           <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
         )}
@@ -403,7 +406,7 @@ export function ModulePanel() {
   };
 
   return (
-    <div 
+    <div
       className="module-panel w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden"
       role="region"
       aria-label="模块面板"
@@ -414,7 +417,7 @@ export function ModulePanel() {
         </h2>
         <p className="text-xs text-[#4a5568] mt-1">拖拽或点击添加</p>
       </div>
-      
+
       <div className="p-3 border-b border-[#1e2a42] bg-gradient-to-r from-[#1a1a2e] to-[#121826]">
         <button
           onClick={handleRandomForge}
@@ -438,7 +441,7 @@ export function ModulePanel() {
           创建2-6个随机模块与连接
         </p>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto p-2" role="listbox" aria-label="可用模块">
         <div className="space-y-2">
           {/* Base modules */}
@@ -446,18 +449,18 @@ export function ModulePanel() {
             const locked = checkIsModuleUnlocked(module.type);
             return renderModuleItem(module, locked);
           })}
-          
+
           {/* Faction variant modules - gated by Grandmaster rank */}
           {FACTION_VARIANT_MODULES.map((module) => {
             const locked = checkIsModuleUnlocked(module.type);
-            const factionLocked = module.factionId ? !isVariantUnlocked(module.factionId) : false;
+            const factionLocked = module.factionId ? !checkVariantUnlocked(module.factionId) : false;
             return renderModuleItem(module, locked, factionLocked);
           })}
         </div>
       </div>
-      
+
       {hoveredModule && (
-        <div 
+        <div
           className="fixed z-50 p-3 rounded-lg bg-[#1a1f2e] border border-[#00d4ff]/30 shadow-xl max-w-[260px] pointer-events-none"
           style={{
             left: `${tooltipPosition.x}px`,
@@ -467,7 +470,7 @@ export function ModulePanel() {
           aria-live="polite"
         >
           <div className="flex items-center gap-2 mb-2">
-            <span 
+            <span
               className="w-3 h-3 rounded-full"
               style={{ backgroundColor: getFactionColor(hoveredModule.factionId) || CATEGORY_COLORS[hoveredModule.category] }}
               aria-hidden="true"
@@ -484,13 +487,13 @@ export function ModulePanel() {
           </div>
         </div>
       )}
-      
+
       <div className="p-3 border-t border-[#1e2a42]">
         <p className="text-xs text-[#4a5568] text-center">
           共 {BASE_MODULES.length + FACTION_VARIANT_MODULES.length} 种模块类型
         </p>
       </div>
-      
+
       <style>{`
         @keyframes pulse-subtle {
           0%, 100% {
@@ -500,11 +503,11 @@ export function ModulePanel() {
             box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
           }
         }
-        
+
         .animate-pulse-subtle {
           animation: pulse-subtle 2s ease-in-out infinite;
         }
-        
+
         @media (max-width: 768px) {
           .module-panel {
             width: 100%;
@@ -706,7 +709,7 @@ function ModuleIcon({ type }: { type: ModuleType }) {
       </svg>
     ),
   };
-  
+
   return iconStyles[type] || <span>?</span>;
 }
 

@@ -5,7 +5,7 @@
  * Nodes show locked/unlocked state based on faction machine counts.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FACTIONS, FactionId, TechTreeNode, TECH_TREE_REQUIREMENTS } from '../../types/factions';
 import { useFactionStore } from '../../store/useFactionStore';
 
@@ -14,9 +14,15 @@ interface TechTreeProps {
 }
 
 export const TechTree: React.FC<TechTreeProps> = ({ onClose }) => {
-  const getTechTreeNodes = useFactionStore((state) => state.getTechTreeNodes);
-  const nodes = getTechTreeNodes();
-  
+  const factionCounts = useFactionStore((state) => state.factionCounts);
+
+  // FIX: Use useMemo to call getState() method (not subscription)
+  const nodes = useMemo(() => 
+    useFactionStore.getState().getTechTreeNodes(),
+    // Re-compute when factionCounts changes
+    [factionCounts]
+  );
+
   // Group nodes by faction
   const factionNodes: Record<FactionId, TechTreeNode[]> = {
     void: [],
@@ -24,16 +30,16 @@ export const TechTree: React.FC<TechTreeProps> = ({ onClose }) => {
     storm: [],
     stellar: [],
   };
-  
+
   nodes.forEach((node) => {
     factionNodes[node.faction].push(node);
   });
-  
+
   // Sort each faction's nodes by tier
   (Object.keys(factionNodes) as FactionId[]).forEach((faction) => {
     factionNodes[faction].sort((a, b) => a.tier - b.tier);
   });
-  
+
   return (
     <div
       className="
@@ -55,7 +61,7 @@ export const TechTree: React.FC<TechTreeProps> = ({ onClose }) => {
       >
         {/* Decorative top border */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#a78bfa] via-[#7c3aed] to-[#a78bfa]" />
-        
+
         {/* Header */}
         <div className="p-6 pb-4">
           <div className="flex items-center justify-between">
@@ -70,7 +76,7 @@ export const TechTree: React.FC<TechTreeProps> = ({ onClose }) => {
                 </p>
               </div>
             </div>
-            
+
             {onClose && (
               <button
                 onClick={onClose}
@@ -84,7 +90,7 @@ export const TechTree: React.FC<TechTreeProps> = ({ onClose }) => {
             )}
           </div>
         </div>
-        
+
         {/* Tech tree grid - 4 columns (factions) x 3 rows (tiers) */}
         <div className="px-6 pb-6">
           {/* Column headers */}
@@ -105,7 +111,7 @@ export const TechTree: React.FC<TechTreeProps> = ({ onClose }) => {
               );
             })}
           </div>
-          
+
           {/* Tier rows */}
           {[1, 2, 3].map((tier) => (
             <div key={tier} className="grid grid-cols-4 gap-4 mb-4">
@@ -122,7 +128,7 @@ export const TechTree: React.FC<TechTreeProps> = ({ onClose }) => {
               })}
             </div>
           ))}
-          
+
           {/* Legend */}
           <div className="mt-6 p-4 rounded-xl bg-[#0a0e17]/50 border border-[#1e2a42]">
             <h4 className="text-sm font-medium text-[#9ca3af] mb-3">图例</h4>
@@ -161,8 +167,14 @@ interface TechTreeNodeCardProps {
 
 const TechTreeNodeCard: React.FC<TechTreeNodeCardProps> = ({ node, tierColor }) => {
   const faction = FACTIONS[node.faction];
-  const progress = Math.min(100, (useFactionStore.getState().factionCounts[node.faction] / node.unlockRequirement) * 100);
-  
+  const factionCounts = useFactionStore((state) => state.factionCounts);
+
+  // FIX: Use useMemo for derived calculation
+  const progress = useMemo(() => {
+    const count = factionCounts[node.faction] || 0;
+    return Math.min(100, (count / node.unlockRequirement) * 100);
+  }, [factionCounts, node.faction, node.unlockRequirement]);
+
   return (
     <div
       className={`
@@ -201,25 +213,25 @@ const TechTreeNodeCard: React.FC<TechTreeNodeCardProps> = ({ node, tierColor }) 
           </div>
         )}
       </div>
-      
+
       {/* Node name */}
       <h4
         className={`text-sm font-medium mb-1 ${node.isUnlocked ? 'text-white' : 'text-[#6b7280]'}`}
       >
         {node.name}
       </h4>
-      
+
       {/* Node description */}
       <p className="text-xs text-[#6b7280] mb-2">
         {node.description}
       </p>
-      
+
       {/* Progress bar */}
       {!node.isUnlocked && (
         <div className="mt-2">
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="text-[#6b7280]">
-              {useFactionStore.getState().factionCounts[node.faction]} / {node.unlockRequirement}
+              {factionCounts[node.faction] || 0} / {node.unlockRequirement}
             </span>
             <span style={{ color: faction.color }}>{Math.round(progress)}%</span>
           </div>
@@ -234,7 +246,7 @@ const TechTreeNodeCard: React.FC<TechTreeNodeCardProps> = ({ node, tierColor }) 
           </div>
         </div>
       )}
-      
+
       {/* Unlocked indicator */}
       {node.isUnlocked && (
         <div

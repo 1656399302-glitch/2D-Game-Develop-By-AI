@@ -1,11 +1,4 @@
-/**
- * Community Gallery Panel
- * 
- * A gallery panel where users can browse community-created machines,
- * search/filter results, and load machines into the editor.
- */
-
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useMachineStore } from '../../store/useMachineStore';
 import { CommunityMachine, FactionFilter, RarityFilter, SortOption } from '../../data/communityGalleryData';
@@ -47,7 +40,6 @@ function MachinePreview({ machine }: { machine: CommunityMachine }) {
   const previewWidth = 160;
   const previewHeight = 100;
 
-  // Calculate bounding box
   if (machine.modules.length === 0) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-[#0a0e17]">
@@ -71,7 +63,6 @@ function MachinePreview({ machine }: { machine: CommunityMachine }) {
   return (
     <svg width={previewWidth} height={previewHeight} className="block">
       <rect width={previewWidth} height={previewHeight} fill="#0a0e17" />
-      {/* Draw connections */}
       {machine.connections.map((conn) => {
         const sourceModule = machine.modules.find((m) => m.instanceId === conn.sourceModuleId);
         const targetModule = machine.modules.find((m) => m.instanceId === conn.targetModuleId);
@@ -95,7 +86,6 @@ function MachinePreview({ machine }: { machine: CommunityMachine }) {
           />
         );
       })}
-      {/* Draw modules */}
       {machine.modules.map((mod) => {
         const mx = mod.x * scale + offsetX;
         const my = mod.y * scale + offsetY;
@@ -146,17 +136,14 @@ function MachineCard({
       role="article"
       aria-label={`${machine.attributes.name} by ${machine.author}`}
     >
-      {/* Preview */}
       <div className="relative">
         <MachinePreview machine={machine} />
-        {/* Rarity badge */}
         <div
           className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-bold"
           style={{ backgroundColor: rarityCfg.color + '30', color: rarityCfg.color }}
         >
           {rarityCfg.label}
         </div>
-        {/* Faction indicator */}
         <div
           className="absolute top-2 left-2 w-2 h-2 rounded-full"
           style={{ backgroundColor: faction.color, boxShadow: `0 0 6px ${faction.color}` }}
@@ -164,14 +151,11 @@ function MachineCard({
         />
       </div>
 
-      {/* Info */}
       <div className="p-3">
-        {/* Name */}
         <h3 className="text-sm font-bold text-white truncate mb-1" title={machine.attributes.name}>
           {machine.attributes.name}
         </h3>
 
-        {/* Tags */}
         <div className="flex flex-wrap gap-1 mb-2">
           {machine.attributes.tags.slice(0, 3).map((tag) => (
             <span
@@ -184,7 +168,6 @@ function MachineCard({
           ))}
         </div>
 
-        {/* Author and time */}
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] text-[#6b7280]">
             by <span className="text-[#9ca3af]">{machine.authorName || machine.author}</span>
@@ -192,10 +175,8 @@ function MachineCard({
           <span className="text-[10px] text-[#6b7280]">{formatRelativeTime(machine.publishedAt)}</span>
         </div>
 
-        {/* Stats */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {/* Like button */}
             <button
               onClick={handleLike}
               disabled={isLiked}
@@ -207,13 +188,11 @@ function MachineCard({
               <span>{isLiked ? '❤️' : '🤍'}</span>
               <span>{formatCount(machine.likes + (isLiked ? 1 : 0))}</span>
             </button>
-            {/* View count */}
             <span className="flex items-center gap-1 text-[11px] text-[#6b7280]">
               <span>👁</span>
               <span>{formatCount(machine.views)}</span>
             </span>
           </div>
-          {/* Load button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -248,62 +227,100 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 }
 
 export function CommunityGallery() {
+  // FIX: Use individual selectors for primitive values
   const communityMachines = useCommunityStore((s) => s.communityMachines);
   const publishedMachines = useCommunityStore((s) => s.publishedMachines);
-  const getFilteredMachinesList = useCommunityStore((s) => s.getFilteredMachinesList);
   const searchQuery = useCommunityStore((s) => s.searchQuery);
   const factionFilter = useCommunityStore((s) => s.factionFilter);
   const rarityFilter = useCommunityStore((s) => s.rarityFilter);
   const sortOption = useCommunityStore((s) => s.sortOption);
-  const setSearchQuery = useCommunityStore((s) => s.setSearchQuery);
-  const setFactionFilter = useCommunityStore((s) => s.setFactionFilter);
-  const setRarityFilter = useCommunityStore((s) => s.setRarityFilter);
-  const setSortOption = useCommunityStore((s) => s.setSortOption);
-  const closeGallery = useCommunityStore((s) => s.closeGallery);
-  const likeMachine = useCommunityStore((s) => s.likeMachine);
-  const viewMachine = useCommunityStore((s) => s.viewMachine);
+
+  // FIX: Store method references in refs
+  const setSearchQueryRef = useRef(useCommunityStore.getState().setSearchQuery);
+  const setFactionFilterRef = useRef(useCommunityStore.getState().setFactionFilter);
+  const setRarityFilterRef = useRef(useCommunityStore.getState().setRarityFilter);
+  const setSortOptionRef = useRef(useCommunityStore.getState().setSortOption);
+  const closeGalleryRef = useRef(useCommunityStore.getState().closeGallery);
+  const likeMachineRef = useRef(useCommunityStore.getState().likeMachine);
+  const viewMachineRef = useRef(useCommunityStore.getState().viewMachine);
+
+  // FIX: Periodically sync refs
+  useEffect(() => {
+    setSearchQueryRef.current = useCommunityStore.getState().setSearchQuery;
+    setFactionFilterRef.current = useCommunityStore.getState().setFactionFilter;
+    setRarityFilterRef.current = useCommunityStore.getState().setRarityFilter;
+    setSortOptionRef.current = useCommunityStore.getState().setSortOption;
+    closeGalleryRef.current = useCommunityStore.getState().closeGallery;
+    likeMachineRef.current = useCommunityStore.getState().likeMachine;
+    viewMachineRef.current = useCommunityStore.getState().viewMachine;
+  });
 
   const loadMachine = useMachineStore((s) => s.loadMachine);
   const modules = useMachineStore((s) => s.modules);
 
   const [confirmLoad, setConfirmLoad] = useState<CommunityMachine | null>(null);
-  const filteredMachines = getFilteredMachinesList();
-  const hasFilters = searchQuery !== '' || factionFilter !== 'all' || rarityFilter !== 'all';
 
+  // FIX: Use useMemo to call getState() method (not subscription)
+  const filteredMachines = useMemo(() => 
+    useCommunityStore.getState().getFilteredMachinesList(),
+    [communityMachines, publishedMachines, searchQuery, factionFilter, rarityFilter, sortOption]
+  );
+
+  const hasFilters = searchQuery !== '' || factionFilter !== 'all' || rarityFilter !== 'all';
   const totalCount = communityMachines.length + publishedMachines.length;
 
+  // FIX: Create stable callbacks using refs
   const handleLoadMachine = useCallback(
     (machine: CommunityMachine) => {
       if (modules.length > 0) {
-        // Show confirmation dialog
         setConfirmLoad(machine);
       } else {
-        // No modules in workspace, load directly
         loadMachine(machine.modules, machine.connections);
-        viewMachine(machine.id);
-        closeGallery();
+        viewMachineRef.current(machine.id);
+        closeGalleryRef.current();
       }
     },
-    [modules.length, loadMachine, viewMachine, closeGallery]
+    [modules.length, loadMachine]
   );
 
   const handleConfirmLoad = useCallback(() => {
     if (confirmLoad) {
       loadMachine(confirmLoad.modules, confirmLoad.connections);
-      viewMachine(confirmLoad.id);
+      viewMachineRef.current(confirmLoad.id);
       setConfirmLoad(null);
-      closeGallery();
+      closeGalleryRef.current();
     }
-  }, [confirmLoad, loadMachine, viewMachine, closeGallery]);
+  }, [confirmLoad, loadMachine]);
 
   const handleCancelLoad = useCallback(() => {
     setConfirmLoad(null);
   }, []);
 
+  // FIX: Use useCallback with refs for filter functions
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQueryRef.current(value);
+  }, []);
+
+  const handleFactionChange = useCallback((value: FactionFilter) => {
+    setFactionFilterRef.current(value);
+  }, []);
+
+  const handleRarityChange = useCallback((value: RarityFilter) => {
+    setRarityFilterRef.current(value);
+  }, []);
+
+  const handleSortChange = useCallback((value: SortOption) => {
+    setSortOptionRef.current(value);
+  }, []);
+
+  const handleLike = useCallback((id: string) => {
+    likeMachineRef.current(id);
+  }, []);
+
   // Track views when gallery opens
   useEffect(() => {
     filteredMachines.forEach((m) => {
-      viewMachine(m.id);
+      viewMachineRef.current(m.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -317,7 +334,6 @@ export function CommunityGallery() {
           aria-modal="true"
           aria-label="Community Gallery"
         >
-          {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2a42] bg-[#121826]">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#7c3aed]/20 flex items-center justify-center">
@@ -329,7 +345,7 @@ export function CommunityGallery() {
               </div>
             </div>
             <button
-              onClick={closeGallery}
+              onClick={() => closeGalleryRef.current()}
               className="w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors"
               aria-label="Close community gallery"
             >
@@ -337,14 +353,12 @@ export function CommunityGallery() {
             </button>
           </div>
 
-          {/* Filters */}
           <div className="px-6 py-3 border-b border-[#1e2a42] bg-[#0a0e17] space-y-3">
-            {/* Search */}
             <div className="relative">
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder="Search machines, authors, tags..."
                 className="w-full bg-[#121826] border border-[#1e2a42] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[#7c3aed] transition-colors"
                 aria-label="Search community machines"
@@ -354,7 +368,7 @@ export function CommunityGallery() {
               </span>
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  onClick={() => handleSearchChange('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b7280] hover:text-white text-xs"
                   aria-label="Clear search"
                 >
@@ -363,12 +377,10 @@ export function CommunityGallery() {
               )}
             </div>
 
-            {/* Filter row */}
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Faction filter */}
               <select
                 value={factionFilter}
-                onChange={(e) => setFactionFilter(e.target.value as FactionFilter)}
+                onChange={(e) => handleFactionChange(e.target.value as FactionFilter)}
                 className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer"
                 aria-label="Filter by faction"
               >
@@ -380,10 +392,9 @@ export function CommunityGallery() {
                 ))}
               </select>
 
-              {/* Rarity filter */}
               <select
                 value={rarityFilter}
-                onChange={(e) => setRarityFilter(e.target.value as RarityFilter)}
+                onChange={(e) => handleRarityChange(e.target.value as RarityFilter)}
                 className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer"
                 aria-label="Filter by rarity"
               >
@@ -395,10 +406,9 @@ export function CommunityGallery() {
                 ))}
               </select>
 
-              {/* Sort */}
               <select
                 value={sortOption}
-                onChange={(e) => setSortOption(e.target.value as SortOption)}
+                onChange={(e) => handleSortChange(e.target.value as SortOption)}
                 className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer ml-auto"
                 aria-label="Sort machines"
               >
@@ -409,7 +419,6 @@ export function CommunityGallery() {
             </div>
           </div>
 
-          {/* Machine Grid */}
           <div className="flex-1 overflow-y-auto p-6">
             {filteredMachines.length === 0 ? (
               <EmptyState hasFilters={hasFilters} />
@@ -420,14 +429,13 @@ export function CommunityGallery() {
                     key={machine.id}
                     machine={machine}
                     onLoad={handleLoadMachine}
-                    onLike={likeMachine}
+                    onLike={handleLike}
                   />
                 ))}
               </div>
             )}
           </div>
 
-          {/* Footer */}
           <div className="px-6 py-3 border-t border-[#1e2a42] bg-[#121826] flex items-center justify-between">
             <p className="text-xs text-[#6b7280]">
               Showing {filteredMachines.length} of {totalCount} machines
@@ -444,7 +452,6 @@ export function CommunityGallery() {
         </div>
       </div>
 
-      {/* Load confirmation modal */}
       {confirmLoad && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-[#121826] border border-[#7c3aed]/40 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">

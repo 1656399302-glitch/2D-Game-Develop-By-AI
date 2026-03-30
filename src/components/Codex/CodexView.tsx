@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useCodexStore } from '../../store/useCodexStore';
 import { CodexEntry, PlacedModule, Connection, Rarity } from '../../types';
 import { getRarityColor, getRarityLabel } from '../../utils/attributeGenerator';
@@ -12,22 +12,32 @@ type FilterOption = 'all' | Rarity;
 
 export function CodexView({ onLoadToEditor }: CodexViewProps) {
   const entries = useCodexStore((state) => state.entries);
-  const removeEntry = useCodexStore((state) => state.removeEntry);
-  
+
+  // FIX: Store method reference in ref
+  const removeEntryRef = useRef(useCodexStore.getState().removeEntry);
+
+  // FIX: Periodically sync ref
+  useEffect(() => {
+    removeEntryRef.current = useCodexStore.getState().removeEntry;
+  });
+
+  // FIX: Create stable callback using ref
+  const handleDeleteEntry = useCallback((entryId: string) => {
+    removeEntryRef.current(entryId);
+  }, []);
+
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<CodexEntry | null>(null);
-  
+
   const filteredAndSortedEntries = useMemo(() => {
     let result = [...entries];
-    
-    // Filter
+
     if (filterBy !== 'all') {
       result = result.filter((e) => e.rarity === filterBy);
     }
-    
-    // Search
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -37,8 +47,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
           e.attributes.tags.some((tag) => tag.toLowerCase().includes(query))
       );
     }
-    
-    // Sort
+
     switch (sortBy) {
       case 'newest':
         result.sort((a, b) => b.createdAt - a.createdAt);
@@ -60,24 +69,24 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
         result.sort((a, b) => a.name.localeCompare(b.name));
         break;
     }
-    
+
     return result;
   }, [entries, sortBy, filterBy, searchQuery]);
-  
+
   const handleLoad = (entry: CodexEntry) => {
     onLoadToEditor(entry.modules, entry.connections);
   };
-  
+
   const handleDelete = (entryId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this entry from the Codex?')) {
-      removeEntry(entryId);
+      handleDeleteEntry(entryId);
       if (selectedEntry?.id === entryId) {
         setSelectedEntry(null);
       }
     }
   };
-  
+
   return (
     <div className="flex-1 flex overflow-hidden">
       {/* Main Codex List */}
@@ -89,7 +98,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
               <h2 className="text-lg font-semibold text-[#00d4ff]">Machine Codex</h2>
               <p className="text-sm text-[#9ca3af]">{entries.length} machines recorded</p>
             </div>
-            
+
             {/* Stats */}
             <div className="flex gap-4 text-sm">
               {(['common', 'uncommon', 'rare', 'epic', 'legendary'] as Rarity[]).map((rarity) => {
@@ -106,7 +115,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
               })}
             </div>
           </div>
-          
+
           {/* Filters and Search */}
           <div className="flex gap-3">
             {/* Search */}
@@ -119,7 +128,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
                 className="arcane-input text-sm"
               />
             </div>
-            
+
             {/* Sort */}
             <select
               value={sortBy}
@@ -131,7 +140,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
               <option value="rarity">Rarity</option>
               <option value="name">Name</option>
             </select>
-            
+
             {/* Filter */}
             <select
               value={filterBy}
@@ -147,7 +156,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
             </select>
           </div>
         </div>
-        
+
         {/* Grid */}
         <div className="flex-1 overflow-y-auto p-4">
           {filteredAndSortedEntries.length === 0 ? (
@@ -178,7 +187,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
           )}
         </div>
       </div>
-      
+
       {/* Detail Panel */}
       {selectedEntry && (
         <CodexDetailPanel
@@ -202,7 +211,7 @@ interface CodexCardProps {
 
 function CodexCard({ entry, isSelected, onClick, onLoad, onDelete }: CodexCardProps) {
   const rarityColor = getRarityColor(entry.rarity);
-  
+
   return (
     <div
       onClick={onClick}
@@ -227,14 +236,14 @@ function CodexCard({ entry, isSelected, onClick, onLoad, onDelete }: CodexCardPr
           {getRarityLabel(entry.rarity)}
         </span>
       </div>
-      
+
       {/* Preview */}
       <div className="aspect-video bg-[#0a0e17] rounded mb-3 flex items-center justify-center overflow-hidden">
         <div className="text-[#1e2a42]">
           <MachinePreview modules={entry.modules} />
         </div>
       </div>
-      
+
       {/* Tags */}
       <div className="flex flex-wrap gap-1 mb-3">
         {entry.attributes.tags.slice(0, 3).map((tag) => (
@@ -243,13 +252,13 @@ function CodexCard({ entry, isSelected, onClick, onLoad, onDelete }: CodexCardPr
           </span>
         ))}
       </div>
-      
+
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-[#4a5568]">
         <span>{entry.modules.length} modules</span>
         <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
       </div>
-      
+
       {/* Hover actions */}
       <div className="absolute inset-0 bg-[#0a0e17]/90 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
         <button
@@ -281,7 +290,7 @@ interface CodexDetailPanelProps {
 
 function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanelProps) {
   const rarityColor = getRarityColor(entry.rarity);
-  
+
   return (
     <div className="w-96 bg-[#121826] border-l border-[#1e2a42] flex flex-col overflow-hidden">
       {/* Header */}
@@ -294,7 +303,7 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
           ✕
         </button>
       </div>
-      
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Title */}
@@ -313,12 +322,12 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
             <span className="text-sm text-[#4a5568]">{entry.codexId}</span>
           </div>
         </div>
-        
+
         {/* Preview */}
         <div className="aspect-square bg-[#0a0e17] rounded-lg flex items-center justify-center">
           <MachinePreview modules={entry.modules} large />
         </div>
-        
+
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
           <StatItem label="Stability" value={entry.attributes.stats.stability} color="#22c55e" />
@@ -326,7 +335,7 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
           <StatItem label="Energy" value={entry.attributes.stats.energyCost} color="#00d4ff" />
           <StatItem label="Failure" value={entry.attributes.stats.failureRate} color="#ef4444" />
         </div>
-        
+
         {/* Tags */}
         <div>
           <h4 className="text-xs font-medium text-[#9ca3af] uppercase mb-2">Tags</h4>
@@ -341,7 +350,7 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
             ))}
           </div>
         </div>
-        
+
         {/* Module List */}
         <div>
           <h4 className="text-xs font-medium text-[#9ca3af] uppercase mb-2">
@@ -364,7 +373,7 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
             ))}
           </div>
         </div>
-        
+
         {/* Description */}
         <div>
           <h4 className="text-xs font-medium text-[#9ca3af] uppercase mb-2">Description</h4>
@@ -372,14 +381,14 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
             {entry.attributes.description}
           </p>
         </div>
-        
+
         {/* Metadata */}
         <div className="text-xs text-[#4a5568]">
           <p>Created: {new Date(entry.createdAt).toLocaleString()}</p>
           <p>Connections: {entry.connections.length}</p>
         </div>
       </div>
-      
+
       {/* Actions */}
       <div className="p-4 border-t border-[#1e2a42] space-y-2">
         <button
@@ -418,11 +427,11 @@ function StatItem({ label, value, color }: { label: string; value: number; color
 
 function MachinePreview({ modules, large = false }: { modules: PlacedModule[]; large?: boolean }) {
   const scale = large ? 1 : 0.4;
-  
+
   if (modules.length === 0) {
     return <span className="text-[#1e2a42] text-sm">Empty</span>;
   }
-  
+
   return (
     <svg
       width={200 * scale}

@@ -4,7 +4,7 @@
  * Confirmation dialog for publishing the current machine to the Community Gallery.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { FACTIONS } from '../../types/factions';
 import { Rarity } from '../../types';
@@ -92,34 +92,42 @@ function PublishPreview({ machine }: { machine: NonNullable<ReturnType<typeof us
 
 export function PublishModal() {
   const pendingMachine = useCommunityStore((s) => s.pendingMachine);
-  const closePublishModal = useCommunityStore((s) => s.closePublishModal);
-  const publishMachine = useCommunityStore((s) => s.publishMachine);
+
+  // FIX: Store method references in refs
+  const closePublishModalRef = useRef(useCommunityStore.getState().closePublishModal);
+  const publishMachineRef = useRef(useCommunityStore.getState().publishMachine);
+
+  // FIX: Periodically sync refs
+  useEffect(() => {
+    closePublishModalRef.current = useCommunityStore.getState().closePublishModal;
+    publishMachineRef.current = useCommunityStore.getState().publishMachine;
+  });
+
   const [authorName, setAuthorName] = useState('');
   const [isPublishing, setIsPublishing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // FIX: Create stable callbacks using refs
   const handlePublish = useCallback(() => {
     if (!pendingMachine) return;
     setIsPublishing(true);
 
-    // Simulate a brief delay for feedback
     setTimeout(() => {
-      publishMachine(authorName);
+      publishMachineRef.current(authorName);
       setIsPublishing(false);
       setShowSuccess(true);
 
-      // Auto-close success after 1.5s
       setTimeout(() => {
         setShowSuccess(false);
       }, 1500);
     }, 600);
-  }, [pendingMachine, authorName, publishMachine]);
+  }, [pendingMachine, authorName]);
 
   const handleClose = useCallback(() => {
     if (!isPublishing) {
-      closePublishModal();
+      closePublishModalRef.current();
     }
-  }, [isPublishing, closePublishModal]);
+  }, [isPublishing]);
 
   if (!pendingMachine) return null;
 

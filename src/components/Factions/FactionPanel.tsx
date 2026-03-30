@@ -5,7 +5,7 @@
  * Integrates with FactionReputationPanel for reputation tracking.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FACTIONS, FactionId, TECH_TREE_REQUIREMENTS } from '../../types/factions';
 import { useFactionStore } from '../../store/useFactionStore';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -21,14 +21,26 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
   const [activeTab, setActiveTab] = useState<FactionPanelTab>('factions');
   const factionCounts = useFactionStore((state) => state.factionCounts);
   const selectedFaction = useFactionStore((state) => state.selectedFaction);
-  const setSelectedFaction = useFactionStore((state) => state.setSelectedFaction);
   const machinesCreated = useStatsStore((state) => state.machinesCreated);
-  
+
+  // FIX: Store method reference in ref
+  const setSelectedFactionRef = useRef(useFactionStore.getState().setSelectedFaction);
+
+  // FIX: Periodically sync ref
+  useEffect(() => {
+    setSelectedFactionRef.current = useFactionStore.getState().setSelectedFaction;
+  });
+
+  // FIX: Create stable callback using ref
+  const handleFactionSelect = useCallback((factionId: FactionId) => {
+    setSelectedFactionRef.current(factionId);
+  }, []);
+
   // Calculate total progress across all factions
   const totalProgress = machinesCreated > 0
     ? Math.min(100, (Object.values(factionCounts).reduce((a, b) => a + b, 0) / machinesCreated) * 100)
     : 0;
-  
+
   return (
     <div
       className="
@@ -50,7 +62,7 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
       >
         {/* Decorative top border */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#a78bfa] via-[#7c3aed] to-[#a78bfa]" />
-        
+
         {/* Header */}
         <div className="p-6 pb-4">
           <div className="flex items-center justify-between mb-4">
@@ -65,7 +77,7 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
                 </p>
               </div>
             </div>
-            
+
             {onClose && (
               <button
                 onClick={onClose}
@@ -78,7 +90,7 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
               </button>
             )}
           </div>
-          
+
           {/* Tab Switcher */}
           <div className="flex gap-2">
             <button
@@ -103,7 +115,7 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
             </button>
           </div>
         </div>
-        
+
         {/* Content based on active tab */}
         {activeTab === 'factions' ? (
           <>
@@ -120,7 +132,7 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
                 />
               </div>
             </div>
-            
+
             {/* Faction cards */}
             <div className="px-6 pb-6 space-y-4 max-h-[50vh] overflow-y-auto">
               {(Object.keys(FACTIONS) as FactionId[]).map((factionId) => (
@@ -128,12 +140,12 @@ export const FactionPanel: React.FC<FactionPanelProps> = ({ onClose }) => {
                   key={factionId}
                   factionId={factionId}
                   isSelected={selectedFaction === factionId}
-                  onSelect={() => setSelectedFaction(factionId)}
+                  onSelect={() => handleFactionSelect(factionId)}
                   machineCount={factionCounts[factionId]}
                 />
               ))}
             </div>
-            
+
             {/* Legend */}
             <div className="px-6 pb-6">
               <div className="p-4 rounded-xl bg-[#0a0e17]/50 border border-[#1e2a42]">
@@ -180,10 +192,10 @@ const FactionCard: React.FC<FactionCardProps> = ({
   machineCount,
 }) => {
   const faction = FACTIONS[factionId];
-  
+
   // Tier colors
   const tierColors = ['#22c55e', '#3b82f6', '#f59e0b'];
-  
+
   return (
     <button
       onClick={onSelect}
@@ -211,7 +223,7 @@ const FactionCard: React.FC<FactionCardProps> = ({
         >
           {faction.icon}
         </div>
-        
+
         {/* Faction info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
@@ -229,17 +241,17 @@ const FactionCard: React.FC<FactionCardProps> = ({
               <p className="text-xs text-[#6b7280]">机器</p>
             </div>
           </div>
-          
+
           <p className="text-sm text-[#9ca3af] mb-3">
             {faction.description}
           </p>
-          
+
           {/* Tier progress indicators */}
           <div className="flex items-center gap-4">
             {[1, 2, 3].map((tier) => {
               const isUnlocked = machineCount >= TECH_TREE_REQUIREMENTS[tier as keyof typeof TECH_TREE_REQUIREMENTS];
               const tierColor = tierColors[tier - 1];
-              
+
               return (
                 <div key={tier} className="flex items-center gap-1">
                   <div
@@ -257,7 +269,7 @@ const FactionCard: React.FC<FactionCardProps> = ({
             })}
           </div>
         </div>
-        
+
         {/* Selection indicator */}
         {isSelected && (
           <div className="flex-shrink-0">

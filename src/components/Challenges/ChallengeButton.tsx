@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useChallengeStore } from '../../store/useChallengeStore';
 import { CHALLENGE_DEFINITIONS } from '../../data/challenges';
 
@@ -10,7 +11,12 @@ interface ChallengeButtonProps {
  * Displays current completion count
  */
 export function ChallengeButton({ onClick }: ChallengeButtonProps) {
-  const completedCount = useChallengeStore((state) => state.getCompletedCount());
+  // FIX: Use getState() with useMemo instead of selector-with-method-call
+  // This prevents the selector function from changing on every store update
+  const completedCount = useMemo(() => 
+    useChallengeStore.getState().getCompletedCount(), 
+  []);
+
   const totalCount = CHALLENGE_DEFINITIONS.length;
 
   return (

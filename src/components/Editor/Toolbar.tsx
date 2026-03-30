@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useMachineStatsStore } from '../../store/useMachineStatsStore';
@@ -39,20 +39,32 @@ export function Toolbar() {
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const communityMachines = useCommunityStore((state) => state.communityMachines);
   const publishedMachines = useCommunityStore((state) => state.publishedMachines);
-  const openGallery = useCommunityStore((state) => state.openGallery);
   const toggleStatsPanel = useMachineStatsStore((state) => state.togglePanel);
   const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
-  
+
+  // FIX: Store method reference in ref
+  const openGalleryRef = useRef(useCommunityStore.getState().openGallery);
+
+  // FIX: Periodically sync ref
+  useEffect(() => {
+    openGalleryRef.current = useCommunityStore.getState().openGallery;
+  });
+
+  // FIX: Create stable callback using ref
+  const handleOpenGallery = useCallback(() => {
+    openGalleryRef.current();
+  }, []);
+
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  
+
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
-  
+
   // Total community count
   const totalCommunityCount = communityMachines.length + publishedMachines.length;
-  
+
   // Close menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -60,17 +72,17 @@ export function Toolbar() {
         setShowLayoutMenu(false);
       }
     }
-    
+
     if (showLayoutMenu) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showLayoutMenu]);
-  
+
   // Keyboard navigation
   useEffect(() => {
     if (!showLayoutMenu) return;
-    
+
     function handleKeyDown(event: KeyboardEvent) {
       switch (event.key) {
         case 'Escape':
@@ -79,10 +91,10 @@ export function Toolbar() {
         case 'ArrowDown':
         case 'ArrowUp':
           event.preventDefault();
-          const currentIndex = activeLayout 
+          const currentIndex = activeLayout
             ? LAYOUT_OPTIONS.findIndex(o => o.type === activeLayout)
             : -1;
-          const nextIndex = event.key === 'ArrowDown' 
+          const nextIndex = event.key === 'ArrowDown'
             ? Math.min(currentIndex + 1, LAYOUT_OPTIONS.length - 1)
             : Math.max(currentIndex - 1, 0);
           setActiveLayout(LAYOUT_OPTIONS[nextIndex].type);
@@ -96,23 +108,23 @@ export function Toolbar() {
           break;
       }
     }
-    
+
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showLayoutMenu, activeLayout]);
-  
+
   const handleDuplicate = () => {
     if (selectedModuleId) {
       duplicateModule(selectedModuleId);
     }
   };
-  
+
   const applyLayout = (layoutType: LayoutType) => {
     if (modules.length === 0) return;
-    
+
     const containerWidth = 800;
     const containerHeight = 600;
-    
+
     let result;
     switch (layoutType) {
       case 'grid':
@@ -128,24 +140,24 @@ export function Toolbar() {
         result = autoArrangeCascade(modules, connections, { containerWidth, containerHeight });
         break;
     }
-    
+
     // Update module positions using batch update
     const updates = result.modules.map(m => ({
       instanceId: m.instanceId,
       x: m.x,
       y: m.y,
     }));
-    
+
     updateModulesBatch(updates);
     saveToHistory(); // Save to history after layout change
     setActiveLayout(layoutType);
   };
-  
+
   const handleLayoutSelect = (layoutType: LayoutType) => {
     applyLayout(layoutType);
     setShowLayoutMenu(false);
   };
-  
+
   return (
     <div 
       className="flex items-center gap-4 px-4 py-2 bg-[#121826] border-b border-[#1e2a42]"
@@ -162,7 +174,7 @@ export function Toolbar() {
           连接: <span className="text-[#00ffcc]">{connections.length}</span>
         </span>
       </div>
-      
+
       {/* Center - Test Mode buttons and Auto-Layout */}
       <div className="flex-1 flex justify-center">
         <div className="flex items-center gap-3">
@@ -195,7 +207,7 @@ export function Toolbar() {
                 <path d="M2 4l3 3 3-3" />
               </svg>
             </button>
-            
+
             {/* Dropdown Menu */}
             {showLayoutMenu && (
               <div 
@@ -228,9 +240,9 @@ export function Toolbar() {
               </div>
             )}
           </div>
-          
+
           <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
-          
+
           {/* Test Mode buttons */}
           <div className="flex items-center gap-2" role="group" aria-label="测试模式">
             <button
@@ -241,7 +253,7 @@ export function Toolbar() {
             >
               ⚠ 测试故障
             </button>
-            
+
             <button
               onClick={activateOverloadMode}
               className="px-3 py-1 text-xs rounded bg-[#78350f] text-[#fdba74] hover:bg-[#92400e] hover:text-[#fed7aa] border border-[#f97316]/50 transition-colors"
@@ -253,12 +265,12 @@ export function Toolbar() {
           </div>
         </div>
       </div>
-      
+
       {/* Right side - actions */}
       <div className="flex items-center gap-2">
         {/* Community Gallery Button */}
         <button
-          onClick={openGallery}
+          onClick={handleOpenGallery}
           className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#7c3aed]/20 text-[#a78bfa] hover:bg-[#7c3aed]/30 border border-[#7c3aed]/40 transition-colors"
           title="社区图鉴 - 浏览社区分享的机器"
           aria-label="社区图鉴"
@@ -289,9 +301,9 @@ export function Toolbar() {
           </svg>
           <span>统计</span>
         </button>
-        
+
         <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
-        
+
         {/* Zoom Controls */}
         <div className="flex items-center gap-1 mr-1" role="group" aria-label="缩放控制">
           <button
@@ -305,11 +317,11 @@ export function Toolbar() {
               <path d="M4 6h4" />
             </svg>
           </button>
-          
+
           <span className="text-xs text-[#4a5568] w-10 text-center" aria-label={`当前缩放 ${Math.round(viewport.zoom * 100)}%`}>
             {Math.round(viewport.zoom * 100)}%
           </span>
-          
+
           <button
             onClick={zoomIn}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
@@ -321,7 +333,7 @@ export function Toolbar() {
               <path d="M6 4v4M4 6h4" />
             </svg>
           </button>
-          
+
           <button
             onClick={resetViewport}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
@@ -333,7 +345,7 @@ export function Toolbar() {
               <circle cx="7" cy="7" r="2" />
             </svg>
           </button>
-          
+
           <button
             onClick={zoomToFit}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
@@ -345,9 +357,9 @@ export function Toolbar() {
             </svg>
           </button>
         </div>
-        
+
         <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
-        
+
         {/* Duplicate button */}
         <button
           onClick={handleDuplicate}
@@ -361,7 +373,7 @@ export function Toolbar() {
             <path d="M2 10V2h8" />
           </svg>
         </button>
-        
+
         <button
           onClick={undo}
           disabled={!canUndo}
@@ -374,7 +386,7 @@ export function Toolbar() {
             <path d="M5 4L3 7l2 3" />
           </svg>
         </button>
-        
+
         <button
           onClick={redo}
           disabled={!canRedo}
@@ -387,13 +399,13 @@ export function Toolbar() {
             <path d="M9 4l2 3-2 3" />
           </svg>
         </button>
-        
+
         <span className="text-xs text-[#4a5568] mx-1" aria-label={`历史记录 ${historyIndex + 1} / ${history.length || 1}`}>
           {historyIndex + 1}/{history.length || 1}
         </span>
-        
+
         <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
-        
+
         <button
           onClick={clearCanvas}
           disabled={modules.length === 0}
