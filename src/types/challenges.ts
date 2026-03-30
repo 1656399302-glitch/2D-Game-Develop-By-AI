@@ -24,8 +24,6 @@ export type {
 } from '../data/challenges';
 
 export {
-  getChallengeDifficultyColor,
-  getChallengeDifficultyLabel,
   getChallengeCategoryLabel,
   getChallengeCategoryIcon,
 } from '../data/challenges';
