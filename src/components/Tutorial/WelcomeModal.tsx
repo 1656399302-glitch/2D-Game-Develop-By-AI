@@ -58,47 +58,57 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     []
   );
   
-  // Also sync with store's isTutorialEnabled for real-time updates
-  const storeIsTutorialEnabled = useTutorialStore((state) => state.isTutorialEnabled);
-
   // Track if modal has been dismissed this session
   const modalDismissedRef = useRef(false);
 
-  // Calculate effective visibility based on localStorage AND store
-  // The modal should only show if:
-  // 1. User hasn't seen it before (localHasSeenWelcome is false)
-  // 2. Tutorial is enabled (localIsTutorialEnabled is true)
-  // 3. User hasn't dismissed it this session
-  // 4. Store's isTutorialEnabled is true (for real-time sync)
-  const shouldShowModal = !localHasSeenWelcome && localIsTutorialEnabled && 
-                          !modalDismissedRef.current && storeIsTutorialEnabled;
-
-  useEffect(() => {
-    // Don't show modal if already dismissed this session
+  // FIX: Calculate visibility on mount only - no reactive dependencies on store
+  // This prevents the infinite loop caused by store subscriptions in useMemo/useState
+  const shouldShowModal = useMemo(() => {
+    // Don't show if already dismissed this session
     if (modalDismissedRef.current) {
+      return false;
+    }
+    
+    // Don't show if already seen before (from localStorage)
+    if (localHasSeenWelcome) {
+      return false;
+    }
+    
+    // Don't show if tutorial is disabled (from localStorage)
+    // Note: We check localStorage first as the source of truth for initial state
+    if (!localIsTutorialEnabled) {
+      return false;
+    }
+    
+    return true;
+  }, [localHasSeenWelcome, localIsTutorialEnabled]); // Only depends on localStorage, not store
+
+  // FIX: Trigger entrance animation on mount - empty deps to prevent loops
+  // The check happens once at mount time only
+  useEffect(() => {
+    if (!shouldShowModal) {
       return;
     }
     
-    // Trigger entrance animation if we should show the modal
-    if (shouldShowModal) {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => setIsVisible(true), 50);
-      return () => clearTimeout(timer);
-    }
-  }, [shouldShowModal]);
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => setIsVisible(true), 50);
+    return () => clearTimeout(timer);
+  }, []); // Empty deps - runs once on mount, uses closure value
 
+  // FIX: Generate particles on mount when modal should show
   useEffect(() => {
-    // Generate floating particles only when modal is shown
-    if (shouldShowModal) {
-      const newParticles = Array.from({ length: 20 }).map((_, i) => ({
-        id: i,
-        x: Math.random() * 100,
-        delay: Math.random() * 3,
-        duration: 3 + Math.random() * 2,
-      }));
-      setParticles(newParticles);
+    if (!shouldShowModal) {
+      return;
     }
-  }, [shouldShowModal]);
+    
+    const newParticles = Array.from({ length: 20 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      delay: Math.random() * 3,
+      duration: 3 + Math.random() * 2,
+    }));
+    setParticles(newParticles);
+  }, []); // Empty deps - runs once on mount, uses closure value
 
   const handleStartTutorial = () => {
     setIsVisible(false);
@@ -119,8 +129,8 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     }, 300);
   }, [onSkip]);
 
-  // Don't render if we shouldn't show the modal
-  // CRITICAL: Check localStorage-derived state, not just store state
+  // FIX: Don't render if we shouldn't show the modal
+  // This check uses only localStorage values to avoid store-triggered re-renders
   if (!shouldShowModal) {
     return null;
   }
