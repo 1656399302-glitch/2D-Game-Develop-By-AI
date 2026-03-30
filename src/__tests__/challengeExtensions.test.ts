@@ -33,9 +33,10 @@ describe('Challenge System - 16 Challenge Definitions', () => {
   });
 
   describe('Category Distribution', () => {
-    it('should have exactly 5 Creation challenges', () => {
+    // Updated per Round 19 contract: Creation=4, Mastery=5
+    it('should have exactly 4 Creation challenges', () => {
       const creation = CHALLENGE_DEFINITIONS.filter(c => c.category === 'creation');
-      expect(creation.length).toBe(5);
+      expect(creation.length).toBe(4);
     });
 
     it('should have exactly 3 Collection challenges', () => {
@@ -48,15 +49,23 @@ describe('Challenge System - 16 Challenge Definitions', () => {
       expect(activation.length).toBe(4);
     });
 
-    it('should have exactly 4 Mastery challenges', () => {
+    // Updated per Round 19 contract: void-initiate moved from creation to mastery
+    it('should have exactly 5 Mastery challenges', () => {
       const mastery = CHALLENGE_DEFINITIONS.filter(c => c.category === 'mastery');
-      expect(mastery.length).toBe(4);
+      expect(mastery.length).toBe(5);
     });
 
     it('should sum to 16 challenges across all categories', () => {
       const count = getChallengeCountByCategory();
       const total = count.creation + count.collection + count.activation + count.mastery;
       expect(total).toBe(16);
+    });
+
+    // Verify void-initiate is now in mastery category
+    it('void-initiate should be in mastery category', () => {
+      const voidInitiate = CHALLENGE_DEFINITIONS.find(c => c.id === 'void-initiate');
+      expect(voidInitiate).toBeDefined();
+      expect(voidInitiate?.category).toBe('mastery');
     });
   });
 

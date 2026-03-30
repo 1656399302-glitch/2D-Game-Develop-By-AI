@@ -104,9 +104,11 @@ export function getChallengeCategoryIcon(category: ChallengeCategory): string {
 }
 
 /**
- * 16 Challenge Definitions as per Round 18 contract
+ * 16 Challenge Definitions
  * Category distribution: Creation(4) + Collection(3) + Activation(4) + Mastery(5) = 16
  * Difficulty distribution: Beginner(4) + Intermediate(5) + Advanced(7)
+ * 
+ * NOTE: void-initiate is in mastery category (moved from creation per Round 19 contract)
  */
 export const CHALLENGE_DEFINITIONS: ChallengeDefinition[] = [
   // BEGINNER (4 challenges)
@@ -211,20 +213,6 @@ export const CHALLENGE_DEFINITIONS: ChallengeDefinition[] = [
     },
   },
   {
-    id: 'void-initiate',
-    title: '虚空入门',
-    description: '使用一次虚空虹吸模块，探索虚空维度的力量',
-    category: 'creation',
-    difficulty: 'intermediate',
-    target: 1,
-    reward: {
-      type: 'xp',
-      value: 200,
-      displayName: '+200 XP',
-      description: '用于首次接触虚空能量',
-    },
-  },
-  {
     id: 'overload-specialist',
     title: '过载专家',
     description: '触发一次过载效果，掌握能量的极限',
@@ -236,6 +224,20 @@ export const CHALLENGE_DEFINITIONS: ChallengeDefinition[] = [
       value: 'recipe-lightning-conductor',
       displayName: '闪电导体配方',
       description: '解锁闪电导体模块配方',
+    },
+  },
+  {
+    id: 'void-initiate',
+    title: '虚空入门',
+    description: '使用一次虚空虹吸模块，探索虚空维度的力量',
+    category: 'mastery',  // Changed from 'creation' to 'mastery' per Round 19 contract
+    difficulty: 'intermediate',
+    target: 1,
+    reward: {
+      type: 'xp',
+      value: 200,
+      displayName: '+200 XP',
+      description: '用于首次接触虚空能量',
     },
   },
 

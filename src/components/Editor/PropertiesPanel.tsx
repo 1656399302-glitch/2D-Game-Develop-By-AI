@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { generateAttributes, getRarityColor, getRarityLabel } from '../../utils/attributeGenerator';
-import { MODULE_CATALOG } from './ModulePanel';
+import { BASE_MODULES, ModuleInfo } from './ModulePanel';
 
 const MODULE_INFO = Object.fromEntries(
-  MODULE_CATALOG.map((m) => [m.type, m])
+  BASE_MODULES.map((m: ModuleInfo) => [m.type, m])
 );
 
 export function PropertiesPanel() {

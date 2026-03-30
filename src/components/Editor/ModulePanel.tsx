@@ -1,19 +1,21 @@
 import { useCallback, useState } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useRecipeStore } from '../../store/useRecipeStore';
+import { useFactionReputationStore } from '../../store/useFactionReputationStore';
 import { generateRandomMachine } from '../../utils/randomGenerator';
 import { generateAttributes } from '../../utils/attributeGenerator';
 import { ModuleType, ModuleCategory } from '../../types';
 import { RECIPE_DEFINITIONS, RARITY_COLORS } from '../../types/recipes';
 
-interface ModuleInfo {
+export interface ModuleInfo {
   type: ModuleType;
   name: string;
   category: ModuleCategory;
   description: string;
+  factionId?: string; // For faction variant modules
 }
 
-const MODULE_CATALOG: ModuleInfo[] = [
+const BASE_MODULES: ModuleInfo[] = [
   {
     type: 'core-furnace',
     name: '核心熔炉',
@@ -100,6 +102,38 @@ const MODULE_CATALOG: ModuleInfo[] = [
   },
 ];
 
+// Faction variant modules - gated behind Grandmaster rank
+const FACTION_VARIANT_MODULES: ModuleInfo[] = [
+  {
+    type: 'void-arcane-gear',
+    name: '虚空奥术齿轮',
+    category: 'gear',
+    description: '融合虚空能量的高级齿轮组件。以暗影漩涡引导能量流动。',
+    factionId: 'void',
+  },
+  {
+    type: 'inferno-blazing-core',
+    name: '烈焰燃烧核心',
+    category: 'core',
+    description: '炽热燃烧的核心炉。释放熔岩般的毁灭之力。',
+    factionId: 'inferno',
+  },
+  {
+    type: 'storm-thundering-pipe',
+    name: '雷霆闪电管道',
+    category: 'pipe',
+    description: '高电压能量传输管道。引导雷霆之力穿越机器。',
+    factionId: 'storm',
+  },
+  {
+    type: 'stellar-harmonic-crystal',
+    name: '星辉谐波水晶',
+    category: 'rune',
+    description: '凝聚星辉能量的水晶。和谐共振放大所有能量波动。',
+    factionId: 'stellar',
+  },
+];
+
 const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   core: '#00d4ff',
   pipe: '#7c3aed',
@@ -124,6 +158,19 @@ const CATEGORY_NAMES: Record<ModuleCategory, string> = {
   elemental: '元素',
 };
 
+const FACTION_COLORS: Record<string, string> = {
+  void: '#a78bfa',
+  inferno: '#f97316',
+  storm: '#22d3ee',
+  stellar: '#fbbf24',
+};
+
+// Helper to safely get faction color
+const getFactionColor = (factionId: string | undefined): string | undefined => {
+  if (!factionId) return undefined;
+  return FACTION_COLORS[factionId] || undefined;
+};
+
 const getRecipeForModule = (type: ModuleType) => {
   return RECIPE_DEFINITIONS.find(r => r.moduleType === type);
 };
@@ -136,6 +183,9 @@ export function ModulePanel() {
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const viewport = useMachineStore((state) => state.viewport);
   const { isUnlocked } = useRecipeStore();
+  
+  // Faction reputation store for Grandmaster gating
+  const isVariantUnlocked = useFactionReputationStore((state) => state.isVariantUnlocked);
   
   const [hoveredModule, setHoveredModule] = useState<ModuleInfo | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
@@ -175,6 +225,10 @@ export function ModulePanel() {
     return !isUnlocked(recipe.id);
   };
   
+  const isFactionVariantLocked = (factionId: string): boolean => {
+    return !isVariantUnlocked(factionId);
+  };
+  
   const handleMouseEnter = (module: ModuleInfo, e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).closest('.module-item')?.getBoundingClientRect();
     if (rect) {
@@ -188,6 +242,167 @@ export function ModulePanel() {
   
   const handleMouseLeave = () => {
     setHoveredModule(null);
+  };
+
+  const renderModuleItem = (module: ModuleInfo, locked: boolean, factionLocked: boolean = false) => {
+    const recipe = getRecipeForModule(module.type);
+    const rarityStyle = recipe ? RARITY_COLORS[recipe.rarity] : null;
+    const factionColor = getFactionColor(module.factionId);
+    
+    // Determine if module is accessible (not locked by recipe or faction rank)
+    const isAccessible = !locked && !factionLocked;
+    
+    return (
+      <div
+        key={module.type}
+        draggable={isAccessible}
+        onDragStart={(e) => handleDragStart(e, module.type, !isAccessible)}
+        onClick={() => handleClick(module.type, !isAccessible)}
+        onMouseEnter={(e) => handleMouseEnter(module, e)}
+        onMouseLeave={handleMouseLeave}
+        onMouseMove={(e) => {
+          if (hoveredModule?.type === module.type) {
+            const rect = (e.target as HTMLElement).closest('.module-item')?.getBoundingClientRect();
+            if (rect) {
+              setTooltipPosition({
+                x: Math.min(rect.right + 10, window.innerWidth - 280),
+                y: Math.min(rect.top, window.innerHeight - 200),
+              });
+            }
+          }
+        }}
+        role="option"
+        aria-selected={false}
+        aria-disabled={!isAccessible}
+        aria-label={`${module.name}${!isAccessible ? ' (已锁定)' : ''}`}
+        className={`
+          module-item arcane-card group relative transition-all duration-200
+          ${!isAccessible 
+            ? 'cursor-not-allowed opacity-50 grayscale' 
+            : 'cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:shadow-lg'
+          }
+        `}
+        style={{ 
+          borderLeftColor: factionColor || CATEGORY_COLORS[module.category], 
+          borderLeftWidth: '3px',
+          ...((!isAccessible) && rarityStyle ? {
+            borderColor: `${rarityStyle.primary}40`,
+          } : {})
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div 
+            className={`
+              w-12 h-12 rounded flex items-center justify-center text-2xl relative
+              ${!isAccessible ? 'bg-gray-800' : ''}
+            `}
+            style={{ 
+              backgroundColor: !isAccessible ? '#1f2937' : `${factionColor || CATEGORY_COLORS[module.category]}20`,
+              border: !isAccessible ? '1px dashed #4b5563' : `1px solid ${factionColor || CATEGORY_COLORS[module.category]}40`,
+            }}
+            aria-hidden="true"
+          >
+            {!isAccessible ? (
+              <div className="flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-gray-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+            ) : (
+              <ModuleIcon type={module.type} />
+            )}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className={`text-sm font-medium truncate ${!isAccessible ? 'text-gray-500' : 'text-white'}`}>
+                {module.name}
+              </h3>
+              {/* Faction variant lock badge */}
+              {module.factionId && factionLocked && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30">
+                  宗师解锁
+                </span>
+              )}
+            </div>
+            {(!isAccessible && recipe) ? (
+              <>
+                <p className="text-xs text-gray-600 mt-1 italic">
+                  {recipe.hint}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span 
+                    className="text-xs px-2 py-0.5 rounded"
+                    style={{ 
+                      backgroundColor: `${rarityStyle?.primary}20`,
+                      color: rarityStyle?.primary,
+                      border: `1px solid ${rarityStyle?.primary}40`,
+                    }}
+                  >
+                    {recipe.rarity}
+                  </span>
+                </div>
+              </>
+            ) : module.factionId && factionLocked ? (
+              <>
+                <p className="text-xs text-gray-600 mt-1 italic">
+                  需要宗师等级解锁
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span 
+                    className="text-xs px-2 py-0.5 rounded"
+                    style={{ 
+                      backgroundColor: `${factionColor || '#a78bfa'}20`,
+                      color: factionColor || '#a78bfa',
+                      border: `1px solid ${factionColor || '#a78bfa'}40`,
+                    }}
+                  >
+                    {module.factionId} 派系
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-[#9ca3af] mt-1 line-clamp-2">
+                  {module.description}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span 
+                    className="text-xs px-2 py-0.5 rounded"
+                    style={{ 
+                      backgroundColor: `${factionColor || CATEGORY_COLORS[module.category]}20`,
+                      color: factionColor || CATEGORY_COLORS[module.category],
+                    }}
+                  >
+                    {factionColor ? `${module.factionId} 派系` : CATEGORY_NAMES[module.category]}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        
+        {!isAccessible && (
+          <div 
+            className="absolute inset-0 rounded-lg pointer-events-none"
+            style={{
+              background: 'linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 100%)',
+            }}
+          />
+        )}
+        
+        {!locked && !factionLocked && (
+          <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -229,141 +444,22 @@ export function ModulePanel() {
       
       <div className="flex-1 overflow-y-auto p-2" role="listbox" aria-label="可用模块">
         <div className="space-y-2">
-          {MODULE_CATALOG.map((module) => {
+          {/* Base modules */}
+          {BASE_MODULES.map((module) => {
             const locked = isModuleLocked(module.type);
-            const recipe = getRecipeForModule(module.type);
-            const rarityStyle = recipe ? RARITY_COLORS[recipe.rarity] : null;
-            
-            return (
-              <div
-                key={module.type}
-                draggable={!locked}
-                onDragStart={(e) => handleDragStart(e, module.type, locked)}
-                onClick={() => handleClick(module.type, locked)}
-                onMouseEnter={(e) => handleMouseEnter(module, e)}
-                onMouseLeave={handleMouseLeave}
-                onMouseMove={(e) => {
-                  if (hoveredModule?.type === module.type) {
-                    const rect = (e.target as HTMLElement).closest('.module-item')?.getBoundingClientRect();
-                    if (rect) {
-                      setTooltipPosition({
-                        x: Math.min(rect.right + 10, window.innerWidth - 280),
-                        y: Math.min(rect.top, window.innerHeight - 200),
-                      });
-                    }
-                  }
-                }}
-                role="option"
-                aria-selected={false}
-                aria-disabled={locked}
-                aria-label={`${module.name}${locked ? ' (已锁定)' : ''}`}
-                className={`
-                  module-item arcane-card group relative transition-all duration-200
-                  ${locked 
-                    ? 'cursor-not-allowed opacity-50 grayscale' 
-                    : 'cursor-grab active:cursor-grabbing hover:scale-[1.02] hover:shadow-lg'
-                  }
-                `}
-                style={{ 
-                  borderLeftColor: CATEGORY_COLORS[module.category], 
-                  borderLeftWidth: '3px',
-                  ...(locked && rarityStyle ? {
-                    borderColor: `${rarityStyle.primary}40`,
-                  } : {})
-                }}
-              >
-                <div className="flex items-start gap-3">
-                  <div 
-                    className={`
-                      w-12 h-12 rounded flex items-center justify-center text-2xl relative
-                      ${locked ? 'bg-gray-800' : ''}
-                    `}
-                    style={{ 
-                      backgroundColor: locked ? '#1f2937' : `${CATEGORY_COLORS[module.category]}20`,
-                      border: locked ? '1px dashed #4b5563' : `1px solid ${CATEGORY_COLORS[module.category]}40`,
-                    }}
-                    aria-hidden="true"
-                  >
-                    {locked ? (
-                      <div className="flex items-center justify-center">
-                        <svg
-                          className="w-6 h-6 text-gray-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          aria-hidden="true"
-                        >
-                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
-                      </div>
-                    ) : (
-                      <ModuleIcon type={module.type} />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`text-sm font-medium truncate ${locked ? 'text-gray-500' : 'text-white'}`}>
-                      {module.name}
-                    </h3>
-                    {locked && recipe ? (
-                      <>
-                        <p className="text-xs text-gray-600 mt-1 italic">
-                          {recipe.hint}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span 
-                            className="text-xs px-2 py-0.5 rounded"
-                            style={{ 
-                              backgroundColor: `${rarityStyle?.primary}20`,
-                              color: rarityStyle?.primary,
-                              border: `1px solid ${rarityStyle?.primary}40`,
-                            }}
-                          >
-                            {recipe.rarity}
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs text-[#9ca3af] mt-1 line-clamp-2">
-                          {module.description}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span 
-                            className="text-xs px-2 py-0.5 rounded"
-                            style={{ 
-                              backgroundColor: `${CATEGORY_COLORS[module.category]}20`,
-                              color: CATEGORY_COLORS[module.category],
-                            }}
-                          >
-                            {CATEGORY_NAMES[module.category]}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-                
-                {locked && (
-                  <div 
-                    className="absolute inset-0 rounded-lg pointer-events-none"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 100%)',
-                    }}
-                  />
-                )}
-                
-                {!locked && (
-                  <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
-                )}
-              </div>
-            );
+            return renderModuleItem(module, locked);
+          })}
+          
+          {/* Faction variant modules - gated by Grandmaster rank */}
+          {FACTION_VARIANT_MODULES.map((module) => {
+            const locked = isModuleLocked(module.type);
+            const factionLocked = module.factionId ? isFactionVariantLocked(module.factionId) : false;
+            return renderModuleItem(module, locked, factionLocked);
           })}
         </div>
       </div>
       
-      {hoveredModule && !isModuleLocked(hoveredModule.type) && (
+      {hoveredModule && (
         <div 
           className="fixed z-50 p-3 rounded-lg bg-[#1a1f2e] border border-[#00d4ff]/30 shadow-xl max-w-[260px] pointer-events-none"
           style={{
@@ -376,7 +472,7 @@ export function ModulePanel() {
           <div className="flex items-center gap-2 mb-2">
             <span 
               className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: CATEGORY_COLORS[hoveredModule.category] }}
+              style={{ backgroundColor: getFactionColor(hoveredModule.factionId) || CATEGORY_COLORS[hoveredModule.category] }}
               aria-hidden="true"
             />
             <h4 className="text-sm font-semibold text-white">{hoveredModule.name}</h4>
@@ -394,7 +490,7 @@ export function ModulePanel() {
       
       <div className="p-3 border-t border-[#1e2a42]">
         <p className="text-xs text-[#4a5568] text-center">
-          共 {MODULE_CATALOG.length} 种模块类型
+          共 {BASE_MODULES.length + FACTION_VARIANT_MODULES.length} 种模块类型
         </p>
       </div>
       
@@ -617,4 +713,4 @@ function ModuleIcon({ type }: { type: ModuleType }) {
   return iconStyles[type] || <span>?</span>;
 }
 
-export { MODULE_CATALOG, CATEGORY_COLORS };
+export { BASE_MODULES, FACTION_VARIANT_MODULES, CATEGORY_COLORS };

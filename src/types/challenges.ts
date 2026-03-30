@@ -1,21 +1,21 @@
 /**
- * Challenge Types - LEGACY SYSTEM
+ * Challenge Types for Arcane Machine Codex Workshop
  * 
- * @deprecated Use `src/data/challenges.ts` with `CHALLENGE_DEFINITIONS` instead.
- * This file contains the legacy validation-based challenge system.
- * The new canonical system uses progress-based challenges.
+ * This file contains type definitions for challenges.
+ * The actual challenge data is in src/data/challenges.ts (CHALLENGE_DEFINITIONS).
  */
 
 import { Rarity, ModuleType } from './index';
 
 /**
- * @deprecated Use `ChallengeDifficulty` from `src/data/challenges.ts` instead.
- * Challenge difficulty levels (includes 'master' tier for validation-based challenges)
+ * Challenge difficulty levels
+ * Used in ChallengeDefinition from src/data/challenges.ts
  */
-export type ChallengeDifficulty = 'beginner' | 'intermediate' | 'advanced' | 'master';
+export type ChallengeDifficulty = 'beginner' | 'intermediate' | 'advanced';
 
 /**
- * Requirements for completing a challenge
+ * Requirements for completing a validation-based challenge
+ * (Legacy system - not used in current progress-based challenges)
  */
 export interface ChallengeRequirement {
   /** Minimum number of modules in the machine */
@@ -42,6 +42,7 @@ export interface ChallengeRequirement {
 
 /**
  * Reward structure for completed challenges
+ * (Legacy system - not used in current progress-based challenges)
  */
 export interface ChallengeReward {
   /** Type of reward */
@@ -55,8 +56,8 @@ export interface ChallengeReward {
 }
 
 /**
- * A challenge that users can complete
- * @deprecated Use `ChallengeDefinition` from `src/data/challenges.ts` instead.
+ * A validation-based challenge (Legacy)
+ * @deprecated Use CHALLENGE_DEFINITIONS from src/data/challenges.ts with progress-based challenges
  */
 export interface Challenge {
   /** Unique identifier */
@@ -91,36 +92,34 @@ export interface RequirementDetail {
   requirement: string;
   /** Whether this requirement was met */
   met: boolean;
-  /** Actual value found */
-  actualValue: string | number;
-  /** Expected value */
-  expectedValue: string | number;
+  /** Actual value found (can be string, number, or array of strings) */
+  actualValue: string | number | string[];
+  /** Expected value (can be string, number, or array of strings) */
+  expectedValue: string | number | string[];
 }
 
 /**
  * Get difficulty color for styling
- * @deprecated Use `getChallengeDifficultyColor` from `src/data/challenges.ts`
+ * @deprecated Use getChallengeDifficultyColor from src/data/challenges.ts
  */
 export function getDifficultyColor(difficulty: ChallengeDifficulty): string {
   const colors: Record<ChallengeDifficulty, string> = {
     beginner: '#22c55e',
     intermediate: '#3b82f6',
     advanced: '#a855f7',
-    master: '#f59e0b',
   };
   return colors[difficulty];
 }
 
 /**
  * Get difficulty label for display
- * @deprecated Use `getChallengeDifficultyLabel` from `src/data/challenges.ts`
+ * @deprecated Use getChallengeDifficultyLabel from src/data/challenges.ts
  */
 export function getDifficultyLabel(difficulty: ChallengeDifficulty): string {
   const labels: Record<ChallengeDifficulty, string> = {
     beginner: 'Beginner',
     intermediate: 'Intermediate',
     advanced: 'Advanced',
-    master: 'Master',
   };
   return labels[difficulty];
 }
@@ -137,147 +136,91 @@ export function rarityMeetsRequirement(machineRarity: Rarity, requiredRarity: Ra
 }
 
 /**
- * 8 Preset Challenges (Validation-based)
- * @deprecated Use `CHALLENGE_DEFINITIONS` from `src/data/challenges.ts` instead.
+ * Validate a machine against challenge requirements
  */
-export const CHALLENGES: Challenge[] = [
-  // BEGINNER (2 challenges)
-  {
-    id: 'ch-1',
-    title: 'First Steps',
-    description: 'Create your first machine by placing at least 3 modules. Every great invention starts with a simple foundation.',
-    difficulty: 'beginner',
-    requirements: {
-      minModules: 3,
-    },
-    reward: {
-      type: 'badge',
-      id: 'first-steps',
-      displayName: 'First Steps Badge',
-      description: 'Awarded for creating your first machine with 3+ modules.',
-    },
+export function validateChallengeRequirements(
+  machine: {
+    modules: unknown[];
+    connections: unknown[];
+    tags?: string[];
+    rarity?: Rarity;
   },
-  {
-    id: 'ch-2',
-    title: 'Connection Master',
-    description: 'Connect your modules together. A machine is more than just parts—it needs energy flowing between them.',
-    difficulty: 'beginner',
-    requirements: {
-      minModules: 2,
-      minConnections: 2,
-    },
-    reward: {
-      type: 'badge',
-      id: 'connection-master',
-      displayName: 'Connection Master Badge',
-      description: 'Awarded for creating a machine with 2+ connections.',
-    },
-  },
+  requirements: ChallengeRequirement
+): ValidationResult {
+  const details: RequirementDetail[] = [];
+  let passed = true;
 
-  // INTERMEDIATE (2 challenges)
-  {
-    id: 'ch-3',
-    title: 'Elemental Attuned',
-    description: 'Harness the power of elemental attributes. Create a machine with fire, lightning, or arcane tags.',
-    difficulty: 'intermediate',
-    requirements: {
-      minModules: 4,
-      requiredTags: ['fire', 'lightning', 'arcane'],
-    },
-    reward: {
-      type: 'badge',
-      id: 'elemental-attuned',
-      displayName: 'Elemental Attuned Badge',
-      description: 'Awarded for creating a machine with elemental tags.',
-    },
-  },
-  {
-    id: 'ch-4',
-    title: 'Balanced Design',
-    description: 'Build a stable machine that won\'t explode in your face. Create something with at least 60% stability.',
-    difficulty: 'intermediate',
-    requirements: {
-      minModules: 3,
-      minStability: 60,
-    },
-    reward: {
-      type: 'badge',
-      id: 'balanced-design',
-      displayName: 'Balanced Design Badge',
-      description: 'Awarded for creating a machine with high stability.',
-    },
-  },
+  // Check module count
+  if (requirements.minModules !== undefined) {
+    const met = (machine.modules?.length || 0) >= requirements.minModules;
+    details.push({
+      requirement: `Minimum ${requirements.minModules} modules`,
+      met,
+      actualValue: machine.modules?.length || 0,
+      expectedValue: requirements.minModules,
+    });
+    if (!met) passed = false;
+  }
 
-  // ADVANCED (2 challenges)
-  {
-    id: 'ch-5',
-    title: 'Core Specialist',
-    description: 'Master the core modules. Create a machine using both the Core Furnace and the Stabilizer Core.',
-    difficulty: 'advanced',
-    requirements: {
-      minModules: 4,
-      specificModuleTypes: ['core-furnace', 'stabilizer-core'],
-      minConnections: 2,
-    },
-    reward: {
-      type: 'badge',
-      id: 'core-specialist',
-      displayName: 'Core Specialist Badge',
-      description: 'Awarded for mastering core modules.',
-    },
-  },
-  {
-    id: 'ch-6',
-    title: 'Rare Collection',
-    description: 'Craft a machine worthy of the arcane codices. Reach rare rarity or higher through complex construction.',
-    difficulty: 'advanced',
-    requirements: {
-      minModules: 5,
-      minConnections: 3,
-      requiredRarity: 'rare',
-    },
-    reward: {
-      type: 'badge',
-      id: 'rare-collection',
-      displayName: 'Rare Collection Badge',
-      description: 'Awarded for creating a rare-quality machine.',
-    },
-  },
+  if (requirements.maxModules !== undefined) {
+    const met = (machine.modules?.length || 0) <= requirements.maxModules;
+    details.push({
+      requirement: `Maximum ${requirements.maxModules} modules`,
+      met,
+      actualValue: machine.modules?.length || 0,
+      expectedValue: requirements.maxModules,
+    });
+    if (!met) passed = false;
+  }
 
-  // MASTER (2 challenges)
-  {
-    id: 'ch-7',
-    title: 'Void Walker',
-    description: 'Tap into forbidden dimensions. Include the Void Siphon module to channel the power of the void.',
-    difficulty: 'master',
-    requirements: {
-      specificModuleTypes: ['void-siphon'],
-      minConnections: 3,
-    },
-    reward: {
-      type: 'badge',
-      id: 'void-walker',
-      displayName: 'Void Walker Badge',
-      description: 'Awarded for mastering void energy.',
-    },
-  },
-  {
-    id: 'ch-8',
-    title: 'Legendary Architect',
-    description: 'Build the ultimate machine. Create a legendary rarity creation with 8+ modules and 6+ connections.',
-    difficulty: 'master',
-    requirements: {
-      minModules: 8,
-      minConnections: 6,
-      requiredRarity: 'legendary',
-    },
-    reward: {
-      type: 'title',
-      id: 'legendary-architect',
-      displayName: 'Legendary Architect Title',
-      description: 'You have proven yourself a master of arcane engineering.',
-    },
-  },
-];
+  // Check connection count
+  if (requirements.minConnections !== undefined) {
+    const met = (machine.connections?.length || 0) >= requirements.minConnections;
+    details.push({
+      requirement: `Minimum ${requirements.minConnections} connections`,
+      met,
+      actualValue: machine.connections?.length || 0,
+      expectedValue: requirements.minConnections,
+    });
+    if (!met) passed = false;
+  }
 
-export default CHALLENGES;
+  if (requirements.maxConnections !== undefined) {
+    const met = (machine.connections?.length || 0) <= requirements.maxConnections;
+    details.push({
+      requirement: `Maximum ${requirements.maxConnections} connections`,
+      met,
+      actualValue: machine.connections?.length || 0,
+      expectedValue: requirements.maxConnections,
+    });
+    if (!met) passed = false;
+  }
+
+  // Check required tags
+  if (requirements.requiredTags && requirements.requiredTags.length > 0) {
+    const machineTags = machine.tags || [];
+    const matchedTags = requirements.requiredTags.filter(tag => machineTags.includes(tag));
+    const hasAnyTag = matchedTags.length > 0;
+    details.push({
+      requirement: `Required at least one of: ${requirements.requiredTags.join(', ')}`,
+      met: hasAnyTag,
+      actualValue: matchedTags.length > 0 ? matchedTags.join(', ') : '(none)',
+      expectedValue: requirements.requiredTags.join(', '),
+    });
+    if (!hasAnyTag) passed = false;
+  }
+
+  // Check rarity
+  if (requirements.requiredRarity && machine.rarity) {
+    const met = rarityMeetsRequirement(machine.rarity, requirements.requiredRarity);
+    details.push({
+      requirement: `Required rarity: ${requirements.requiredRarity} or higher`,
+      met,
+      actualValue: machine.rarity,
+      expectedValue: requirements.requiredRarity,
+    });
+    if (!met) passed = false;
+  }
+
+  return { passed, details };
+}

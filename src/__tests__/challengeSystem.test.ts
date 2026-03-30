@@ -71,9 +71,10 @@ describe('Challenge Definitions', () => {
     expect(advancedCount).toBe(7);
   });
 
-  it('should have 5 Creation challenges', () => {
+  // Updated per Round 19 contract: Creation=4, Mastery=5
+  it('should have 4 Creation challenges', () => {
     const creationCount = CHALLENGE_DEFINITIONS.filter(c => c.category === 'creation').length;
-    expect(creationCount).toBe(5);
+    expect(creationCount).toBe(4);
   });
 
   it('should have 3 Collection challenges', () => {
@@ -86,9 +87,9 @@ describe('Challenge Definitions', () => {
     expect(activationCount).toBe(4);
   });
 
-  it('should have 4 Mastery challenges', () => {
+  it('should have 5 Mastery challenges', () => {
     const masteryCount = CHALLENGE_DEFINITIONS.filter(c => c.category === 'mastery').length;
-    expect(masteryCount).toBe(4);
+    expect(masteryCount).toBe(5);
   });
 });
 
@@ -104,9 +105,10 @@ describe('Challenge Helper Functions', () => {
     expect(challenge).toBeUndefined();
   });
 
+  // Updated per Round 19 contract: Creation=4, Mastery=5
   it('getChallengesByCategory should filter correctly', () => {
     const creationChallenges = getChallengesByCategory('creation');
-    expect(creationChallenges.length).toBe(5);
+    expect(creationChallenges.length).toBe(4);
     creationChallenges.forEach(c => {
       expect(c.category).toBe('creation');
     });
@@ -223,9 +225,10 @@ describe('useChallengeStore', () => {
     expect(useChallengeStore.getState().completedChallenges).toContain('golden-gear');
   });
 
+  // Updated per Round 19 contract: Creation=4, Mastery=5
   it('getChallengesByCategory should return correct challenges', () => {
     const creationChallenges = useChallengeStore.getState().getChallengesByCategory('creation');
-    expect(creationChallenges.length).toBe(5);
+    expect(creationChallenges.length).toBe(4);
     creationChallenges.forEach(c => {
       expect(c.category).toBe('creation');
     });
