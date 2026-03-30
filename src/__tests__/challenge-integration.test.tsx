@@ -31,6 +31,11 @@ describe('ChallengePanel Integration', () => {
       },
       loading: false,
     });
+    // Reset achievement store state including recentlyUnlocked
+    useAchievementStore.setState({
+      onUnlockCallback: null,
+      recentlyUnlocked: new Set(),
+    });
     cleanup();
   });
 
@@ -40,10 +45,10 @@ describe('ChallengePanel Integration', () => {
     expect(list).toBeTruthy();
   });
 
-  it('ChallengePanel renders 8 challenge list items', () => {
+  it('ChallengePanel renders 16 challenge list items', () => {
     render(<ChallengePanel />);
     const listItems = screen.getAllByRole('listitem');
-    expect(listItems.length).toBe(8);
+    expect(listItems.length).toBe(16);
   });
 
   it('ChallengePanel displays XP and completion count', () => {
@@ -53,8 +58,8 @@ describe('ChallengePanel Integration', () => {
     const xpElements = screen.getAllByText(/0 XP/i);
     expect(xpElements.length).toBeGreaterThanOrEqual(1);
     
-    // Should show 0/8 completion
-    expect(screen.getByText(/0\/8/)).toBeTruthy();
+    // Should show 0/16 completion (updated for 16 challenges)
+    expect(screen.getByText(/0\/16/)).toBeTruthy();
   });
 
   it('ChallengePanel has category filter tabs', () => {
@@ -81,6 +86,7 @@ describe('AchievementStore Integration', () => {
     // Reset achievement store
     useAchievementStore.setState({
       onUnlockCallback: null,
+      recentlyUnlocked: new Set(),
     });
   });
 
@@ -176,6 +182,7 @@ describe('AchievementToast Callback Integration', () => {
   beforeEach(() => {
     useAchievementStore.setState({
       onUnlockCallback: null,
+      recentlyUnlocked: new Set(),
     });
   });
 

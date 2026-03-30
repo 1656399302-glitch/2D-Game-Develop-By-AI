@@ -29,9 +29,9 @@ describe('ChallengePanel Accessibility', () => {
     expect(list).toBeTruthy();
   });
 
-  it('should render 8 challenge list items', () => {
+  it('should render 16 challenge list items', () => {
     render(<ChallengePanel />);
     const listItems = screen.getAllByRole('listitem');
-    expect(listItems.length).toBe(8);
+    expect(listItems.length).toBe(16);
   });
 });

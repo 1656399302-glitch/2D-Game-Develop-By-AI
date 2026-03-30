@@ -169,10 +169,10 @@ describe('achievementChecker', () => {
   });
   
   describe('getTotalAchievementCount', () => {
-    it('returns correct total count', () => {
+    it('returns correct total count (8 achievements)', () => {
       const count = getTotalAchievementCount();
       
-      expect(count).toBe(5);
+      expect(count).toBe(8);
     });
   });
   
@@ -203,16 +203,25 @@ describe('achievementChecker', () => {
       expect(progress).toBe(0);
     });
     
-    it('returns 20 for 1 of 5 achievements', () => {
+    it('returns 13 for 1 of 8 achievements (rounded from 12.5)', () => {
       const earned = new Set(['first-forge']);
       
       const progress = getAchievementProgress(earned);
       
-      expect(progress).toBe(20);
+      expect(progress).toBe(13); // Math.round(100/8 * 1) = 13
     });
     
     it('returns 100 for all achievements', () => {
-      const earned = new Set(['first-forge', 'energy-master', 'void-conqueror', 'perfect-activation', 'codex-collector']);
+      const earned = new Set([
+        'first-forge', 
+        'energy-master', 
+        'void-conqueror', 
+        'inferno-master',
+        'storm-ruler',
+        'stellar-harmonizer',
+        'perfect-activation', 
+        'codex-collector'
+      ]);
       
       const progress = getAchievementProgress(earned);
       
