@@ -1,7 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useMachineStore } from '../store/useMachineStore';
 import { useSelectionStore } from '../store/useSelectionStore';
-import { createGroup, GroupInstance } from '../utils/groupingUtils';
+import { useGroupingStore } from '../store/useGroupingStore';
+import { rotateGroup, scaleGroup, flipGroupHorizontal } from '../utils/groupingUtils';
 
 interface UseKeyboardShortcutsOptions {
   enabled?: boolean;
@@ -15,9 +16,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
   const [shortcutFeedback, setShortcutFeedback] = useState<string | null>(null);
   const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Group state - stores all created groups
-  const [groups, setGroups] = useState<GroupInstance[]>([]);
-
   // Show feedback toast
   const showFeedback = useCallback((message: string) => {
     setShortcutFeedback(message);
@@ -29,11 +27,13 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     }, 1500);
   }, []);
 
-  // Group selected modules
+  // Group selected modules (using store)
   const groupSelectedModules = useCallback(() => {
     const store = useMachineStore.getState();
     const selectionStore = useSelectionStore.getState();
+    const groupingStore = useGroupingStore.getState();
     
+    // Get selected IDs from multi-select or single select
     const selectedIds = selectionStore.selectedModuleIds.length > 0 
       ? selectionStore.selectedModuleIds 
       : (store.selectedModuleId ? [store.selectedModuleId] : []);
@@ -44,20 +44,22 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     }
 
     try {
-      const newGroup = createGroup(selectedIds);
-      setGroups(prev => [...prev, newGroup]);
+      // Create group in grouping store
+      const newGroup = groupingStore.createGroup(selectedIds);
       
-      // Update modules with group ID
-      const updatedModules = store.modules.map(m => {
-        if (newGroup.moduleIds.includes(m.instanceId)) {
-          return { ...m, groupId: newGroup.id, groupName: newGroup.name } as any;
-        }
-        return m;
-      });
-      
-      useMachineStore.setState({ modules: updatedModules });
-      store.saveToHistory();
-      showFeedback(`已创建组 "${newGroup.name}"`);
+      if (newGroup) {
+        // Update modules with group ID
+        const updatedModules = store.modules.map(m => {
+          if (newGroup.moduleIds.includes(m.instanceId)) {
+            return { ...m, groupId: newGroup.id, groupName: newGroup.name };
+          }
+          return m;
+        });
+        
+        useMachineStore.setState({ modules: updatedModules });
+        store.saveToHistory();
+        showFeedback(`已创建组 "${newGroup.name}"`);
+      }
     } catch (error) {
       showFeedback('创建组失败');
     }
@@ -67,6 +69,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
   const ungroupSelectedModules = useCallback(() => {
     const store = useMachineStore.getState();
     const selectionStore = useSelectionStore.getState();
+    const groupingStore = useGroupingStore.getState();
     
     const selectedIds = selectionStore.selectedModuleIds.length > 0 
       ? selectionStore.selectedModuleIds 
@@ -78,33 +81,39 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     }
 
     // Find groups that contain any of the selected modules
-    const groupsToRemove = groups.filter(g => 
-      g.moduleIds.some(id => selectedIds.includes(id))
-    );
+    const groupIdsToRemove = new Set<string>();
+    selectedIds.forEach(moduleId => {
+      const group = groupingStore.getGroupByModuleId(moduleId);
+      if (group) {
+        groupIdsToRemove.add(group.id);
+      }
+    });
 
-    if (groupsToRemove.length === 0) {
+    if (groupIdsToRemove.size === 0) {
       showFeedback('选中的模块不在任何组中');
       return;
     }
 
+    // Ungroup each group
+    groupIdsToRemove.forEach(groupId => {
+      groupingStore.ungroup(groupId);
+    });
+
     // Remove group IDs from modules
-    const groupIdsToRemove = new Set(groupsToRemove.map(g => g.id));
     const updatedModules = store.modules.map(m => {
       if (groupIdsToRemove.has((m as any).groupId)) {
         const { groupId: _, groupName: __, ...rest } = m as any;
-        return rest as any;
+        return rest;
       }
       return m;
     });
 
-    // Remove the groups
-    setGroups(prev => prev.filter(g => !groupIdsToRemove.has(g.id)));
     useMachineStore.setState({ modules: updatedModules });
     store.saveToHistory();
-    showFeedback(`已取消 ${groupsToRemove.length} 个组的分组`);
-  }, [groups, showFeedback]);
+    showFeedback(`已取消 ${groupIdsToRemove.size} 个组的分组`);
+  }, [showFeedback]);
 
-  // Copy selected modules (enhanced)
+  // Copy selected modules
   const copySelectedModules = useCallback(() => {
     const store = useMachineStore.getState();
     const selectionStore = useSelectionStore.getState();
@@ -122,7 +131,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     showFeedback(selectedIds.length > 0 ? `已复制 ${selectedIds.length} 个模块` : '已复制所有模块');
   }, [showFeedback]);
 
-  // Paste modules (enhanced - pastes at cursor position)
+  // Paste modules
   const pasteSelectedModules = useCallback(() => {
     const store = useMachineStore.getState();
     
@@ -135,7 +144,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     showFeedback(`已粘贴 ${store.clipboardModules.length} 个模块`);
   }, [showFeedback]);
 
-  // Duplicate selected modules (enhanced - at offset)
+  // Duplicate selected modules
   const duplicateSelectedModules = useCallback(() => {
     const store = useMachineStore.getState();
     const selectionStore = useSelectionStore.getState();
@@ -149,20 +158,138 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       return;
     }
 
+    // Duplicate all selected modules
     selectedIds.forEach(id => {
       store.duplicateModule(id);
     });
     showFeedback(`已复制 ${selectedIds.length} 个模块`);
   }, [showFeedback]);
 
+  // Rotate selected modules 90° clockwise
+  const rotateSelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length === 0) {
+      showFeedback('没有选中的模块');
+      return;
+    }
+
+    // Use rotateGroup utility to rotate all selected modules
+    const updatedModules = rotateGroup(store.modules, selectedIds, 90);
+    useMachineStore.setState({ modules: updatedModules });
+    store.saveToHistory();
+    showFeedback('已旋转 90°');
+  }, [showFeedback]);
+
+  // Flip selected modules horizontally
+  const flipSelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length === 0) {
+      showFeedback('没有选中的模块');
+      return;
+    }
+
+    // Use flipGroupHorizontal utility
+    const updatedModules = flipGroupHorizontal(store.modules, selectedIds);
+    useMachineStore.setState({ modules: updatedModules });
+    store.saveToHistory();
+    showFeedback('已翻转');
+  }, [showFeedback]);
+
+  // Scale selected modules
+  const scaleSelectedModules = useCallback((factor: number) => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    // Use scaleGroup utility
+    const updatedModules = scaleGroup(store.modules, selectedIds, factor);
+    useMachineStore.setState({ modules: updatedModules });
+    store.saveToHistory();
+  }, [showFeedback]);
+
+  // Delete selected modules and connections
+  const deleteSelectedModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    const selectedIds = selectionStore.selectedModuleIds.length > 0 
+      ? selectionStore.selectedModuleIds 
+      : (store.selectedModuleId ? [store.selectedModuleId] : []);
+
+    if (selectedIds.length === 0 && !store.selectedConnectionId) {
+      showFeedback('没有选中任何内容');
+      return;
+    }
+
+    // Delete all selected modules
+    if (selectedIds.length > 0) {
+      selectedIds.forEach(id => {
+        store.removeModule(id);
+      });
+      // Clear multi-selection
+      selectionStore.clearSelection();
+    } else if (store.selectedConnectionId) {
+      store.removeConnection(store.selectedConnectionId);
+    }
+
+    showFeedback('已删除');
+  }, [showFeedback]);
+
+  // Select all modules
+  const selectAllModules = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    if (store.modules.length === 0) {
+      showFeedback('没有模块');
+      return;
+    }
+
+    const allModuleIds = store.modules.map(m => m.instanceId);
+    selectionStore.selectAll(allModuleIds);
+    if (allModuleIds.length > 0) {
+      store.selectModule(allModuleIds[0]);
+    }
+    showFeedback(`已选择 ${store.modules.length} 个模块`);
+  }, [showFeedback]);
+
+  // Deselect all
+  const deselectAll = useCallback(() => {
+    const store = useMachineStore.getState();
+    const selectionStore = useSelectionStore.getState();
+    
+    selectionStore.clearSelection();
+    store.selectModule(null);
+    store.selectConnection(null);
+    showFeedback('已取消选择');
+  }, [showFeedback]);
+
+  // Main keyboard handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
 
     // Don't handle shortcuts when typing in input fields (unless explicitly allowed)
     if (excludeWhenInputFocused) {
       const target = e.target;
-      // Guard against null target or target without closest method
-      // Use Element for tagName and closest, HTMLElement for isContentEditable
       if (target instanceof Element && typeof target.closest === 'function') {
         const tagName = target.tagName;
         const isContentEditable = target instanceof HTMLElement && target.isContentEditable;
@@ -180,6 +307,8 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     const store = useMachineStore.getState();
     const selectionStore = useSelectionStore.getState();
 
+    // === MODIFIER KEY SHORTCUTS ===
+
     // Ctrl+G for group
     if ((e.key === 'g' || e.key === 'G') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
       e.preventDefault();
@@ -196,10 +325,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
 
     // Delete selected module or connection
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      if (store.selectedModuleId || store.selectedConnectionId) {
+      if (store.selectedModuleId || store.selectedConnectionId || selectionStore.selectedModuleIds.length > 0) {
         e.preventDefault();
-        store.deleteSelected();
-        showFeedback('已删除');
+        deleteSelectedModules();
       }
       return;
     }
@@ -210,10 +338,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       if (store.isConnecting) {
         store.cancelConnection();
       } else {
-        store.selectModule(null);
-        store.selectConnection(null);
-        // Also clear multi-selection
-        selectionStore.clearSelection();
+        deselectAll();
       }
       showFeedback('已取消');
       return;
@@ -221,7 +346,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
 
     // Ctrl+C for copy
     if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey)) {
-      if (store.selectedModuleId || store.modules.length > 0) {
+      if (store.selectedModuleId || store.modules.length > 0 || selectionStore.selectedModuleIds.length > 0) {
         e.preventDefault();
         copySelectedModules();
       }
@@ -238,35 +363,27 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     }
 
     // Ctrl+A for select all
-    if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey)) {
+    if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
       if (store.modules.length > 0) {
         e.preventDefault();
-        // Select all modules
-        const allModuleIds = store.modules.map(m => m.instanceId);
-        selectionStore.selectAll(allModuleIds);
-        // Also set the first module as the primary selected module
-        store.selectModule(allModuleIds[0]);
-        showFeedback(`已选择 ${store.modules.length} 个模块`);
+        selectAllModules();
       }
       return;
     }
 
-    // Ctrl+D for deselect all OR duplicate (depends on selection)
+    // Ctrl+D for duplicate
     if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-      if (store.selectedModuleId) {
+      if (store.selectedModuleId || selectionStore.selectedModuleIds.length > 0) {
         e.preventDefault();
         duplicateSelectedModules();
       }
       return;
     }
 
-    // Ctrl+Shift+A or Ctrl+D (with shift) for deselect all
+    // Ctrl+Shift+A for deselect all
     if ((e.key === 'a' || e.key === 'A') && (e.ctrlKey || e.metaKey) && e.shiftKey) {
       e.preventDefault();
-      selectionStore.clearSelection();
-      store.selectModule(null);
-      store.selectConnection(null);
-      showFeedback('已取消全选');
+      deselectAll();
       return;
     }
 
@@ -286,26 +403,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
         e.preventDefault();
         store.setShowExportModal(true);
         showFeedback('打开导出');
-      }
-      return;
-    }
-
-    // R key to rotate selected module
-    if (e.key === 'r' || e.key === 'R') {
-      if (store.selectedModuleId && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        store.updateModuleRotation(store.selectedModuleId, 90);
-        showFeedback('已旋转 90°');
-      }
-      return;
-    }
-
-    // F key to flip selected module (horizontal mirror)
-    if (e.key === 'f' || e.key === 'F') {
-      if (store.selectedModuleId && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
-        store.updateModuleFlip(store.selectedModuleId);
-        showFeedback('已翻转');
       }
       return;
     }
@@ -332,6 +429,26 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       return;
     }
 
+    // === NON-MODIFIER KEY SHORTCUTS ===
+
+    // R key to rotate selected module
+    if (e.key === 'r' || e.key === 'R') {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        rotateSelectedModules();
+      }
+      return;
+    }
+
+    // F key to flip selected module (horizontal mirror)
+    if (e.key === 'f' || e.key === 'F') {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        flipSelectedModules();
+      }
+      return;
+    }
+
     // + or = for zoom in
     if (e.key === '+' || e.key === '=') {
       e.preventDefault();
@@ -346,15 +463,15 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       return;
     }
 
-    // 0 for reset zoom
-    if (e.key === '0' && !e.ctrlKey && !e.metaKey) {
+    // 0 for reset zoom (not with modifiers)
+    if (e.key === '0' && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault();
       store.resetViewport();
       return;
     }
 
     // Shift+0 for zoom to fit
-    if (e.key === '0' && e.shiftKey) {
+    if (e.key === '0' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       store.zoomToFit();
       return;
@@ -362,14 +479,45 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
 
     // G for toggle grid (when not using Ctrl+G)
     if (e.key === 'g' || e.key === 'G') {
-      if (!e.ctrlKey && !e.metaKey) {
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         store.toggleGrid();
         showFeedback(store.gridEnabled ? '网格已隐藏' : '网格已显示');
       }
       return;
     }
-  }, [enabled, excludeWhenInputFocused, showFeedback, groupSelectedModules, ungroupSelectedModules, copySelectedModules, pasteSelectedModules, duplicateSelectedModules]);
+
+    // [ for scale down
+    if (e.key === '[') {
+      e.preventDefault();
+      scaleSelectedModules(0.8);
+      showFeedback('缩小');
+      return;
+    }
+
+    // ] for scale up
+    if (e.key === ']') {
+      e.preventDefault();
+      scaleSelectedModules(1.25);
+      showFeedback('放大');
+      return;
+    }
+  }, [
+    enabled, 
+    excludeWhenInputFocused, 
+    showFeedback, 
+    groupSelectedModules, 
+    ungroupSelectedModules, 
+    copySelectedModules, 
+    pasteSelectedModules, 
+    duplicateSelectedModules,
+    rotateSelectedModules,
+    flipSelectedModules,
+    scaleSelectedModules,
+    deleteSelectedModules,
+    selectAllModules,
+    deselectAll
+  ]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -387,7 +535,6 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
 
   return {
     shortcutFeedback,
-    groups,
     groupSelectedModules,
     ungroupSelectedModules,
   };

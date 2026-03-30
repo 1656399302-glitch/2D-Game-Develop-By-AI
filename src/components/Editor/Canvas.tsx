@@ -17,6 +17,7 @@ import {
   VIEWPORT_CULLING_BUFFER,
   THROTTLE_INTERVAL_60FPS,
 } from '../../utils/performanceUtils';
+import { calculateGroupCenter } from '../../utils/groupingUtils';
 
 const GRID_SIZE = 20;
 const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
@@ -589,15 +590,159 @@ export function Canvas() {
     }
   }, [selectedModuleIds, modules, gridEnabled, updateModulesBatch]);
   
-  // Handle selection rotate
+  // Handle selection rotate - rotates selected modules 90° clockwise around selection center
   const handleSelectionRotate = useCallback((_newRotation: number) => {
-    // Rotation handling can be implemented based on requirements
-  }, []);
+    // Determine which modules to rotate
+    const targetIds = selectedModuleIds.length > 0 
+      ? selectedModuleIds 
+      : (selectedModuleId ? [selectedModuleId] : []);
+    
+    if (targetIds.length === 0) return;
+    
+    // Get the current modules
+    const currentModules = useMachineStore.getState().modules;
+    const targetModules = currentModules.filter(m => targetIds.includes(m.instanceId));
+    
+    if (targetModules.length === 0) return;
+    
+    // Calculate the center of the selection
+    const center = calculateGroupCenter(targetModules, targetIds);
+    if (!center) return;
+    
+    const degrees = 90;
+    const radians = (degrees * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    
+    // Calculate new positions for each module
+    const updates: Array<{ instanceId: string; x: number; y: number; rotation: number }> = [];
+    
+    targetModules.forEach(module => {
+      const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+      const moduleCenterX = module.x + size.width / 2;
+      const moduleCenterY = module.y + size.height / 2;
+      
+      // Rotate module center around selection center
+      const dx = moduleCenterX - center.x;
+      const dy = moduleCenterY - center.y;
+      const newModuleCenterX = center.x + dx * cos - dy * sin;
+      const newModuleCenterY = center.y + dx * sin + dy * cos;
+      
+      // Calculate new position (top-left corner)
+      const newX = newModuleCenterX - size.width / 2;
+      const newY = newModuleCenterY - size.height / 2;
+      
+      // Update rotation (add 90°)
+      const newRotation = (module.rotation + degrees) % 360;
+      
+      updates.push({ 
+        instanceId: module.instanceId, 
+        x: Math.round(newX), 
+        y: Math.round(newY), 
+        rotation: newRotation 
+      });
+    });
+    
+    // Apply updates
+    if (updates.length > 0) {
+      // Apply position updates
+      const positionUpdates = updates.map(u => ({ 
+        instanceId: u.instanceId, 
+        x: u.x, 
+        y: u.y 
+      }));
+      updateModulesBatch(positionUpdates);
+      
+      // Apply rotation updates directly to modules
+      const state = useMachineStore.getState();
+      const updatedModules = state.modules.map(m => {
+        const update = updates.find(u => u.instanceId === m.instanceId);
+        if (update) {
+          return { ...m, rotation: update.rotation };
+        }
+        return m;
+      });
+      useMachineStore.setState({ modules: updatedModules });
+      
+      saveToHistory();
+    }
+  }, [selectedModuleIds, selectedModuleId, updateModulesBatch, saveToHistory]);
   
-  // Handle selection scale
-  const handleSelectionScale = useCallback((_newScale: number) => {
-    // Scale handling can be implemented based on requirements
-  }, []);
+  // Handle selection scale - scales selected modules by factor around selection center
+  const handleSelectionScale = useCallback((newScale: number) => {
+    // Determine which modules to scale
+    const targetIds = selectedModuleIds.length > 0 
+      ? selectedModuleIds 
+      : (selectedModuleId ? [selectedModuleId] : []);
+    
+    if (targetIds.length === 0) return;
+    
+    // Clamp scale to valid range [0.25, 4.0]
+    const scaleFactor = Math.max(0.25, Math.min(4.0, newScale));
+    
+    // Get the current modules
+    const currentModules = useMachineStore.getState().modules;
+    const targetModules = currentModules.filter(m => targetIds.includes(m.instanceId));
+    
+    if (targetModules.length === 0) return;
+    
+    // Calculate the center of the selection
+    const center = calculateGroupCenter(targetModules, targetIds);
+    if (!center) return;
+    
+    // Calculate new positions and scales for each module
+    const updates: Array<{ instanceId: string; x: number; y: number; scale: number }> = [];
+    
+    targetModules.forEach(module => {
+      const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+      const moduleCenterX = module.x + size.width / 2;
+      const moduleCenterY = module.y + size.height / 2;
+      
+      // Scale position relative to center
+      const dx = moduleCenterX - center.x;
+      const dy = moduleCenterY - center.y;
+      const newModuleCenterX = center.x + dx * scaleFactor;
+      const newModuleCenterY = center.y + dy * scaleFactor;
+      
+      // Calculate new position (top-left corner)
+      const newX = newModuleCenterX - size.width / 2;
+      const newY = newModuleCenterY - size.height / 2;
+      
+      // Calculate new scale
+      const newScaleValue = Math.max(0.25, Math.min(4.0, module.scale * scaleFactor));
+      
+      updates.push({ 
+        instanceId: module.instanceId, 
+        x: Math.round(newX), 
+        y: Math.round(newY), 
+        scale: newScaleValue 
+      });
+    });
+    
+    // Apply updates
+    if (updates.length > 0) {
+      // Apply position updates
+      const positionUpdates = updates.map(u => ({ 
+        instanceId: u.instanceId, 
+        x: u.x, 
+        y: u.y 
+      }));
+      updateModulesBatch(positionUpdates);
+      
+      // Apply scale updates directly to modules
+      const state = useMachineStore.getState();
+      const updatedModules = state.modules.map(m => {
+        const update = updates.find(u => u.instanceId === m.instanceId);
+        if (update) {
+          return { ...m, scale: update.scale };
+        }
+        return m;
+      });
+      useMachineStore.setState({ modules: updatedModules });
+      
+      saveToHistory();
+    }
+  }, [selectedModuleIds, selectedModuleId, updateModulesBatch, saveToHistory]);
   
   // Grid pattern
   const gridSize = 20;

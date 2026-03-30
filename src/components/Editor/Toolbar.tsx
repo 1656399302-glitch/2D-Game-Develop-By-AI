@@ -309,7 +309,7 @@ export function Toolbar() {
           <button
             onClick={zoomOut}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
-            title="缩小 (-) (或按 - 键)"
+            title="缩小 (-) (快捷键: -)"
             aria-label="缩小"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -325,7 +325,7 @@ export function Toolbar() {
           <button
             onClick={zoomIn}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
-            title="放大 (+) (或按 + 键)"
+            title="放大 (+) (快捷键: +)"
             aria-label="放大"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -337,7 +337,7 @@ export function Toolbar() {
           <button
             onClick={resetViewport}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
-            title="重置缩放 (0) (或按 0 键)"
+            title="重置缩放 (0) (快捷键: 0)"
             aria-label="重置缩放"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -349,7 +349,7 @@ export function Toolbar() {
           <button
             onClick={zoomToFit}
             className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
-            title="适应全部 (Shift+0) (或按 Shift+0)"
+            title="适应全部 (Shift+0) (快捷键: Shift+0)"
             aria-label="适应全部"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -360,12 +360,12 @@ export function Toolbar() {
 
         <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
 
-        {/* Duplicate button */}
+        {/* Duplicate button with keyboard shortcut hint */}
         <button
           onClick={handleDuplicate}
           disabled={!selectedModuleId}
           className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
-          title="复制模块 (Ctrl+D)"
+          title="复制模块 (Ctrl+D) (Del)"
           aria-label="复制模块"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -374,6 +374,7 @@ export function Toolbar() {
           </svg>
         </button>
 
+        {/* Undo button with keyboard shortcut hint */}
         <button
           onClick={undo}
           disabled={!canUndo}
@@ -387,11 +388,12 @@ export function Toolbar() {
           </svg>
         </button>
 
+        {/* Redo button with keyboard shortcut hint */}
         <button
           onClick={redo}
           disabled={!canRedo}
           className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
-          title="重做 (Ctrl+Y)"
+          title="重做 (Ctrl+Shift+Z / Ctrl+Y)"
           aria-label="重做"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -406,6 +408,7 @@ export function Toolbar() {
 
         <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
 
+        {/* Clear button */}
         <button
           onClick={clearCanvas}
           disabled={modules.length === 0}

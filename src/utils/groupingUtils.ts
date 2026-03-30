@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { PlacedModule, ModuleType } from '../types';
+import { PlacedModule, ModuleType, MODULE_SIZES } from '../types';
 import { calculateBounds, Bounds } from './clipboardUtils';
 
 /**
@@ -19,6 +19,230 @@ export interface GroupInstance {
 export interface GroupedModule extends PlacedModule {
   groupId?: string;
   groupName?: string;
+}
+
+/**
+ * Calculate the bounding box for a set of module IDs
+ * @param modules - Array of all modules in the canvas
+ * @param moduleIds - Array of module instance IDs to calculate bounds for
+ * @returns Bounds or null if no valid modules
+ */
+export function calculateGroupBounds(
+  modules: PlacedModule[],
+  moduleIds: string[]
+): Bounds | null {
+  const targetModules = modules.filter(m => moduleIds.includes(m.instanceId));
+  return calculateBounds(targetModules);
+}
+
+/**
+ * Calculate the center point of a group
+ * @param modules - Array of all modules in the canvas
+ * @param moduleIds - Array of module instance IDs
+ * @returns Center point { x, y } or null
+ */
+export function calculateGroupCenter(
+  modules: PlacedModule[],
+  moduleIds: string[]
+): { x: number; y: number } | null {
+  const bounds = calculateGroupBounds(modules, moduleIds);
+  if (!bounds) return null;
+  return {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  };
+}
+
+/**
+ * Rotate all modules in a group around the group center
+ * @param modules - Array of all modules (will be modified)
+ * @param moduleIds - Array of module instance IDs to rotate
+ * @param degrees - Rotation angle in degrees (positive = clockwise)
+ * @returns Updated modules array
+ */
+export function rotateGroup(
+  modules: PlacedModule[],
+  moduleIds: string[],
+  degrees: number
+): PlacedModule[] {
+  if (moduleIds.length === 0) return modules;
+  
+  const center = calculateGroupCenter(modules, moduleIds);
+  if (!center) return modules;
+
+  const radians = (degrees * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+
+  const targetModuleIds = new Set(moduleIds);
+
+  return modules.map(module => {
+    if (!targetModuleIds.has(module.instanceId)) {
+      return module;
+    }
+
+    // Get module center
+    const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+    const moduleCenterX = module.x + size.width / 2;
+    const moduleCenterY = module.y + size.height / 2;
+
+    // Rotate module center around group center
+    const dx = moduleCenterX - center.x;
+    const dy = moduleCenterY - center.y;
+    const newModuleCenterX = center.x + dx * cos - dy * sin;
+    const newModuleCenterY = center.y + dx * sin + dy * cos;
+
+    // Calculate new position (top-left corner)
+    const newX = newModuleCenterX - size.width / 2;
+    const newY = newModuleCenterY - size.height / 2;
+
+    // Update rotation
+    const newRotation = (module.rotation + degrees) % 360;
+
+    return {
+      ...module,
+      x: Math.round(newX),
+      y: Math.round(newY),
+      rotation: newRotation,
+    };
+  });
+}
+
+/**
+ * Scale all modules in a group from the group center
+ * @param modules - Array of all modules (will be modified)
+ * @param moduleIds - Array of module instance IDs to scale
+ * @param factor - Scale factor (> 1 = enlarge, < 1 = shrink)
+ * @param minScale - Minimum scale clamp (default 0.25)
+ * @param maxScale - Maximum scale clamp (default 4.0)
+ * @returns Updated modules array
+ */
+export function scaleGroup(
+  modules: PlacedModule[],
+  moduleIds: string[],
+  factor: number,
+  minScale: number = 0.25,
+  maxScale: number = 4.0
+): PlacedModule[] {
+  if (moduleIds.length === 0) return modules;
+  
+  const center = calculateGroupCenter(modules, moduleIds);
+  if (!center) return modules;
+
+  const targetModuleIds = new Set(moduleIds);
+
+  return modules.map(module => {
+    if (!targetModuleIds.has(module.instanceId)) {
+      return module;
+    }
+
+    // Get module center
+    const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+    const moduleCenterX = module.x + size.width / 2;
+    const moduleCenterY = module.y + size.height / 2;
+
+    // Scale position relative to center
+    const dx = moduleCenterX - center.x;
+    const dy = moduleCenterY - center.y;
+    const newModuleCenterX = center.x + dx * factor;
+    const newModuleCenterY = center.y + dy * factor;
+
+    // Calculate new position (top-left corner)
+    const newX = newModuleCenterX - size.width / 2;
+    const newY = newModuleCenterY - size.height / 2;
+
+    // Calculate new scale, clamped
+    const newScale = Math.max(minScale, Math.min(maxScale, module.scale * factor));
+
+    return {
+      ...module,
+      x: Math.round(newX),
+      y: Math.round(newY),
+      scale: newScale,
+    };
+  });
+}
+
+/**
+ * Flip modules horizontally around the group center
+ * @param modules - Array of all modules (will be modified)
+ * @param moduleIds - Array of module instance IDs to flip
+ * @returns Updated modules array
+ */
+export function flipGroupHorizontal(
+  modules: PlacedModule[],
+  moduleIds: string[]
+): PlacedModule[] {
+  if (moduleIds.length === 0) return modules;
+  
+  const center = calculateGroupCenter(modules, moduleIds);
+  if (!center) return modules;
+
+  const targetModuleIds = new Set(moduleIds);
+
+  return modules.map(module => {
+    if (!targetModuleIds.has(module.instanceId)) {
+      return module;
+    }
+
+    // Get module center
+    const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+    const moduleCenterX = module.x + size.width / 2;
+
+    // Mirror X position around center
+    const dx = moduleCenterX - center.x;
+    const newModuleCenterX = center.x - dx;
+
+    // Calculate new position (top-left corner)
+    const newX = newModuleCenterX - size.width / 2;
+
+    return {
+      ...module,
+      x: Math.round(newX),
+      flipped: !module.flipped,
+    };
+  });
+}
+
+/**
+ * Flip modules vertically around the group center
+ * @param modules - Array of all modules (will be modified)
+ * @param moduleIds - Array of module instance IDs to flip
+ * @returns Updated modules array
+ */
+export function flipGroupVertical(
+  modules: PlacedModule[],
+  moduleIds: string[]
+): PlacedModule[] {
+  if (moduleIds.length === 0) return modules;
+  
+  const center = calculateGroupCenter(modules, moduleIds);
+  if (!center) return modules;
+
+  const targetModuleIds = new Set(moduleIds);
+
+  return modules.map(module => {
+    if (!targetModuleIds.has(module.instanceId)) {
+      return module;
+    }
+
+    // Get module center
+    const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+    const moduleCenterY = module.y + size.height / 2;
+
+    // Mirror Y position around center
+    const dy = moduleCenterY - center.y;
+    const newModuleCenterY = center.y - dy;
+
+    // Calculate new position (top-left corner)
+    const newY = newModuleCenterY - size.height / 2;
+
+    return {
+      ...module,
+      y: Math.round(newY),
+      flipped: !module.flipped,
+    };
+  });
 }
 
 /**
@@ -181,7 +405,8 @@ export function splitGroup(groupId: string, groups: GroupInstance[]): string[] {
 }
 
 /**
- * Rename a group
+ * Rename a group - mutates the array in place
+ * @deprecated Use renameGroupFn instead for immutable operations
  */
 export function renameGroup(groupId: string, newName: string, groups: GroupInstance[]): GroupInstance[] {
   return groups.map(g => {
@@ -191,6 +416,11 @@ export function renameGroup(groupId: string, newName: string, groups: GroupInsta
     return g;
   });
 }
+
+/**
+ * Rename a group (alias for renameGroup)
+ */
+export const renameGroupFn = renameGroup;
 
 /**
  * Lock/unlock a group
