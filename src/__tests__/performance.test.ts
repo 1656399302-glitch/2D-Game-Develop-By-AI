@@ -16,6 +16,7 @@ import {
   batchConnectionUpdates,
   throttleViewportUpdates,
   createVirtualizedModuleList,
+  filterVisibleConnections,
   calculateBounds,
   benchmark,
   isWithinFrameBudget,
@@ -354,6 +355,215 @@ describe('Performance Tests', () => {
       expect(throttler).toBeDefined();
       
       throttler.reset();
+    });
+  });
+
+  /**
+   * AC4: filterVisibleConnections Tests
+   * 
+   * Tests that filterVisibleConnections correctly filters connections based
+   * on which modules are visible in the viewport.
+   */
+  describe('AC4: filterVisibleConnections', () => {
+    it('should include connection when both endpoints are visible', () => {
+      // Create test modules with unique IDs
+      const visibleModuleA: PlacedModule = {
+        instanceId: 'module-visible-A',
+        type: 'coreFurnace',
+        category: 'energy',
+        x: 100,
+        y: 100,
+        rotation: 0,
+        scale: 1,
+        ports: [],
+        properties: {},
+      };
+      
+      const visibleModuleB: PlacedModule = {
+        instanceId: 'module-visible-B',
+        type: 'runeNode',
+        category: 'energy',
+        x: 200,
+        y: 100,
+        rotation: 0,
+        scale: 1,
+        ports: [],
+        properties: {},
+      };
+      
+      const testConnection: Connection = {
+        id: 'conn-both-visible',
+        sourceModuleId: 'module-visible-A',
+        sourcePortId: 'output-1',
+        targetModuleId: 'module-visible-B',
+        targetPortId: 'input-1',
+        energy: 75,
+        status: 'active',
+      };
+      
+      // Both modules are in the visible set
+      const visibleModuleIds = new Set(['module-visible-A', 'module-visible-B']);
+      
+      const filtered = filterVisibleConnections([testConnection], visibleModuleIds);
+      
+      // Connection should be included
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('conn-both-visible');
+    });
+    
+    it('should include connection when only one endpoint is visible', () => {
+      // Create test modules
+      const visibleModule: PlacedModule = {
+        instanceId: 'module-visible-only',
+        type: 'coreFurnace',
+        category: 'energy',
+        x: 100,
+        y: 100,
+        rotation: 0,
+        scale: 1,
+        ports: [],
+        properties: {},
+      };
+      
+      const hiddenModule: PlacedModule = {
+        instanceId: 'module-hidden',
+        type: 'runeNode',
+        category: 'energy',
+        x: 2000, // Far outside viewport
+        y: 2000,
+        rotation: 0,
+        scale: 1,
+        ports: [],
+        properties: {},
+      };
+      
+      const testConnection: Connection = {
+        id: 'conn-one-visible',
+        sourceModuleId: 'module-visible-only',
+        sourcePortId: 'output-1',
+        targetModuleId: 'module-hidden',
+        targetPortId: 'input-1',
+        energy: 75,
+        status: 'active',
+      };
+      
+      // Only one module is in the visible set
+      const visibleModuleIds = new Set(['module-visible-only']);
+      
+      const filtered = filterVisibleConnections([testConnection], visibleModuleIds);
+      
+      // Connection should be included (because at least one endpoint is visible)
+      expect(filtered).toHaveLength(1);
+      expect(filtered[0].id).toBe('conn-one-visible');
+    });
+    
+    it('should exclude connection when both endpoints are hidden', () => {
+      // Create test modules that are both hidden
+      const hiddenModuleA: PlacedModule = {
+        instanceId: 'module-hidden-A',
+        type: 'coreFurnace',
+        category: 'energy',
+        x: 2000, // Far outside viewport
+        y: 2000,
+        rotation: 0,
+        scale: 1,
+        ports: [],
+        properties: {},
+      };
+      
+      const hiddenModuleB: PlacedModule = {
+        instanceId: 'module-hidden-B',
+        type: 'runeNode',
+        category: 'energy',
+        x: 3000, // Far outside viewport
+        y: 3000,
+        rotation: 0,
+        scale: 1,
+        ports: [],
+        properties: {},
+      };
+      
+      const testConnection: Connection = {
+        id: 'conn-both-hidden',
+        sourceModuleId: 'module-hidden-A',
+        sourcePortId: 'output-1',
+        targetModuleId: 'module-hidden-B',
+        targetPortId: 'input-1',
+        energy: 75,
+        status: 'active',
+      };
+      
+      // Neither module is in the visible set (empty set)
+      const visibleModuleIds = new Set<string>();
+      
+      const filtered = filterVisibleConnections([testConnection], visibleModuleIds);
+      
+      // Connection should be excluded
+      expect(filtered).toHaveLength(0);
+    });
+  });
+
+  /**
+   * AC7: ModuleRenderCache LRU Eviction Tests
+   * 
+   * Tests that the module render cache properly implements LRU eviction
+   * when the maximum size of 500 entries is exceeded.
+   */
+  describe('AC7: ModuleRenderCache LRU Eviction', () => {
+    it('should evict oldest entry after 501 unique cache entries', () => {
+      const memoizer = memoizeModuleRender();
+      memoizer.clear(); // Start fresh
+      
+      const firstModuleId = 'lru-test-first';
+      const firstSvg = '<g id="first"></g>';
+      
+      // Cache the first entry
+      memoizer.setCached(firstModuleId, 0, 1, false, firstSvg);
+      
+      // Verify it's cached
+      expect(memoizer.getCached(firstModuleId, 0, 1, false)).toBe(firstSvg);
+      
+      // Now add 501 unique entries to trigger eviction
+      for (let i = 0; i < 501; i++) {
+        const uniqueId = `lru-test-${i}-${Date.now()}`;
+        memoizer.setCached(uniqueId, 0, 1, false, `<g id="${uniqueId}"></g>`);
+      }
+      
+      // After adding 501 entries, the first entry should be evicted
+      const cachedFirst = memoizer.getCached(firstModuleId, 0, 1, false);
+      expect(cachedFirst).toBeNull(); // First entry should be evicted
+    });
+    
+    it('should maintain LRU ordering on get/set operations', () => {
+      const memoizer = memoizeModuleRender();
+      memoizer.clear(); // Start fresh
+      
+      // Add entries in order
+      const moduleIds = ['lru-A', 'lru-B', 'lru-C'];
+      moduleIds.forEach((id, index) => {
+        memoizer.setCached(id, 0, 1, false, `<g id="${id}"></g>`);
+      });
+      
+      // Access 'lru-A' to move it to the most recently used position
+      const cachedA = memoizer.getCached('lru-A', 0, 1, false);
+      expect(cachedA).not.toBeNull();
+      expect(cachedA).toContain('lru-A');
+      
+      // Now add many more entries to trigger eviction
+      // Since we accessed 'lru-A', it should NOT be evicted yet
+      for (let i = 0; i < 498; i++) {
+        const uniqueId = `lru-new-${i}-${Date.now()}`;
+        memoizer.setCached(uniqueId, 0, 1, false, `<g id="${uniqueId}"></g>`);
+      }
+      
+      // 'lru-B' (oldest after accessing A) should be evicted first
+      const cachedB = memoizer.getCached('lru-B', 0, 1, false);
+      expect(cachedB).toBeNull(); // Should be evicted
+      
+      // 'lru-A' should still be cached (it was accessed after B was added)
+      const cachedA2 = memoizer.getCached('lru-A', 0, 1, false);
+      expect(cachedA2).not.toBeNull(); // Should still be cached
+      expect(cachedA2).toContain('lru-A');
     });
   });
 });
