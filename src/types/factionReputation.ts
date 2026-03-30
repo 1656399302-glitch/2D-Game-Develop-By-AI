@@ -6,6 +6,17 @@
  */
 
 /**
+ * Research duration in milliseconds
+ * Named export required by acceptance criteria
+ */
+export const RESEARCH_DURATION_MS = 3000;
+
+/**
+ * Maximum number of concurrent research items in queue
+ */
+export const MAX_RESEARCH_QUEUE = 3;
+
+/**
  * Faction reputation levels (5 tiers)
  */
 export enum FactionReputationLevel {
@@ -14,6 +25,25 @@ export enum FactionReputationLevel {
   Expert = 'expert',               // 500 - 999
   Master = 'master',               // 1000 - 1999
   Grandmaster = 'grandmaster',     // 2000+
+}
+
+/**
+ * Research states for tech tree nodes
+ */
+export enum ResearchState {
+  Locked = 'locked',
+  Available = 'available',
+  Researching = 'researching',
+  Completed = 'completed',
+}
+
+/**
+ * Research item interface
+ */
+export interface ResearchItem {
+  techId: string;
+  startedAt: number;
+  durationMs: number;
 }
 
 /**
