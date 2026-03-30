@@ -38,14 +38,14 @@ export interface MachineAttributes {
  * Generate machine context from module data
  */
 export function buildMachineContext(
-  modules: Array<{ type: string; category: string; id: string }>,
+  modules: Array<{ type: string; category?: string; id?: string; instanceId?: string }>,
   connections: Array<{ sourceModuleId: string; targetModuleId: string }>
 ): AIMachineContext {
   const moduleSummary = modules.map((m) => ({
     type: m.type,
     category: m.category || 'unknown',
     connections: connections.filter(
-      (c) => c.sourceModuleId === m.id || c.targetModuleId === m.id
+      (c) => c.sourceModuleId === (m.id || m.instanceId) || c.targetModuleId === (m.id || m.instanceId)
     ).length,
   }));
   
@@ -221,7 +221,7 @@ export function generateMachineSummary(
  * Suggest tags based on module composition
  */
 export function suggestTagsFromModules(
-  modules: Array<{ type: string; category: string }>
+  modules: Array<{ type: string; category?: string }>
 ): string[] {
   const tagSet = new Set<string>();
   
@@ -245,19 +245,45 @@ export function suggestTagsFromModules(
 function getTagsForModuleType(type: string): string[] {
   const typeTagMap: Record<string, string[]> = {
     coreFurnace: ['energy-source', 'core'],
+    core_furnace: ['energy-source', 'core'],
+    'core-furnace': ['energy-source', 'core'],
     voidSiphon: ['void', 'absorption'],
+    void_siphon: ['void', 'absorption'],
+    'void-siphon': ['void', 'absorption'],
     stabilizerCore: ['stability', 'balanced'],
+    stabilizer_core: ['stability', 'balanced'],
+    'stabilizer-core': ['stability', 'balanced'],
     phaseModulator: ['phase', 'modulation'],
+    phase_modulator: ['phase', 'modulation'],
+    'phase-modulator': ['phase', 'modulation'],
     fireCrystal: ['fire', 'elemental'],
+    fire_crystal: ['fire', 'elemental'],
+    'fire-crystal': ['fire', 'elemental'],
     lightningConductor: ['lightning', 'elemental'],
+    lightning_conductor: ['lightning', 'elemental'],
+    'lightning-conductor': ['lightning', 'elemental'],
     amplifierCrystal: ['amplification', 'boost'],
+    amplifier_crystal: ['amplification', 'boost'],
+    'amplifier-crystal': ['amplification', 'boost'],
     resonanceChamber: ['resonance', 'harmonic'],
+    resonance_chamber: ['resonance', 'harmonic'],
+    'resonance-chamber': ['resonance', 'harmonic'],
     shieldShell: ['defense', 'protection'],
+    shield_shell: ['defense', 'protection'],
+    'shield-shell': ['defense', 'protection'],
     triggerSwitch: ['trigger', 'control'],
+    trigger_switch: ['trigger', 'control'],
+    'trigger-switch': ['trigger', 'control'],
     outputArray: ['output', 'result'],
+    output_array: ['output', 'result'],
+    'output-array': ['output', 'result'],
     gear: ['mechanical', 'kinetic'],
     energyPipe: ['transfer', 'connection'],
+    energy_pipe: ['transfer', 'connection'],
+    'energy-pipe': ['transfer', 'connection'],
     runeNode: ['arcane', 'rune'],
+    rune_node: ['arcane', 'rune'],
+    'rune-node': ['arcane', 'rune'],
   };
   
   return typeTagMap[type] || ['generic'];

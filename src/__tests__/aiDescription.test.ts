@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   MockAIService,
   getAIService,
+  setAIService,
   AIDescriptionRequest,
   AIDescriptionResponse,
+  AIMachineContext,
 } from '../types/aiIntegration';
 import {
   buildMachineContext,
@@ -12,6 +14,8 @@ import {
   suggestTagsFromModules,
   calculateRarityFromComplexity,
   DESCRIPTION_STYLE_LABELS,
+  MachineAttributes,
+  DescriptionStyle,
 } from '../utils/aiIntegrationUtils';
 
 describe('AI Description Service', () => {
@@ -20,6 +24,8 @@ describe('AI Description Service', () => {
     
     beforeEach(() => {
       aiService = new MockAIService();
+      // Reset the singleton
+      setAIService(aiService);
     });
     
     it('should generate a description with correct structure', async () => {
@@ -46,6 +52,7 @@ describe('AI Description Service', () => {
       
       expect(response).toHaveProperty('description');
       expect(typeof response.description).toBe('string');
+      expect(response.description.length).toBeGreaterThan(0);
     });
     
     it('should generate Chinese description by default', async () => {
@@ -66,6 +73,8 @@ describe('AI Description Service', () => {
       const response = await aiService.generateDescription(request);
       
       expect(response.description.length).toBeGreaterThan(0);
+      // Chinese characters should be present
+      expect(/[\u4e00-\u9fa5]/.test(response.description)).toBe(true);
     });
     
     it('should include English description when available', async () => {
@@ -86,12 +95,61 @@ describe('AI Description Service', () => {
       const response = await aiService.generateDescription(request);
       
       expect(response).toHaveProperty('descriptionEn');
+      expect(response.descriptionEn).toBeDefined();
+      expect(response.descriptionEn!.length).toBeGreaterThan(0);
+    });
+    
+    it('should include lore text', async () => {
+      const request: AIDescriptionRequest = {
+        machineContext: {
+          modules: [{ type: 'fireCrystal', category: 'fire', connections: 1 }],
+          connections: 1,
+        },
+        machineName: '火焰核心',
+        attributes: {
+          rarity: 'uncommon',
+          stability: 80,
+          power: 70,
+          tags: ['fire'],
+        },
+      };
+      
+      const response = await aiService.generateDescription(request);
+      
+      expect(response).toHaveProperty('lore');
+      expect(response.lore).toBeDefined();
+      expect(response.lore!.length).toBeGreaterThan(0);
+    });
+    
+    it('should include suggested tags', async () => {
+      const request: AIDescriptionRequest = {
+        machineContext: {
+          modules: [
+            { type: 'coreFurnace', category: 'energy', connections: 2 },
+            { type: 'amplifierCrystal', category: 'amplification', connections: 1 },
+            { type: 'gear', category: 'mechanical', connections: 1 },
+          ],
+          connections: 4,
+        },
+        machineName: '复合装置',
+        attributes: {
+          rarity: 'rare',
+          stability: 70,
+          power: 80,
+          tags: [],
+        },
+      };
+      
+      const response = await aiService.generateDescription(request);
+      
+      expect(response).toHaveProperty('tags');
+      expect(Array.isArray(response.tags)).toBe(true);
+      expect(response.tags!.length).toBeGreaterThan(0);
+      expect(response.tags!.length).toBeLessThanOrEqual(5);
     });
     
     it('should handle all description styles', async () => {
-      const styles: Array<'technical' | 'flavor' | 'lore' | 'mixed'> = [
-        'technical', 'flavor', 'lore', 'mixed'
-      ];
+      const styles: DescriptionStyle[] = ['technical', 'flavor', 'lore', 'mixed'];
       
       for (const style of styles) {
         const request: AIDescriptionRequest = {
@@ -137,6 +195,46 @@ describe('AI Description Service', () => {
       
       // Mock service may not enforce maxLength, but structure should be correct
       expect(response.description).toBeDefined();
+    });
+    
+    it('should use default style when not specified', async () => {
+      const request: AIDescriptionRequest = {
+        machineContext: {
+          modules: [{ type: 'gear', category: 'mechanical', connections: 1 }],
+          connections: 1,
+        },
+        machineName: '测试机器',
+        attributes: {
+          rarity: 'common',
+          stability: 50,
+          power: 50,
+          tags: [],
+        },
+      };
+      
+      const response = await aiService.generateDescription(request);
+      
+      expect(response.description).toBeDefined();
+      // Default style is 'mixed'
+      expect(response.description.length).toBeGreaterThan(0);
+    });
+  });
+  
+  describe('getAIService singleton', () => {
+    it('should return MockAIService instance', () => {
+      const service = getAIService();
+      expect(service).toBeInstanceOf(MockAIService);
+    });
+    
+    it('should allow setting custom service', () => {
+      const customService = new MockAIService();
+      setAIService(customService);
+      expect(getAIService()).toBe(customService);
+    });
+    
+    it('should report availability', () => {
+      const service = getAIService();
+      expect(service.isAvailable()).toBe(true);
     });
   });
 });
@@ -194,6 +292,21 @@ describe('AI Integration Utilities', () => {
       // Should default category to 'unknown'
       expect(context.modules[0].category).toBe('unknown');
     });
+    
+    it('should use instanceId when id is not present', () => {
+      const modules = [
+        { type: 'mod1', category: 'cat1', instanceId: 'inst1' },
+        { type: 'mod2', category: 'cat2', instanceId: 'inst2' },
+      ];
+      const connections = [
+        { sourceModuleId: 'inst1', targetModuleId: 'inst2' },
+      ];
+      
+      const context = buildMachineContext(modules, connections);
+      
+      expect(context.modules).toHaveLength(2);
+      expect(context.modules[0].connections).toBe(1);
+    });
   });
   
   describe('generateMachineDescription', () => {
@@ -203,7 +316,7 @@ describe('AI Integration Utilities', () => {
         connections: 2,
       };
       const machineName = '测试增幅器';
-      const attributes = {
+      const attributes: MachineAttributes = {
         rarity: 'rare',
         stability: 75,
         power: 85,
@@ -220,15 +333,23 @@ describe('AI Integration Utilities', () => {
       
       expect(response).toHaveProperty('description');
       expect(typeof response.description).toBe('string');
+      expect(response.description.length).toBeGreaterThan(0);
     });
     
     it('should use default style when not specified', async () => {
       const machineContext = { modules: [], connections: 0 };
+      const attributes: MachineAttributes = {
+        rarity: 'common',
+        stability: 50,
+        power: 50,
+        tags: [],
+        name: '测试机器',
+      };
       
       const response = await generateMachineDescription(
         machineContext,
         '测试机器',
-        { rarity: 'common', stability: 50, power: 50, tags: [], name: '测试机器' }
+        attributes
       );
       
       expect(response.description).toBeDefined();
@@ -335,6 +456,21 @@ describe('AI Integration Utilities', () => {
       expect(Array.isArray(tags)).toBe(true);
       expect(tags.length).toBe(0);
     });
+    
+    it('should handle various module type formats', () => {
+      const modules = [
+        { type: 'coreFurnace', category: 'energy' },
+        { type: 'core_furnace', category: 'energy' },
+        { type: 'core-furnace', category: 'energy' },
+      ];
+      
+      const tags = suggestTagsFromModules(modules);
+      
+      // Should recognize all three formats
+      expect(tags).toContain('energy');
+      expect(tags).toContain('core');
+      expect(tags).toContain('energy-source');
+    });
   });
   
   describe('calculateRarityFromComplexity', () => {
@@ -358,18 +494,13 @@ describe('AI Integration Utilities', () => {
     });
     
     it('should return uncommon when complexity is >= 25', () => {
-      // 5 * 0.4 + 10 * 0.3 + 50 * 0.3 = 2 + 3 + 15 = 20 < 25
-      // Need: 7 * 0.4 + 10 * 0.3 + 60 * 0.3 = 2.8 + 3 + 18 = 23.8 < 25
       // Need: 8 * 0.4 + 12 * 0.3 + 65 * 0.3 = 3.2 + 3.6 + 19.5 = 26.3 >= 25
       const rarity = calculateRarityFromComplexity(8, 12, 65);
       expect(rarity).toBe('uncommon');
     });
     
     it('should return rare for higher complexity', () => {
-      // 10 * 0.4 + 15 * 0.3 + 90 * 0.3 = 4 + 4.5 + 27 = 35.5 < 50
-      // Need higher values
-      // 15 * 0.4 + 20 * 0.3 + 100 * 0.3 = 6 + 6 + 30 = 42 < 50
-      // 20 * 0.4 + 30 * 0.3 + 100 * 0.3 = 8 + 9 + 30 = 47 < 50
+      // Need complexity >= 50
       // 25 * 0.4 + 40 * 0.3 + 100 * 0.3 = 10 + 12 + 30 = 52 >= 50
       const rarity = calculateRarityFromComplexity(25, 40, 100);
       expect(rarity).toBe('rare');
@@ -377,8 +508,6 @@ describe('AI Integration Utilities', () => {
     
     it('should return epic for very high complexity', () => {
       // Need complexity >= 75
-      // 35 * 0.4 + 50 * 0.3 + 100 * 0.3 = 14 + 15 + 30 = 59 < 75
-      // 50 * 0.4 + 70 * 0.3 + 100 * 0.3 = 20 + 21 + 30 = 71 < 75
       // 60 * 0.4 + 80 * 0.3 + 100 * 0.3 = 24 + 24 + 30 = 78 >= 75
       const rarity = calculateRarityFromComplexity(60, 80, 100);
       expect(rarity).toBe('epic');
@@ -420,7 +549,7 @@ describe('Description Style Labels', () => {
 
 describe('MachineAttributes interface', () => {
   it('should accept valid machine attributes', () => {
-    const attributes = {
+    const attributes: MachineAttributes = {
       rarity: 'rare',
       stability: 75,
       power: 85,
@@ -432,5 +561,76 @@ describe('MachineAttributes interface', () => {
     expect(attributes.rarity).toBe('rare');
     expect(attributes.stability).toBe(75);
     expect(attributes.power).toBe(85);
+  });
+});
+
+describe('Description Generation Integration', () => {
+  it('should generate description with all required fields', async () => {
+    const machineContext: AIMachineContext = {
+      modules: [
+        { type: 'coreFurnace', category: 'energy', connections: 3 },
+        { type: 'amplifierCrystal', category: 'amplification', connections: 2 },
+        { type: 'gear', category: 'mechanical', connections: 2 },
+        { type: 'runeNode', category: 'arcane', connections: 1 },
+      ],
+      connections: 8,
+      existingTags: [],
+    };
+    
+    const attributes: MachineAttributes = {
+      name: '复合能量增幅器',
+      rarity: 'epic',
+      stability: 75,
+      power: 90,
+      tags: ['energy', 'amplification'],
+    };
+    
+    const response = await generateMachineDescription(
+      machineContext,
+      attributes.name,
+      attributes,
+      'mixed'
+    );
+    
+    // All required fields should be present
+    expect(response.description).toBeDefined();
+    expect(response.description.length).toBeGreaterThan(0);
+    expect(response.descriptionEn).toBeDefined();
+    expect(response.lore).toBeDefined();
+    expect(response.tags).toBeDefined();
+    expect(Array.isArray(response.tags)).toBe(true);
+  });
+  
+  it('should generate different descriptions for different styles', async () => {
+    const machineContext: AIMachineContext = {
+      modules: [{ type: 'fireCrystal', category: 'fire', connections: 2 }],
+      connections: 2,
+    };
+    
+    const attributes: MachineAttributes = {
+      name: '火焰处理器',
+      rarity: 'rare',
+      stability: 70,
+      power: 80,
+      tags: ['fire'],
+    };
+    
+    const technicalResponse = await generateMachineDescription(
+      machineContext,
+      attributes.name,
+      attributes,
+      'technical'
+    );
+    
+    const flavorResponse = await generateMachineDescription(
+      machineContext,
+      attributes.name,
+      attributes,
+      'flavor'
+    );
+    
+    // Descriptions should be different (due to random selection)
+    expect(technicalResponse.description).toBeDefined();
+    expect(flavorResponse.description).toBeDefined();
   });
 });
