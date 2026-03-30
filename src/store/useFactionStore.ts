@@ -132,8 +132,24 @@ export const useFactionStore = create<FactionStore>()(
     }),
     {
       name: STORAGE_KEY,
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateFactionStore = () => {
+  useFactionStore.persist.rehydrate();
+};
+
+// FIX: Helper to check if hydration is complete
+export const isFactionHydrated = () => {
+  return useFactionStore.persist.hasHydrated();
+};
+
+// Selectors for common state slices
+export const selectFactionCounts = (state: FactionStore) => state.factionCounts;
+export const selectSelectedFaction = (state: FactionStore) => state.selectedFaction;
 
 export default useFactionStore;

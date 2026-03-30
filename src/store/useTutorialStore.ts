@@ -112,9 +112,21 @@ export const useTutorialStore = create<TutorialStore>()(
         isTutorialEnabled: state.isTutorialEnabled,
         // Don't persist session state
       }),
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateTutorialStore = () => {
+  useTutorialStore.persist.rehydrate();
+};
+
+// Helper to check if hydration is complete
+export const isTutorialHydrated = () => {
+  return useTutorialStore.persist.hasHydrated();
+};
 
 // Helper to check if user should see welcome modal
 export const shouldShowWelcome = (): boolean => {

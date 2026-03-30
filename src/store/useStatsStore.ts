@@ -154,9 +154,21 @@ export const useStatsStore = create<StatsStore>()(
     }),
     {
       name: STORAGE_KEY,
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateStatsStore = () => {
+  useStatsStore.persist.rehydrate();
+};
+
+// FIX: Helper to check if hydration is complete
+export const isStatsHydrated = () => {
+  return useStatsStore.persist.hasHydrated();
+};
 
 // Start session tracking on store creation
 if (typeof window !== 'undefined') {
@@ -168,5 +180,11 @@ if (typeof window !== 'undefined') {
     useStatsStore.getState().sessionEnd();
   });
 }
+
+// Selectors for common state slices
+export const selectMachinesCreated = (state: StatsStore) => state.machinesCreated;
+export const selectActivations = (state: StatsStore) => state.activations;
+export const selectEarnedAchievements = (state: StatsStore) => state.earnedAchievements;
+export const selectCodexEntries = (state: StatsStore) => state.codexEntries;
 
 export default useStatsStore;

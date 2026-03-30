@@ -21,15 +21,14 @@ export function TutorialOverlay({
   onMachineActivated,
   onMachineSaved,
 }: TutorialOverlayProps) {
-  const {
-    isTutorialActive,
-    currentStep,
-    nextStep,
-    previousStep,
-    skipTutorial,
-    completeTutorial,
-    goToStep,
-  } = useTutorialStore();
+  // FIX: Use individual selectors instead of destructuring entire store
+  const isTutorialActive = useTutorialStore((state) => state.isTutorialActive);
+  const currentStep = useTutorialStore((state) => state.currentStep);
+  const nextStep = useTutorialStore((state) => state.nextStep);
+  const previousStep = useTutorialStore((state) => state.previousStep);
+  const skipTutorial = useTutorialStore((state) => state.skipTutorial);
+  const completeTutorial = useTutorialStore((state) => state.completeTutorial);
+  const goToStep = useTutorialStore((state) => state.goToStep);
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -91,6 +90,9 @@ export function TutorialOverlay({
     }
   }, [isTutorialActive, currentStepData]); // Only depends on stable values
 
+  // FIX: Debounce timer ref to ensure proper cleanup
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Update target position on step change and scroll/resize
   // FIX: Use empty deps with manual tracking to prevent cascading effects
   useEffect(() => {
@@ -106,9 +108,16 @@ export function TutorialOverlay({
     window.addEventListener('resize', handleResize);
     window.addEventListener('scroll', handleScroll, true);
 
-    // Use MutationObserver to detect DOM changes
+    // FIX: Use MutationObserver with debounce ≥200ms to prevent excessive updates
     const observer = new MutationObserver(() => {
-      setTimeout(updateTargetPosition, 100);
+      // Clear any existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      // FIX: Set debounce to 200ms minimum as required by contract
+      debounceTimerRef.current = setTimeout(() => {
+        updateTargetPosition();
+      }, 200);
     });
 
     observer.observe(document.body, {
@@ -122,6 +131,11 @@ export function TutorialOverlay({
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('scroll', handleScroll, true);
       observer.disconnect();
+      // FIX: Clear debounce timer on cleanup
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
     };
   }, [isTutorialActive, currentStep, updateTargetPosition]); // Stable dependencies only
 

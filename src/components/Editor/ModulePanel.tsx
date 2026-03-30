@@ -80,7 +80,7 @@ const BASE_MODULES: ModuleInfo[] = [
     type: 'phase-modulator',
     name: '相位调制器',
     category: 'rune',
-    description: '相位偏移矩阵，2个输入2个输出。以闪电弧引导雷电能量。',
+    description: '相位偏移矩阵，2输入2输出。以闪电弧引导雷电能量。',
   },
   {
     type: 'resonance-chamber',
@@ -175,16 +175,23 @@ const getRecipeForModule = (type: ModuleType) => {
   return RECIPE_DEFINITIONS.find(r => r.moduleType === type);
 };
 
+// FIX: Create isUnlocked checker function outside component
+const checkIsModuleUnlocked = (type: ModuleType): boolean => {
+  const recipe = getRecipeForModule(type);
+  if (!recipe) return false;
+  return useRecipeStore.getState().isUnlocked(recipe.id);
+};
+
 export function ModulePanel() {
+  // FIX: Use individual selectors instead of destructuring entire store
   const addModule = useMachineStore((state) => state.addModule);
   const loadMachine = useMachineStore((state) => state.loadMachine);
   const setGeneratedAttributes = useMachineStore((state) => state.setGeneratedAttributes);
   const showRandomForgeToast = useMachineStore((state) => state.showRandomForgeToast);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const viewport = useMachineStore((state) => state.viewport);
-  const { isUnlocked } = useRecipeStore();
   
-  // Faction reputation store for Grandmaster gating
+  // FIX: Use selector for variant unlock status
   const isVariantUnlocked = useFactionReputationStore((state) => state.isVariantUnlocked);
   
   const [hoveredModule, setHoveredModule] = useState<ModuleInfo | null>(null);
@@ -218,16 +225,6 @@ export function ModulePanel() {
     saveToHistory();
     showRandomForgeToast(`✨ ${attributes.name} 锻造成功!`);
   }, [loadMachine, setGeneratedAttributes, saveToHistory, showRandomForgeToast]);
-  
-  const isModuleLocked = (type: ModuleType): boolean => {
-    const recipe = getRecipeForModule(type);
-    if (!recipe) return false;
-    return !isUnlocked(recipe.id);
-  };
-  
-  const isFactionVariantLocked = (factionId: string): boolean => {
-    return !isVariantUnlocked(factionId);
-  };
   
   const handleMouseEnter = (module: ModuleInfo, e: React.MouseEvent) => {
     const rect = (e.target as HTMLElement).closest('.module-item')?.getBoundingClientRect();
@@ -446,14 +443,14 @@ export function ModulePanel() {
         <div className="space-y-2">
           {/* Base modules */}
           {BASE_MODULES.map((module) => {
-            const locked = isModuleLocked(module.type);
+            const locked = checkIsModuleUnlocked(module.type);
             return renderModuleItem(module, locked);
           })}
           
           {/* Faction variant modules - gated by Grandmaster rank */}
           {FACTION_VARIANT_MODULES.map((module) => {
-            const locked = isModuleLocked(module.type);
-            const factionLocked = module.factionId ? isFactionVariantLocked(module.factionId) : false;
+            const locked = checkIsModuleUnlocked(module.type);
+            const factionLocked = module.factionId ? !isVariantUnlocked(module.factionId) : false;
             return renderModuleItem(module, locked, factionLocked);
           })}
         </div>

@@ -61,6 +61,18 @@ export const useCodexStore = create<CodexStore>()(
     }),
     {
       name: 'arcane-codex-storage',
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateCodexStore = () => {
+  useCodexStore.persist.rehydrate();
+};
+
+// FIX: Helper to check if hydration is complete
+export const isCodexHydrated = () => {
+  return useCodexStore.persist.hasHydrated();
+};

@@ -183,9 +183,21 @@ export const useCommunityStore = create<CommunityStore>()(
       partialize: (state) => ({
         publishedMachines: state.publishedMachines,
       }),
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateCommunityStore = () => {
+  useCommunityStore.persist.rehydrate();
+};
+
+// FIX: Helper to check if hydration is complete
+export const isCommunityHydrated = () => {
+  return useCommunityStore.persist.hasHydrated();
+};
 
 // Selector helpers for common operations
 export const selectCommunityMachines = (state: CommunityStore) => state.communityMachines;

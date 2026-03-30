@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRecipeStore } from '../../store/useRecipeStore';
 import { RECIPE_DEFINITIONS, Recipe, RARITY_COLORS } from '../../types/recipes';
 import RecipeCard from './RecipeCard';
@@ -13,7 +13,11 @@ type FilterType = 'all' | 'unlocked' | 'locked';
 type SortType = 'rarity' | 'name' | 'unlock-order';
 
 export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({ isOpen, onClose }) => {
-  const { isUnlocked } = useRecipeStore();
+  // FIX: Use getState directly via callback to avoid subscription
+  const isUnlocked = useCallback((recipeId: string) => {
+    return useRecipeStore.getState().isUnlocked(recipeId);
+  }, []);
+  
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('unlock-order');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -48,7 +52,7 @@ export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({ isOpen, onClose })
     return RECIPE_DEFINITIONS.indexOf(a) - RECIPE_DEFINITIONS.indexOf(b);
   });
   
-  // Stats
+  // Stats - FIX: Use getState directly
   const unlockedCount = RECIPE_DEFINITIONS.filter(r => isUnlocked(r.id)).length;
   const totalCount = RECIPE_DEFINITIONS.length;
   

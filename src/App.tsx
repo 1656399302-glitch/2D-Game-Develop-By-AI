@@ -23,6 +23,7 @@ import { useAchievementStore } from './store/useAchievementStore';
 import { useCommunityStore } from './store/useCommunityStore';
 import { useMachineStatsStore } from './store/useMachineStatsStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useStoreHydration } from './hooks/useStoreHydration';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
 import { calculateFaction } from './utils/factionCalculator';
@@ -78,6 +79,10 @@ function AppContent() {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
   
+  // FIX: Use store hydration hook to prevent cascading updates
+  const { isHydrated } = useStoreHydration();
+  
+  // FIX: Use selectors for all store subscriptions to prevent full store subscription
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
   const showActivation = useMachineStore((state) => state.showActivation);
@@ -96,34 +101,32 @@ function AppContent() {
     markStateAsLoadedRef.current = markStateAsLoaded;
   }, [markStateAsLoaded]);
   
-  // Community store
+  // Community store - FIX: Use selectors
   const isGalleryOpen = useCommunityStore((state) => state.isGalleryOpen);
   const isPublishModalOpen = useCommunityStore((state) => state.isPublishModalOpen);
   const openPublishModal = useCommunityStore((state) => state.openPublishModal);
   
-  // Machine stats store for statistics dashboard
+  // Machine stats store for statistics dashboard - FIX: Use selectors
   const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
   const closeStatsPanel = useMachineStatsStore((state) => state.closePanel);
   
+  // Codex store - FIX: Use selector
   const addEntry = useCodexStore((state) => state.addEntry);
   
-  // Stats store
+  // Stats store - FIX: Use selectors
   const incrementMachinesCreated = useStatsStore((state) => state.incrementMachinesCreated);
   const incrementActivations = useStatsStore((state) => state.incrementActivations);
   const incrementCodexEntries = useStatsStore((state) => state.incrementCodexEntries);
   const earnedAchievements = useStatsStore((state) => state.earnedAchievements);
   
-  // Faction store
+  // Faction store - FIX: Use selector
   const incrementFactionCount = useFactionStore((state) => state.incrementFactionCount);
   
-  // Recipe system
-  const { checkTutorialUnlock } = useRecipeStore();
-  
-  // FIX: Store checkTutorialUnlock in ref to avoid dependency array issues
-  const checkTutorialUnlockRef = useRef(checkTutorialUnlock);
+  // Recipe system - FIX: Use getState directly via ref
+  const checkTutorialUnlockRef = useRef(useRecipeStore.getState().checkTutorialUnlock);
   useEffect(() => {
-    checkTutorialUnlockRef.current = checkTutorialUnlock;
-  }, [checkTutorialUnlock]);
+    checkTutorialUnlockRef.current = useRecipeStore.getState().checkTutorialUnlock;
+  }, []);
   
   // Viewport size for responsive layout
   const viewport = useViewportSize();
@@ -150,24 +153,27 @@ function AppContent() {
   // Use keyboard shortcuts hook
   const { shortcutFeedback } = useKeyboardShortcuts({ enabled: viewMode === 'editor' });
   
-  // Sync store modal states with local state
+  // Sync store modal states with local state - FIX: Only sync after hydration
   useEffect(() => {
+    if (!isHydrated) return;
     setShowExport(showExportModal);
-  }, [showExportModal]);
+  }, [showExportModal, isHydrated]);
   
   useEffect(() => {
+    if (!isHydrated) return;
     setShowCodex(showCodexModal);
-  }, [showCodexModal]);
+  }, [showCodexModal, isHydrated]);
   
   // Tutorial completion handler - trigger recipe unlocks
   // FIX: Use ref to avoid store action in dependency array
   useEffect(() => {
+    if (!isHydrated) return;
     const tutorialStore = useTutorialStore.getState();
     const tutorialCompleted = tutorialStore.currentStep >= 6;
     if (tutorialCompleted) {
       checkTutorialUnlockRef.current();
     }
-  }, []); // Empty deps - only runs on mount, uses ref for stable reference
+  }, [isHydrated]); // Only run once after hydration
   
   // Connect AchievementToast to achievement store callbacks
   useEffect(() => {

@@ -348,8 +348,25 @@ export const useChallengeStore = create<ChallengeStore>()(
         badges: state.badges,
         challengeProgress: state.challengeProgress,
       }),
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateChallengeStore = () => {
+  useChallengeStore.persist.rehydrate();
+};
+
+// FIX: Helper to check if hydration is complete
+export const isChallengeHydrated = () => {
+  return useChallengeStore.persist.hasHydrated();
+};
+
+// Selectors for common state slices
+export const selectCompletedChallenges = (state: ChallengeStore) => state.completedChallenges;
+export const selectTotalXP = (state: ChallengeStore) => state.totalXP;
+export const selectBadges = (state: ChallengeStore) => state.badges;
 
 export default useChallengeStore;

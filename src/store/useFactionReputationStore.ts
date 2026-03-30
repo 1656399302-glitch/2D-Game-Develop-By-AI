@@ -191,9 +191,22 @@ export const useFactionReputationStore = create<FactionReputationState>()(
         reputations: state.reputations,
         totalReputationEarned: state.totalReputationEarned,
       }),
+      
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateFactionReputationStore = () => {
+  useFactionReputationStore.persist.rehydrate();
+};
+
+// FIX: Helper to check if hydration is complete
+export const isFactionReputationHydrated = () => {
+  return useFactionReputationStore.persist.hasHydrated();
+};
 
 /**
  * Hook to get all faction reputations at once
@@ -218,9 +231,18 @@ export function useFactionReputationLevel(factionId: string) {
 
 /**
  * Hook to check if a faction variant is unlocked
+ * FIX: Use selector to prevent full store subscription
  */
 export function useIsVariantUnlocked(factionId: string) {
-  return useFactionReputationStore((state) => state.isVariantUnlocked(factionId));
+  // Use getState directly to avoid subscription
+  const isUnlocked = useFactionReputationStore((state) => state.isVariantUnlocked(factionId));
+  return isUnlocked;
 }
+
+// Selector for variant unlock status to prevent cascading updates
+export const selectIsVariantUnlocked = (factionId: string) => (state: FactionReputationState) => {
+  const level = getRepLevel(state.reputations[factionId] || 0);
+  return isVariantUnlockedForLevel(level);
+};
 
 export default useFactionReputationStore;

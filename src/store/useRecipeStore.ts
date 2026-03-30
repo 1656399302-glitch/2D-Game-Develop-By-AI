@@ -229,6 +229,30 @@ export const useRecipeStore = create<RecipeStore>()(
     }),
     {
       name: RECIPE_STORAGE_KEY,
+      // FIX: Skip automatic hydration to prevent cascading state updates
+      skipHydration: true,
     }
   )
 );
+
+// FIX: Helper to manually trigger hydration
+export const hydrateRecipeStore = () => {
+  useRecipeStore.persist.rehydrate();
+};
+
+// FIX: Helper to check if hydration is complete
+export const isRecipeHydrated = () => {
+  return useRecipeStore.persist.hasHydrated();
+};
+
+// FIX: Selector for isUnlocked to prevent full store subscription
+export const selectIsUnlocked = (recipeId: string) => (state: RecipeStore) => {
+  return isRecipeUnlocked(recipeId, state.unlockedRecipes);
+};
+
+// FIX: Selector for unlocked recipes count
+export const selectUnlockedCount = (state: RecipeStore) => {
+  return state.unlockedRecipes.filter(recipe => 
+    isRecipeUnlocked(recipe.recipeId, state.unlockedRecipes)
+  ).length;
+};
