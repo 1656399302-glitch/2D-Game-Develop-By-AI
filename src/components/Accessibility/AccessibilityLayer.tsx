@@ -1,5 +1,6 @@
-import { useEffect, useCallback, useRef, ReactNode } from 'react';
+import { useEffect, useCallback, useRef, ReactNode, useState } from 'react';
 import { useReducedMotion } from '../../hooks/useAccessibility';
+import { MachineState } from '../../types';
 
 /**
  * Screen reader announcement region
@@ -56,6 +57,104 @@ export function announceToScreenReader(message: string, priority: 'polite' | 'as
 }
 
 /**
+ * Machine activation state announcements for screen readers
+ * P0: AC1 - Machine activation states must be announced via ARIA live regions
+ */
+export function announceMachineState(state: MachineState) {
+  const stateMessages: Record<MachineState, string> = {
+    idle: '机器已停止',
+    charging: '机器正在充能，请稍候',
+    active: '机器已激活，正在运行',
+    overload: '警告：机器过载！',
+    failure: '错误：机器故障',
+    shutdown: '机器正在关闭',
+  };
+  
+  const message = stateMessages[state] || `机器状态变更为${state}`;
+  
+  // Use assertive for error states, polite for normal states
+  const priority: 'polite' | 'assertive' = 
+    state === 'failure' || state === 'overload' ? 'assertive' : 'polite';
+  
+  announceToScreenReader(message, priority);
+}
+
+/**
+ * Connection creation announcement for screen readers
+ * P0: AC1 - Connection events must be announced
+ */
+export function announceConnectionEvent(
+  event: 'start' | 'complete' | 'cancel' | 'error',
+  sourceModule?: string,
+  targetModule?: string,
+  errorMessage?: string
+) {
+  let message = '';
+  
+  switch (event) {
+    case 'start':
+      message = `开始连接 ${sourceModule || '模块'}`;
+      break;
+    case 'complete':
+      message = `连接成功：${sourceModule || '源模块'} 已连接到 ${targetModule || '目标模块'}`;
+      break;
+    case 'cancel':
+      message = '连接已取消';
+      break;
+    case 'error':
+      message = `连接错误：${errorMessage || '无法创建连接'}`;
+      break;
+  }
+  
+  // Errors use assertive, others use polite
+  const priority: 'polite' | 'assertive' = event === 'error' ? 'assertive' : 'polite';
+  announceToScreenReader(message, priority);
+}
+
+/**
+ * Module operation announcements for screen readers
+ * P0: AC1 - Module operations must be announced
+ */
+export function announceModuleOperation(
+  operation: 'add' | 'delete' | 'move' | 'rotate' | 'select' | 'duplicate',
+  moduleName?: string,
+  details?: string
+) {
+  let message = '';
+  
+  switch (operation) {
+    case 'add':
+      message = `已添加模块：${moduleName || '新模块'}`;
+      break;
+    case 'delete':
+      message = `已删除模块：${moduleName || '选中模块'}`;
+      break;
+    case 'move':
+      message = `移动模块：${moduleName || '选中模块'}${details ? ` 到 ${details}` : ''}`;
+      break;
+    case 'rotate':
+      message = `旋转模块：${moduleName || '选中模块'}`;
+      break;
+    case 'select':
+      message = `已选中模块：${moduleName || '模块'}`;
+      break;
+    case 'duplicate':
+      message = `已复制模块：${moduleName || '选中模块'}`;
+      break;
+  }
+  
+  announceToScreenReader(message, 'polite');
+}
+
+/**
+ * Error announcement for screen readers
+ * P0: AC5 - Error messages must use live regions
+ */
+export function announceError(errorType: string, message: string) {
+  announceToScreenReader(`${errorType}：${message}`, 'assertive');
+}
+
+/**
  * Focus management utilities
  */
 export function focusFirstDescendant(element: HTMLElement): boolean {
@@ -86,6 +185,7 @@ export function focusLastDescendant(element: HTMLElement): boolean {
 
 /**
  * Hook to manage focus trapping within a modal or dialog
+ * P0: AC3 - Focus management for modals
  */
 export function useFocusTrapEnhanced(
   containerRef: React.RefObject<HTMLElement | null>,
@@ -158,7 +258,7 @@ export function useFocusTrapEnhanced(
 }
 
 // Need React for useState
-import React, { useState } from 'react';
+import React from 'react';
 
 /**
  * Roving tabindex management for lists
@@ -250,12 +350,13 @@ export function useRovingTabIndex(
 
 /**
  * Skip link component for keyboard navigation
+ * P1: AC4 - Skip navigation link
  */
 export function SkipLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a
       href={href}
-      className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[10000] focus:px-4 focus:py-2 focus:bg-[#7c3aed] focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none"
+      className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[10000] focus:px-4 focus:py-2 bg-[#7c3aed] text-white rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-[#00d4ff] focus:ring-offset-2 focus:ring-offset-[#0a0e17]"
     >
       {children}
     </a>
@@ -316,6 +417,7 @@ export function Region({ children, id, label, className = '' }: {
 
 /**
  * Accessibility Layer - wraps main app with accessibility features
+ * P0: AC1, AC4, AC5 - Enhanced accessibility layer with proper ARIA live regions
  */
 export function AccessibilityLayer({ children }: { children: ReactNode }) {
   const prefersReducedMotion = useReducedMotion();
@@ -331,16 +433,36 @@ export function AccessibilityLayer({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {/* Skip links */}
+      {/* Skip links - P1: AC4 */}
       <SkipLink href="#main-canvas">跳转到画布</SkipLink>
       <SkipLink href="#module-panel">跳转到模块面板</SkipLink>
       <SkipLink href="#main-toolbar">跳转到工具栏</SkipLink>
 
-      {/* Screen reader announcer */}
+      {/* Screen reader announcer - P0: AC1 */}
       <div
         id="sr-announcer"
         role="status"
         aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: '0',
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: '0',
+        }}
+      />
+      
+      {/* Assertive announcer for errors - P0: AC5 */}
+      <div
+        id="sr-announcer-assertive"
+        role="alert"
+        aria-live="assertive"
         aria-atomic="true"
         className="sr-only"
         style={{
@@ -376,9 +498,9 @@ export function AccessibilityLayer({ children }: { children: ReactNode }) {
  * High contrast mode support
  */
 export function useHighContrast() {
-  const [isHighContrast, setIsHighContrast] = React.useState(false);
+  const [isHighContrast, setIsHighContrast] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-contrast: more)');
     setIsHighContrast(mediaQuery.matches);
 

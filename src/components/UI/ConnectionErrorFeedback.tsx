@@ -4,19 +4,19 @@ import {
   ConnectionErrorType, 
   CONNECTION_ERROR_MESSAGES 
 } from '../../types/aiIntegration';
+import { announceError, announceConnectionEvent } from '../Accessibility/AccessibilityLayer';
 
 type SeverityLevel = 'error' | 'warning' | 'info';
 
 /**
  * Improved Connection Error Toast with specific guidance
- * 
- * Provides detailed error messages and suggestions for fixing
- * connection issues between modules.
+ * P0: AC5 - Dual feedback: Both visual toast AND live region announcement
  * 
  * WCAG 2.1 AA Compliance:
  * - Uses role="alert" for immediate announcement to screen readers
  * - Includes specific, actionable guidance
  * - Visual differentiation for error severity
+ * - Live region announcement for screen reader users
  */
 export function ConnectionErrorFeedback() {
   const connectionError = useMachineStore((state) => state.connectionError);
@@ -57,11 +57,18 @@ export function ConnectionErrorFeedback() {
     };
   }, []);
 
+  // P0: AC5 - Announce to screen reader via live region AND show visual toast
   useEffect(() => {
     if (connectionError) {
       const parsed = parseError(connectionError);
       setErrorData(parsed);
       setVisible(true);
+
+      // P0: AC5 - Dual feedback: Both toast AND live region announcement
+      if (parsed) {
+        announceError(parsed.title, parsed.suggestion);
+        announceConnectionEvent('error', undefined, undefined, `${parsed.title}: ${parsed.suggestion}`);
+      }
 
       // Auto-hide after 4 seconds (longer for better readability)
       const timer = setTimeout(() => {
@@ -120,6 +127,7 @@ export function ConnectionErrorFeedback() {
   const styles = severityStyles[errorData.severity];
 
   return (
+    // P0: AC5 - role="alert" with aria-live="assertive" for screen reader announcement
     <div 
       role="alert"
       aria-live="assertive"

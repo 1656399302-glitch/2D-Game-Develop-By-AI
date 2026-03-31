@@ -13,7 +13,7 @@ import {
   MODULE_PORT_CONFIGS,
   GeneratedAttributes,
 } from '../types';
-import { calculateConnectionPath } from '../utils/connectionEngine';
+import { calculateConnectionPath, updatePathsForModule } from '../utils/connectionEngine';
 import { saveCanvasState, loadCanvasState, clearCanvasState } from '../utils/localStorage';
 
 interface MachineStore {
@@ -383,16 +383,25 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const newX = gridEnabled ? snapToGrid(x) : x;
     const newY = gridEnabled ? snapToGrid(y) : y;
 
-    // Update connection paths for this module
+    // P0: AC2 Fix - Create updated modules array first, then recalculate paths
+    const updatedModules = modules.map((m) =>
+      m.instanceId === instanceId ? { ...m, x: newX, y: newY } : m
+    );
+
+    // Update connection paths using the updated modules array
+    const updatedPathResults = updatePathsForModule(
+      updatedModules,
+      get().connections,
+      instanceId
+    );
+
+    // Create a map for quick path lookup
+    const pathMap = new Map(updatedPathResults.map(p => [p.id, p.pathData]));
+
+    // Update connections with new paths
     const updatedConnections = get().connections.map((conn) => {
-      if (conn.sourceModuleId === instanceId || conn.targetModuleId === instanceId) {
-        const newPath = calculateConnectionPath(
-          modules,
-          conn.sourceModuleId,
-          conn.sourcePortId,
-          conn.targetModuleId,
-          conn.targetPortId
-        );
+      const newPath = pathMap.get(conn.id);
+      if (newPath !== undefined) {
         return { ...conn, pathData: newPath };
       }
       return conn;
@@ -406,9 +415,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       }, 0);
       
       return {
-        modules: get().modules.map((m) =>
-          m.instanceId === instanceId ? { ...m, x: newX, y: newY } : m
-        ),
+        modules: updatedModules,
         connections: updatedConnections,
       };
     });
@@ -528,34 +535,47 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const { gridEnabled, modules, connections } = get();
     const updateMap = new Map(updates.map(u => [u.instanceId, u]));
 
+    // P0: AC2 Fix - Create updated modules array first, then recalculate paths
+    const newModules = modules.map((m) => {
+      const update = updateMap.get(m.instanceId);
+      if (update) {
+        return {
+          ...m,
+          x: update.x !== undefined ? (gridEnabled ? snapToGrid(update.x) : update.x) : m.x,
+          y: update.y !== undefined ? (gridEnabled ? snapToGrid(update.y) : update.y) : m.y,
+        };
+      }
+      return m;
+    });
+
+    // Collect affected module IDs
     const affectedModuleIds = new Set(updates.map(u => u.instanceId));
+
+    // Update paths for all affected modules
+    const updatedPathResults: Array<{ id: string; pathData: string }> = [];
+    affectedModuleIds.forEach((moduleId) => {
+      const paths = updatePathsForModule(newModules, connections, moduleId);
+      paths.forEach((p) => {
+        // Merge results (avoid duplicates)
+        if (!updatedPathResults.some((existing) => existing.id === p.id)) {
+          updatedPathResults.push(p);
+        }
+      });
+    });
+
+    // Create a map for quick path lookup
+    const pathMap = new Map(updatedPathResults.map(p => [p.id, p.pathData]));
+
+    // Update connections with new paths
     const updatedConnections = connections.map((conn) => {
-      if (affectedModuleIds.has(conn.sourceModuleId) || affectedModuleIds.has(conn.targetModuleId)) {
-        const newPath = calculateConnectionPath(
-          modules,
-          conn.sourceModuleId,
-          conn.sourcePortId,
-          conn.targetModuleId,
-          conn.targetPortId
-        );
+      const newPath = pathMap.get(conn.id);
+      if (newPath !== undefined) {
         return { ...conn, pathData: newPath };
       }
       return conn;
     });
 
     set((_state) => {
-      const newModules = get().modules.map((m) => {
-        const update = updateMap.get(m.instanceId);
-        if (update) {
-          return {
-            ...m,
-            x: update.x !== undefined ? (gridEnabled ? snapToGrid(update.x) : update.x) : m.x,
-            y: update.y !== undefined ? (gridEnabled ? snapToGrid(update.y) : update.y) : m.y,
-          };
-        }
-        return m;
-      });
-
       setTimeout(() => {
         const { modules, connections, viewport, gridEnabled } = get();
         debouncedAutoSave(modules, connections, viewport, gridEnabled);
