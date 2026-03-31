@@ -540,3 +540,15 @@
 ## Round 45 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 45 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Harness Mode
+- Rationale: Full multi-agent harness enabled because the task is treated as a long-running engineering workflow.
+
+## Planning
+- Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
+
+## Round 46 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

@@ -44,7 +44,13 @@ const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
 const LazyChallengePanel = lazy(() => import('./components/Challenge/ChallengePanel'));
 const LazyFactionPanel = lazy(() => import('./components/Factions/FactionPanel'));
 const LazyTechTree = lazy(() => import('./components/Factions/TechTree'));
-const LazyAIAssistantPanel = lazy(() => import('./components/AI/AIAssistantPanel'));
+
+// AI Assistant slide-in panel with close functionality - lazy loaded wrapper
+const LazyAIAssistantSlideIn = lazy(() => 
+  import('./components/AI/AIAssistantPanel').then((module) => ({
+    default: module.AIAssistantSlideIn as unknown as React.ComponentType<{isOpen: boolean; onClose: () => void}>
+  }))
+);
 
 type ViewMode = 'editor' | 'codex';
 
@@ -515,12 +521,10 @@ function AppContent() {
         
         {showAchievements && <AchievementList onClose={() => setShowAchievements(false)} />}
         
-        {/* AI Assistant Slide-in Panel */}
-        {showAIAssistant && (
-          <Suspense fallback={<LazyLoadingFallback height="100%" />}>
-            <LazyAIAssistantPanel />
-          </Suspense>
-        )}
+        {/* AI Assistant Slide-in Panel - FIX: Use AIAssistantSlideIn wrapper for close functionality */}
+        <Suspense fallback={<LazyLoadingFallback height="100%" />}>
+          <LazyAIAssistantSlideIn isOpen={showAIAssistant} onClose={() => setShowAIAssistant(false)} />
+        </Suspense>
         
         {/* Toast Notifications */}
         <ConnectionErrorFeedback />
