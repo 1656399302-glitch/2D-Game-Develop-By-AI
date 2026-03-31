@@ -1,6 +1,40 @@
+/**
+ * Enhanced Random Generator for Arcane Machine Codex Workshop
+ * 
+ * Features:
+ * - Themed presets (Balanced, Offensive, Defensive, Arcane Focus, etc.)
+ * - Complexity controls (module count, connection density)
+ * - Aesthetic validation (collision check, energy flow, valid connections)
+ * - Theme-based module selection with faction variants
+ */
+
 import { v4 as uuidv4 } from 'uuid';
-import { PlacedModule, ModuleType, Connection, MODULE_SIZES, MODULE_PORT_CONFIGS, Port, PortType } from '../types';
+import { 
+  PlacedModule, 
+  ModuleType, 
+  Connection, 
+  MODULE_SIZES, 
+  MODULE_PORT_CONFIGS, 
+  Port, 
+  PortType 
+} from '../types';
 import { calculateConnectionPath } from './connectionEngine';
+
+// ============================================================================
+// TYPES & INTERFACES
+// ============================================================================
+
+export type GenerationTheme = 
+  | 'balanced' 
+  | 'offensive' 
+  | 'defensive' 
+  | 'arcane_focus'
+  | 'void_chaos'
+  | 'inferno_forge'
+  | 'storm_surge'
+  | 'stellar_harmony';
+
+export type ConnectionDensity = 'low' | 'medium' | 'high';
 
 export interface RandomGeneratorConfig {
   minModules: number;
@@ -11,17 +45,60 @@ export interface RandomGeneratorConfig {
   padding: number;
 }
 
+export interface EnhancedGeneratorConfig extends RandomGeneratorConfig {
+  theme: GenerationTheme;
+  connectionDensity: ConnectionDensity;
+  useFactionVariants: boolean;
+}
+
+export interface GenerationResult {
+  modules: PlacedModule[];
+  connections: Connection[];
+  validation: ValidationResult;
+  theme: GenerationTheme;
+  complexity: {
+    moduleCount: number;
+    connectionCount: number;
+    connectionDensity: number;
+  };
+  attempts: number;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+  hasCore: boolean;
+  hasOutput: boolean;
+  hasValidEnergyFlow: boolean;
+  noOverlaps: boolean;
+  allConnectionsValid: boolean;
+}
+
 export const DEFAULT_CONFIG: RandomGeneratorConfig = {
   minModules: 2,
   maxModules: 6,
-  minSpacing: 80, // Minimum 80px between module centers
+  minSpacing: 80,
   canvasWidth: 800,
   canvasHeight: 600,
   padding: 100,
 };
 
-// Module types available for random generation - now includes new multi-port modules
-const AVAILABLE_MODULE_TYPES: ModuleType[] = [
+export const DEFAULT_ENHANCED_CONFIG: EnhancedGeneratorConfig = {
+  ...DEFAULT_CONFIG,
+  theme: 'balanced',
+  connectionDensity: 'medium',
+  useFactionVariants: false,
+};
+
+// ============================================================================
+// MODULE DEFINITIONS
+// ============================================================================
+
+/**
+ * Core module types available for random generation
+ */
+const CORE_MODULE_TYPES: ModuleType[] = [
   'core-furnace',
   'energy-pipe',
   'gear',
@@ -33,7 +110,243 @@ const AVAILABLE_MODULE_TYPES: ModuleType[] = [
   'stabilizer-core',
   'void-siphon',
   'phase-modulator',
+  'resonance-chamber',
+  'fire-crystal',
+  'lightning-conductor',
 ];
+
+/**
+ * Faction variant module types (requires unlock)
+ */
+const FACTION_VARIANT_TYPES: ModuleType[] = [
+  'void-arcane-gear',
+  'inferno-blazing-core',
+  'storm-thundering-pipe',
+  'stellar-harmonic-crystal',
+];
+
+/**
+ * Theme to module category mapping
+ * Each theme has preferred module types with weights
+ */
+const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
+  preferred: ModuleType[];
+  weights: Partial<Record<ModuleType, number>>;
+  minThemePercentage: number;
+}> = {
+  balanced: {
+    preferred: CORE_MODULE_TYPES,
+    weights: CORE_MODULE_TYPES.reduce((acc, type) => {
+      acc[type] = 1.0;
+      return acc;
+    }, {} as Partial<Record<ModuleType, number>>),
+    minThemePercentage: 0,
+  },
+  offensive: {
+    preferred: ['amplifier-crystal', 'fire-crystal', 'lightning-conductor', 'phase-modulator', 'core-furnace'],
+    weights: {
+      'amplifier-crystal': 3.0,
+      'fire-crystal': 2.5,
+      'lightning-conductor': 2.5,
+      'phase-modulator': 2.0,
+      'core-furnace': 1.5,
+      'energy-pipe': 1.0,
+      'gear': 1.0,
+      'rune-node': 1.0,
+      'trigger-switch': 1.0,
+      'output-array': 0.5,
+      'shield-shell': 0.3,
+      'stabilizer-core': 0.5,
+      'void-siphon': 0.5,
+      'resonance-chamber': 0.8,
+    },
+    minThemePercentage: 0.6,
+  },
+  defensive: {
+    preferred: ['shield-shell', 'stabilizer-core', 'void-siphon', 'resonance-chamber', 'core-furnace'],
+    weights: {
+      'shield-shell': 3.0,
+      'stabilizer-core': 2.5,
+      'void-siphon': 2.0,
+      'resonance-chamber': 2.0,
+      'core-furnace': 1.5,
+      'energy-pipe': 1.0,
+      'gear': 1.0,
+      'rune-node': 1.0,
+      'trigger-switch': 1.0,
+      'output-array': 0.5,
+      'amplifier-crystal': 0.3,
+      'fire-crystal': 0.3,
+      'lightning-conductor': 0.3,
+      'phase-modulator': 0.5,
+    },
+    minThemePercentage: 0.6,
+  },
+  arcane_focus: {
+    preferred: ['rune-node', 'phase-modulator', 'void-siphon', 'amplifier-crystal', 'resonance-chamber'],
+    weights: {
+      'rune-node': 3.0,
+      'phase-modulator': 2.5,
+      'void-siphon': 2.0,
+      'amplifier-crystal': 2.0,
+      'resonance-chamber': 2.0,
+      'core-furnace': 1.5,
+      'energy-pipe': 1.0,
+      'gear': 0.8,
+      'shield-shell': 0.8,
+      'trigger-switch': 1.0,
+      'output-array': 0.5,
+      'stabilizer-core': 0.8,
+      'fire-crystal': 0.5,
+      'lightning-conductor': 0.5,
+    },
+    minThemePercentage: 0.6,
+  },
+  void_chaos: {
+    preferred: ['void-siphon', 'void-arcane-gear', 'phase-modulator', 'rune-node'],
+    weights: {
+      'void-siphon': 3.0,
+      'void-arcane-gear': 3.0,
+      'phase-modulator': 2.0,
+      'rune-node': 1.5,
+      'amplifier-crystal': 1.0,
+      'core-furnace': 1.0,
+      'energy-pipe': 0.8,
+      'gear': 0.5,
+      'shield-shell': 0.8,
+      'trigger-switch': 0.8,
+      'output-array': 0.5,
+      'stabilizer-core': 1.0,
+      'resonance-chamber': 1.0,
+      'fire-crystal': 0.3,
+      'lightning-conductor': 0.3,
+    },
+    minThemePercentage: 0.5,
+  },
+  inferno_forge: {
+    preferred: ['fire-crystal', 'inferno-blazing-core', 'amplifier-crystal', 'core-furnace'],
+    weights: {
+      'fire-crystal': 3.0,
+      'inferno-blazing-core': 3.0,
+      'amplifier-crystal': 2.0,
+      'core-furnace': 2.0,
+      'energy-pipe': 1.0,
+      'gear': 1.0,
+      'rune-node': 0.8,
+      'shield-shell': 0.5,
+      'trigger-switch': 1.0,
+      'output-array': 0.8,
+      'stabilizer-core': 0.5,
+      'void-siphon': 0.3,
+      'phase-modulator': 0.8,
+      'resonance-chamber': 0.8,
+      'lightning-conductor': 0.3,
+    },
+    minThemePercentage: 0.5,
+  },
+  storm_surge: {
+    preferred: ['lightning-conductor', 'storm-thundering-pipe', 'amplifier-crystal', 'phase-modulator'],
+    weights: {
+      'lightning-conductor': 3.0,
+      'storm-thundering-pipe': 3.0,
+      'amplifier-crystal': 2.5,
+      'phase-modulator': 2.0,
+      'core-furnace': 1.5,
+      'energy-pipe': 1.0,
+      'gear': 1.0,
+      'rune-node': 1.0,
+      'shield-shell': 0.5,
+      'trigger-switch': 1.0,
+      'output-array': 0.8,
+      'stabilizer-core': 0.5,
+      'void-siphon': 0.5,
+      'resonance-chamber': 0.8,
+      'fire-crystal': 0.3,
+    },
+    minThemePercentage: 0.5,
+  },
+  stellar_harmony: {
+    preferred: ['stellar-harmonic-crystal', 'rune-node', 'resonance-chamber', 'stabilizer-core'],
+    weights: {
+      'stellar-harmonic-crystal': 3.0,
+      'rune-node': 2.5,
+      'resonance-chamber': 2.5,
+      'stabilizer-core': 2.0,
+      'core-furnace': 1.5,
+      'energy-pipe': 1.0,
+      'gear': 1.0,
+      'amplifier-crystal': 1.5,
+      'shield-shell': 0.8,
+      'trigger-switch': 1.0,
+      'output-array': 0.8,
+      'void-siphon': 0.5,
+      'phase-modulator': 1.0,
+      'fire-crystal': 0.3,
+      'lightning-conductor': 0.3,
+    },
+    minThemePercentage: 0.5,
+  },
+};
+
+/**
+ * Get all available module types based on configuration
+ */
+function getAvailableModuleTypes(
+  theme: GenerationTheme,
+  useFactionVariants: boolean
+): ModuleType[] {
+  const themePrefs = THEME_MODULE_PREFERENCES[theme];
+  let types = [...themePrefs.preferred];
+  
+  // Add faction variants if allowed and theme matches
+  if (useFactionVariants) {
+    switch (theme) {
+      case 'void_chaos':
+        types.push('void-arcane-gear');
+        break;
+      case 'inferno_forge':
+        types.push('inferno-blazing-core');
+        break;
+      case 'storm_surge':
+        types.push('storm-thundering-pipe');
+        break;
+      case 'stellar_harmony':
+        types.push('stellar-harmonic-crystal');
+        break;
+      default:
+        // For balanced/offensive/defensive/arcane, can still use variants but less prioritized
+        types = [...types, ...FACTION_VARIANT_TYPES];
+    }
+  }
+  
+  // Remove duplicates
+  return [...new Set(types)];
+}
+
+/**
+ * Get weighted random module type based on theme
+ */
+function getWeightedRandomModuleType(
+  availableTypes: ModuleType[],
+  weights: Partial<Record<ModuleType, number>>
+): ModuleType {
+  const totalWeight = availableTypes.reduce((sum, type) => sum + (weights[type] || 1.0), 0);
+  let random = Math.random() * totalWeight;
+  
+  for (const type of availableTypes) {
+    random -= weights[type] || 1.0;
+    if (random <= 0) {
+      return type;
+    }
+  }
+  
+  // Fallback to random selection
+  return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 /**
  * Calculate the center point of a module
@@ -59,12 +372,10 @@ const distanceBetween = (a: PlacedModule, b: PlacedModule): number => {
 
 /**
  * Get default ports for a module type
- * Supports both single-port (backward compatible) and multi-port configurations
  */
 const getDefaultPorts = (type: ModuleType): Port[] => {
   const config = MODULE_PORT_CONFIGS[type];
   if (!config) {
-    // Fallback for unknown types - default single port
     return [
       { id: `${type}-input-0`, type: 'input' as PortType, position: { x: 25, y: 40 } },
       { id: `${type}-output-0`, type: 'output' as PortType, position: { x: 75, y: 40 } },
@@ -72,9 +383,9 @@ const getDefaultPorts = (type: ModuleType): Port[] => {
   }
   
   const ports: Port[] = [];
-  
-  // Handle input ports - can be single or array
   const inputConfig = config.input;
+  const outputConfig = config.output;
+  
   if (Array.isArray(inputConfig)) {
     inputConfig.forEach((pos, idx) => {
       ports.push({ id: `${type}-input-${idx}`, type: 'input' as PortType, position: pos });
@@ -83,8 +394,6 @@ const getDefaultPorts = (type: ModuleType): Port[] => {
     ports.push({ id: `${type}-input-0`, type: 'input' as PortType, position: inputConfig });
   }
   
-  // Handle output ports - can be single or array
-  const outputConfig = config.output;
   if (Array.isArray(outputConfig)) {
     outputConfig.forEach((pos, idx) => {
       ports.push({ id: `${type}-output-${idx}`, type: 'output' as PortType, position: pos });
@@ -97,7 +406,7 @@ const getDefaultPorts = (type: ModuleType): Port[] => {
 };
 
 /**
- * Check if a module position is valid (no overlaps, minimum spacing between centers)
+ * Check if a module position is valid (no overlaps)
  */
 const isValidPosition = (
   newModule: PlacedModule,
@@ -120,8 +429,7 @@ const isValidPosition = (
 };
 
 /**
- * Generate a random position within bounds, ensuring minimum spacing
- * Uses a grid-based approach for more reliable placement
+ * Find a valid position for a module
  */
 const findValidPosition = (
   moduleType: ModuleType,
@@ -133,12 +441,11 @@ const findValidPosition = (
   const usableWidth = config.canvasWidth - size.width - 2 * config.padding;
   const usableHeight = config.canvasHeight - size.height - 2 * config.padding;
   
-  // First, try grid-based placement for reliable spacing
-  const gridSpacing = config.minSpacing * 1.2; // Slightly more than minimum to ensure spacing
+  // Try grid-based placement first
+  const gridSpacing = config.minSpacing * 1.2;
   const cols = Math.floor(usableWidth / gridSpacing);
   const rows = Math.floor(usableHeight / gridSpacing);
   
-  // Create list of potential grid positions
   const gridPositions: { x: number; y: number }[] = [];
   for (let col = 0; col < cols; col++) {
     for (let row = 0; row < rows; row++) {
@@ -199,7 +506,7 @@ const findValidPosition = (
 };
 
 /**
- * Find valid positions for all modules using a greedy approach
+ * Find valid positions for all modules
  */
 const findValidModulePositions = (
   moduleTypes: ModuleType[],
@@ -207,7 +514,7 @@ const findValidModulePositions = (
 ): PlacedModule[] => {
   const modules: PlacedModule[] = [];
   
-  // Sort modules by size (larger modules first) for better placement
+  // Sort modules by size (larger modules first)
   const sortedTypes = [...moduleTypes].sort((a, b) => {
     const sizeA = MODULE_SIZES[a].width * MODULE_SIZES[a].height;
     const sizeB = MODULE_SIZES[b].width * MODULE_SIZES[b].height;
@@ -230,7 +537,6 @@ const findValidModulePositions = (
         ports: getDefaultPorts(type),
       });
     } else {
-      // If we can't place a module, skip it rather than placing it incorrectly
       console.warn(`Could not place module of type ${type}, skipping`);
     }
   }
@@ -239,75 +545,127 @@ const findValidModulePositions = (
 };
 
 /**
- * Create connections between modules
- * Supports multi-port modules by finding compatible input/output port pairs
+ * Get connection probability based on density setting
  */
-const createConnections = (modules: PlacedModule[]): Connection[] => {
+const getConnectionProbability = (density: ConnectionDensity): number => {
+  switch (density) {
+    case 'low': return 0.2;
+    case 'medium': return 0.4;
+    case 'high': return 0.6;
+  }
+};
+
+/**
+ * Create connections between modules
+ */
+const createConnections = (
+  modules: PlacedModule[],
+  density: ConnectionDensity
+): Connection[] => {
   if (modules.length < 2) return [];
   
   const connections: Connection[] = [];
+  const probability = getConnectionProbability(density);
   
-  // Always create at least one connection
-  const firstModule = modules[0];
-  const secondModule = modules[1];
+  // Always create at least one connection (core to something)
+  const hasCore = modules.some(m => m.type === 'core-furnace');
+  if (hasCore) {
+    const coreModule = modules.find(m => m.type === 'core-furnace')!;
+    const otherModules = modules.filter(m => m.type !== 'core-furnace');
+    if (otherModules.length > 0) {
+      const target = otherModules[Math.floor(Math.random() * otherModules.length)];
+      const coreOutput = coreModule.ports.find(p => p.type === 'output') || coreModule.ports[0];
+      const targetInput = target.ports.find(p => p.type === 'input') || target.ports[0];
+      
+      const pathData = calculateConnectionPath(
+        modules,
+        coreModule.instanceId,
+        coreOutput.id,
+        target.instanceId,
+        targetInput.id
+      );
+      
+      connections.push({
+        id: uuidv4(),
+        sourceModuleId: coreModule.instanceId,
+        sourcePortId: coreOutput.id,
+        targetModuleId: target.instanceId,
+        targetPortId: targetInput.id,
+        pathData,
+      });
+    }
+  } else {
+    // No core, connect first two modules
+    const firstModule = modules[0];
+    const secondModule = modules[1];
+    const firstOutput = firstModule.ports.find(p => p.type === 'output') || firstModule.ports[0];
+    const secondInput = secondModule.ports.find(p => p.type === 'input') || secondModule.ports[0];
+    
+    const pathData = calculateConnectionPath(
+      modules,
+      firstModule.instanceId,
+      firstOutput.id,
+      secondModule.instanceId,
+      secondInput.id
+    );
+    
+    connections.push({
+      id: uuidv4(),
+      sourceModuleId: firstModule.instanceId,
+      sourcePortId: firstOutput.id,
+      targetModuleId: secondModule.instanceId,
+      targetPortId: secondInput.id,
+      pathData,
+    });
+  }
   
-  // Find compatible ports (one output, one input) with specific port IDs
-  const firstOutput = firstModule.ports.find((p) => p.type === 'output') || firstModule.ports[0];
-  const secondInput = secondModule.ports.find((p) => p.type === 'input') || secondModule.ports[0];
-  
-  const pathData = calculateConnectionPath(
-    modules,
-    firstModule.instanceId,
-    firstOutput.id,
-    secondModule.instanceId,
-    secondInput.id
-  );
-  
-  connections.push({
-    id: uuidv4(),
-    sourceModuleId: firstModule.instanceId,
-    sourcePortId: firstOutput.id,
-    targetModuleId: secondModule.instanceId,
-    targetPortId: secondInput.id,
-    pathData,
-  });
-  
-  // Add more connections randomly (30% chance per additional module pair)
-  for (let i = 1; i < modules.length; i++) {
+  // Add more connections based on density
+  for (let i = 0; i < modules.length; i++) {
     for (let j = i + 1; j < modules.length; j++) {
-      if (Math.random() < 0.3) {
+      // Skip if already connected (handles core connection above)
+      const alreadyConnected = connections.some(
+        c => (c.sourceModuleId === modules[i].instanceId && c.targetModuleId === modules[j].instanceId) ||
+             (c.sourceModuleId === modules[j].instanceId && c.targetModuleId === modules[i].instanceId)
+      );
+      
+      if (alreadyConnected) continue;
+      
+      if (Math.random() < probability) {
         const moduleA = modules[i];
         const moduleB = modules[j];
         
-        // Find compatible ports with specific IDs
-        const portA = moduleA.ports.find((p) => p.type === 'output') || moduleA.ports[0];
-        const portB = moduleB.ports.find((p) => p.type === 'input') || moduleB.ports[0];
+        // Determine direction based on module types
+        let sourceModule = moduleA;
+        let targetModule = moduleB;
         
-        // Check if connection already exists
-        const exists = connections.some(
-          (c) =>
-            (c.sourceModuleId === moduleA.instanceId && c.targetModuleId === moduleB.instanceId) ||
-            (c.sourceModuleId === moduleB.instanceId && c.targetModuleId === moduleA.instanceId)
+        // Prefer output -> input direction
+        const aHasOutput = moduleA.ports.some(p => p.type === 'output');
+        const bHasOutput = moduleB.ports.some(p => p.type === 'output');
+        
+        if (bHasOutput && !aHasOutput) {
+          sourceModule = moduleB;
+          targetModule = moduleA;
+        }
+        
+        const sourcePort = sourceModule.ports.find(p => p.type === 'output') || sourceModule.ports[0];
+        const targetPort = targetModule.ports.find(p => p.type === 'input') || targetModule.ports[0];
+        
+        const path = calculateConnectionPath(
+          modules,
+          sourceModule.instanceId,
+          sourcePort.id,
+          targetModule.instanceId,
+          targetPort.id
         );
         
-        if (!exists) {
-          const path = calculateConnectionPath(
-            modules,
-            moduleA.instanceId,
-            portA.id,
-            moduleB.instanceId,
-            portB.id
-          );
-          
-          connections.push({
-            id: uuidv4(),
-            sourceModuleId: moduleA.instanceId,
-            sourcePortId: portA.id,
-            targetModuleId: moduleB.instanceId,
-            targetPortId: portB.id,
-            pathData: path,
-          });
-        }
+        connections.push({
+          id: uuidv4(),
+          sourceModuleId: sourceModule.instanceId,
+          sourcePortId: sourcePort.id,
+          targetModuleId: targetModule.instanceId,
+          targetPortId: targetPort.id,
+          pathData: path,
+        });
       }
     }
   }
@@ -315,92 +673,233 @@ const createConnections = (modules: PlacedModule[]): Connection[] => {
   return connections;
 };
 
+// ============================================================================
+// VALIDATION
+// ============================================================================
+
 /**
- * Generate a random machine
+ * Validate a generated machine
  */
-export const generateRandomMachine = (
-  config: Partial<RandomGeneratorConfig> = {}
-): { modules: PlacedModule[]; connections: Connection[] } => {
-  const finalConfig: RandomGeneratorConfig = { ...DEFAULT_CONFIG, ...config };
+export const validateGeneratedMachine = (
+  modules: PlacedModule[],
+  connections: Connection[],
+  minSpacing: number = 80
+): ValidationResult => {
+  const errors: string[] = [];
+  const warnings: string[] = [];
   
-  // Determine number of modules - use fewer for better spacing
+  // Check for overlaps
+  let hasOverlaps = false;
+  for (let i = 0; i < modules.length; i++) {
+    for (let j = i + 1; j < modules.length; j++) {
+      const dist = distanceBetween(modules[i], modules[j]);
+      if (dist < minSpacing) {
+        errors.push(`Modules ${modules[i].type} and ${modules[j].type} overlap (${dist.toFixed(1)}px < ${minSpacing}px)`);
+        hasOverlaps = true;
+      }
+    }
+  }
+  
+  // Check for core module
+  const hasCore = modules.some(m => m.type === 'core-furnace');
+  if (!hasCore) {
+    warnings.push('No core furnace module present');
+  }
+  
+  // Check for output module
+  const hasOutput = modules.some(m => m.type === 'output-array');
+  if (!hasOutput) {
+    warnings.push('No output array module present');
+  }
+  
+  // Check connection validity
+  let allConnectionsValid = true;
+  for (const conn of connections) {
+    const sourceModule = modules.find(m => m.instanceId === conn.sourceModuleId);
+    const targetModule = modules.find(m => m.instanceId === conn.targetModuleId);
+    
+    if (!sourceModule || !targetModule) {
+      errors.push('Connection references invalid module');
+      allConnectionsValid = false;
+      continue;
+    }
+    
+    const sourcePort = sourceModule.ports.find(p => p.id === conn.sourcePortId);
+    const targetPort = targetModule.ports.find(p => p.id === conn.targetPortId);
+    
+    if (!sourcePort || !targetPort) {
+      errors.push(`Connection has invalid port reference`);
+      allConnectionsValid = false;
+      continue;
+    }
+    
+    if (sourcePort.type === targetPort.type) {
+      errors.push(`Connection has same port types (${sourcePort.type})`);
+      allConnectionsValid = false;
+    }
+  }
+  
+  // Check energy flow (output array should have incoming connection)
+  const hasValidEnergyFlow = !hasOutput || connections.some(
+    c => modules.find(m => m.instanceId === c.targetModuleId)?.type === 'output-array'
+  );
+  
+  if (hasOutput && !hasValidEnergyFlow) {
+    errors.push('Output array has no incoming energy connection');
+  }
+  
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    hasCore,
+    hasOutput,
+    hasValidEnergyFlow,
+    noOverlaps: !hasOverlaps,
+    allConnectionsValid,
+  };
+};
+
+/**
+ * Check if generated machine meets theme requirements
+ */
+export const validateThemeCompliance = (
+  modules: PlacedModule[],
+  theme: GenerationTheme
+): { compliant: boolean; themePercentage: number; details: string } => {
+  const themePrefs = THEME_MODULE_PREFERENCES[theme];
+  const minPercentage = themePrefs.minThemePercentage;
+  
+  if (modules.length === 0 || minPercentage === 0) {
+    return { compliant: true, themePercentage: 1.0, details: 'No theme requirements' };
+  }
+  
+  const themePreferred = new Set(themePrefs.preferred);
+  const themeModuleCount = modules.filter(m => themePreferred.has(m.type)).length;
+  const themePercentage = themeModuleCount / modules.length;
+  
+  const compliant = themePercentage >= minPercentage;
+  
+  return {
+    compliant,
+    themePercentage,
+    details: `${themeModuleCount}/${modules.length} modules match theme (${(themePercentage * 100).toFixed(0)}% / ${(minPercentage * 100).toFixed(0)}% required)`,
+  };
+};
+
+// ============================================================================
+// MAIN GENERATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Generate a themed random machine with complexity controls
+ */
+export const generateWithTheme = (
+  config: Partial<EnhancedGeneratorConfig> = {}
+): GenerationResult => {
+  const finalConfig: EnhancedGeneratorConfig = { ...DEFAULT_ENHANCED_CONFIG, ...config };
+  const themePrefs = THEME_MODULE_PREFERENCES[finalConfig.theme];
+  
+  // Determine module count
   const moduleCount = Math.floor(
     Math.random() * (finalConfig.maxModules - finalConfig.minModules + 1)
   ) + finalConfig.minModules;
   
-  // Ensure at least 2 modules for valid connections
   const actualCount = Math.max(2, moduleCount);
   
-  // Select random module types from all available (including new multi-port modules)
+  // Get available module types for theme
+  const availableTypes = getAvailableModuleTypes(finalConfig.theme, finalConfig.useFactionVariants);
+  
+  // Select module types with theme weighting
   const moduleTypes: ModuleType[] = [];
   for (let i = 0; i < actualCount; i++) {
-    moduleTypes.push(AVAILABLE_MODULE_TYPES[Math.floor(Math.random() * AVAILABLE_MODULE_TYPES.length)]);
+    const type = getWeightedRandomModuleType(availableTypes, themePrefs.weights);
+    moduleTypes.push(type);
   }
   
   // Ensure there's at least one core furnace
-  if (!moduleTypes.includes('core-furnace') && Math.random() < 0.5) {
+  if (!moduleTypes.includes('core-furnace') && Math.random() < 0.6) {
     moduleTypes[0] = 'core-furnace';
   }
   
   // Find valid positions for all modules
   const modules = findValidModulePositions(moduleTypes, finalConfig);
   
-  // Create connections
-  const connections = createConnections(modules);
+  // Create connections based on density setting
+  const connections = createConnections(modules, finalConfig.connectionDensity);
   
-  return { modules, connections };
+  // Validate the generated machine
+  const validation = validateGeneratedMachine(
+    modules, 
+    connections, 
+    finalConfig.minSpacing
+  );
+  
+  // Check theme compliance
+  const themeCompliance = validateThemeCompliance(modules, finalConfig.theme);
+  
+  return {
+    modules,
+    connections,
+    validation: {
+      ...validation,
+      errors: [...validation.errors, ...(themeCompliance.compliant ? [] : [`Theme compliance failed: ${themeCompliance.details}`])],
+      valid: validation.valid && themeCompliance.compliant,
+    },
+    theme: finalConfig.theme,
+    complexity: {
+      moduleCount: modules.length,
+      connectionCount: connections.length,
+      connectionDensity: connections.length / Math.max(1, modules.length),
+    },
+    attempts: 1,
+  };
 };
 
 /**
- * Validate that a generated machine meets constraints
+ * Generate a random machine (legacy compatibility)
  */
-export const validateGeneratedMachine = (
-  modules: PlacedModule[],
-  connections: Connection[],
-  minSpacing: number = 80
-): { valid: boolean; errors: string[] } => {
-  const errors: string[] = [];
+export const generateRandomMachine = (
+  config: Partial<RandomGeneratorConfig> = {}
+): { modules: PlacedModule[]; connections: Connection[] } => {
+  const result = generateWithTheme({
+    ...config,
+    theme: 'balanced',
+    connectionDensity: 'medium',
+    useFactionVariants: false,
+  });
+  return { modules: result.modules, connections: result.connections };
+};
+
+/**
+ * Generate with retry (for validation failures)
+ */
+export const generateWithRetry = (
+  config: Partial<EnhancedGeneratorConfig> = {},
+  maxAttempts: number = 3
+): GenerationResult => {
+  let lastResult: GenerationResult | null = null;
   
-  // Check minimum spacing (center-to-center distance)
-  for (let i = 0; i < modules.length; i++) {
-    for (let j = i + 1; j < modules.length; j++) {
-      const dist = distanceBetween(modules[i], modules[j]);
-      if (dist < minSpacing) {
-        errors.push(`Modules ${i} and ${j} are too close: ${dist.toFixed(1)}px < ${minSpacing}px`);
-      }
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const result = generateWithTheme(config);
+    lastResult = { ...result, attempts: attempt + 1 };
+    
+    if (result.validation.valid) {
+      return result;
     }
   }
   
-  // Check connection validity for 2+ modules
-  if (modules.length >= 2 && connections.length < 1) {
-    errors.push(`Machine has ${modules.length} modules but no connections`);
+  // Return last result even if invalid (fallback)
+  if (lastResult) {
+    return lastResult;
   }
   
-  // Validate connections reference valid modules and ports
-  for (const conn of connections) {
-    const sourceValid = modules.some((m) => m.instanceId === conn.sourceModuleId);
-    const targetValid = modules.some((m) => m.instanceId === conn.targetModuleId);
-    
-    if (!sourceValid || !targetValid) {
-      errors.push(`Connection references invalid module`);
-    }
-    
-    // Verify port IDs exist on the referenced modules
-    const sourceModule = modules.find((m) => m.instanceId === conn.sourceModuleId);
-    const targetModule = modules.find((m) => m.instanceId === conn.targetModuleId);
-    
-    if (sourceModule && !sourceModule.ports.some((p) => p.id === conn.sourcePortId)) {
-      errors.push(`Connection references invalid source port: ${conn.sourcePortId}`);
-    }
-    if (targetModule && !targetModule.ports.some((p) => p.id === conn.targetPortId)) {
-      errors.push(`Connection references invalid target port: ${conn.targetPortId}`);
-    }
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
+  // Ultimate fallback: generate simplest valid machine
+  return generateWithTheme({
+    ...config,
+    minModules: 2,
+    maxModules: 2,
+  });
 };
 
 /**
@@ -408,15 +907,85 @@ export const validateGeneratedMachine = (
  */
 export const generateAndValidateMachines = (
   count: number,
-  config: Partial<RandomGeneratorConfig> = {}
-): { modules: PlacedModule[]; connections: Connection[]; validation: { valid: boolean; errors: string[] } }[] => {
-  const results = [];
+  config: Partial<EnhancedGeneratorConfig> = {}
+): GenerationResult[] => {
+  const results: GenerationResult[] = [];
   
   for (let i = 0; i < count; i++) {
-    const { modules, connections } = generateRandomMachine(config);
-    const validation = validateGeneratedMachine(modules, connections, config.minSpacing || DEFAULT_CONFIG.minSpacing);
-    results.push({ modules, connections, validation });
+    results.push(generateWithRetry(config));
   }
   
   return results;
 };
+
+// ============================================================================
+// THEME UTILITIES
+// ============================================================================
+
+/**
+ * Get theme display info
+ */
+export const THEME_DISPLAY_INFO: Record<GenerationTheme, {
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+}> = {
+  balanced: {
+    name: '平衡',
+    description: '均衡使用所有模块类型，适合初学者',
+    icon: '⚖️',
+    color: '#9ca3af',
+  },
+  offensive: {
+    name: '进攻',
+    description: '优先使用增幅器、火焰和雷电模块',
+    icon: '⚔️',
+    color: '#ef4444',
+  },
+  defensive: {
+    name: '防御',
+    description: '优先使用护盾、稳定器和虚空模块',
+    icon: '🛡️',
+    color: '#22c55e',
+  },
+  arcane_focus: {
+    name: '奥术专注',
+    description: '优先使用符文节点、相位调制器和虚空模块',
+    icon: '🔮',
+    color: '#a855f7',
+  },
+  void_chaos: {
+    name: '虚空混沌',
+    description: '使用虚空派系变体模块，探索虚空之力',
+    icon: '🌀',
+    color: '#a78bfa',
+  },
+  inferno_forge: {
+    name: '熔岩熔炉',
+    description: '使用熔岩派系变体模块，掌握火焰科技',
+    icon: '🔥',
+    color: '#f97316',
+  },
+  storm_surge: {
+    name: '雷霆涌动',
+    description: '使用雷霆派系变体模块，驾驭闪电之力',
+    icon: '⚡',
+    color: '#eab308',
+  },
+  stellar_harmony: {
+    name: '星辉和谐',
+    description: '使用星辉派系变体模块，感受星辰力量',
+    icon: '✨',
+    color: '#fcd34d',
+  },
+};
+
+/**
+ * Get all available themes
+ */
+export const getAllThemes = (): GenerationTheme[] => {
+  return Object.keys(THEME_DISPLAY_INFO) as GenerationTheme[];
+};
+
+export default generateWithTheme;

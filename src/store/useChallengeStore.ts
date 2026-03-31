@@ -9,6 +9,35 @@ import {
   calculateBonusReputation,
   isTechMasteryAvailable,
 } from '../data/challenges';
+import {
+  LeaderboardEntry,
+  TimeTrialState,
+} from '../types/challenge';
+
+/**
+ * Leaderboard storage helpers
+ */
+const LEADERBOARD_STORAGE_KEY = 'arcane-codex-time-trial-leaderboard';
+
+const loadLeaderboard = (): Record<string, LeaderboardEntry[]> => {
+  try {
+    const stored = localStorage.getItem(LEADERBOARD_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.warn('Failed to load leaderboard:', e);
+  }
+  return {};
+};
+
+const saveLeaderboard = (data: Record<string, LeaderboardEntry[]>) => {
+  try {
+    localStorage.setItem(LEADERBOARD_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Failed to save leaderboard:', e);
+  }
+};
 
 /**
  * Badge structure for earned achievements
@@ -49,6 +78,12 @@ interface ChallengeState {
   challengeProgress: ChallengeProgress;
   /** Loading state for localStorage hydration */
   loading: boolean;
+  
+  // ===== Time Trial State =====
+  /** Current time trial state */
+  timeTrialState: TimeTrialState;
+  /** Leaderboard data (challengeId -> entries[]) */
+  leaderboard: Record<string, LeaderboardEntry[]>;
 }
 
 /**
@@ -99,6 +134,46 @@ interface ChallengeActions {
   /** Get bonus reputation for completing a challenge with a machine */
   getBonusReputation: (challengeId: string, highestTechTier: number) => number;
 
+  // ===== Time Trial Actions =====
+  
+  /** Start a time trial */
+  startTimeTrial: (challengeId: string) => void;
+  
+  /** Pause the current time trial */
+  pauseTimeTrial: () => void;
+  
+  /** Resume the paused time trial */
+  resumeTimeTrial: () => void;
+  
+  /** Stop/cancel the current time trial */
+  stopTimeTrial: () => void;
+  
+  /** Complete a time trial with the final time */
+  completeTimeTrial: (timeMs: number) => void;
+  
+  /** Reset the time trial state */
+  resetTimeTrial: () => void;
+  
+  /** Update time trial progress */
+  updateTimeTrialProgress: (progress: Record<string, number>) => void;
+
+  // ===== Leaderboard Actions =====
+  
+  /** Add an entry to the leaderboard */
+  addLeaderboardEntry: (entry: LeaderboardEntry) => void;
+  
+  /** Get leaderboard entries for a challenge */
+  getLeaderboard: (challengeId: string) => LeaderboardEntry[];
+  
+  /** Get personal best for a challenge */
+  getPersonalBest: (challengeId: string) => LeaderboardEntry | null;
+  
+  /** Clear leaderboard for a challenge */
+  clearChallengeLeaderboard: (challengeId: string) => void;
+  
+  /** Clear all leaderboard data */
+  clearAllLeaderboard: () => void;
+
   // === Backward Compatibility Aliases ===
   
   /** Alias for isChallengeCompleted (backward compatibility) */
@@ -117,6 +192,21 @@ interface ChallengeActions {
 type ChallengeStore = ChallengeState & ChallengeActions;
 
 const STORAGE_KEY = 'arcane-codex-challenge-store';
+
+/**
+ * Default time trial state
+ */
+const DEFAULT_TIME_TRIAL_STATE: TimeTrialState = {
+  activeChallengeId: null,
+  isTrialActive: false,
+  isPaused: false,
+  elapsedTime: 0,
+  startTimestamp: null,
+  pausedTimestamp: null,
+  progress: {},
+  isCompleted: false,
+  completionTime: null,
+};
 
 /**
  * Default challenge progress
@@ -176,7 +266,7 @@ function addToArray(arr: string[], id: string): string[] {
 }
 
 /**
- * Challenge store with XP, badges, and progress tracking
+ * Challenge store with XP, badges, progress tracking, time trials, and leaderboard
  */
 export const useChallengeStore = create<ChallengeStore>()(
   persist(
@@ -188,6 +278,12 @@ export const useChallengeStore = create<ChallengeStore>()(
       badges: [],
       challengeProgress: { ...DEFAULT_PROGRESS },
       loading: true,
+      
+      // Time trial state
+      timeTrialState: { ...DEFAULT_TIME_TRIAL_STATE },
+      
+      // Leaderboard data (initialized from localStorage)
+      leaderboard: {},
 
       // Actions
       checkChallengeCompletion: (type: string, value: number) => {
@@ -347,6 +443,7 @@ export const useChallengeStore = create<ChallengeStore>()(
           totalXP: 0,
           badges: [],
           challengeProgress: { ...DEFAULT_PROGRESS },
+          timeTrialState: { ...DEFAULT_TIME_TRIAL_STATE },
         });
       },
 
@@ -373,6 +470,130 @@ export const useChallengeStore = create<ChallengeStore>()(
         return calculateBonusReputation(baseRep, highestTechTier);
       },
 
+      // ===== Time Trial Actions =====
+
+      startTimeTrial: (challengeId: string) => {
+        set({
+          timeTrialState: {
+            activeChallengeId: challengeId,
+            isTrialActive: true,
+            isPaused: false,
+            elapsedTime: 0,
+            startTimestamp: Date.now(),
+            pausedTimestamp: null,
+            progress: {},
+            isCompleted: false,
+            completionTime: null,
+          },
+        });
+      },
+
+      pauseTimeTrial: () => {
+        set((state) => ({
+          timeTrialState: {
+            ...state.timeTrialState,
+            isPaused: true,
+            pausedTimestamp: Date.now(),
+          },
+        }));
+      },
+
+      resumeTimeTrial: () => {
+        set((state) => ({
+          timeTrialState: {
+            ...state.timeTrialState,
+            isPaused: false,
+            pausedTimestamp: null,
+          },
+        }));
+      },
+
+      stopTimeTrial: () => {
+        set({
+          timeTrialState: { ...DEFAULT_TIME_TRIAL_STATE },
+        });
+      },
+
+      completeTimeTrial: (timeMs: number) => {
+        set((state) => ({
+          timeTrialState: {
+            ...state.timeTrialState,
+            isTrialActive: false,
+            isCompleted: true,
+            completionTime: timeMs,
+          },
+        }));
+      },
+
+      resetTimeTrial: () => {
+        set({
+          timeTrialState: { ...DEFAULT_TIME_TRIAL_STATE },
+        });
+      },
+
+      updateTimeTrialProgress: (progress: Record<string, number>) => {
+        set((state) => ({
+          timeTrialState: {
+            ...state.timeTrialState,
+            progress: { ...state.timeTrialState.progress, ...progress },
+          },
+        }));
+      },
+
+      // ===== Leaderboard Actions =====
+
+      addLeaderboardEntry: (entry: LeaderboardEntry) => {
+        set((state) => {
+          const existing = state.leaderboard[entry.challengeId] || [];
+          
+          // Add new entry
+          const newEntries = [...existing, entry];
+          
+          // Sort by time (ascending - faster is better)
+          newEntries.sort((a, b) => a.time - b.time);
+          
+          // Keep only top 10
+          const trimmedEntries = newEntries.slice(0, 10);
+          
+          const newLeaderboard = {
+            ...state.leaderboard,
+            [entry.challengeId]: trimmedEntries,
+          };
+          
+          // Persist to localStorage
+          saveLeaderboard(newLeaderboard);
+          
+          return {
+            leaderboard: newLeaderboard,
+          };
+        });
+      },
+
+      getLeaderboard: (challengeId: string) => {
+        const leaderboard = get().leaderboard;
+        const entries = leaderboard[challengeId] || [];
+        return entries.sort((a, b) => a.time - b.time);
+      },
+
+      getPersonalBest: (challengeId: string) => {
+        const entries = get().leaderboard[challengeId] || [];
+        return entries.length > 0 ? entries[0] : null;
+      },
+
+      clearChallengeLeaderboard: (challengeId: string) => {
+        set((state) => {
+          const newLeaderboard = { ...state.leaderboard };
+          delete newLeaderboard[challengeId];
+          saveLeaderboard(newLeaderboard);
+          return { leaderboard: newLeaderboard };
+        });
+      },
+
+      clearAllLeaderboard: () => {
+        saveLeaderboard({});
+        set({ leaderboard: {} });
+      },
+
       // === Backward Compatibility Aliases ===
       
       isCompleted: (challengeId: string) => {
@@ -393,10 +614,15 @@ export const useChallengeStore = create<ChallengeStore>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 2, // Incremented for tech integration
+      version: 3, // Incremented for time trial + leaderboard
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.loading = false;
+          // Load leaderboard from localStorage
+          const leaderboard = loadLeaderboard();
+          if (Object.keys(leaderboard).length > 0) {
+            state.leaderboard = leaderboard;
+          }
         }
       },
       // Only persist specific fields
@@ -406,6 +632,8 @@ export const useChallengeStore = create<ChallengeStore>()(
         totalXP: state.totalXP,
         badges: state.badges,
         challengeProgress: state.challengeProgress,
+        timeTrialState: state.timeTrialState,
+        // Note: leaderboard is managed separately in localStorage
       }),
       // FIX: Skip automatic hydration to prevent cascading state updates
       skipHydration: true,
@@ -427,5 +655,7 @@ export const isChallengeHydrated = () => {
 export const selectCompletedChallenges = (state: ChallengeStore) => state.completedChallenges;
 export const selectTotalXP = (state: ChallengeStore) => state.totalXP;
 export const selectBadges = (state: ChallengeStore) => state.badges;
+export const selectTimeTrialState = (state: ChallengeStore) => state.timeTrialState;
+export const selectLeaderboard = (state: ChallengeStore) => state.leaderboard;
 
 export default useChallengeStore;

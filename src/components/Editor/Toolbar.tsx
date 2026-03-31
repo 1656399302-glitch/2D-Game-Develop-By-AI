@@ -20,6 +20,7 @@ const LAYOUT_OPTIONS: { type: LayoutType; label: string; icon: string }[] = [
 
 export interface ToolbarProps {
   onOpenRecipeBrowser?: () => void;
+  onOpenRandomGenerator?: () => void;
 }
 
 // Granular selectors for performance optimization (AC1: Re-render Reduction)
@@ -36,7 +37,7 @@ const useCanRedo = () => {
   return historyIndex < historyLength - 1;
 };
 
-export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
+export function Toolbar({ onOpenRecipeBrowser, onOpenRandomGenerator }: ToolbarProps = {}) {
   // Use granular selectors to prevent unnecessary re-renders (AC1)
   const modulesCount = useModulesCount();
   const connectionsCount = useConnectionsCount();
@@ -88,6 +89,10 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
   const handleOpenRecipeBrowser = useCallback(() => {
     onOpenRecipeBrowser?.();
   }, [onOpenRecipeBrowser]);
+
+  const handleOpenRandomGenerator = useCallback(() => {
+    onOpenRandomGenerator?.();
+  }, [onOpenRandomGenerator]);
 
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
@@ -203,9 +208,20 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
         </span>
       </div>
 
-      {/* Center - Test Mode buttons, Auto-Layout, and Recipe Button */}
+      {/* Center - Test Mode buttons, Auto-Layout, Recipe Button, and Random Generator */}
       <div className="flex-1 flex justify-center">
         <div className="flex items-center gap-3">
+          {/* Random Generator Button - Opens the Random Generator Modal */}
+          <button
+            onClick={handleOpenRandomGenerator}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#00d4ff]/20 text-[#00d4ff] hover:bg-[#00d4ff]/30 border border-[#00d4ff]/40 transition-colors"
+            title="随机锻造 - 生成随机机器"
+            aria-label="随机锻造"
+          >
+            <span aria-hidden="true">🎲</span>
+            <span>随机生成</span>
+          </button>
+
           {/* Recipe Button - Opens the Recipe Browser */}
           <button
             onClick={handleOpenRecipeBrowser}
