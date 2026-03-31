@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useMachineStatsStore } from '../../store/useMachineStatsStore';
@@ -22,14 +22,34 @@ export interface ToolbarProps {
   onOpenRecipeBrowser?: () => void;
 }
 
+// Granular selectors for performance optimization (AC1: Re-render Reduction)
+const useModulesCount = () => useMachineStore((state) => state.modules.length);
+const useConnectionsCount = () => useMachineStore((state) => state.connections.length);
+const useViewportZoom = () => useMachineStore((state) => state.viewport.zoom);
+const useHistoryIndex = () => useMachineStore((state) => state.historyIndex);
+const useHistoryLength = () => useMachineStore((state) => state.history.length);
+const useSelectedModuleId = () => useMachineStore((state) => state.selectedModuleId);
+const useCanUndo = () => useMachineStore((state) => state.historyIndex > 0);
+const useCanRedo = () => {
+  const historyIndex = useMachineStore((state) => state.historyIndex);
+  const historyLength = useMachineStore((state) => state.history.length);
+  return historyIndex < historyLength - 1;
+};
+
 export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
-  const modules = useMachineStore((state) => state.modules);
-  const connections = useMachineStore((state) => state.connections);
-  const viewport = useMachineStore((state) => state.viewport);
+  // Use granular selectors to prevent unnecessary re-renders (AC1)
+  const modulesCount = useModulesCount();
+  const connectionsCount = useConnectionsCount();
+  const viewportZoom = useViewportZoom();
+  const historyIndex = useHistoryIndex();
+  const historyLength = useHistoryLength();
+  const selectedModuleId = useSelectedModuleId();
+  const canUndo = useCanUndo();
+  const canRedo = useCanRedo();
+  
+  // Get action functions (stable references)
   const undo = useMachineStore((state) => state.undo);
   const redo = useMachineStore((state) => state.redo);
-  const history = useMachineStore((state) => state.history);
-  const historyIndex = useMachineStore((state) => state.historyIndex);
   const clearCanvas = useMachineStore((state) => state.clearCanvas);
   const activateFailureMode = useMachineStore((state) => state.activateFailureMode);
   const activateOverloadMode = useMachineStore((state) => state.activateOverloadMode);
@@ -37,24 +57,30 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
   const zoomOut = useMachineStore((state) => state.zoomOut);
   const resetViewport = useMachineStore((state) => state.resetViewport);
   const zoomToFit = useMachineStore((state) => state.zoomToFit);
-  const selectedModuleId = useMachineStore((state) => state.selectedModuleId);
   const duplicateModule = useMachineStore((state) => state.duplicateModule);
   const updateModulesBatch = useMachineStore((state) => state.updateModulesBatch);
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
+  const modules = useMachineStore((state) => state.modules);
+  const connections = useMachineStore((state) => state.connections);
+  
+  // Community store selectors
   const communityMachines = useCommunityStore((state) => state.communityMachines);
   const publishedMachines = useCommunityStore((state) => state.publishedMachines);
+  const totalCommunityCount = communityMachines.length + publishedMachines.length;
+  
+  // Stats store selectors
   const toggleStatsPanel = useMachineStatsStore((state) => state.togglePanel);
   const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
 
-  // FIX: Store method reference in ref
+  // Store method reference in ref
   const openGalleryRef = useRef(useCommunityStore.getState().openGallery);
 
-  // FIX: Periodically sync ref
+  // Periodically sync ref
   useEffect(() => {
     openGalleryRef.current = useCommunityStore.getState().openGallery;
   });
 
-  // FIX: Create stable callback using ref
+  // Create stable callback using ref
   const handleOpenGallery = useCallback(() => {
     openGalleryRef.current();
   }, []);
@@ -66,12 +92,6 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  const canUndo = historyIndex > 0;
-  const canRedo = historyIndex < history.length - 1;
-
-  // Total community count
-  const totalCommunityCount = communityMachines.length + publishedMachines.length;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -121,13 +141,13 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showLayoutMenu, activeLayout]);
 
-  const handleDuplicate = () => {
+  const handleDuplicate = useCallback(() => {
     if (selectedModuleId) {
       duplicateModule(selectedModuleId);
     }
-  };
+  }, [selectedModuleId, duplicateModule]);
 
-  const applyLayout = (layoutType: LayoutType) => {
+  const applyLayout = useCallback((layoutType: LayoutType) => {
     if (modules.length === 0) return;
 
     const containerWidth = 800;
@@ -159,12 +179,12 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
     updateModulesBatch(updates);
     saveToHistory(); // Save to history after layout change
     setActiveLayout(layoutType);
-  };
+  }, [modules, connections, updateModulesBatch, saveToHistory]);
 
-  const handleLayoutSelect = (layoutType: LayoutType) => {
+  const handleLayoutSelect = useCallback((layoutType: LayoutType) => {
     applyLayout(layoutType);
     setShowLayoutMenu(false);
-  };
+  }, [applyLayout]);
 
   return (
     <div 
@@ -175,11 +195,11 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
       {/* Left side - stats */}
       <div className="flex items-center gap-2" role="status" aria-live="polite">
         <span className="text-xs text-[#4a5568]">
-          模块: <span className="text-[#00d4ff]">{modules.length}</span>
+          模块: <span className="text-[#00d4ff]">{modulesCount}</span>
         </span>
         <span className="text-[#1e2a42]" aria-hidden="true">|</span>
         <span className="text-xs text-[#4a5568]">
-          连接: <span className="text-[#00ffcc]">{connections.length}</span>
+          连接: <span className="text-[#00ffcc]">{connectionsCount}</span>
         </span>
       </div>
 
@@ -203,7 +223,7 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowLayoutMenu(!showLayoutMenu)}
-              disabled={modules.length === 0}
+              disabled={modulesCount === 0}
               className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#1e2a42] text-[#9ca3af] hover:text-white hover:bg-[#2d3a4f] disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#2d3a4f]"
               title="自动布局"
               aria-label="自动布局"
@@ -339,8 +359,8 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
             </svg>
           </button>
 
-          <span className="text-xs text-[#4a5568] w-10 text-center" aria-label={`当前缩放 ${Math.round(viewport.zoom * 100)}%`}>
-            {Math.round(viewport.zoom * 100)}%
+          <span className="text-xs text-[#4a5568] w-10 text-center" aria-label={`当前缩放 ${Math.round(viewportZoom * 100)}%`}>
+            {Math.round(viewportZoom * 100)}%
           </span>
 
           <button
@@ -423,8 +443,8 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
           </svg>
         </button>
 
-        <span className="text-xs text-[#4a5568] mx-1" aria-label={`历史记录 ${historyIndex + 1} / ${history.length || 1}`}>
-          {historyIndex + 1}/{history.length || 1}
+        <span className="text-xs text-[#4a5568] mx-1" aria-label={`历史记录 ${historyIndex + 1} / ${historyLength || 1}`}>
+          {historyIndex + 1}/{historyLength || 1}
         </span>
 
         <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
@@ -432,7 +452,7 @@ export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
         {/* Clear button */}
         <button
           onClick={clearCanvas}
-          disabled={modules.length === 0}
+          disabled={modulesCount === 0}
           className="px-2 py-1 text-xs rounded bg-[#1e2a42] text-[#9ca3af] hover:text-[#ef4444] hover:bg-[#7f1d1d]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           title="清空全部"
           aria-label="清空全部"

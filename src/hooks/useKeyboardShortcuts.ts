@@ -7,10 +7,11 @@ import { rotateGroup, scaleGroup, flipGroupHorizontal } from '../utils/groupingU
 interface UseKeyboardShortcutsOptions {
   enabled?: boolean;
   excludeWhenInputFocused?: boolean;
+  onRandomForge?: () => void;
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) {
-  const { enabled = true, excludeWhenInputFocused = true } = options;
+  const { enabled = true, excludeWhenInputFocused = true, onRandomForge } = options;
 
   // Toast feedback state
   const [shortcutFeedback, setShortcutFeedback] = useState<string | null>(null);
@@ -283,6 +284,16 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     showFeedback('已取消选择');
   }, [showFeedback]);
 
+  // Random Forge shortcut handler (AC3: Keyboard Shortcuts Expansion - Ctrl+R)
+  const handleRandomForge = useCallback(() => {
+    if (onRandomForge) {
+      onRandomForge();
+      showFeedback('随机锻造!');
+    } else {
+      showFeedback('随机锻造功能未配置');
+    }
+  }, [onRandomForge, showFeedback]);
+
   // Main keyboard handler
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
@@ -429,9 +440,19 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
       return;
     }
 
+    // === NEW: Ctrl+R for Random Forge (AC3: Keyboard Shortcuts Expansion) ===
+    // Note: We intentionally do NOT intercept F5 (browser refresh) or Ctrl+W, Ctrl+T, etc.
+    if ((e.key === 'r' || e.key === 'R') && (e.ctrlKey || e.metaKey)) {
+      // Only trigger if not conflicting with browser defaults
+      // Ctrl+R in most browsers triggers "Find" (not refresh, that's F5)
+      e.preventDefault();
+      handleRandomForge();
+      return;
+    }
+
     // === NON-MODIFIER KEY SHORTCUTS ===
 
-    // R key to rotate selected module
+    // R key to rotate selected module (only when not using Ctrl+R)
     if (e.key === 'r' || e.key === 'R') {
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
@@ -516,7 +537,8 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     scaleSelectedModules,
     deleteSelectedModules,
     selectAllModules,
-    deselectAll
+    deselectAll,
+    handleRandomForge,
   ]);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { generateAttributes, getRarityColor, getRarityLabel } from '../../utils/attributeGenerator';
 import { BASE_MODULES, ModuleInfo } from './ModulePanel';
@@ -7,11 +7,15 @@ const MODULE_INFO = Object.fromEntries(
   BASE_MODULES.map((m: ModuleInfo) => [m.type, m])
 );
 
-export function PropertiesPanel() {
-  const modules = useMachineStore((state) => state.modules);
-  const connections = useMachineStore((state) => state.connections);
-  const selectedModuleId = useMachineStore((state) => state.selectedModuleId);
-  const selectedConnectionId = useMachineStore((state) => state.selectedConnectionId);
+// Granular selectors for performance optimization (AC1: Re-render Reduction)
+const useModules = () => useMachineStore((state) => state.modules);
+const useConnections = () => useMachineStore((state) => state.connections);
+const useSelectedModuleId = () => useMachineStore((state) => state.selectedModuleId);
+const useSelectedConnectionId = () => useMachineStore((state) => state.selectedConnectionId);
+const useGridEnabled = () => useMachineStore((state) => state.gridEnabled);
+
+// Action selectors (stable references)
+const useActions = () => {
   const updateModuleRotation = useMachineStore((state) => state.updateModuleRotation);
   const updateModuleScale = useMachineStore((state) => state.updateModuleScale);
   const updateModuleFlip = useMachineStore((state) => state.updateModuleFlip);
@@ -20,27 +24,79 @@ export function PropertiesPanel() {
   const clearCanvas = useMachineStore((state) => state.clearCanvas);
   const toggleGrid = useMachineStore((state) => state.toggleGrid);
   const resetViewport = useMachineStore((state) => state.resetViewport);
-  const gridEnabled = useMachineStore((state) => state.gridEnabled);
   
+  return {
+    updateModuleRotation,
+    updateModuleScale,
+    updateModuleFlip,
+    removeModule,
+    removeConnection,
+    clearCanvas,
+    toggleGrid,
+    resetViewport,
+  };
+};
+
+export function PropertiesPanel() {
+  // Use granular selectors to prevent unnecessary re-renders (AC1)
+  const modules = useModules();
+  const connections = useConnections();
+  const selectedModuleId = useSelectedModuleId();
+  const selectedConnectionId = useSelectedConnectionId();
+  const gridEnabled = useGridEnabled();
+  const actions = useActions();
+  
+  // Memoize selected module lookup
   const selectedModule = useMemo(() => {
     return modules.find((m) => m.instanceId === selectedModuleId);
   }, [modules, selectedModuleId]);
   
+  // Memoize selected connection lookup
   const selectedConnection = useMemo(() => {
     return connections.find((c) => c.id === selectedConnectionId);
   }, [connections, selectedConnectionId]);
   
+  // Memoize attributes generation
   const attributes = useMemo(() => {
     return generateAttributes(modules, connections);
   }, [modules, connections]);
   
-  const moduleInfo = selectedModule ? MODULE_INFO[selectedModule.type] : null;
+  // Memoize module info lookup
+  const moduleInfo = useMemo(() => {
+    return selectedModule ? MODULE_INFO[selectedModule.type] : null;
+  }, [selectedModule]);
   
-  const handleScaleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Stable callback for scale change
+  const handleScaleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (selectedModule) {
-      updateModuleScale(selectedModule.instanceId, parseFloat(e.target.value));
+      actions.updateModuleScale(selectedModule.instanceId, parseFloat(e.target.value));
     }
-  };
+  }, [selectedModule, actions.updateModuleScale]);
+  
+  // Stable callbacks for module actions
+  const handleRotate = useCallback(() => {
+    if (selectedModule) {
+      actions.updateModuleRotation(selectedModule.instanceId, 90);
+    }
+  }, [selectedModule, actions.updateModuleRotation]);
+  
+  const handleFlip = useCallback(() => {
+    if (selectedModule) {
+      actions.updateModuleFlip(selectedModule.instanceId);
+    }
+  }, [selectedModule, actions.updateModuleFlip]);
+  
+  const handleDeleteModule = useCallback(() => {
+    if (selectedModule) {
+      actions.removeModule(selectedModule.instanceId);
+    }
+  }, [selectedModule, actions.removeModule]);
+  
+  const handleDeleteConnection = useCallback(() => {
+    if (selectedConnection) {
+      actions.removeConnection(selectedConnection.id);
+    }
+  }, [selectedConnection, actions.removeConnection]);
   
   return (
     <div className="w-72 bg-[#121826] border-l border-[#1e2a42] flex flex-col overflow-hidden">
@@ -193,13 +249,13 @@ export function PropertiesPanel() {
               {/* Actions */}
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => updateModuleRotation(selectedModule.instanceId, 90)}
+                  onClick={handleRotate}
                   className="flex-1 arcane-button-secondary text-xs py-1.5"
                 >
                   ↻ Rotate (R)
                 </button>
                 <button
-                  onClick={() => updateModuleFlip(selectedModule.instanceId)}
+                  onClick={handleFlip}
                   className={`flex-1 text-xs py-1.5 border transition-colors ${
                     selectedModule.flipped
                       ? 'bg-[#00d4ff]/20 border-[#00d4ff] text-[#00d4ff]'
@@ -211,7 +267,7 @@ export function PropertiesPanel() {
               </div>
               
               <button
-                onClick={() => removeModule(selectedModule.instanceId)}
+                onClick={handleDeleteModule}
                 className="w-full arcane-button-danger text-xs py-1.5"
               >
                 🗑 Delete (Del)
@@ -243,7 +299,7 @@ export function PropertiesPanel() {
             </div>
             
             <button
-              onClick={() => removeConnection(selectedConnection.id)}
+              onClick={handleDeleteConnection}
               className="w-full mt-3 arcane-button-danger text-xs py-1.5"
             >
               🗑 Delete Connection
@@ -259,7 +315,7 @@ export function PropertiesPanel() {
           
           <div className="space-y-2">
             <button
-              onClick={toggleGrid}
+              onClick={actions.toggleGrid}
               className={`w-full arcane-button-secondary text-xs py-2 ${
                 gridEnabled ? 'border-[#00d4ff] text-[#00d4ff]' : ''
               }`}
@@ -268,14 +324,14 @@ export function PropertiesPanel() {
             </button>
             
             <button
-              onClick={resetViewport}
+              onClick={actions.resetViewport}
               className="w-full arcane-button-secondary text-xs py-2"
             >
               Reset View
             </button>
             
             <button
-              onClick={clearCanvas}
+              onClick={actions.clearCanvas}
               className="w-full arcane-button-danger text-xs py-2"
             >
               Clear Canvas
@@ -321,6 +377,10 @@ export function PropertiesPanel() {
               <div className="flex justify-between">
                 <span>Shift+0</span>
                 <span className="text-[#9ca3af]">Fit All</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ctrl+R</span>
+                <span className="text-[#a855f7]">随机锻造</span>
               </div>
             </div>
           </div>
