@@ -386,7 +386,7 @@ function AppContent() {
           )}
         </header>
         
-        {viewMode === 'editor' && <Toolbar />}
+        {viewMode === 'editor' && <Toolbar onOpenRecipeBrowser={() => setShowRecipeBrowser(true)} />}
         
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">

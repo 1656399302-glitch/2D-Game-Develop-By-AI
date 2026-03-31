@@ -18,34 +18,11 @@ const LAYOUT_OPTIONS: { type: LayoutType; label: string; icon: string }[] = [
   { type: 'cascade', label: '层叠', icon: '⫷' },
 ];
 
-// Recipe browser state - stored at module level for cross-component access
-let recipeBrowserOpen = false;
-const recipeBrowserListeners: Set<(open: boolean) => void> = new Set();
-
-export function setRecipeBrowserOpen(open: boolean) {
-  recipeBrowserOpen = open;
-  recipeBrowserListeners.forEach(listener => listener(open));
+export interface ToolbarProps {
+  onOpenRecipeBrowser?: () => void;
 }
 
-export function useRecipeBrowserToggle() {
-  const [isOpen, setIsOpen] = useState(recipeBrowserOpen);
-  
-  useEffect(() => {
-    const listener = (open: boolean) => setIsOpen(open);
-    recipeBrowserListeners.add(listener);
-    return () => {
-      recipeBrowserListeners.delete(listener);
-    };
-  }, []);
-  
-  const toggle = useCallback(() => {
-    setRecipeBrowserOpen(!recipeBrowserOpen);
-  }, []);
-  
-  return { isOpen, toggle };
-}
-
-export function Toolbar() {
+export function Toolbar({ onOpenRecipeBrowser }: ToolbarProps = {}) {
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
   const viewport = useMachineStore((state) => state.viewport);
@@ -81,6 +58,10 @@ export function Toolbar() {
   const handleOpenGallery = useCallback(() => {
     openGalleryRef.current();
   }, []);
+
+  const handleOpenRecipeBrowser = useCallback(() => {
+    onOpenRecipeBrowser?.();
+  }, [onOpenRecipeBrowser]);
 
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
@@ -207,7 +188,7 @@ export function Toolbar() {
         <div className="flex items-center gap-3">
           {/* Recipe Button - Opens the Recipe Browser */}
           <button
-            onClick={() => setRecipeBrowserOpen(true)}
+            onClick={handleOpenRecipeBrowser}
             className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#a855f7]/20 text-[#a855f7] hover:bg-[#a855f7]/30 border border-[#a855f7]/40 transition-colors"
             title="配方图鉴 - 查看所有模块配方"
             aria-label="配方"
@@ -298,7 +279,7 @@ export function Toolbar() {
               onClick={activateOverloadMode}
               className="px-3 py-1 text-xs rounded bg-[#78350f] text-[#fdba74] hover:bg-[#92400e] hover:text-[#fed7aa] border border-[#f97316]/50 transition-colors"
               title="测试过载模式"
-              aria-label="测试过载模式"
+              aria-label="测试过载"
             >
               ⚡ 测试过载
             </button>

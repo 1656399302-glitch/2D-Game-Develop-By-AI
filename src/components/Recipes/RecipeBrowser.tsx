@@ -86,70 +86,22 @@ const ALL_RECIPES: FactionVariantRecipe[] = [
   ...FACTION_VARIANT_RECIPES,
 ];
 
-// Module-level state for cross-component recipe browser control
-let internalRecipeBrowserOpen = false;
-const recipeBrowserListeners: Set<(open: boolean) => void> = new Set();
-
-export function setRecipeBrowserOpenState(open: boolean) {
-  internalRecipeBrowserOpen = open;
-  recipeBrowserListeners.forEach(listener => listener(open));
-}
-
-interface RecipeBrowserProps {
-  isOpen?: boolean;
-  onClose?: () => void;
+export interface RecipeBrowserProps {
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 type FilterType = 'all' | 'unlocked' | 'locked' | 'faction';
 type SortType = 'rarity' | 'name' | 'unlock-order';
 
-export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({ isOpen: propIsOpen, onClose: propOnClose }) => {
-  // Use prop or internal state
-  const [internalIsOpen, setInternalIsOpen] = useState(propIsOpen ?? false);
+export const RecipeBrowser: React.FC<RecipeBrowserProps> = ({ isOpen, onClose }) => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('unlock-order');
   const [selectedRecipe, setSelectedRecipe] = useState<FactionVariantRecipe | null>(null);
 
-  // Sync with module-level state
-  useEffect(() => {
-    // Check if prop is explicitly provided
-    if (propIsOpen !== undefined) {
-      setInternalIsOpen(propIsOpen);
-      return;
-    }
-    
-    // Use module-level state
-    setInternalIsOpen(internalRecipeBrowserOpen);
-    
-    // Add listener for module-level state changes
-    const listener = (open: boolean) => {
-      if (propIsOpen === undefined) {
-        setInternalIsOpen(open);
-      }
-    };
-    recipeBrowserListeners.add(listener);
-    
-    // Also poll to catch external state changes
-    const interval = setInterval(() => {
-      if (propIsOpen === undefined) {
-        setInternalIsOpen(internalRecipeBrowserOpen);
-      }
-    }, 100);
-    
-    return () => {
-      recipeBrowserListeners.delete(listener);
-      clearInterval(interval);
-    };
-  }, [propIsOpen, internalRecipeBrowserOpen]);
-
-  // Use either prop or internal state
-  const isOpen = propIsOpen !== undefined ? propIsOpen : internalIsOpen;
-  
   const handleClose = useCallback(() => {
-    setRecipeBrowserOpenState(false);
-    setInternalIsOpen(false);
-    propOnClose?.();
-  }, [propOnClose]);
+    onClose();
+  }, [onClose]);
   
   // Close on escape key
   useEffect(() => {
