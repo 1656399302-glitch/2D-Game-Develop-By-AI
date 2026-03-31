@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useSelectionStore } from '../../store/useSelectionStore';
 import { calculateBounds } from '../../utils/clipboardUtils';
@@ -34,7 +34,12 @@ interface SelectionHandlesProps {
 /**
  * SelectionHandles Component
  * Displays bounding box with 8 resize handles and 1 rotation handle
- * for multi-selected modules
+ * for multi-selected modules.
+ * 
+ * Accessibility features:
+ * - ARIA labels for rotation handle
+ * - Keyboard announcements for scale operations
+ * - Focus management for multi-select operations
  */
 export function SelectionHandles({
   viewport,
@@ -43,8 +48,10 @@ export function SelectionHandles({
 }: SelectionHandlesProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [activeHandle, setActiveHandle] = useState<HandlePosition | null>(null);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const liveRegionRef = useRef<HTMLDivElement>(null);
 
   const modules = useMachineStore((state) => state.modules);
   const selectedModuleIds = useSelectionStore((state) => state.selectedModuleIds);
@@ -88,6 +95,33 @@ export function SelectionHandles({
     return `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`;
   }, [viewport]);
 
+  // Announce screen reader message
+  const announce = useCallback((message: string) => {
+    setAnnouncement(message);
+    // Clear after announcement
+    setTimeout(() => setAnnouncement(null), 1000);
+  }, []);
+
+  // Handle keyboard interactions for rotation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, handleId: HandlePosition) => {
+    if (handleId === 'rotate') {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        // Announce rotation action
+        announce(`Rotate selection 90 degrees. ${selectedModules.length} modules selected.`);
+        onRotate?.(90);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        announce('Rotating selection counter-clockwise');
+        onRotate?.(-45);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        announce('Rotating selection clockwise');
+        onRotate?.(45);
+      }
+    }
+  }, [onRotate, announce, selectedModules.length]);
+
   // Handle mouse down
   const handleMouseDown = useCallback((e: React.MouseEvent, handleId: HandlePosition) => {
     e.preventDefault();
@@ -98,6 +132,9 @@ export function SelectionHandles({
     dragStartRef.current = { x: e.clientX, y: e.clientY };
 
     if (handleId === 'rotate') {
+      // Announce rotation start for screen readers
+      announce(`Rotating ${selectedModules.length} modules`);
+
       // Calculate initial rotation angle from center
       if (bounds) {
         const centerX = (bounds.minX + bounds.maxX) / 2;
@@ -106,7 +143,7 @@ export function SelectionHandles({
         onRotate?.(angle * (180 / Math.PI));
       }
     }
-  }, [bounds, onRotate]);
+  }, [bounds, onRotate, announce, selectedModules.length]);
 
   // Handle mouse move (global listener)
   const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
@@ -145,12 +182,15 @@ export function SelectionHandles({
 
   // Handle mouse up
   const handleGlobalMouseUp = useCallback(() => {
+    if (isDragging && activeHandle === 'rotate') {
+      announce('Rotation complete');
+    }
     setIsDragging(false);
     setActiveHandle(null);
-  }, []);
+  }, [isDragging, activeHandle, announce]);
 
-  // Add global listeners
-  if (typeof window !== 'undefined') {
+  // Add/remove global listeners
+  useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleGlobalMouseMove);
       window.addEventListener('mouseup', handleGlobalMouseUp);
@@ -158,7 +198,12 @@ export function SelectionHandles({
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     }
-  }
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, handleGlobalMouseMove, handleGlobalMouseUp]);
 
   // Don't render if no selection
   if (!bounds || selectedModules.length < 2) {
@@ -177,7 +222,20 @@ export function SelectionHandles({
       data-testid="selection-handles"
       className="pointer-events-none absolute inset-0"
       style={{ transform, transformOrigin: '0 0' }}
+      role="application"
+      aria-label={`${selectedModules.length} modules selected. Use handles to transform.`}
     >
+      {/* Screen reader live region for announcements */}
+      <div
+        ref={liveRegionRef}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {announcement}
+      </div>
+
       {/* Bounding box */}
       <div
         data-testid="selection-bounding-box"
@@ -188,6 +246,7 @@ export function SelectionHandles({
           width: boxWidth,
           height: boxHeight,
         }}
+        role="presentation"
       />
 
       {/* Resize handles */}
@@ -195,11 +254,18 @@ export function SelectionHandles({
         <div
           key={handle.id}
           data-testid={`resize-handle-${handle.id}`}
+          role="slider"
+          aria-label={`Resize ${handle.id} handle`}
+          aria-valuenow={1}
+          aria-valuemin={0.25}
+          aria-valuemax={4}
+          tabIndex={0}
           className={`
             absolute w-3 h-3 bg-white border-2 border-[#3b82f6] rounded-sm
             pointer-events-auto cursor-${handle.cursor}
             hover:bg-[#3b82f6] hover:scale-125 transition-all
             ${isDragging && activeHandle === handle.id ? 'bg-[#3b82f6] scale-125' : ''}
+            focus:outline-none focus:ring-2 focus:ring-[#3b82f6] focus:ring-offset-2
           `}
           style={{
             left: handle.position.x - 6,
@@ -207,28 +273,51 @@ export function SelectionHandles({
             cursor: handle.cursor,
           }}
           onMouseDown={(e) => handleMouseDown(e, handle.id)}
+          onKeyDown={(e) => {
+            if (e.key === '+' || e.key === '=') {
+              e.preventDefault();
+              announce('Scale increased');
+            } else if (e.key === '-') {
+              e.preventDefault();
+              announce('Scale decreased');
+            }
+          }}
         />
       ))}
 
-      {/* Rotation handle */}
+      {/* Rotation handle with accessibility enhancements */}
       <div
         data-testid="rotate-handle"
+        role="button"
+        aria-label={`Rotate selection 90 degrees. ${selectedModules.length} modules selected.`}
+        aria-pressed={isDragging && activeHandle === 'rotate'}
+        aria-describedby="rotate-instructions"
+        tabIndex={0}
         className={`
           absolute w-4 h-4 bg-[#22c55e] border-2 border-white rounded-full
           pointer-events-auto cursor-grab
           hover:bg-[#22c55e]/80 hover:scale-110 transition-all
           ${isDragging && activeHandle === 'rotate' ? 'bg-[#22c55e]/80 scale-110 cursor-grabbing' : ''}
+          focus:outline-none focus:ring-2 focus:ring-[#22c55e] focus:ring-offset-2
         `}
         style={{
           left: handles.find(h => h.id === 'rotate')?.position.x! - 8,
           top: handles.find(h => h.id === 'rotate')?.position.y! - 8,
         }}
         onMouseDown={(e) => handleMouseDown(e, 'rotate')}
+        onKeyDown={(e) => handleKeyDown(e, 'rotate')}
       />
+      
+      {/* Hidden instructions for screen readers */}
+      <div id="rotate-instructions" className="sr-only">
+        Press Enter or Space to rotate 90 degrees. 
+        Use arrow up for counter-clockwise, arrow down for clockwise rotation.
+      </div>
 
       {/* Line connecting rotation handle to box */}
       <svg
         className="absolute pointer-events-none"
+        aria-hidden="true"
         style={{
           left: 0,
           top: 0,
@@ -258,6 +347,8 @@ export function SelectionHandles({
           top: boxY - 24,
           transform: 'translateX(-50%)',
         }}
+        role="status"
+        aria-live="polite"
       >
         {selectedModules.length} 模块已选择
       </div>

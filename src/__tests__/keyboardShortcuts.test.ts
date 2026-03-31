@@ -545,55 +545,251 @@ describe('Keyboard Shortcuts - Complete Integration', () => {
       expect(result[1].y).not.toBe(200);
     });
   });
-});
 
-describe('Keyboard Shortcuts - Input Field Exclusion', () => {
-  it('should not trigger shortcuts when input is focused', () => {
-    // This test verifies the input field check logic
-    const testInputField = (target: HTMLElement | null) => {
-      if (target && typeof target.closest === 'function') {
-        const isInputField = 
-          target.tagName === 'INPUT' || 
-          target.tagName === 'TEXTAREA' || 
-          target instanceof HTMLElement && target.isContentEditable ||
-          target.closest('input') ||
-          target.closest('textarea');
-        return isInputField;
+  // === NEW TESTS FOR ROUND 63 ===
+
+  describe('AC4 Enhanced: Scale shortcut boundaries (0.25x - 4.0x clamp)', () => {
+    it('scale shortcut caps at 4.0x maximum scale', () => {
+      const modules: PlacedModule[] = [
+        createMockModule('m1', 'core-furnace', 100, 100, 1),
+      ];
+      
+      // Scale up 20 times with factor 1.25 each time
+      // After 20 scales: 1 * (1.25^20) = ~867, but should clamp at 4.0
+      let result = modules;
+      for (let i = 0; i < 20; i++) {
+        result = scaleGroup(result, ['m1'], 1.25, 0.25, 4.0);
       }
-      return false;
-    };
+      
+      expect(result[0].scale).toBe(4.0);
+    });
 
-    const inputElement = {
-      tagName: 'INPUT',
-      isContentEditable: false,
-      closest: () => null,
-    } as unknown as HTMLElement;
+    it('scale shortcut floors at 0.25x minimum scale', () => {
+      const modules: PlacedModule[] = [
+        createMockModule('m1', 'core-furnace', 100, 100, 1),
+      ];
+      
+      // Scale down 20 times with factor 0.8 each time
+      // After 20 scales: 1 * (0.8^20) ≈ 0.0115, but should floor at 0.25
+      let result = modules;
+      for (let i = 0; i < 20; i++) {
+        result = scaleGroup(result, ['m1'], 0.8, 0.25, 4.0);
+      }
+      
+      expect(result[0].scale).toBe(0.25);
+    });
 
-    expect(testInputField(inputElement)).toBe(true);
+    it('scale from 4.0 going down floors at 0.25', () => {
+      const modules: PlacedModule[] = [
+        createMockModule('m1', 'core-furnace', 100, 100, 4.0),
+      ];
+      
+      // Start at 4.0, scale down many times
+      let result = modules;
+      for (let i = 0; i < 20; i++) {
+        result = scaleGroup(result, ['m1'], 0.8, 0.25, 4.0);
+      }
+      
+      expect(result[0].scale).toBe(0.25);
+    });
+
+    it('scale from 0.25 going up caps at 4.0', () => {
+      const modules: PlacedModule[] = [
+        createMockModule('m1', 'core-furnace', 100, 100, 0.25),
+      ];
+      
+      // Start at 0.25, scale up many times
+      let result = modules;
+      for (let i = 0; i < 20; i++) {
+        result = scaleGroup(result, ['m1'], 1.25, 0.25, 4.0);
+      }
+      
+      expect(result[0].scale).toBe(4.0);
+    });
   });
 
-  it('should allow shortcuts when target is canvas', () => {
-    const testInputField = (target: HTMLElement | null) => {
-      if (target && typeof target.closest === 'function') {
-        const isInputField = 
-          target.tagName === 'INPUT' || 
-          target.tagName === 'TEXTAREA' || 
-          target instanceof HTMLElement && target.isContentEditable ||
-          target.closest('input') ||
-          target.closest('textarea');
-        return isInputField;
+  describe('AC5 Enhanced: Undo/redo with empty history', () => {
+    it('Ctrl+Z with empty history does not crash', () => {
+      // Machine store starts with empty history
+      const { undo, historyIndex, history } = useMachineStore.getState();
+      
+      // Verify initial state has minimal history
+      expect(historyIndex).toBe(0);
+      expect(history.length).toBe(1);
+      
+      // Undo should be safe with empty history
+      expect(() => undo()).not.toThrow();
+      
+      // State should remain unchanged
+      expect(useMachineStore.getState().historyIndex).toBe(0);
+    });
+
+    it('Ctrl+Y with empty future does not crash', () => {
+      const { undo, redo, historyIndex, history } = useMachineStore.getState();
+      
+      // Undo should be safe when at the beginning of history
+      expect(historyIndex).toBe(0);
+      
+      // Redo should also be safe (nothing to redo)
+      expect(() => redo()).not.toThrow();
+      
+      // State should remain unchanged
+      expect(useMachineStore.getState().historyIndex).toBe(0);
+    });
+
+    it('undo beyond history index does not crash', () => {
+      const { undo, historyIndex } = useMachineStore.getState();
+      
+      // Manually set history index to 0
+      useMachineStore.setState({ historyIndex: 0 });
+      
+      // Multiple undos should not crash
+      for (let i = 0; i < 10; i++) {
+        expect(() => undo()).not.toThrow();
       }
-      return false;
-    };
+      
+      // Index should not go below 0
+      expect(useMachineStore.getState().historyIndex).toBeGreaterThanOrEqual(0);
+    });
 
-    // SVG element should not be treated as input
-    const svgElement = {
-      tagName: 'svg',
-      isContentEditable: false,
-      closest: () => null,
-    } as unknown as HTMLElement;
+    it('redo beyond history length does not crash', () => {
+      const { addModule, redo, historyIndex, history } = useMachineStore.getState();
+      
+      // Add a module to have some history
+      addModule('core-furnace', 100, 100);
+      
+      // Current state
+      const currentIndex = useMachineStore.getState().historyIndex;
+      const currentLength = useMachineStore.getState().history.length;
+      
+      // Redo multiple times beyond history length
+      for (let i = 0; i < 10; i++) {
+        expect(() => redo()).not.toThrow();
+      }
+      
+      // Index should not exceed history length - 1
+      expect(useMachineStore.getState().historyIndex).toBeLessThanOrEqual(currentLength);
+    });
 
-    // SVG is not an input field, so it should return false or null (falsy)
-    expect(testInputField(svgElement)).toBeFalsy();
+    it('empty history after clear does not crash on undo', () => {
+      const { addModule, clearCanvas, undo } = useMachineStore.getState();
+      
+      // Add and then clear
+      addModule('core-furnace', 100, 100);
+      clearCanvas();
+      
+      // Undo should work (restores cleared modules)
+      expect(() => undo()).not.toThrow();
+      
+      // Modules should be restored
+      expect(useMachineStore.getState().modules.length).toBe(1);
+    });
+  });
+
+  describe('AC2 Enhanced: Ctrl+D duplicate shortcut with no selection', () => {
+    it('Ctrl+D with no selection does not crash', () => {
+      const { duplicateModule } = useMachineStore.getState();
+      
+      // Duplicate with no module ID
+      expect(() => duplicateModule('')).not.toThrow();
+      expect(() => duplicateModule('non-existent-id')).not.toThrow();
+    });
+
+    it('Ctrl+D with empty store does not crash', () => {
+      const { modules, duplicateModule } = useMachineStore.getState();
+      
+      // No modules exist
+      expect(modules.length).toBe(0);
+      
+      // Duplicate should not crash
+      expect(() => duplicateModule('any-id')).not.toThrow();
+      
+      // Still no modules
+      expect(useMachineStore.getState().modules.length).toBe(0);
+    });
+
+    it('Ctrl+D with valid module ID works correctly', () => {
+      const { addModule, duplicateModule } = useMachineStore.getState();
+      
+      // Add a module
+      addModule('core-furnace', 100, 100);
+      const originalId = useMachineStore.getState().modules[0].instanceId;
+      
+      // Duplicate
+      duplicateModule(originalId);
+      
+      // Should have 2 modules now
+      expect(useMachineStore.getState().modules.length).toBe(2);
+      
+      // Duplicated module should be at offset position
+      const duplicatedModule = useMachineStore.getState().modules[1];
+      expect(duplicatedModule.x).toBe(80); // 60 + 20 (grid snap + offset) (core-furnace x=100 means stored x=50)
+      expect(duplicatedModule.y).toBe(80); // 60 + 20 (grid snap + offset)
+    });
+
+    it('Multiple Ctrl+D calls create multiple duplicates', () => {
+      const { addModule, duplicateModule } = useMachineStore.getState();
+      
+      addModule('core-furnace', 100, 100);
+      const originalId = useMachineStore.getState().modules[0].instanceId;
+      
+      // Duplicate multiple times
+      duplicateModule(originalId);
+      duplicateModule(originalId);
+      duplicateModule(originalId);
+      
+      expect(useMachineStore.getState().modules.length).toBe(4);
+    });
+  });
+
+  describe('Input field exclusion', () => {
+    it('should not trigger shortcuts when input is focused', () => {
+      // This test verifies the input field check logic
+      const testInputField = (target: HTMLElement | null) => {
+        if (target && typeof target.closest === 'function') {
+          const isInputField = 
+            target.tagName === 'INPUT' || 
+            target.tagName === 'TEXTAREA' || 
+            target instanceof HTMLElement && target.isContentEditable ||
+            target.closest('input') ||
+            target.closest('textarea');
+          return isInputField;
+        }
+        return false;
+      };
+
+      const inputElement = {
+        tagName: 'INPUT',
+        isContentEditable: false,
+        closest: () => null,
+      } as unknown as HTMLElement;
+
+      expect(testInputField(inputElement)).toBe(true);
+    });
+
+    it('should allow shortcuts when target is canvas', () => {
+      const testInputField = (target: HTMLElement | null) => {
+        if (target && typeof target.closest === 'function') {
+          const isInputField = 
+            target.tagName === 'INPUT' || 
+            target.tagName === 'TEXTAREA' || 
+            target instanceof HTMLElement && target.isContentEditable ||
+            target.closest('input') ||
+            target.closest('textarea');
+          return isInputField;
+        }
+        return false;
+      };
+
+      // SVG element should not be treated as input
+      const svgElement = {
+        tagName: 'svg',
+        isContentEditable: false,
+        closest: () => null,
+      } as unknown as HTMLElement;
+
+      // SVG is not an input field, so it should return false or null (falsy)
+      expect(testInputField(svgElement)).toBeFalsy();
+    });
   });
 });

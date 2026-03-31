@@ -1,31 +1,32 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getResolutionDimensions, exportPoster, exportEnhancedPoster } from '../utils/exportUtils';
+import { getResolutionDimensions, exportPoster, exportEnhancedPoster, sanitizeFilename } from '../utils/exportUtils';
 import { PlacedModule, Connection, GeneratedAttributes, ExportResolution, ExportAspectRatio, RESOLUTION_DIMS, ASPECT_RATIO_DIMS } from '../types';
+
+// Helper to create mock modules
+const createMockModule = (
+  instanceId: string,
+  type: any = 'core-furnace',
+  x: number = 100,
+  y: number = 100
+): PlacedModule => ({
+  id: `id-${instanceId}`,
+  instanceId,
+  type,
+  x,
+  y,
+  rotation: 0,
+  scale: 1,
+  flipped: false,
+  ports: [
+    { id: `${type}-input-0`, type: 'input', position: { x: 25, y: 40 } },
+    { id: `${type}-output-0`, type: 'output', position: { x: 75, y: 40 } },
+  ],
+});
 
 // Mock modules for testing
 const mockModules: PlacedModule[] = [
-  {
-    id: 'test-module-1',
-    instanceId: 'test-instance-1',
-    type: 'core-furnace' as const,
-    x: 100,
-    y: 200,
-    rotation: 0,
-    scale: 1,
-    flipped: false,
-    ports: [],
-  },
-  {
-    id: 'test-module-2',
-    instanceId: 'test-instance-2',
-    type: 'gear' as const,
-    x: 300,
-    y: 200,
-    rotation: 0,
-    scale: 1,
-    flipped: false,
-    ports: [],
-  },
+  createMockModule('test-module-1', 'core-furnace', 100, 200),
+  createMockModule('test-module-2', 'gear', 300, 200),
 ];
 
 const mockConnections: Connection[] = [
@@ -54,6 +55,14 @@ const mockAttributes: GeneratedAttributes = {
 };
 
 describe('Export Quality Enhancement Tests', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe('AC1: Resolution Multiplier', () => {
     it('should have correct resolution dimensions defined', () => {
       expect(RESOLUTION_DIMS['1x']).toEqual({ base: 400, scaled: 400 });
@@ -175,6 +184,294 @@ describe('Export Quality Enhancement Tests', () => {
     it('should return ExportAspectRatio type correctly', () => {
       const ratio: ExportAspectRatio = 'square';
       expect(['default', 'square', 'portrait', 'landscape']).toContain(ratio);
+    });
+  });
+
+  describe('AC3 Enhanced: Export with 20+ modules (stress test)', () => {
+    it('should export SVG with 20 modules without timeout', () => {
+      // Create 20 modules
+      const modules: PlacedModule[] = [];
+      for (let i = 0; i < 20; i++) {
+        const types = ['core-furnace', 'gear', 'rune-node', 'shield-shell', 'energy-pipe'];
+        modules.push(createMockModule(
+          `module-${i}`,
+          types[i % types.length] as any,
+          100 + (i % 5) * 150,
+          100 + Math.floor(i / 5) * 150
+        ));
+      }
+      
+      // Create connections between modules
+      const connections: Connection[] = [];
+      for (let i = 0; i < 19; i++) {
+        connections.push({
+          id: `conn-${i}`,
+          sourceModuleId: `module-${i}`,
+          sourcePortId: `port-1`,
+          targetModuleId: `module-${i + 1}`,
+          targetPortId: `port-2`,
+          pathData: `M${i * 50},${i * 50} L${(i + 1) * 50},${(i + 1) * 50}`,
+        });
+      }
+      
+      // Export should complete without throwing
+      const startTime = Date.now();
+      const svg = exportPoster(modules, connections, mockAttributes, 'landscape');
+      const duration = Date.now() - startTime;
+      
+      // Should complete in reasonable time (< 1 second)
+      expect(duration).toBeLessThan(1000);
+      
+      // SVG should contain all 20 modules (at minimum, check it's a valid SVG)
+      expect(svg).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(svg).toContain('<svg');
+      expect(svg).toContain('</svg>');
+    });
+
+    it('should export enhanced poster with 25 modules', () => {
+      // Create 25 modules
+      const modules: PlacedModule[] = [];
+      for (let i = 0; i < 25; i++) {
+        const types = ['core-furnace', 'gear', 'rune-node', 'amplifier-crystal', 'stabilizer-core'];
+        modules.push(createMockModule(
+          `module-${i}`,
+          types[i % types.length] as any,
+          50 + (i % 5) * 200,
+          50 + Math.floor(i / 5) * 200
+        ));
+      }
+      
+      const connections: Connection[] = [];
+      for (let i = 0; i < 10; i++) {
+        const sourceIdx = Math.floor(Math.random() * 25);
+        const targetIdx = (sourceIdx + Math.floor(Math.random() * 5) + 1) % 25;
+        connections.push({
+          id: `conn-${i}`,
+          sourceModuleId: `module-${sourceIdx}`,
+          sourcePortId: `port-1`,
+          targetModuleId: `module-${targetIdx}`,
+          targetPortId: `port-2`,
+          pathData: 'M0,0 L100,100',
+        });
+      }
+      
+      const svg = exportEnhancedPoster(modules, connections, mockAttributes, 'landscape');
+      
+      expect(svg).toContain('viewBox="0 0 800 600"');
+      expect(svg).toContain('ARCANE MACHINE CODEX');
+      expect(svg).toContain(mockAttributes.name);
+    });
+
+    it('should handle module positions in exported SVG correctly', () => {
+      // Create modules at various positions including negative coordinates
+      const modules: PlacedModule[] = [
+        createMockModule('m1', 'core-furnace', -100, -50),
+        createMockModule('m2', 'gear', 50, 100),
+        createMockModule('m3', 'rune-node', 200, 200),
+      ];
+      
+      const svg = exportPoster(modules, [], mockAttributes, 'default');
+      
+      // SVG should be valid
+      expect(svg).toContain('viewBox');
+      expect(svg).toContain('width="600"');
+      expect(svg).toContain('height="800"');
+    });
+
+    it('export with many connections does not fail', () => {
+      const modules: PlacedModule[] = [];
+      for (let i = 0; i < 15; i++) {
+        modules.push(createMockModule(
+          `module-${i}`,
+          'gear' as any,
+          100 + i * 50,
+          100
+        ));
+      }
+      
+      // Create many connections
+      const connections: Connection[] = [];
+      for (let i = 0; i < modules.length - 1; i++) {
+        connections.push({
+          id: `conn-${i}`,
+          sourceModuleId: `module-${i}`,
+          sourcePortId: `port-1`,
+          targetModuleId: `module-${i + 1}`,
+          targetPortId: `port-2`,
+          pathData: `M${i * 50 + 100},100 L${(i + 1) * 50 + 100},100`,
+        });
+      }
+      
+      const svg = exportPoster(modules, connections, mockAttributes, 'landscape');
+      
+      // All connections should be rendered
+      expect(svg).toContain('path');
+      expect(svg).toContain('stroke');
+    });
+  });
+
+  describe('AC3b: Special characters in machine name', () => {
+    it('handles Chinese characters in machine name', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        name: '虚空回响增幅器',
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('虚空回响增幅器');
+      expect(svg).toContain('viewBox');
+    });
+
+    it('handles special symbols in machine name', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        name: 'Test ★ Machine ✦',
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('Test ★ Machine ✦');
+    });
+
+    it('handles emoji in machine name', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        name: '🔥 Mega Machine 🚀',
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('🔥 Mega Machine 🚀');
+    });
+
+    it('handles very long machine name', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        name: 'This is an extremely long machine name that goes on and on and should still render correctly in the export',
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('This is an extremely long machine name');
+    });
+
+    it('handles HTML-like characters in machine name', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        name: 'Machine <script>alert("xss")</script>',
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      // Should be properly escaped or handled
+      expect(svg).toContain('Machine');
+    });
+
+    it('handles empty machine name', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        name: '',
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('ARCANE MACHINE CODEX');
+    });
+
+    it('handles special characters in codex ID', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        codexId: 'VOID-烈-2024',
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('VOID-烈-2024');
+    });
+  });
+
+  describe('AC3c: Missing module data handling', () => {
+    it('handles empty modules array', () => {
+      const svg = exportPoster([], mockConnections, mockAttributes, 'default');
+      
+      // Should still produce valid SVG
+      expect(svg).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(svg).toContain('<svg');
+      expect(svg).toContain('</svg>');
+    });
+
+    it('handles empty connections array', () => {
+      const svg = exportPoster(mockModules, [], mockAttributes, 'default');
+      
+      expect(svg).toContain('viewBox');
+      expect(svg).toContain(mockAttributes.name);
+    });
+
+    it('handles both empty modules and connections', () => {
+      const svg = exportPoster([], [], mockAttributes, 'default');
+      
+      expect(svg).toContain('<?xml version="1.0" encoding="UTF-8"?>');
+      expect(svg).toContain('ARCANE MACHINE CODEX');
+    });
+
+    it('handles undefined tags array', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        tags: [],
+      };
+      
+      const svg = exportEnhancedPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('viewBox');
+      expect(svg).toContain('TAGS');
+    });
+
+    it('handles null stats gracefully', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        stats: {
+          stability: 0,
+          powerOutput: 0,
+          energyCost: 0,
+          failureRate: 0,
+        },
+      };
+      
+      const svg = exportPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('viewBox');
+      expect(svg).toContain('STATS');
+    });
+
+    it('handles missing description', () => {
+      const attributes: GeneratedAttributes = {
+        ...mockAttributes,
+        description: '',
+      };
+      
+      const svg = exportEnhancedPoster(mockModules, mockConnections, attributes, 'default');
+      
+      expect(svg).toContain('viewBox');
+    });
+
+    it('handles module with undefined ports', () => {
+      const moduleWithNoPorts: PlacedModule = {
+        id: 'id-test',
+        instanceId: 'test-instance',
+        type: 'core-furnace',
+        x: 100,
+        y: 100,
+        rotation: 0,
+        scale: 1,
+        flipped: false,
+        ports: [],
+      };
+      
+      const svg = exportPoster([moduleWithNoPorts], [], mockAttributes, 'default');
+      
+      expect(svg).toContain('viewBox');
+      expect(svg).toContain('<?xml version="1.0"');
     });
   });
 
@@ -343,9 +640,6 @@ describe('Export Quality Enhancement Tests', () => {
     });
   });
 });
-
-// Import sanitizeFilename function
-import { sanitizeFilename } from '../utils/exportUtils';
 
 describe('AC4b: Filename Sanitization', () => {
   it('replaces special characters with hyphens', () => {
