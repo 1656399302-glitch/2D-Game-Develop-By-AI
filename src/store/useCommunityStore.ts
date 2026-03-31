@@ -5,9 +5,8 @@
  * Handles publishing machines, browsing community machines, search/filter,
  * and loading community machines into the editor.
  * 
- * Note: Published machines are session-scoped (localStorage-backed for the
- * current browser session only). They do NOT persist across page refresh
- * or browser restart.
+ * Note: Published machines are stored in localStorage and persist across
+ * browser sessions (survives page refresh and browser restart).
  */
 
 import { create } from 'zustand';
@@ -28,7 +27,7 @@ interface CommunityStore {
   // Mock community data (includes both preset mocks and user-published)
   communityMachines: CommunityMachine[];
 
-  // User-published machines (session-scoped, localStorage-backed)
+  // User-published machines (localStorage-backed, persists across browser restarts)
   publishedMachines: CommunityMachine[];
 
   // Search and filter state
@@ -70,7 +69,8 @@ interface CommunityStore {
   viewMachine: (machineId: string) => void;
 }
 
-// Storage key for published machines
+// Storage key for published machines - stored in localStorage
+// Data persists across browser restarts (unlike sessionStorage which clears on close)
 const COMMUNITY_STORAGE_KEY = 'arcane-community-gallery-published';
 
 export const useCommunityStore = create<CommunityStore>()(
@@ -183,18 +183,18 @@ export const useCommunityStore = create<CommunityStore>()(
       partialize: (state) => ({
         publishedMachines: state.publishedMachines,
       }),
-      // FIX: Skip automatic hydration to prevent cascading state updates
+      // Skip automatic hydration to prevent cascading state updates
       skipHydration: true,
     }
   )
 );
 
-// FIX: Helper to manually trigger hydration
+// Helper to manually trigger hydration
 export const hydrateCommunityStore = () => {
   useCommunityStore.persist.rehydrate();
 };
 
-// FIX: Helper to check if hydration is complete
+// Helper to check if hydration is complete
 export const isCommunityHydrated = () => {
   return useCommunityStore.persist.hasHydrated();
 };

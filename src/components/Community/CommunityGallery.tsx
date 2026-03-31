@@ -317,13 +317,27 @@ export function CommunityGallery() {
     likeMachineRef.current(id);
   }, []);
 
-  // Track views when gallery opens
+  // FIX: Track views only once per gallery open session using a session-scoped ref
+  // This ensures views are counted once when gallery opens, not on every filter change
+  const viewsTrackedRef = useRef(false);
+  
   useEffect(() => {
-    filteredMachines.forEach((m) => {
-      viewMachineRef.current(m.id);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only track views once per gallery open session
+    if (!viewsTrackedRef.current) {
+      viewsTrackedRef.current = true;
+      // Use a small delay to ensure filteredMachines is computed
+      const timeoutId = setTimeout(() => {
+        const machines = useCommunityStore.getState().getFilteredMachinesList();
+        machines.forEach((m) => {
+          viewMachineRef.current(m.id);
+        });
+      }, 0);
+      return () => clearTimeout(timeoutId);
+    }
   }, []);
+
+  // Reset views tracked flag when gallery closes (next open will track views again)
+  // This is handled by the component unmounting when gallery closes
 
   return (
     <>
@@ -446,7 +460,7 @@ export function CommunityGallery() {
               )}
             </p>
             <p className="text-xs text-[#4a5568]">
-              Published machines are session-scoped only
+              Published machines persist across browser restarts
             </p>
           </div>
         </div>

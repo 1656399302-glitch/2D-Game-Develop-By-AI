@@ -564,3 +564,9 @@
 ## Round 48 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 48 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 49 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
