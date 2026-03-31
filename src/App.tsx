@@ -41,8 +41,6 @@ import { ExchangeButton } from './components/Exchange/ExchangeButton';
 import { TradeNotification } from './components/Exchange/TradeNotification';
 import { PlacedModule, Connection } from './types';
 import { RandomGeneratorModal } from './components/Editor/RandomGeneratorModal';
-import { TemplateLibrary } from './components/Templates/TemplateLibrary';
-import { SaveTemplateModal } from './components/Templates/SaveTemplateModal';
 
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
@@ -50,6 +48,10 @@ const LazyChallengePanel = lazy(() => import('./components/Challenge/ChallengePa
 const LazyFactionPanel = lazy(() => import('./components/Factions/FactionPanel'));
 const LazyTechTree = lazy(() => import('./components/Factions/TechTree'));
 const LazyExchangePanel = lazy(() => import('./components/Exchange/ExchangePanel'));
+
+// Template components - Round 67 remediation: lazy-loaded to reduce bundle size
+const LazyTemplateLibrary = lazy(() => import('./components/Templates/TemplateLibrary'));
+const LazySaveTemplateModal = lazy(() => import('./components/Templates/SaveTemplateModal'));
 
 // AI Assistant slide-in panel with close functionality - lazy loaded wrapper
 const LazyAIAssistantSlideIn = lazy(() => 
@@ -504,25 +506,33 @@ function AppContent() {
           />
         )}
         
-        {/* Template Library Modal - Round 67 */}
-        <TemplateLibrary
-          isOpen={showTemplateLibrary}
-          onClose={() => setShowTemplateLibrary(false)}
-          onOpenSaveModal={() => {
-            setShowTemplateLibrary(false);
-            setShowSaveTemplate(true);
-          }}
-        />
+        {/* Template Library Modal - Round 67 (lazy-loaded for code splitting) */}
+        {showTemplateLibrary && (
+          <Suspense fallback={<LazyLoadingFallback height="500px" />}>
+            <LazyTemplateLibrary
+              isOpen={showTemplateLibrary}
+              onClose={() => setShowTemplateLibrary(false)}
+              onOpenSaveModal={() => {
+                setShowTemplateLibrary(false);
+                setShowSaveTemplate(true);
+              }}
+            />
+          </Suspense>
+        )}
         
-        {/* Save Template Modal - Round 67 */}
-        <SaveTemplateModal
-          isOpen={showSaveTemplate}
-          onClose={() => setShowSaveTemplate(false)}
-          onSuccess={(templateId) => {
-            // Template saved successfully - could show a toast or notification
-            console.log('Template saved:', templateId);
-          }}
-        />
+        {/* Save Template Modal - Round 67 (lazy-loaded for code splitting) */}
+        {showSaveTemplate && (
+          <Suspense fallback={<LazyLoadingFallback height="300px" />}>
+            <LazySaveTemplateModal
+              isOpen={showSaveTemplate}
+              onClose={() => setShowSaveTemplate(false)}
+              onSuccess={(templateId) => {
+                // Template saved successfully - could show a toast or notification
+                console.log('Template saved:', templateId);
+              }}
+            />
+          </Suspense>
+        )}
         
         {showHelp && (
           <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/80 backdrop-blur-sm">

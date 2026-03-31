@@ -21,6 +21,8 @@ export default defineConfig({
           'components-codex': ['src/components/Codex/CodexView.tsx'],
           'components-faction': ['src/components/Factions/FactionPanel.tsx'],
           'components-tech-tree': ['src/components/Factions/TechTree.tsx'],
+          // Template components - Round 67 remediation: code splitting
+          'components-templates': ['src/components/Templates/TemplateLibrary.tsx', 'src/components/Templates/SaveTemplateModal.tsx'],
           // Utility chunks
           'utils-particle': ['src/utils/ParticleSystem.ts'],
           'utils-activation': ['src/utils/activationChoreographer.ts'],
