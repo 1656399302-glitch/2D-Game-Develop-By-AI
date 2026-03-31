@@ -25,6 +25,10 @@ import {
   StormThunderingPipeSVG, 
   StellarHarmonicCrystalSVG 
 } from './FactionVariantModules';
+// Import Round 64 advanced module SVGs
+import { TemporalDistorterSVG } from './TemporalDistorter';
+import { ArcaneMatrixGridSVG } from './ArcaneMatrixGrid';
+import { EtherInfusionChamberSVG } from './EtherInfusionChamber';
 
 interface ModuleRendererProps {
   module: PlacedModule;
@@ -183,11 +187,15 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     }
   }, [module.instanceId, completeConnection]);
   
+  // Determine if module should show failure state
+  const isFailing = machineState === 'failure';
+  
   // Render module SVG based on type
   const renderModuleSVG = useCallback(() => {
     const props = {
       isActive: machineState !== 'idle',
       isCharging: machineState === 'charging',
+      isFailing: isFailing,
     };
     
     switch (module.type) {
@@ -228,10 +236,17 @@ export const ModuleRenderer = memo(function ModuleRenderer({
         return <StormThunderingPipeSVG {...props} />;
       case 'stellar-harmonic-crystal':
         return <StellarHarmonicCrystalSVG {...props} />;
+      // ROUND 64: ADVANCED MODULES
+      case 'temporal-distorter':
+        return <TemporalDistorterSVG {...props} />;
+      case 'arcane-matrix-grid':
+        return <ArcaneMatrixGridSVG {...props} />;
+      case 'ether-infusion-chamber':
+        return <EtherInfusionChamberSVG {...props} />;
       default:
         return <rect width={size.width} height={size.height} fill="#333" />;
     }
-  }, [module.type, machineState, size]);
+  }, [module.type, machineState, isFailing, size]);
   
   // Get port label with index
   const getPortLabel = useCallback((port: Port, index: number) => {

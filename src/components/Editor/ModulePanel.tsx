@@ -134,6 +134,28 @@ const FACTION_VARIANT_MODULES: ModuleInfo[] = [
   },
 ];
 
+// Round 64: Advanced modules
+const ADVANCED_MODULES: ModuleInfo[] = [
+  {
+    type: 'temporal-distorter',
+    name: '时空扭曲器',
+    category: 'advanced',
+    description: '时间操控模块，具有旋转环和时间扭曲效果。1输入1输出。',
+  },
+  {
+    type: 'arcane-matrix-grid',
+    name: '奥术矩阵网格',
+    category: 'advanced',
+    description: '几何网格模块，节点交叉处发光。1输入2输出。',
+  },
+  {
+    type: 'ether-infusion-chamber',
+    name: '以太灌注室',
+    category: 'advanced',
+    description: '圆柱形腔室，带有旋转以太效果。2输入1输出。',
+  },
+];
+
 const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   core: '#00d4ff',
   pipe: '#7c3aed',
@@ -144,6 +166,7 @@ const CATEGORY_COLORS: Record<ModuleCategory, string> = {
   output: '#fbbf24',
   resonance: '#06b6d4',
   elemental: '#f97316',
+  advanced: '#22d3ee',
 };
 
 const CATEGORY_NAMES: Record<ModuleCategory, string> = {
@@ -156,6 +179,7 @@ const CATEGORY_NAMES: Record<ModuleCategory, string> = {
   output: '输出',
   resonance: '共振',
   elemental: '元素',
+  advanced: '高级',
 };
 
 const FACTION_COLORS: Record<string, string> = {
@@ -199,6 +223,7 @@ export function ModulePanel() {
 
   const [hoveredModule, setHoveredModule] = useState<ModuleInfo | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [advancedExpanded, setAdvancedExpanded] = useState(true);
 
   const handleDragStart = useCallback((e: React.DragEvent, moduleType: ModuleType, locked: boolean) => {
     if (locked) {
@@ -456,6 +481,40 @@ export function ModulePanel() {
             const factionLocked = module.factionId ? !checkVariantUnlocked(module.factionId) : false;
             return renderModuleItem(module, locked, factionLocked);
           })}
+
+          {/* Round 64: Advanced modules - collapsible section */}
+          <div className="mt-4 pt-4 border-t border-[#1e2a42]">
+            <button
+              onClick={() => setAdvancedExpanded(!advancedExpanded)}
+              className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold text-[#22d3ee] hover:bg-[#1e2a42] rounded transition-colors"
+              aria-expanded={advancedExpanded}
+              aria-controls="advanced-modules-section"
+            >
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#22d3ee]" />
+                高级模块
+              </span>
+              <svg
+                className={`w-4 h-4 transition-transform ${advancedExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            <div
+              id="advanced-modules-section"
+              className={`space-y-2 mt-2 ${advancedExpanded ? '' : 'hidden'}`}
+              role="group"
+              aria-label="高级模块"
+            >
+              {ADVANCED_MODULES.map((module) => {
+                return renderModuleItem(module, false, false);
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -490,7 +549,7 @@ export function ModulePanel() {
 
       <div className="p-3 border-t border-[#1e2a42]">
         <p className="text-xs text-[#4a5568] text-center">
-          共 {BASE_MODULES.length + FACTION_VARIANT_MODULES.length} 种模块类型
+          共 {BASE_MODULES.length + FACTION_VARIANT_MODULES.length + ADVANCED_MODULES.length} 种模块类型
         </p>
       </div>
 
@@ -708,9 +767,47 @@ function ModuleIcon({ type }: { type: ModuleType }) {
         <circle cx="2" cy="16" r="1.5" fill="#fcd34d"/>
       </svg>
     ),
+    // Round 64: Advanced Module Icons
+    'temporal-distorter': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" fill="#1e1b4b" stroke="#00ffcc" strokeWidth="1.5"/>
+        <circle cx="16" cy="16" r="11" fill="none" stroke="#00ffcc" strokeWidth="0.5" strokeDasharray="2 2"/>
+        <circle cx="16" cy="16" r="8" fill="none" stroke="#22d3ee" strokeWidth="1"/>
+        <circle cx="16" cy="16" r="5" fill="none" stroke="#00ffcc" strokeWidth="1.5"/>
+        <circle cx="16" cy="16" r="3" fill="#00ffcc"/>
+        <circle cx="16" cy="16" r="1.5" fill="#fff"/>
+      </svg>
+    ),
+    'arcane-matrix-grid': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="4" y="4" width="24" height="24" fill="#0f172a" stroke="#22d3ee" strokeWidth="1.5" rx="2"/>
+        <line x1="4" y1="12" x2="28" y2="12" stroke="#22d3ee" strokeWidth="0.5" opacity="0.5"/>
+        <line x1="4" y1="20" x2="28" y2="20" stroke="#22d3ee" strokeWidth="0.5" opacity="0.5"/>
+        <line x1="12" y1="4" x2="12" y2="28" stroke="#22d3ee" strokeWidth="0.5" opacity="0.5"/>
+        <line x1="20" y1="4" x2="20" y2="28" stroke="#22d3ee" strokeWidth="0.5" opacity="0.5"/>
+        <circle cx="4" cy="4" r="2" fill="#67e8f9"/>
+        <circle cx="16" cy="16" r="2" fill="#22d3ee"/>
+        <circle cx="28" cy="4" r="2" fill="#67e8f9"/>
+        <circle cx="4" cy="28" r="2" fill="#67e8f9"/>
+        <circle cx="28" cy="28" r="2" fill="#67e8f9"/>
+      </svg>
+    ),
+    'ether-infusion-chamber': (
+      <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+        <ellipse cx="16" cy="16" rx="13" ry="13" fill="#1e1b4b" stroke="#f5d0fe" strokeWidth="1.5"/>
+        <ellipse cx="16" cy="16" rx="9" ry="9" fill="none" stroke="#c084fc" strokeWidth="0.5" strokeDasharray="2 2"/>
+        <ellipse cx="16" cy="16" rx="5" ry="5" fill="#f5d0fe" opacity="0.5"/>
+        <path d="M16,10 Q20,14 18,18 Q14,20 12,16 Q10,12 16,10" fill="none" stroke="#e879f9" strokeWidth="1"/>
+        <circle cx="16" cy="16" r="3" fill="#f5d0fe"/>
+        <circle cx="16" cy="16" r="1.5" fill="#fff"/>
+        <circle cx="4" cy="12" r="2" fill="#f5d0fe"/>
+        <circle cx="4" cy="20" r="2" fill="#f5d0fe"/>
+        <circle cx="28" cy="16" r="2" fill="#f5d0fe"/>
+      </svg>
+    ),
   };
 
   return iconStyles[type] || <span>?</span>;
 }
 
-export { BASE_MODULES, FACTION_VARIANT_MODULES, CATEGORY_COLORS };
+export { BASE_MODULES, FACTION_VARIANT_MODULES, ADVANCED_MODULES, CATEGORY_COLORS };

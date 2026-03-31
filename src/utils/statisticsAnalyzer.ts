@@ -231,6 +231,8 @@ function getFactionFromAttributes(attributes: CodexEntry['attributes']): Faction
     stellar: 'stellar',
     resonance: 'stellar',
     amplifying: 'stellar',
+    temporal: 'void',
+    dimensional: 'void',
   };
   
   for (const tag of attributes.tags) {
@@ -573,4 +575,8 @@ export const MODULE_TYPE_LABELS: Record<ModuleType, string> = {
   'inferno-blazing-core': '烈焰核心',
   'storm-thundering-pipe': '雷霆管道',
   'stellar-harmonic-crystal': '星辉水晶',
+  // Round 64: Advanced Modules
+  'temporal-distorter': '时空扭曲器',
+  'arcane-matrix-grid': '奥术矩阵网格',
+  'ether-infusion-chamber': '以太灌注室',
 };

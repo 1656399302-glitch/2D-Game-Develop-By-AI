@@ -33,6 +33,10 @@ const MODULE_COLORS: Record<ModuleType, string> = {
   'inferno-blazing-core': '#fb923c',
   'storm-thundering-pipe': '#67e8f9',
   'stellar-harmonic-crystal': '#fcd34d',
+  // Round 64: Advanced Modules
+  'temporal-distorter': '#00ffcc',
+  'arcane-matrix-grid': '#22d3ee',
+  'ether-infusion-chamber': '#f5d0fe',
 };
 
 function getModuleColor(moduleType: ModuleType): string {

@@ -1,0 +1,58 @@
+/* ArcaneMatrixGrid.module.css */
+/* Grid-based module with pulsing nodes */
+
+.arcaneMatrixGrid {
+  will-change: transform;
+}
+
+.gridLine {
+  opacity: 0.5;
+}
+
+.node {
+  transition: all 0.3s ease;
+}
+
+.active .node {
+  animation: nodeGlow 1.5s ease-in-out infinite;
+}
+
+.failing {
+  animation: flicker 0.2s ease-in-out infinite;
+}
+
+@keyframes nodeGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+}
+
+@keyframes flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  75% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes sequentialIllumination {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}

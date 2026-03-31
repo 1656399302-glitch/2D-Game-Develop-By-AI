@@ -18,9 +18,13 @@ export type ModuleType =
   | 'void-arcane-gear'
   | 'inferno-blazing-core'
   | 'storm-thundering-pipe'
-  | 'stellar-harmonic-crystal';
+  | 'stellar-harmonic-crystal'
+  // Round 64: Advanced Modules
+  | 'temporal-distorter'
+  | 'arcane-matrix-grid'
+  | 'ether-infusion-chamber';
 
-export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output' | 'resonance' | 'elemental';
+export type ModuleCategory = 'core' | 'pipe' | 'gear' | 'rune' | 'shield' | 'trigger' | 'output' | 'resonance' | 'elemental' | 'advanced';
 export type PortType = 'input' | 'output';
 
 export interface Port {
@@ -73,7 +77,7 @@ export interface Connection {
 
 // Attribute Generation
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type AttributeTag = 'fire' | 'lightning' | 'arcane' | 'void' | 'mechanical' | 'protective' | 'amplifying' | 'balancing' | 'explosive' | 'stable' | 'resonance';
+export type AttributeTag = 'fire' | 'lightning' | 'arcane' | 'void' | 'mechanical' | 'protective' | 'amplifying' | 'balancing' | 'explosive' | 'stable' | 'resonance' | 'temporal' | 'dimensional';
 
 export interface MachineStats {
   stability: number;
@@ -197,6 +201,10 @@ export const MODULE_SIZES: Record<ModuleType, { width: number; height: number }>
   'inferno-blazing-core': { width: 110, height: 110 },
   'storm-thundering-pipe': { width: 130, height: 60 },
   'stellar-harmonic-crystal': { width: 85, height: 85 },
+  // Round 64: Advanced Modules
+  'temporal-distorter': { width: 90, height: 90 },
+  'arcane-matrix-grid': { width: 80, height: 80 },
+  'ether-infusion-chamber': { width: 100, height: 100 },
 };
 
 // Port position configuration - supports single position or array for multi-port modules
@@ -281,6 +289,19 @@ export const MODULE_PORT_CONFIGS: Record<ModuleType, { input: PortConfig; output
     input: { x: 0, y: 42 }, 
     output: [{ x: 85, y: 25 }, { x: 85, y: 60 }] // 1 input, 2 outputs
   },
+  // Round 64: Advanced Modules
+  'temporal-distorter': { 
+    input: { x: 0, y: 45 }, // 1 input at left center
+    output: { x: 90, y: 45 } // 1 output at right center
+  },
+  'arcane-matrix-grid': { 
+    input: { x: 0, y: 40 }, // 1 input at left
+    output: [{ x: 80, y: 25 }, { x: 80, y: 55 }] // 2 outputs at right (stacked)
+  },
+  'ether-infusion-chamber': { 
+    input: [{ x: 0, y: 35 }, { x: 0, y: 65 }], // 2 inputs at left (stacked)
+    output: { x: 100, y: 50 } // 1 output at right center
+  },
 };
 
 // Module accent colors
@@ -304,6 +325,10 @@ export const MODULE_ACCENT_COLORS: Record<ModuleType, string> = {
   'inferno-blazing-core': '#fb923c', // Orange for variant
   'storm-thundering-pipe': '#67e8f9', // Cyan for variant
   'stellar-harmonic-crystal': '#fcd34d', // Gold for variant
+  // Round 64: Advanced Modules
+  'temporal-distorter': '#00ffcc', // Cyan-teal for temporal
+  'arcane-matrix-grid': '#22d3ee', // Cyan for arcane matrix
+  'ether-infusion-chamber': '#f5d0fe', // Light pink for ether
 };
 
 // Resolution dimensions for export

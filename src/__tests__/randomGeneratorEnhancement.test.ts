@@ -19,9 +19,9 @@ import {
 
 describe('Random Generator Enhancement', () => {
   describe('Theme Selection', () => {
-    test('getAllThemes returns all 8 themes', () => {
+    test('getAllThemes returns all 9 themes', () => {
       const themes = getAllThemes();
-      expect(themes).toHaveLength(8);
+      expect(themes).toHaveLength(9);
       expect(themes).toContain('balanced');
       expect(themes).toContain('offensive');
       expect(themes).toContain('defensive');
@@ -30,6 +30,7 @@ describe('Random Generator Enhancement', () => {
       expect(themes).toContain('inferno_forge');
       expect(themes).toContain('storm_surge');
       expect(themes).toContain('stellar_harmony');
+      expect(themes).toContain('temporal_focus');
     });
 
     test('THEME_DISPLAY_INFO has all theme info', () => {
@@ -124,6 +125,22 @@ describe('Random Generator Enhancement', () => {
         m.type.includes('arcane')
       );
       expect(hasVoidModules || !hasVoidModules).toBe(true); // Either is valid
+    });
+
+    test('temporal_focus theme prioritizes temporal/advanced modules', () => {
+      const temporalModules = ['temporal-distorter', 'arcane-matrix-grid', 'ether-infusion-chamber'];
+      let temporalCount = 0;
+      let totalCount = 0;
+      
+      for (let i = 0; i < 10; i++) {
+        const result = generateWithTheme({ theme: 'temporal_focus', minModules: 5, maxModules: 8 });
+        const themeModules = result.modules.filter(m => temporalModules.includes(m.type));
+        temporalCount += themeModules.length;
+        totalCount += result.modules.length;
+      }
+      
+      const percentage = temporalCount / totalCount;
+      expect(percentage).toBeGreaterThanOrEqual(0.3); // At least 30% temporal modules
     });
   });
 

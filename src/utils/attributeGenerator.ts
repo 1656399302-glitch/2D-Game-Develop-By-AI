@@ -35,6 +35,8 @@ const TAG_EFFECTS: Record<AttributeTag, { stability: number; power: number; ener
   explosive: { stability: -15, power: 30, energy: 20 },
   stable: { stability: 15, power: 0, energy: 0 },
   resonance: { stability: 0, power: 20, energy: 5 },
+  temporal: { stability: -10, power: 15, energy: 15 },
+  dimensional: { stability: -15, power: 25, energy: 10 },
 };
 
 const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
@@ -60,6 +62,10 @@ const MODULE_TAG_MAP: Record<ModuleType, AttributeTag[]> = {
   'inferno-blazing-core': ['fire', 'arcane', 'explosive'], // Inferno core with arcane enhancement
   'storm-thundering-pipe': ['lightning', 'mechanical', 'amplifying'], // Storm pipe with amplification
   'stellar-harmonic-crystal': ['arcane', 'resonance', 'amplifying'], // Stellar crystal with resonance
+  // Round 64: Advanced Modules
+  'temporal-distorter': ['temporal', 'dimensional', 'amplifying'], // Time manipulation with dimensional properties
+  'arcane-matrix-grid': ['arcane', 'amplifying', 'balancing'], // Arcane grid with amplification and balancing
+  'ether-infusion-chamber': ['arcane', 'resonance', 'stable'], // Ether infusion with resonance and stability
 };
 
 const DESCRIPTIONS = [
@@ -134,6 +140,26 @@ function calculateStats(modules: PlacedModule[], connections: Connection[]): Mac
     totalStability += 3; // Phase balancing bonus
   }
   
+  // Round 64: Advanced Module Bonuses
+  const hasTemporalDistorter = modules.some((m) => m.type === 'temporal-distorter');
+  const hasArcaneMatrixGrid = modules.some((m) => m.type === 'arcane-matrix-grid');
+  const hasEtherInfusionChamber = modules.some((m) => m.type === 'ether-infusion-chamber');
+  
+  if (hasTemporalDistorter) {
+    totalPower += 8; // Temporal manipulation bonus
+    totalStability -= 3; // Temporal instability
+  }
+  
+  if (hasArcaneMatrixGrid) {
+    totalPower += 5; // Arcane grid amplification
+    totalStability += 2; // Grid provides stability
+  }
+  
+  if (hasEtherInfusionChamber) {
+    totalStability += 5; // Ether provides stability
+    totalEnergy += 5; // Ether requires energy
+  }
+  
   // Normalize stats
   const stability = Math.max(0, Math.min(100, totalStability));
   const powerOutput = Math.max(1, Math.min(100, totalPower));
@@ -204,6 +230,11 @@ function generateDescription(stats: MachineStats, modules: PlacedModule[]): stri
   const hasStormThunderingPipe = modules.some((m) => m.type === 'storm-thundering-pipe');
   const hasStellarHarmonicCrystal = modules.some((m) => m.type === 'stellar-harmonic-crystal');
   
+  // Round 64: Advanced modules
+  const hasTemporalDistorter = modules.some((m) => m.type === 'temporal-distorter');
+  const hasArcaneMatrixGrid = modules.some((m) => m.type === 'arcane-matrix-grid');
+  const hasEtherInfusionChamber = modules.some((m) => m.type === 'ether-infusion-chamber');
+  
   if (hasOutputArray) {
     desc += ' Output array projects focused arcane beams.';
   }
@@ -233,6 +264,17 @@ function generateDescription(stats: MachineStats, modules: PlacedModule[]): stri
   }
   if (hasStellarHarmonicCrystal) {
     desc += ' The stellar harmonic crystal harmonizes cosmic frequencies.';
+  }
+  
+  // Round 64: Advanced module descriptions
+  if (hasTemporalDistorter) {
+    desc += ' The temporal distorter warps time itself, creating paradoxes in the energy flow.';
+  }
+  if (hasArcaneMatrixGrid) {
+    desc += ' The arcane matrix grid organizes arcane energy into geometric patterns of power.';
+  }
+  if (hasEtherInfusionChamber) {
+    desc += ' The ether infusion chamber distills pure dimensional essence into usable energy.';
   }
   
   return desc;

@@ -32,7 +32,8 @@ export type GenerationTheme =
   | 'void_chaos'
   | 'inferno_forge'
   | 'storm_surge'
-  | 'stellar_harmony';
+  | 'stellar_harmony'
+  | 'temporal_focus';
 
 export type ConnectionDensity = 'low' | 'medium' | 'high';
 
@@ -116,6 +117,15 @@ const CORE_MODULE_TYPES: ModuleType[] = [
 ];
 
 /**
+ * Advanced module types (Round 64)
+ */
+const ADVANCED_MODULE_TYPES: ModuleType[] = [
+  'temporal-distorter',
+  'arcane-matrix-grid',
+  'ether-infusion-chamber',
+];
+
+/**
  * Faction variant module types (requires unlock)
  */
 const FACTION_VARIANT_TYPES: ModuleType[] = [
@@ -135,21 +145,28 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
   minThemePercentage: number;
 }> = {
   balanced: {
-    preferred: CORE_MODULE_TYPES,
-    weights: CORE_MODULE_TYPES.reduce((acc, type) => {
-      acc[type] = 1.0;
-      return acc;
-    }, {} as Partial<Record<ModuleType, number>>),
+    preferred: [...CORE_MODULE_TYPES, ...ADVANCED_MODULE_TYPES],
+    weights: {
+      ...CORE_MODULE_TYPES.reduce((acc, type) => {
+        acc[type] = 1.0;
+        return acc;
+      }, {} as Partial<Record<ModuleType, number>>),
+      ...ADVANCED_MODULE_TYPES.reduce((acc, type) => {
+        acc[type] = 0.8; // Advanced modules slightly less common in balanced
+        return acc;
+      }, {} as Partial<Record<ModuleType, number>>),
+    },
     minThemePercentage: 0,
   },
   offensive: {
-    preferred: ['amplifier-crystal', 'fire-crystal', 'lightning-conductor', 'phase-modulator', 'core-furnace'],
+    preferred: ['amplifier-crystal', 'fire-crystal', 'lightning-conductor', 'phase-modulator', 'core-furnace', 'arcane-matrix-grid'],
     weights: {
       'amplifier-crystal': 3.0,
       'fire-crystal': 2.5,
       'lightning-conductor': 2.5,
       'phase-modulator': 2.0,
       'core-furnace': 1.5,
+      'arcane-matrix-grid': 2.0,
       'energy-pipe': 1.0,
       'gear': 1.0,
       'rune-node': 1.0,
@@ -159,17 +176,20 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
       'stabilizer-core': 0.5,
       'void-siphon': 0.5,
       'resonance-chamber': 0.8,
+      'temporal-distorter': 1.5,
+      'ether-infusion-chamber': 1.0,
     },
     minThemePercentage: 0.6,
   },
   defensive: {
-    preferred: ['shield-shell', 'stabilizer-core', 'void-siphon', 'resonance-chamber', 'core-furnace'],
+    preferred: ['shield-shell', 'stabilizer-core', 'void-siphon', 'resonance-chamber', 'core-furnace', 'ether-infusion-chamber'],
     weights: {
       'shield-shell': 3.0,
       'stabilizer-core': 2.5,
       'void-siphon': 2.0,
       'resonance-chamber': 2.0,
       'core-furnace': 1.5,
+      'ether-infusion-chamber': 2.5,
       'energy-pipe': 1.0,
       'gear': 1.0,
       'rune-node': 1.0,
@@ -179,17 +199,20 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
       'fire-crystal': 0.3,
       'lightning-conductor': 0.3,
       'phase-modulator': 0.5,
+      'temporal-distorter': 0.5,
+      'arcane-matrix-grid': 0.8,
     },
     minThemePercentage: 0.6,
   },
   arcane_focus: {
-    preferred: ['rune-node', 'phase-modulator', 'void-siphon', 'amplifier-crystal', 'resonance-chamber'],
+    preferred: ['rune-node', 'phase-modulator', 'void-siphon', 'amplifier-crystal', 'resonance-chamber', 'arcane-matrix-grid'],
     weights: {
       'rune-node': 3.0,
       'phase-modulator': 2.5,
       'void-siphon': 2.0,
       'amplifier-crystal': 2.0,
       'resonance-chamber': 2.0,
+      'arcane-matrix-grid': 3.0,
       'core-furnace': 1.5,
       'energy-pipe': 1.0,
       'gear': 0.8,
@@ -199,16 +222,19 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
       'stabilizer-core': 0.8,
       'fire-crystal': 0.5,
       'lightning-conductor': 0.5,
+      'temporal-distorter': 1.5,
+      'ether-infusion-chamber': 1.0,
     },
     minThemePercentage: 0.6,
   },
   void_chaos: {
-    preferred: ['void-siphon', 'void-arcane-gear', 'phase-modulator', 'rune-node'],
+    preferred: ['void-siphon', 'void-arcane-gear', 'phase-modulator', 'rune-node', 'temporal-distorter'],
     weights: {
       'void-siphon': 3.0,
       'void-arcane-gear': 3.0,
       'phase-modulator': 2.0,
       'rune-node': 1.5,
+      'temporal-distorter': 2.5,
       'amplifier-crystal': 1.0,
       'core-furnace': 1.0,
       'energy-pipe': 0.8,
@@ -220,16 +246,19 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
       'resonance-chamber': 1.0,
       'fire-crystal': 0.3,
       'lightning-conductor': 0.3,
+      'arcane-matrix-grid': 1.0,
+      'ether-infusion-chamber': 0.8,
     },
     minThemePercentage: 0.5,
   },
   inferno_forge: {
-    preferred: ['fire-crystal', 'inferno-blazing-core', 'amplifier-crystal', 'core-furnace'],
+    preferred: ['fire-crystal', 'inferno-blazing-core', 'amplifier-crystal', 'core-furnace', 'ether-infusion-chamber'],
     weights: {
       'fire-crystal': 3.0,
       'inferno-blazing-core': 3.0,
       'amplifier-crystal': 2.0,
       'core-furnace': 2.0,
+      'ether-infusion-chamber': 2.5,
       'energy-pipe': 1.0,
       'gear': 1.0,
       'rune-node': 0.8,
@@ -241,16 +270,19 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
       'phase-modulator': 0.8,
       'resonance-chamber': 0.8,
       'lightning-conductor': 0.3,
+      'temporal-distorter': 0.5,
+      'arcane-matrix-grid': 0.8,
     },
     minThemePercentage: 0.5,
   },
   storm_surge: {
-    preferred: ['lightning-conductor', 'storm-thundering-pipe', 'amplifier-crystal', 'phase-modulator'],
+    preferred: ['lightning-conductor', 'storm-thundering-pipe', 'amplifier-crystal', 'phase-modulator', 'arcane-matrix-grid'],
     weights: {
       'lightning-conductor': 3.0,
       'storm-thundering-pipe': 3.0,
       'amplifier-crystal': 2.5,
       'phase-modulator': 2.0,
+      'arcane-matrix-grid': 2.5,
       'core-furnace': 1.5,
       'energy-pipe': 1.0,
       'gear': 1.0,
@@ -262,16 +294,19 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
       'void-siphon': 0.5,
       'resonance-chamber': 0.8,
       'fire-crystal': 0.3,
+      'temporal-distorter': 1.0,
+      'ether-infusion-chamber': 0.8,
     },
     minThemePercentage: 0.5,
   },
   stellar_harmony: {
-    preferred: ['stellar-harmonic-crystal', 'rune-node', 'resonance-chamber', 'stabilizer-core'],
+    preferred: ['stellar-harmonic-crystal', 'rune-node', 'resonance-chamber', 'stabilizer-core', 'ether-infusion-chamber'],
     weights: {
       'stellar-harmonic-crystal': 3.0,
       'rune-node': 2.5,
       'resonance-chamber': 2.5,
       'stabilizer-core': 2.0,
+      'ether-infusion-chamber': 3.0,
       'core-furnace': 1.5,
       'energy-pipe': 1.0,
       'gear': 1.0,
@@ -281,6 +316,31 @@ const THEME_MODULE_PREFERENCES: Record<GenerationTheme, {
       'output-array': 0.8,
       'void-siphon': 0.5,
       'phase-modulator': 1.0,
+      'fire-crystal': 0.3,
+      'lightning-conductor': 0.3,
+      'temporal-distorter': 0.8,
+      'arcane-matrix-grid': 1.5,
+    },
+    minThemePercentage: 0.5,
+  },
+  temporal_focus: {
+    preferred: ['temporal-distorter', 'arcane-matrix-grid', 'phase-modulator', 'ether-infusion-chamber', 'void-siphon'],
+    weights: {
+      'temporal-distorter': 4.0,
+      'arcane-matrix-grid': 3.0,
+      'phase-modulator': 2.0,
+      'ether-infusion-chamber': 2.5,
+      'void-siphon': 2.0,
+      'core-furnace': 1.5,
+      'rune-node': 1.5,
+      'resonance-chamber': 1.5,
+      'amplifier-crystal': 1.0,
+      'energy-pipe': 1.0,
+      'gear': 0.8,
+      'shield-shell': 0.5,
+      'trigger-switch': 1.0,
+      'output-array': 0.5,
+      'stabilizer-core': 0.8,
       'fire-crystal': 0.3,
       'lightning-conductor': 0.3,
     },
@@ -978,6 +1038,12 @@ export const THEME_DISPLAY_INFO: Record<GenerationTheme, {
     description: '使用星辉派系变体模块，感受星辰力量',
     icon: '✨',
     color: '#fcd34d',
+  },
+  temporal_focus: {
+    name: '时空专注',
+    description: '使用时空扭曲器、奥术矩阵网格和以太灌注室',
+    icon: '⏱️',
+    color: '#22d3ee',
   },
 };
 

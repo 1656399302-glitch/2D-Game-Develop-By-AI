@@ -1,0 +1,61 @@
+/* TemporalDistorter.module.css */
+/* Time manipulation module with rotating rings */
+
+.temporalDistorter {
+  will-change: transform;
+}
+
+.outerRing {
+  animation: rotateClockwise 6s linear infinite;
+}
+
+.middleRing {
+  animation: rotateCounterClockwise 4s linear infinite;
+}
+
+.innerRing {
+  animation: rotateClockwise 3s linear infinite;
+}
+
+.active .outerRing {
+  animation-duration: 2s;
+}
+
+.active .middleRing {
+  animation-duration: 1.5s;
+}
+
+.active .innerRing {
+  animation-duration: 1s;
+}
+
+.charging {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes rotateClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotateCounterClockwise {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
