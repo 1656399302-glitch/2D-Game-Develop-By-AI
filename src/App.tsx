@@ -40,8 +40,9 @@ import { PublishModal } from './components/Community/PublishModal';
 import { ExchangeButton } from './components/Exchange/ExchangeButton';
 import { TradeNotification } from './components/Exchange/TradeNotification';
 import { PlacedModule, Connection } from './types';
-
 import { RandomGeneratorModal } from './components/Editor/RandomGeneratorModal';
+import { TemplateLibrary } from './components/Templates/TemplateLibrary';
+import { SaveTemplateModal } from './components/Templates/SaveTemplateModal';
 
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
@@ -90,6 +91,11 @@ function AppContent() {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
   const [showRandomGenerator, setShowRandomGenerator] = useState(false);
+  
+  // Template system state - Round 67
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  
   const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
   
   // FIX: Use store hydration hook to prevent cascading updates
@@ -407,6 +413,8 @@ function AppContent() {
           <Toolbar
             onOpenRecipeBrowser={() => setShowRecipeBrowser(true)}
             onOpenRandomGenerator={() => setShowRandomGenerator(true)}
+            onOpenTemplateLibrary={() => setShowTemplateLibrary(true)}
+            onOpenSaveTemplate={() => setShowSaveTemplate(true)}
           />
         )}
         
@@ -495,6 +503,26 @@ function AppContent() {
             }}
           />
         )}
+        
+        {/* Template Library Modal - Round 67 */}
+        <TemplateLibrary
+          isOpen={showTemplateLibrary}
+          onClose={() => setShowTemplateLibrary(false)}
+          onOpenSaveModal={() => {
+            setShowTemplateLibrary(false);
+            setShowSaveTemplate(true);
+          }}
+        />
+        
+        {/* Save Template Modal - Round 67 */}
+        <SaveTemplateModal
+          isOpen={showSaveTemplate}
+          onClose={() => setShowSaveTemplate(false)}
+          onSuccess={(templateId) => {
+            // Template saved successfully - could show a toast or notification
+            console.log('Template saved:', templateId);
+          }}
+        />
         
         {showHelp && (
           <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/80 backdrop-blur-sm">

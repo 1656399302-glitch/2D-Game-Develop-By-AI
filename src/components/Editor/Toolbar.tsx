@@ -3,6 +3,7 @@ import { useMachineStore } from '../../store/useMachineStore';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useMachineStatsStore } from '../../store/useMachineStatsStore';
 import { useCodexStore } from '../../store/useCodexStore';
+import { useTemplateStore } from '../../store/useTemplateStore';
 import { CollectionStatsPanel } from '../Stats/CollectionStatsPanel';
 import { 
   autoArrange, 
@@ -23,6 +24,8 @@ const LAYOUT_OPTIONS: { type: LayoutType; label: string; icon: string }[] = [
 export interface ToolbarProps {
   onOpenRecipeBrowser?: () => void;
   onOpenRandomGenerator?: () => void;
+  onOpenTemplateLibrary?: () => void;
+  onOpenSaveTemplate?: () => void;
 }
 
 // Granular selectors for performance optimization (AC1: Re-render Reduction)
@@ -39,7 +42,12 @@ const useCanRedo = () => {
   return historyIndex < historyLength - 1;
 };
 
-export function Toolbar({ onOpenRecipeBrowser, onOpenRandomGenerator }: ToolbarProps = {}) {
+export function Toolbar({ 
+  onOpenRecipeBrowser, 
+  onOpenRandomGenerator,
+  onOpenTemplateLibrary,
+  onOpenSaveTemplate,
+}: ToolbarProps = {}) {
   // Use granular selectors to prevent unnecessary re-renders (AC1)
   const modulesCount = useModulesCount();
   const connectionsCount = useConnectionsCount();
@@ -71,6 +79,9 @@ export function Toolbar({ onOpenRecipeBrowser, onOpenRandomGenerator }: ToolbarP
   const publishedMachines = useCommunityStore((state) => state.publishedMachines);
   const totalCommunityCount = communityMachines.length + publishedMachines.length;
   
+  // Template store selectors
+  const templatesCount = useTemplateStore((state) => state.templates.length);
+  
   // Stats store selectors
   const toggleStatsPanel = useMachineStatsStore((state) => state.togglePanel);
   const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
@@ -101,6 +112,14 @@ export function Toolbar({ onOpenRecipeBrowser, onOpenRandomGenerator }: ToolbarP
   const handleOpenRandomGenerator = useCallback(() => {
     onOpenRandomGenerator?.();
   }, [onOpenRandomGenerator]);
+
+  const handleOpenTemplateLibrary = useCallback(() => {
+    onOpenTemplateLibrary?.();
+  }, [onOpenTemplateLibrary]);
+
+  const handleOpenSaveTemplate = useCallback(() => {
+    onOpenSaveTemplate?.();
+  }, [onOpenSaveTemplate]);
 
   const handleOpenCollectionStats = useCallback(() => {
     setShowCollectionStats(true);
@@ -248,6 +267,34 @@ export function Toolbar({ onOpenRecipeBrowser, onOpenRandomGenerator }: ToolbarP
             >
               <span aria-hidden="true">📜</span>
               <span>配方</span>
+            </button>
+
+            {/* Templates Button - Opens the Template Library */}
+            <button
+              onClick={handleOpenTemplateLibrary}
+              className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#f59e0b]/20 text-[#f59e0b] hover:bg-[#f59e0b]/30 border border-[#f59e0b]/40 transition-colors"
+              title="模板库 - 浏览和管理保存的模板"
+              aria-label="模板库"
+            >
+              <span aria-hidden="true">📋</span>
+              <span>模板</span>
+              {templatesCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#f59e0b]/40 text-[10px] font-medium">
+                  {templatesCount}
+                </span>
+              )}
+            </button>
+
+            {/* Save Template Button - Opens the Save Template Modal */}
+            <button
+              onClick={handleOpenSaveTemplate}
+              disabled={modulesCount === 0}
+              className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#f59e0b]/10 text-[#f59e0b] hover:bg-[#f59e0b]/20 border border-[#f59e0b]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="保存模板 - 将当前机器保存为模板"
+              aria-label="保存模板"
+            >
+              <span aria-hidden="true">💾</span>
+              <span>保存</span>
             </button>
 
             <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
