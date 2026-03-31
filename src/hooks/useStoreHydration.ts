@@ -7,6 +7,8 @@ import { hydrateFactionStore } from '../store/useFactionStore';
 import { hydrateFactionReputationStore } from '../store/useFactionReputationStore';
 import { hydrateChallengeStore } from '../store/useChallengeStore';
 import { hydrateCommunityStore } from '../store/useCommunityStore';
+import { hydrateFavoritesStore } from '../store/useFavoritesStore';
+import { hydrateMachineTagsStore } from '../store/useMachineTagsStore';
 
 /**
  * Store Hydration Hook - REWRITTEN FOR ROUND 38
@@ -64,6 +66,8 @@ const hydrateAllStores = () => {
   hydrateStore('factionReputation', hydrateFactionReputationStore);
   hydrateStore('challenge', hydrateChallengeStore);
   hydrateStore('community', hydrateCommunityStore);
+  hydrateStore('favorites', hydrateFavoritesStore);
+  hydrateStore('machineTags', hydrateMachineTagsStore);
 };
 
 /**
