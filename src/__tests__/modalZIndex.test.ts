@@ -51,7 +51,7 @@ describe('Modal Z-Index Verification', () => {
     vi.restoreAllMocks();
   });
 
-  describe('AC1: WelcomeModal z-index strategy (Round 60 fix)', () => {
+  describe('AC1: WelcomeModal z-index strategy (Round 60/61 fix)', () => {
     it('should render WelcomeModal with z-40 backdrop class', async () => {
       const { render } = await import('@testing-library/react');
       const mockProps = {
@@ -77,9 +77,10 @@ describe('Modal Z-Index Verification', () => {
       const sourceCode = fs.readFileSync(filePath, 'utf-8');
       
       // Should NOT contain old z-value (z-50)
-      // Note: z-40 and z-41 are the new values per contract
+      // Note: z-40 and z-[41] are the new values per contract
+      // z-[41] uses Tailwind arbitrary value syntax
       expect(sourceCode).toContain('z-40');
-      expect(sourceCode).toContain('z-41');
+      expect(sourceCode).toContain('z-[41]');
       // Should NOT contain z-50 (old value)
       expect(sourceCode).not.toContain('z-50');
     });
@@ -145,8 +146,8 @@ describe('Modal Z-Index Verification', () => {
     });
   });
 
-  describe('AC3: WelcomeModal uses correct z-index layering (Round 60)', () => {
-    it('should use z-40 for backdrop and z-41 for content', async () => {
+  describe('AC3: WelcomeModal uses correct z-index layering (Round 60/61)', () => {
+    it('should use z-40 for backdrop and z-[41] for content', async () => {
       const { render } = await import('@testing-library/react');
       const welcomeModalProps = {
         onStartTutorial: vi.fn(),
@@ -160,10 +161,10 @@ describe('Modal Z-Index Verification', () => {
       const backdropClassName = backdrop ? backdrop.className : '';
       expect(backdropClassName).toContain('z-40');
       
-      // Content should have z-41
+      // Content should have z-[41] (Tailwind arbitrary value syntax)
       const content = result.container.querySelector('.relative.w-full');
       const contentClassName = content ? content.className : '';
-      expect(contentClassName).toContain('z-41');
+      expect(contentClassName).toContain('z-[41]');
     });
   });
 
@@ -285,7 +286,7 @@ describe('Modal Z-Index Verification', () => {
     });
   });
 
-  describe('Code inspection verification (Round 60)', () => {
+  describe('Code inspection verification (Round 60/61)', () => {
     it('should verify WelcomeModal.tsx uses new z-index strategy', async () => {
       const fs = await import('fs');
       const path = await import('path');
@@ -296,9 +297,10 @@ describe('Modal Z-Index Verification', () => {
       
       const sourceCode = fs.readFileSync(filePath, 'utf-8');
       
-      // Verify new z-index values ARE present (z-40 and z-41 per contract)
+      // Verify new z-index values ARE present (z-40 and z-[41] per contract)
+      // z-[41] uses Tailwind arbitrary value syntax (since 41 is not a default Tailwind value)
       expect(sourceCode).toContain('z-40');
-      expect(sourceCode).toContain('z-41');
+      expect(sourceCode).toContain('z-[41]');
       
       // Verify old z-value is NOT present (z-50 was the old problematic value)
       // Note: z-50 may appear in comments or elsewhere, so we just verify z-40/41 exist

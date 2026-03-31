@@ -213,9 +213,9 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
         ))}
       </div>
 
-      {/* Modal container - z-41 above backdrop */}
+      {/* Modal container - FIX (Round 61): z-[41] using Tailwind arbitrary value syntax */}
       <div
-        className={`relative w-full max-w-2xl mx-4 transition-all duration-500 transform z-41 ${
+        className={`relative w-full max-w-2xl mx-4 transition-all duration-500 transform z-[41] ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
         onClick={(e) => e.stopPropagation()} // Prevent backdrop click when clicking modal
@@ -229,10 +229,10 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
           {/* Decorative top */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7c3aed] via-[#a855f7] via-[#c084fc] to-[#7c3aed]" />
 
-          {/* Close button - FIX (Round 60): Added explicit close button */}
+          {/* Close button - FIX (Round 61): z-[50] exceeds backdrop's z-40 */}
           <button
             onClick={handleSkip}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1e2a42]/50 hover:bg-[#1e2a42] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors z-10"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1e2a42]/50 hover:bg-[#1e2a42] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors z-[50]"
             aria-label="关闭欢迎弹窗"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
