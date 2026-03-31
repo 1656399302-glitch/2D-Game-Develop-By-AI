@@ -11,6 +11,12 @@ interface WelcomeModalProps {
 const TUTORIAL_STORAGE_KEY = 'arcane-codex-tutorial';
 
 /**
+ * FIX (Round 60): Dedicated key for dismissed state to ensure synchronous localStorage
+ * writes work correctly. This avoids the Zustand persist async write race condition.
+ */
+const WELCOME_DISMISSED_KEY = 'arcane-codex-welcome-dismissed';
+
+/**
  * Synchronously read localStorage to get the initial state.
  * This avoids the Zustand hydration race condition where the store defaults
  * to false/true before localStorage is read.
@@ -18,9 +24,18 @@ const TUTORIAL_STORAGE_KEY = 'arcane-codex-tutorial';
  * CRITICAL: Zustand persist wraps persisted state in a 'state' object.
  * Actual localStorage format: {"state":{"hasSeenWelcome":true,"isTutorialEnabled":false},"version":0}
  * We must read parsed.state?.hasSeenWelcome, not parsed.hasSeenWelcome.
+ * 
+ * FIX (Round 60): Also check dedicated WELCOME_DISMISSED_KEY for immediate dismissal state.
  */
 export const getInitialTutorialState = (): { hasSeenWelcome: boolean; isTutorialEnabled: boolean } => {
   try {
+    // FIX (Round 60): Check dedicated dismissed key FIRST - this is set synchronously
+    // when user dismisses the modal, bypassing Zustand's async persist
+    const dismissedState = localStorage.getItem(WELCOME_DISMISSED_KEY);
+    if (dismissedState === 'true') {
+      return { hasSeenWelcome: true, isTutorialEnabled: false };
+    }
+
     const stored = localStorage.getItem(TUTORIAL_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
@@ -47,14 +62,38 @@ const hasSavedCanvasState = (): boolean => {
   }
 };
 
+/**
+ * Mark welcome modal as dismissed in localStorage.
+ * FIX (Round 60): This sets a dedicated key synchronously to ensure
+ * the modal doesn't re-appear even if Zustand persist hasn't written yet.
+ */
+const markWelcomeDismissed = () => {
+  try {
+    localStorage.setItem(WELCOME_DISMISSED_KEY, 'true');
+  } catch {
+    // If localStorage fails, continue with Zustand store update
+  }
+};
+
+/**
+ * Clear the dismissed state (for testing purposes).
+ */
+export const clearWelcomeDismissedState = () => {
+  try {
+    localStorage.removeItem(WELCOME_DISMISSED_KEY);
+  } catch {
+    // Ignore errors
+  }
+};
+
 export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number; duration: number }>>([]);
 
-  // FIX: Track modal dismissal in a ref that survives re-renders
+  // FIX (Round 60): Track modal dismissal in a ref that survives re-renders
   const modalDismissedRef = useRef(false);
 
-  // FIX: Always compute visibility directly from localStorage
+  // FIX (Round 60): Always compute visibility directly from localStorage
   // This ensures we use the same source of truth and avoids Zustand hydration issues
   const shouldShowModal = useMemo(() => {
     // Don't show if already dismissed this session
@@ -62,7 +101,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
       return false;
     }
     
-    // Read from localStorage synchronously
+    // FIX (Round 60): Read from localStorage synchronously - check dismissed key first
     const { hasSeenWelcome, isTutorialEnabled } = getInitialTutorialState();
     
     // Don't show if already seen before
@@ -78,7 +117,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     return true;
   }, []); // Empty deps - computed once on mount
 
-  // FIX: Trigger entrance animation on mount - empty deps to prevent loops
+  // FIX (Round 60): Trigger entrance animation on mount - empty deps to prevent loops
   // Use a ref to track if we've already shown the animation
   const animationTriggeredRef = useRef(false);
   useEffect(() => {
@@ -92,7 +131,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     return () => clearTimeout(timer);
   }, []); // Empty deps - runs once on mount
 
-  // FIX: Generate particles on mount when modal should show - empty deps
+  // FIX (Round 60): Generate particles on mount when modal should show - empty deps
   const particlesGeneratedRef = useRef(false);
   useEffect(() => {
     if (!shouldShowModal || particlesGeneratedRef.current) {
@@ -112,13 +151,19 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   const handleStartTutorial = () => {
     modalDismissedRef.current = true;
     setIsVisible(false);
+    // FIX (Round 60): Mark as dismissed synchronously before calling onStartTutorial
+    markWelcomeDismissed();
     setTimeout(() => {
       onStartTutorial();
     }, 300);
   };
 
   const handleSkip = useCallback(() => {
-    // Mark as dismissed immediately to prevent re-appearing
+    // FIX (Round 60): Mark as dismissed IMMEDIATELY via localStorage
+    // This ensures the modal won't re-appear even if Zustand persist hasn't completed
+    markWelcomeDismissed();
+    
+    // Also mark in session ref to prevent re-render showing modal
     modalDismissedRef.current = true;
     
     // Close the modal with animation
@@ -128,14 +173,29 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     }, 300);
   }, [onSkip]);
 
-  // FIX: Don't render if we shouldn't show the modal
+  // FIX (Round 60): Handle backdrop click - dismiss modal
+  const handleBackdropClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Only dismiss if clicking directly on backdrop, not on modal content
+    if (e.target === e.currentTarget) {
+      handleSkip();
+    }
+  }, [handleSkip]);
+
+  // FIX (Round 60): Don't render if we shouldn't show the modal
   // This check uses only localStorage values to avoid store-triggered re-renders
   if (!shouldShowModal) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    // FIX (Round 60): Backdrop with z-40, pointer-events handled properly
+    <div 
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={handleBackdropClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="welcome-modal-title"
+    >
       {/* Background particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {particles.map((particle) => (
@@ -153,11 +213,13 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
         ))}
       </div>
 
-      {/* Modal container */}
+      {/* Modal container - z-41 above backdrop */}
       <div
-        className={`relative w-full max-w-2xl mx-4 transition-all duration-500 transform ${
+        className={`relative w-full max-w-2xl mx-4 transition-all duration-500 transform z-41 ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
+        onClick={(e) => e.stopPropagation()} // Prevent backdrop click when clicking modal
+        role="document"
       >
         {/* Glow effect */}
         <div className="absolute -inset-1 bg-gradient-to-r from-[#7c3aed]/20 via-[#a855f7]/20 to-[#7c3aed]/20 rounded-2xl blur-xl" />
@@ -166,6 +228,18 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
         <div className="relative bg-gradient-to-br from-[#1a1a2e] via-[#121826] to-[#0a0e17] rounded-2xl border border-[#7c3aed]/40 shadow-2xl shadow-purple-900/30 overflow-hidden">
           {/* Decorative top */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7c3aed] via-[#a855f7] via-[#c084fc] to-[#7c3aed]" />
+
+          {/* Close button - FIX (Round 60): Added explicit close button */}
+          <button
+            onClick={handleSkip}
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1e2a42]/50 hover:bg-[#1e2a42] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors z-10"
+            aria-label="关闭欢迎弹窗"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
 
           {/* Content */}
           <div className="p-8">
@@ -209,7 +283,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
                 </div>
               </div>
 
-              <h1 className="text-3xl font-bold text-white mb-2">
+              <h1 id="welcome-modal-title" className="text-3xl font-bold text-white mb-2">
                 {WELCOME_CONTENT.title}
               </h1>
               <p className="text-[#a855f7] text-lg">{WELCOME_CONTENT.subtitle}</p>
