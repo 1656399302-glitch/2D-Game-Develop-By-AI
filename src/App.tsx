@@ -40,7 +40,7 @@ import { PublishModal } from './components/Community/PublishModal';
 import { ExchangeButton } from './components/Exchange/ExchangeButton';
 import { TradeNotification } from './components/Exchange/TradeNotification';
 import { PlacedModule, Connection } from './types';
-import { getInitialTutorialState } from './components/Tutorial/WelcomeModal';
+
 import { RandomGeneratorModal } from './components/Editor/RandomGeneratorModal';
 
 // Lazy-loaded modal components for code splitting
@@ -148,7 +148,7 @@ function AppContent() {
   
   // FIX: Read localStorage synchronously to determine welcome modal visibility
   // This prevents Zustand hydration race conditions
-  const { hasSeenWelcome } = getInitialTutorialState();
+  const hasSeenWelcome = useTutorialStore(state => state.hasSeenWelcome);
   
   // Welcome modal hook - provides handlers but modal visibility is controlled locally
   const {
@@ -583,7 +583,7 @@ function AppContent() {
         
         {/* FIX: Always render WelcomeModal when user hasn't seen it before
             WelcomeModal itself decides whether to show based on localStorage */}
-        {!hasSeenWelcome && <WelcomeModal onStartTutorial={handleStartTutorial} onSkip={handleSkip} />}
+        {isHydrated && !hasSeenWelcome && <WelcomeModal onStartTutorial={handleStartTutorial} onSkip={handleSkip} />}
         
         <TutorialOverlay
           onModuleAdded={() => {}}

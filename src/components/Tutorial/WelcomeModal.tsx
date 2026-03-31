@@ -187,17 +187,33 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
     return null;
   }
 
+  /*
+   * FIX (Round 62): Restructured modal architecture to fix P0 blocker.
+   * 
+   * Root Cause 1: SVG <line> elements from magic circle intercept pointer events
+   * Solution: Add pointer-events="none" to ALL SVG elements in the magic circle
+   * 
+   * Root Cause 2: Close button was inside backdrop's stacking context (backdrop-blur-sm)
+   * Solution: Move close button to be a viewport-level sibling of backdrop div
+   * 
+   * Correct component hierarchy:
+   * - Backdrop: z-40 (full viewport, click-to-dismiss)
+   * - Modal content: z-[45] (centered content)
+   * - Close button: z-[60] (viewport-level, outside backdrop stacking context)
+   */
   return (
-    // FIX (Round 60): Backdrop with z-40, pointer-events handled properly
-    <div 
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-      onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="welcome-modal-title"
-    >
-      {/* Background particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <>
+      {/* Backdrop ONLY - contains no modal content or close button */}
+      <div 
+        className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm"
+        onClick={handleBackdropClick}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="welcome-modal-title"
+      />
+
+      {/* Background particles - outside backdrop, inside modal wrapper */}
+      <div className="fixed inset-0 z-41 overflow-hidden pointer-events-none flex items-center justify-center">
         {particles.map((particle) => (
           <div
             key={particle.id}
@@ -213,9 +229,31 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
         ))}
       </div>
 
-      {/* Modal container - FIX (Round 61): z-[41] using Tailwind arbitrary value syntax */}
+      {/* Close button - OUTSIDE backdrop, at viewport level, z-[60] */}
+      <button
+        onClick={handleSkip}
+        className="fixed top-4 right-4 w-8 h-8 rounded-full bg-[#1e2a42]/50 hover:bg-[#1e2a42] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors z-[60]"
+        aria-label="关闭欢迎弹窗"
+      >
+        <svg 
+          width="16" 
+          height="16" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          style={{ pointerEvents: 'none' }}
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+
+      {/* Modal content container - z-[45], sibling of backdrop and close button */}
       <div
-        className={`relative w-full max-w-2xl mx-4 transition-all duration-500 transform z-[41] ${
+        className={`relative w-full max-w-2xl mx-4 transition-all duration-500 transform z-[45] ${
           isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}
         onClick={(e) => e.stopPropagation()} // Prevent backdrop click when clicking modal
@@ -229,28 +267,19 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
           {/* Decorative top */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7c3aed] via-[#a855f7] via-[#c084fc] to-[#7c3aed]" />
 
-          {/* Close button - FIX (Round 61): z-[50] exceeds backdrop's z-40 */}
-          <button
-            onClick={handleSkip}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1e2a42]/50 hover:bg-[#1e2a42] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors z-[50]"
-            aria-label="关闭欢迎弹窗"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-
           {/* Content */}
           <div className="p-8">
             {/* Header */}
             <div className="text-center mb-8">
               {/* Magic circle decoration */}
+              {/* FIX (Round 62): Add pointer-events="none" to SVG and ALL child elements */}
               <div className="relative w-24 h-24 mx-auto mb-6">
                 <svg
                   className="absolute inset-0 w-full h-full animate-spin-slow"
                   viewBox="0 0 100 100"
+                  style={{ pointerEvents: 'none' }}
                 >
+                  {/* FIX (Round 62): All SVG elements have pointer-events="none" */}
                   <circle
                     cx="50"
                     cy="50"
@@ -259,6 +288,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
                     stroke="#7c3aed"
                     strokeWidth="1"
                     strokeDasharray="4 4"
+                    style={{ pointerEvents: 'none' }}
                   />
                   <circle
                     cx="50"
@@ -267,6 +297,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
                     fill="none"
                     stroke="#a855f7"
                     strokeWidth="0.5"
+                    style={{ pointerEvents: 'none' }}
                   />
                   <circle
                     cx="50"
@@ -276,6 +307,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
                     stroke="#c084fc"
                     strokeWidth="1"
                     strokeDasharray="2 2"
+                    style={{ pointerEvents: 'none' }}
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -398,7 +430,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
           animation: spin-slow 10s linear infinite;
         }
       `}</style>
-    </div>
+    </>
   );
 }
 
