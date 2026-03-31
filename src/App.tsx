@@ -41,6 +41,7 @@ import { ExchangeButton } from './components/Exchange/ExchangeButton';
 import { TradeNotification } from './components/Exchange/TradeNotification';
 import { PlacedModule, Connection } from './types';
 import { getInitialTutorialState } from './components/Tutorial/WelcomeModal';
+import { RandomGeneratorModal } from './components/Editor/RandomGeneratorModal';
 
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
@@ -88,6 +89,7 @@ function AppContent() {
   const [showAchievements, setShowAchievements] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [showExchange, setShowExchange] = useState(false);
+  const [showRandomGenerator, setShowRandomGenerator] = useState(false);
   const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
   
   // FIX: Use store hydration hook to prevent cascading updates
@@ -401,7 +403,12 @@ function AppContent() {
           )}
         </header>
         
-        {viewMode === 'editor' && <Toolbar onOpenRecipeBrowser={() => setShowRecipeBrowser(true)} />}
+        {viewMode === 'editor' && (
+          <Toolbar
+            onOpenRecipeBrowser={() => setShowRecipeBrowser(true)}
+            onOpenRandomGenerator={() => setShowRandomGenerator(true)}
+          />
+        )}
         
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
@@ -477,6 +484,17 @@ function AppContent() {
         
         <RecipeBrowser isOpen={showRecipeBrowser} onClose={() => setShowRecipeBrowser(false)} />
         {showLoadPrompt && <LoadPromptModal />}
+        
+        {/* RandomGeneratorModal — Round 57: integrated to fix Round 56 critical integration failure */}
+        {showRandomGenerator && (
+          <RandomGeneratorModal
+            isOpen={showRandomGenerator}
+            onClose={() => setShowRandomGenerator(false)}
+            onGenerate={(result) => {
+              loadMachine(result.modules, result.connections);
+            }}
+          />
+        )}
         
         {showHelp && (
           <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/80 backdrop-blur-sm">

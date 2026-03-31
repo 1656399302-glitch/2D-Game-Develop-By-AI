@@ -1,298 +1,149 @@
-APPROVED
+# Sprint Contract — Round 57
 
-# Sprint Contract — Round 56
+## APPROVED
 
 ## Scope
 
-This sprint focuses on **Enhanced Random Generation Mode** and **Challenge System Expansion**. The random generator will receive themed presets, complexity controls, and aesthetic validation to produce higher-quality machines. The challenge system will gain time trial mode, difficulty multipliers, and leaderboard preparation.
+This sprint is a **remediation sprint** focused on fixing a critical integration failure from Round 56. The `RandomGeneratorModal` component exists with full UI implementation, but was never connected to App.tsx, making the random generator button in the toolbar non-functional.
 
 ## Spec Traceability
 
-### P0 Items Covered This Round
-1. **Enhanced Random Generation** (spec: "随机生成模式") — Themed presets, complexity controls, aesthetic validation
-2. **Time Trial Challenge Mode** (spec: "挑战任务模式") — Timed challenge variants with scoring
+### P0 Items (Critical — Must Fix)
+- **RandomGeneratorModal Integration** — The `RandomGeneratorModal` component was defined in `src/components/Editor/RandomGeneratorModal.tsx` but was never imported or rendered in `App.tsx`. This is the only blocking issue from Round 56.
 
-### P1 Items Covered This Round
-1. **Leaderboard Infrastructure** (spec: "挑战任务模式") — Local leaderboard data structure and display
-2. **Challenge Difficulty Multipliers** — Reward multipliers for harder challenges
+### P1 Items (Covered this round)
+- AC1: Themed Random Generation UI — UI component ready, just needed integration
+- AC2: Complexity Controls — UI component ready, just needed integration
+- AC3: Aesthetic Validation — Validation logic ready, just needed integration
 
-### P0/P1 Remaining After This Round
-- P0: Full AI naming integration (API backend required)
-- P0: Multiplayer/exchange backend integration
-- P1: Faction tech tree UI enhancements
-- P1: Tutorial expansion for advanced features
+### Remaining P0/P1 After This Round
+- None — All P0/P1 items from Round 56 are complete after this integration fix
 
-### P2 Intentionally Deferred
-- Social media OAuth integration
-- Cloud save/sync
-- Mobile native app
-- Sound effects and music
-
-## Operator Inbox Status
-
-| Item ID | Content | Round Processed | Status |
-|---------|---------|-----------------|--------|
-| operator-item-1774941228843 | All functional models must be tested, especially module-to-module interaction and UI interaction, with the strictest testing standards | 51 | ✅ Processed - Injected into build phase of round 51 |
-
-**This Round:** No new operator inbox items target Round 56. All inbox items from prior rounds have been processed.
+### P2 Items Intentionally Deferred
+- No new P2 work in this sprint
 
 ## Deliverables
 
-### 1. Random Generation System Enhancement
-**Files:**
-- `src/utils/randomGenerator.ts` — Enhanced generator with themes, constraints, validation
-- `src/components/Editor/RandomGeneratorModal.tsx` — UI for generation controls
-- `src/hooks/useRandomGenerator.ts` — Hook for generator state
-- `src/__tests__/randomGeneratorEnhancement.test.ts` — 30+ tests
+1. **Integrated RandomGeneratorModal** — Modified `src/App.tsx` with:
+   - `showRandomGenerator` state variable in `AppContent`
+   - `onOpenRandomGenerator={() => setShowRandomGenerator(true)}` prop passed to `<Toolbar>`
+   - `<RandomGeneratorModal>` rendered conditionally when `showRandomGenerator` is true
+   - `onGenerate` callback wired to `loadMachine()` to apply generated modules to canvas
 
-### 2. Challenge System Expansion
-**Files:**
-- `src/components/Challenges/TimeTrialChallenge.tsx` — Timed challenge variant
-- `src/components/Challenges/ChallengeLeaderboard.tsx` — Leaderboard display component
-- `src/store/challengeStore.ts` — Enhanced with time trial state
-- `src/data/challengeTimeTrials.ts` — Time trial challenge definitions
-- `src/__tests__/challengeExpansion.test.tsx` — 25+ tests
+2. **Rewritten RandomGeneratorModal** — Modified `src/components/Editor/RandomGeneratorModal.tsx`:
+   - Removed internal dependency on `useRandomGenerator` hook's `isModalOpen` state (which conflicted with parent-controlled visibility)
+   - All UI state (theme, density, sliders, preview) is now local to the component
+   - Generation uses dynamic `import()` of `generateWithTheme` from `randomGenerator.ts`
+   - `loadMachine()` and `showRandomForgeToast()` called directly from the component
+   - `onGenerate` callback provided for parent notification
 
-### 3. Integration Updates
-**Files:**
-- `src/components/Editor/EditorToolbar.tsx` — Add random generator button
-- `src/components/Challenges/ChallengePanel.tsx` — Add time trial tab
-- `src/types/challenge.ts` — New time trial types
+3. **Verified Build** — Zero TypeScript errors, production build succeeds
+
+4. **Browser Verification** — Random generator modal opens when toolbar button is clicked, generates themed machines, and applies them to canvas
 
 ## Acceptance Criteria
 
-### AC1: Themed Random Generation
-1. User can select theme preset: "Balanced", "Offensive", "Defensive", "Arcane Focus", "Void Chaos", "Inferno Forge", "Storm Surge", "Stellar Harmony"
-2. Generated machine uses modules matching selected theme (≥60% of modules from theme-relevant categories)
-3. Faction variants used when theme matches faction (e.g., "Void Chaos" → void variants when unlocked)
-4. Generator respects theme weights and rarity distribution
+1. **AC1: Themed Random Generation UI** — When user clicks the random generator button (🎲 随机生成) in the toolbar, the `RandomGeneratorModal` opens displaying:
+   - 8 theme selection buttons in a 4-column grid
+   - Each theme shows icon, name, and selected state
+   - Selected theme highlights with cyan border and glow
 
-### AC2: Complexity Controls
-1. Slider to control module count (3-15 modules)
-2. Slider to control connection density (low/medium/high)
-3. Generator produces machines within specified complexity bounds
-4. Complexity affects rarity calculation of result
+2. **AC2: Complexity Controls** — The modal displays:
+   - Min/max module count sliders (range 2-15)
+   - Connection density selector (稀疏/适中/密集)
+   - Preview panel showing validation status
 
-### AC3: Aesthetic Validation
-1. Generated machines have no overlapping modules (collision check)
-2. All connections are valid (no dangling ports)
-3. At least one core module present
-4. Output array receives energy (valid energy flow)
+3. **AC3: Aesthetic Validation** — Preview panel shows:
+   - Overall validation status (✅/⚠️)
+   - Complexity statistics (module count, connection count, density)
+   - Validation details (core present, no overlaps, valid connections, energy flow)
 
-### AC4: Time Trial Challenges
-1. Challenge timer starts when user clicks "Begin Trial"
-2. Timer displays MM:SS format, updates every second
-3. Timer pauses when challenge panel closes (paused state stored)
-4. Timer resumes when panel reopens with same elapsed time
-5. Time is recorded on challenge completion
-6. Best time saved to local leaderboard
+4. **AC4: Generation & Application** — Clicking "生成并应用" (Generate and Apply):
+   - Generates a themed machine based on selected theme and complexity
+   - Calls `loadMachine(result.modules, result.connections)` to populate canvas
+   - Shows toast notification via `showRandomForgeToast()`
+   - Closes the modal
+   - Machine appears in editor ready for further editing
 
-### AC5: Difficulty Multipliers
-1. Each challenge has base XP/reputation reward
-2. Easy: 0.5x multiplier
-3. Normal: 1.0x multiplier
-4. Hard: 1.5x multiplier
-5. Extreme: 2.0x multiplier
-6. Multiplier displayed on challenge card
-
-### AC6: Local Leaderboard
-1. Top 10 best times per challenge stored locally
-2. Leaderboard shows rank, time, date achieved
-3. New personal best highlights in UI
-4. Leaderboard persists across sessions
-
-### AC7: Build Integrity
-1. `npm run build` succeeds with 0 TypeScript errors
-2. All 2076+ existing tests pass
-3. New tests for AC1-AC6 all pass
+5. **AC5: Build Integrity** — `npm run build` completes with 0 TypeScript errors
 
 ## Test Methods
 
-### AC1: Themed Random Generation
-```
-1. Mount RandomGeneratorModal
-2. Select each theme preset button
-3. Call generateWithTheme() with each theme
-4. Verify returned modules match theme criteria (≥60% from theme categories):
-   - Balanced: mix of all module types (no single category >40%)
-   - Offensive: amplifier, fire, lightning variants (≥60%)
-   - Defensive: shield, stabilizer, void variants (≥60%)
-   - Arcane: rune nodes, phase modulators (≥60%)
-   - Faction themes: corresponding faction variants present when unlocked
-5. Generate 10 machines per theme, verify ≥80% meet theme criteria
-```
+1. **Browser Smoke Test — Modal Opens**
+   - Open dev server (`npm run dev`)
+   - Locate toolbar button with text "🎲 随机生成"
+   - Click the button
+   - **Verify:** Modal dialog appears with title "🎲 随机锻造"
 
-### AC2: Complexity Controls
-```
-1. Set slider to min (3), generate 5 machines
-2. Verify each has between 2-4 modules
-3. Set slider to max (15), generate 5 machines
-4. Verify each has between 12-18 modules
-5. Test medium setting (8), verify 7-10 modules
-6. Test connection density: high should have more connections than low
-```
+2. **Browser Smoke Test — Theme Selection**
+   - With modal open, click any theme button (e.g., "🔥 熔岩之心")
+   - **Verify:** Button shows selected state (cyan border, glow)
+   - **Verify:** Description text updates below grid
 
-### AC3: Aesthetic Validation
-```
-1. Generate 20 random machines
-2. For each, run collision detection
-3. Verify no modules overlap (bounding box intersection = 0)
-4. Verify all connection ports have valid connections
-5. Verify at least 1 core module
-6. Verify output array has at least 1 incoming connection
-```
+3. **Browser Smoke Test — Complexity Controls**
+   - Adjust min module slider to value 5
+   - **Verify:** Value displays as "5"
+   - Click "适中" density button
+   - **Verify:** Button shows selected state
 
-### AC4: Time Trial Challenges
-```
-1. Mount TimeTrialChallenge with challenge ID
-2. Click "Begin Trial" button
-3. Wait 2 seconds, verify timer shows ~00:02
-4. Verify timer continues after 10 seconds
-5. Close panel, verify timer pauses (state preserved)
-6. Reopen panel, verify timer resumes from same elapsed time
-7. Complete challenge by satisfying conditions
-8. Verify timer stops and time is recorded
-9. Verify completion callback receives correct time
-10. Verify new best time saved to leaderboard
-```
+4. **Browser Smoke Test — Preview Generation**
+   - Click "预览" (Preview) button
+   - **Verify:** Preview panel updates with validation results
+   - **Verify:** Statistics show module count, connection count, density
 
-### AC5: Difficulty Multipliers
-```
-1. Create 4 challenges with different difficulties
-2. Complete each challenge
-3. Verify reward calculation uses correct multiplier:
-   - Easy base 100 → actual 50
-   - Normal base 100 → actual 100
-   - Hard base 100 → actual 150
-   - Extreme base 100 → actual 200
-```
+5. **Browser Smoke Test — Generate and Apply**
+   - Clear canvas first (if needed)
+   - Select a theme
+   - Click "生成并应用" (Generate and Apply)
+   - **Verify:** Modal closes
+   - **Verify:** Canvas shows generated modules (minimum 2 modules)
+   - **Verify:** Modules are placed without overlapping
+   - **Verify:** Connections exist between modules (if density > 0)
 
-### AC6: Local Leaderboard
-```
-1. Clear leaderboard for test challenge
-2. Add 15 entries with different times
-3. Verify only top 10 stored
-4. Verify entries sorted by time ascending
-5. Add new best time
-6. Verify it appears at rank 1
-7. Verify previous rank 1 now rank 2
-8. Verify data persists after page reload
-```
-
-### AC7: Build Integrity
-```bash
-# Step 1: Verify build succeeds
-npm run build  # Verify 0 TypeScript errors
-
-# Step 2: Verify all existing tests pass
-npm test -- --run src/__tests__/connectionEngineFix.test.ts
-npm test -- --run src/__tests__/accessibilityEnhancements.test.tsx
-npm test -- --run src/__tests__/focusManagement.test.tsx
-# (All tests from Round 55 should still pass)
-
-# Step 3: Verify new tests pass
-npm test -- --run src/__tests__/randomGeneratorEnhancement.test.ts
-npm test -- --run src/__tests__/challengeExpansion.test.tsx
-
-# Step 4: Full test suite
-npm test -- --run  # All 2100+ tests should pass
-```
+6. **Build Verification**
+   - Run `npm run build`
+   - **Verify:** 0 TypeScript errors
+   - **Verify:** Build completes successfully
 
 ## Risks
 
-### R1: Complexity Generation Edge Cases
-- **Risk:** Generator may produce invalid machines for extreme complexity settings
-- **Mitigation:** Add fallback to "medium" settings if generation fails after 3 attempts
-- **Fallback:** Show error toast with "Try different settings"
+1. **Low Risk — Modal Visibility Conflict** — The Round 56 `RandomGeneratorModal` (defined at the bottom of App.tsx) used `useRandomGenerator` internally which managed its own `isModalOpen` state, conflicting with parent-controlled visibility. This was resolved by rewriting the component to use only `isOpen` prop for visibility control.
 
-### R2: Time Trial Timer Accuracy
-- **Risk:** JavaScript timer drift over long trials (>10 minutes)
-- **Mitigation:** Use requestAnimationFrame for display, setInterval(1000) for persistence
-- **Fallback:** Auto-save time every 30 seconds
+2. **Low Risk — Dynamic Import** — The modal now uses `await import('../../utils/randomGenerator')` at click time for `generateWithTheme`. This is safe for the browser build and avoids bundling the full generator into the modal chunk unnecessarily.
 
-### R3: Leaderboard Storage Limits
-- **Risk:** LocalStorage quota exceeded with many entries
-- **Mitigation:** Limit to top 10 per challenge, compress old entries
-- **Fallback:** Prune entries older than 30 days
-
-### R4: Theme Module Availability
-- **Risk:** Some themes require faction variants that user hasn't unlocked
-- **Mitigation:** Check recipe unlock status before using faction variants
-- **Fallback:** Use base module types if variant locked
-
-### R5: Timer Pause/Resume Accuracy
-- **Risk:** Timer state may drift if pause/resume not handled correctly
-- **Mitigation:** Store exact elapsed milliseconds, recalculate on resume
-- **Fallback:** Reset timer and warn user trial may be invalid
+3. **Low Risk — Canvas State Sync** — The `loadMachine()` function from `useMachineStore` handles clearing/loading modules. The modal calls this directly.
 
 ## Failure Conditions
 
-The round fails if:
+This sprint MUST FAIL if any of the following conditions are true:
 
-1. **FC1:** Build fails with TypeScript errors
-2. **FC2:** Any existing test file has failing tests (including Round 55 accessibility/connection tests)
-3. **FC3:** Random generator produces overlapping modules
-4. **FC4:** Random generator produces invalid energy flow (output with no input)
-5. **FC5:** Time trial timer displays incorrect time (>500ms drift per minute)
-6. **FC6:** Leaderboard data not persisting across sessions
-7. **FC7:** Difficulty multiplier rewards calculated incorrectly
-8. **FC8:** Theme generation produces <60% theme-relevant modules for any theme
-9. **FC9:** Timer pause/resume does not preserve exact elapsed time
-10. **FC10:** New functionality breaks existing module-to-module interaction or UI interaction (operator inbox requirement from Round 51)
+1. **Toolbar Button Does Nothing** — If clicking the random generator button does not open the modal
+2. **Modal Renders But Generation Fails** — If modal opens but "生成并应用" does not populate the canvas with modules
+3. **Build Errors** — If `npm run build` produces any TypeScript errors
+4. **Module Overlaps** — If generated machines have overlapping modules (aesthetic validation failure)
+5. **No Connections Generated** — If "适中" or "密集" density results in 0 connections (connectivity failure)
 
 ## Done Definition
 
-All conditions must be true:
+The round is complete ONLY when ALL of the following conditions are true:
 
-1. **Build Passes:** `npm run build` completes with 0 TypeScript errors
-2. **All Existing Tests Pass:**
-   - `npm test -- --run src/__tests__/connectionEngineFix.test.ts` (18 tests)
-   - `npm test -- --run src/__tests__/accessibilityEnhancements.test.tsx` (29 tests)
-   - `npm test -- --run src/__tests__/focusManagement.test.tsx` (26 tests)
-   - All 2076 tests from prior rounds passing
-3. **New Tests Pass:**
-   - `npm test -- --run src/__tests__/randomGeneratorEnhancement.test.ts` (30+ tests)
-   - `npm test -- --run src/__tests__/challengeExpansion.test.tsx` (25+ tests)
-4. **Random Generator:**
-   - [ ] RandomGeneratorModal renders with all 8 theme options
-   - [ ] Each theme produces machines with ≥60% theme-relevant modules
-   - [ ] Complexity sliders functional (3-15 range)
-   - [ ] Validation catches and prevents invalid outputs
-   - [ ] Fallback works after 3 failed generation attempts
-5. **Challenge System:**
-   - [ ] TimeTrialChallenge component renders and timer starts
-   - [ ] Timer accuracy within 500ms drift per minute over 5-minute period
-   - [ ] Timer pause preserves elapsed time, resume continues from exact point
-   - [ ] Challenge completion saves time to leaderboard
-   - [ ] All 4 difficulty multipliers calculate correctly
-6. **Leaderboard:**
-   - [ ] Displays top 10 times
-   - [ ] Persists in localStorage across page reloads
-   - [ ] Correctly highlights new personal best
-7. **Integration:**
-   - [ ] Random generator button in toolbar opens modal
-   - [ ] Time trial tab visible in challenge panel
-8. **No Placeholder UI:** All UI components fully implemented with real functionality
-9. **Interaction Integrity:** Module-to-module interaction and UI interaction remain functional (no regressions from Round 51 inbox requirement)
+1. ✅ `showRandomGenerator` state variable exists in `AppContent` component
+2. ✅ `onOpenRandomGenerator={() => setShowRandomGenerator(true)}` is passed to `<Toolbar>`
+3. ✅ `<RandomGeneratorModal>` is imported from `./components/Editor/RandomGeneratorModal`
+4. ✅ `<RandomGeneratorModal>` is rendered conditionally when `showRandomGenerator` is true
+5. ✅ Modal has `onClose={() => setShowRandomGenerator(false)}` handler
+6. ✅ Modal has `onGenerate={(result) => { loadMachine(result.modules, result.connections); }}` callback
+7. ✅ `RandomGeneratorModal.tsx` does NOT use `useRandomGenerator` hook's internal `isModalOpen` state for visibility control
+8. ✅ All 4 browser smoke tests pass (modal opens, theme selection, complexity controls, generate & apply)
+9. ✅ Build completes with 0 TypeScript errors
+10. ✅ Toolbar button "🎲 随机生成" is functional and opens the themed random generator UI
 
 ## Out of Scope
 
-This sprint explicitly does NOT include:
+The following items are explicitly NOT part of this sprint:
 
-1. **Backend/Server** — All leaderboard data is local only; no server sync
-2. **AI API Integration** — Naming uses template system; AI panel is UI only
-3. **Multiplayer Features** — No real-time collaboration
-4. **Social Media Sharing** — Export remains file-based only
-5. **Sound/Audio** — No sound effects or music
-6. **Mobile Native** — Web-only, no iOS/Android apps
-7. **Cloud Sync** — Data stays in localStorage only
-8. **User Accounts** — No authentication system
-9. **Payment/Monetization** — No premium features or purchases
-10. **Advanced Animations** — Focus is on functionality, not animation polish
-
----
-
-**Contract Prepared For: Round 56**
-**Based on: spec.md + feedback.md (Round 55 QA Results - PASS 10/10)**
-**Operator Inbox: 1 item processed (Round 51) - no active items for Round 56**
-**Focus: Enhanced Random Generation + Challenge System Expansion**
+- **No new features** — This is a remediation sprint focused only on integration
+- **No UI/UX changes** — The RandomGeneratorModal UI is complete and should not be modified
+- **No utility function changes** — The random generation logic in `randomGenerator.ts` is tested and working
+- **No test file modifications** — Existing tests should pass without changes
+- **No other modal integrations** — RecipeBrowser and other modals are already integrated correctly

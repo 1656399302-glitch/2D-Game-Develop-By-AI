@@ -1,23 +1,32 @@
 /**
- * Random Generator Modal Component
- * 
- * UI for enhanced random generation with:
- * - Theme selection (8 themed presets)
- * - Complexity controls (module count slider)
- * - Connection density controls
- * - Generation preview
- * - Validation status
+ * RandomGeneratorModal Component
+ *
+ * UI for themed random generation with:
+ * - 8 theme selection buttons in a 4-column grid
+ * - Complexity controls (min/max module count sliders)
+ * - Connection density selector (稀疏/适中/密集)
+ * - Generation preview with validation status
+ * - "生成并应用" to generate and load to canvas
+ *
+ * Visibility is controlled externally via `isOpen` prop (not via internal hook state)
+ * so that App.tsx can manage modal coordination without state conflicts.
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRandomGenerator } from '../../hooks/useRandomGenerator';
+import { useMachineStore } from '../../store/useMachineStore';
 import {
   GenerationTheme,
   ConnectionDensity,
+  GenerationResult,
   THEME_DISPLAY_INFO,
   getAllThemes,
-  GenerationResult,
 } from '../../utils/randomGenerator';
+
+interface RandomGeneratorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onGenerate: (result: GenerationResult) => void;
+}
 
 /**
  * Theme button component
@@ -32,7 +41,7 @@ function ThemeButton({
   onClick: () => void;
 }) {
   const info = THEME_DISPLAY_INFO[theme];
-  
+
   return (
     <button
       onClick={onClick}
@@ -120,7 +129,7 @@ function DensitySelector({
     { value: 'medium', label: '适中', description: '平衡连接' },
     { value: 'high', label: '密集', description: '大量连接' },
   ];
-  
+
   return (
     <div className="flex gap-2">
       {options.map((option) => (
@@ -157,10 +166,10 @@ function ValidationStatus({ result }: { result: GenerationResult | null }) {
       </div>
     );
   }
-  
+
   const { validation, complexity, theme } = result;
   const themeInfo = THEME_DISPLAY_INFO[theme];
-  
+
   return (
     <div className="space-y-3">
       {/* Overall status */}
@@ -178,7 +187,7 @@ function ValidationStatus({ result }: { result: GenerationResult | null }) {
           {validation.valid ? '验证通过' : '验证失败'}
         </span>
       </div>
-      
+
       {/* Complexity stats */}
       <div className="p-3 rounded-lg bg-[#1a2235] border border-[#2d3a4f]">
         <div className="text-xs text-[#4a5568] mb-2">复杂度统计</div>
@@ -201,7 +210,7 @@ function ValidationStatus({ result }: { result: GenerationResult | null }) {
           </div>
         </div>
       </div>
-      
+
       {/* Validation details */}
       <div className="p-3 rounded-lg bg-[#1a2235] border border-[#2d3a4f]">
         <div className="text-xs text-[#4a5568] mb-2">验证详情</div>
@@ -232,7 +241,7 @@ function ValidationStatus({ result }: { result: GenerationResult | null }) {
           </div>
         </div>
       </div>
-      
+
       {/* Errors */}
       {validation.errors.length > 0 && (
         <div className="p-3 rounded-lg bg-[#ef4444]/5 border border-[#ef4444]/30">
@@ -244,7 +253,7 @@ function ValidationStatus({ result }: { result: GenerationResult | null }) {
           </ul>
         </div>
       )}
-      
+
       {/* Warnings */}
       {validation.warnings.length > 0 && (
         <div className="p-3 rounded-lg bg-[#f59e0b]/5 border border-[#f59e0b]/30">
@@ -261,35 +270,50 @@ function ValidationStatus({ result }: { result: GenerationResult | null }) {
 }
 
 /**
- * Random Generator Modal Component
+ * RandomGeneratorModal Component
+ *
+ * Renders a themed random machine generator with:
+ * - 8 theme presets (4-column grid)
+ * - Min/max module count sliders
+ * - Connection density selector
+ * - Preview panel with validation
+ * - Generate & Apply action
+ *
+ * All UI state is LOCAL to this component (theme, density, sliders, preview).
+ * Visibility is controlled by parent via `isOpen` prop — no internal
+ * modal-open state that could conflict with parent coordination.
  */
 export function RandomGeneratorModal({
   isOpen,
   onClose,
   onGenerate,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onGenerate: (result: GenerationResult) => void;
-}) {
-  const hook = useRandomGenerator();
+}: RandomGeneratorModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [selectedTheme, setSelectedTheme] = useState<GenerationTheme>('balanced');
+  const [connectionDensity, setConnectionDensity] = useState<ConnectionDensity>('medium');
+  const [moduleCountMin, setModuleCountMin] = useState(3);
+  const [moduleCountMax, setModuleCountMax] = useState(8);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [previewResult, setPreviewResult] = useState<GenerationResult | null>(null);
-  
+
+  // Get store actions for direct generation + apply
+  const loadMachine = useMachineStore((state) => state.loadMachine);
+  const showRandomForgeToast = useMachineStore((state) => state.showRandomForgeToast);
+
   // Handle escape key
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
       }
     };
-    
+
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
-  
+
   // Focus trap
   useEffect(() => {
     if (isOpen && modalRef.current) {
@@ -301,36 +325,71 @@ export function RandomGeneratorModal({
       }
     }
   }, [isOpen]);
-  
+
+  // Build generation config from current local state
+  const buildConfig = useCallback(() => ({
+    minModules: moduleCountMin,
+    maxModules: moduleCountMax,
+    minSpacing: 80,
+    canvasWidth: 800,
+    canvasHeight: 600,
+    padding: 100,
+    theme: selectedTheme,
+    connectionDensity,
+    useFactionVariants: false,
+  }), [moduleCountMin, moduleCountMax, selectedTheme, connectionDensity]);
+
   // Handle preview generation
-  const handlePreview = useCallback(() => {
-    const result = hook.generate();
-    setPreviewResult(result);
-  }, [hook]);
-  
-  // Handle apply
-  const handleApply = useCallback(() => {
-    if (previewResult) {
-      onGenerate(previewResult);
-      hook.applyToCanvas(previewResult);
-      onClose();
-    } else {
-      // Generate and apply directly
-      hook.generateAndApply();
+  const handlePreview = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+      const { generateWithTheme } = await import('../../utils/randomGenerator');
+      const config = buildConfig();
+      const result = generateWithTheme(config);
+      setPreviewResult(result);
+    } finally {
+      setIsGenerating(false);
     }
-  }, [previewResult, onGenerate, hook, onClose]);
-  
-  // Reset preview when modal opens with new settings
+  }, [buildConfig]);
+
+  // Handle generate + apply — calls onGenerate (for parent) AND loadMachine (for canvas)
+  const handleApply = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+      const { generateWithTheme, THEME_DISPLAY_INFO } = await import('../../utils/randomGenerator');
+      const config = buildConfig();
+      const result = generateWithTheme(config);
+
+      // Load generated machine to canvas via store
+      loadMachine(result.modules, result.connections);
+
+      // Show toast notification
+      const themeInfo = THEME_DISPLAY_INFO[result.theme];
+      showRandomForgeToast(
+        `已生成 ${themeInfo.name} 风格机器 (${result.modules.length} 模块)`
+      );
+
+      // Notify parent (for any additional handling)
+      onGenerate(result);
+
+      // Close modal
+      onClose();
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [buildConfig, loadMachine, showRandomForgeToast, onGenerate, onClose]);
+
+  // Reset preview when modal opens or settings change
   useEffect(() => {
     if (isOpen) {
       setPreviewResult(null);
     }
-  }, [isOpen, hook.selectedTheme, hook.connectionDensity, hook.moduleCountMin, hook.moduleCountMax]);
-  
+  }, [isOpen]);
+
   if (!isOpen) return null;
-  
+
   const themes = getAllThemes();
-  
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -361,7 +420,7 @@ export function RandomGeneratorModal({
             </svg>
           </button>
         </div>
-        
+
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-6">
           {/* Theme Selection */}
@@ -372,71 +431,83 @@ export function RandomGeneratorModal({
                 <ThemeButton
                   key={theme}
                   theme={theme}
-                  isSelected={hook.selectedTheme === theme}
-                  onClick={() => hook.setTheme(theme)}
+                  isSelected={selectedTheme === theme}
+                  onClick={() => {
+                    setSelectedTheme(theme);
+                    setPreviewResult(null);
+                  }}
                 />
               ))}
             </div>
-            {hook.selectedTheme && (
+            {selectedTheme && (
               <p className="mt-2 text-xs text-[#4a5568]">
-                {THEME_DISPLAY_INFO[hook.selectedTheme].description}
+                {THEME_DISPLAY_INFO[selectedTheme].description}
               </p>
             )}
           </section>
-          
+
           {/* Complexity Controls */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-[#9ca3af]">复杂度控制</h3>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <ModuleCountSlider
                 label="最小模块数"
-                value={hook.moduleCountMin}
+                value={moduleCountMin}
                 min={2}
-                max={hook.moduleCountMax - 1}
-                onChange={(value) => hook.setModuleCountRange(value, hook.moduleCountMax)}
+                max={Math.max(2, moduleCountMax - 1)}
+                onChange={(value) => {
+                  setModuleCountMin(value);
+                  setPreviewResult(null);
+                }}
               />
               <ModuleCountSlider
                 label="最大模块数"
-                value={hook.moduleCountMax}
-                min={hook.moduleCountMin + 1}
+                value={moduleCountMax}
+                min={Math.min(15, moduleCountMin + 1)}
                 max={15}
-                onChange={(value) => hook.setModuleCountRange(hook.moduleCountMin, value)}
+                onChange={(value) => {
+                  setModuleCountMax(value);
+                  setPreviewResult(null);
+                }}
               />
             </div>
           </section>
-          
+
           {/* Connection Density */}
           <section>
             <h3 className="text-sm font-medium text-[#9ca3af] mb-3">连接密度</h3>
             <DensitySelector
-              value={hook.connectionDensity}
-              onChange={hook.setConnectionDensity}
+              value={connectionDensity}
+              onChange={(value) => {
+                setConnectionDensity(value);
+                setPreviewResult(null);
+              }}
             />
           </section>
-          
+
           {/* Preview */}
           <section>
             <h3 className="text-sm font-medium text-[#9ca3af] mb-3">预览</h3>
             <ValidationStatus result={previewResult} />
           </section>
         </div>
-        
+
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#1e2a42] bg-[#121826]">
           <button
             onClick={handlePreview}
-            disabled={hook.isGenerating}
+            disabled={isGenerating}
             className="px-4 py-2 rounded-lg bg-[#1e2a42] text-[#9ca3af] hover:bg-[#2d3a4f] hover:text-white transition-colors disabled:opacity-50"
           >
-            {hook.isGenerating ? '生成中...' : '预览'}
+            {isGenerating ? '生成中...' : '预览'}
           </button>
           <button
             onClick={handleApply}
-            disabled={hook.isGenerating}
+            disabled={isGenerating}
             className="px-6 py-2 rounded-lg bg-[#00d4ff]/20 text-[#00d4ff] hover:bg-[#00d4ff]/30 border border-[#00d4ff]/50 transition-colors disabled:opacity-50 font-medium"
           >
-            {hook.isGenerating ? '生成中...' : '生成并应用'}
+            {isGenerating ? '生成中...' : '生成并应用'}
           </button>
         </div>
       </div>
