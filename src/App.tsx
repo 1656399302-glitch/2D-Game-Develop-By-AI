@@ -22,6 +22,7 @@ import { useFactionStore } from './store/useFactionStore';
 import { useAchievementStore } from './store/useAchievementStore';
 import { useCommunityStore } from './store/useCommunityStore';
 import { useMachineStatsStore } from './store/useMachineStatsStore';
+import { hydrateExchangeStore } from './store/useExchangeStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStoreHydration } from './hooks/useStoreHydration';
 import { generateAttributes } from './utils/attributeGenerator';
@@ -36,6 +37,8 @@ import { AccessibilityLayer, MobileCanvasLayout, useViewportSize } from './compo
 import { MobileTouchEnhancer } from './components/Accessibility/MobileTouchEnhancer';
 import { CommunityGallery } from './components/Community/CommunityGallery';
 import { PublishModal } from './components/Community/PublishModal';
+import { ExchangeButton } from './components/Exchange/ExchangeButton';
+import { TradeNotification } from './components/Exchange/TradeNotification';
 import { PlacedModule, Connection } from './types';
 import { getInitialTutorialState } from './components/Tutorial/WelcomeModal';
 
@@ -44,6 +47,7 @@ const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
 const LazyChallengePanel = lazy(() => import('./components/Challenge/ChallengePanel'));
 const LazyFactionPanel = lazy(() => import('./components/Factions/FactionPanel'));
 const LazyTechTree = lazy(() => import('./components/Factions/TechTree'));
+const LazyExchangePanel = lazy(() => import('./components/Exchange/ExchangePanel'));
 
 // AI Assistant slide-in panel with close functionality - lazy loaded wrapper
 const LazyAIAssistantSlideIn = lazy(() => 
@@ -83,6 +87,7 @@ function AppContent() {
   const [showTechTree, setShowTechTree] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [showExchange, setShowExchange] = useState(false);
   const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
   
   // FIX: Use store hydration hook to prevent cascading updates
@@ -115,6 +120,8 @@ function AppContent() {
   // Machine stats store for statistics dashboard - FIX: Use selectors
   const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
   const closeStatsPanel = useMachineStatsStore((state) => state.closePanel);
+
+  // Exchange store - FIX: Use selectors
   
   // Codex store - FIX: Use selector
   const addEntry = useCodexStore((state) => state.addEntry);
@@ -146,6 +153,11 @@ function AppContent() {
     handleStartTutorial,
     handleSkip,
   } = useWelcomeModal();
+
+  // FIX: Hydrate exchange store on mount
+  useEffect(() => {
+    hydrateExchangeStore();
+  }, []);
 
   // Check for saved state on mount - FIX: Use ref instead of store action in dependency
   useEffect(() => {
@@ -332,6 +344,9 @@ function AppContent() {
               
               <div className="w-px h-6 bg-[#1e2a42] mx-1" aria-hidden="true" />
               
+              {/* Exchange Button */}
+              <ExchangeButton onClick={() => setShowExchange(true)} />
+              
               <button
                 onClick={() => setShowRecipeBrowser(true)}
                 className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a855f7] hover:text-white border border-[#1e2a42] hover:border-[#a855f7]/30 transition-colors flex items-center gap-2"
@@ -516,6 +531,13 @@ function AppContent() {
           </Suspense>
         )}
         
+        {/* Exchange Panel */}
+        {showExchange && (
+          <Suspense fallback={<LazyLoadingFallback height="85vh" />}>
+            <LazyExchangePanel onClose={() => setShowExchange(false)} />
+          </Suspense>
+        )}
+        
         {/* Machine Statistics Dashboard - Enhanced version with 5 tabs (Round 44 integration) */}
         {isStatsPanelOpen && <EnhancedStatsDashboard onClose={closeStatsPanel} />}
         
@@ -531,6 +553,9 @@ function AppContent() {
         <RandomForgeToast />
         <AchievementToast achievement={currentAchievement} onDismiss={handleAchievementDismiss} />
         <RecipeToastManager />
+        
+        {/* Trade Notification */}
+        <TradeNotification onOpenExchange={() => setShowExchange(true)} />
         
         {/* Community Gallery Modal */}
         {isGalleryOpen && <CommunityGallery />}
