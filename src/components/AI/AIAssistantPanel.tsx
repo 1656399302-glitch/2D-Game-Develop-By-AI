@@ -1,19 +1,10 @@
-import { useState, useCallback } from 'react';
-import {
-  getAIService,
-  AINameRequest,
-  AINameResponse,
-  AIMachineContext,
-  AIDescriptionResponse,
-} from '../../types/aiIntegration';
-import {
-  generateMachineDescription,
-  suggestTagsFromModules,
-  DESCRIPTION_STYLE_LABELS,
-  MachineAttributes,
-} from '../../utils/aiIntegrationUtils';
+import { useState, useCallback, useEffect } from 'react';
+import { useAINaming } from '../../hooks/useAINaming';
 import { useMachineStore } from '../../store/useMachineStore';
+import { useSettingsStore, PROVIDER_DISPLAY_NAMES, AIProviderSettings } from '../../store/useSettingsStore';
 import { AttributeTag } from '../../types';
+import { AISettingsPanel } from './AISettingsPanel';
+import { ProviderType } from '../../services/ai/AIServiceFactory';
 
 /**
  * Name style options for AI generation
@@ -90,20 +81,45 @@ function convertTagsToAttributeTag(tags: string[]): AttributeTag[] {
  * AI Assistant Panel Component
  * 
  * Provides AI-powered naming and description generation for machines.
- * Uses the MockAIService for development/testing with the ability
- * to integrate with real AI providers in production.
+ * Uses the useAINaming hook which supports both local generation and
+ * external AI providers.
  */
 export function AIAssistantPanel() {
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Get provider type from settings store - with explicit type annotation
+  const providerType: ProviderType = useSettingsStore(
+    (state: { aiProvider: AIProviderSettings }) => state.aiProvider.providerType
+  );
+  
+  // Use the AI naming hook
+  const {
+    generateName,
+    generateDescription,
+    generateFullAttributes,
+    isLoading,
+    error,
+    isUsingAI,
+    currentProvider,
+    setProvider,
+  } = useAINaming({ providerType });
+
   // Name generation state
   const [isGeneratingNames, setIsGeneratingNames] = useState(false);
-  const [generatedNames, setGeneratedNames] = useState<AINameResponse[]>([]);
+  const [generatedNames, setGeneratedNames] = useState<Array<{ name: string; nameEn?: string; confidence: number }>>([]);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [nameStyle, setNameStyle] = useState<NameStyle>('mixed');
   const [nameError, setNameError] = useState<string | null>(null);
   
   // Description generation state
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
-  const [generatedDescription, setGeneratedDescription] = useState<AIDescriptionResponse | null>(null);
+  const [generatedDescription, setGeneratedDescription] = useState<{
+    description: string;
+    descriptionEn?: string;
+    lore?: string;
+    tags?: string[];
+  } | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<DescriptionStyle>('mixed');
   const [selectedLanguage, setSelectedLanguage] = useState<Language>('zh');
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
@@ -115,29 +131,19 @@ export function AIAssistantPanel() {
   const connections = useMachineStore((state) => state.connections);
   const generatedAttributes = useMachineStore((state) => state.generatedAttributes);
   const setGeneratedAttributes = useMachineStore((state) => state.setGeneratedAttributes);
-  
-  // Build machine context from current state
-  const buildCtx = useCallback((): AIMachineContext => {
-    const moduleSummary = modules.map((m) => ({
-      type: m.type,
-      category: getCategoryFromType(m.type),
-      connections: connections.filter(
-        (c) => c.sourceModuleId === m.instanceId || c.targetModuleId === m.instanceId
-      ).length,
-    }));
-    
-    return {
-      modules: moduleSummary,
-      connections: connections.length,
-      existingTags: [],
-    };
-  }, [modules, connections]);
-  
+
+  // Sync error from hook
+  useEffect(() => {
+    if (error) {
+      setNameError(error);
+      setDescriptionError(error);
+    }
+  }, [error]);
+
   // Get machine attributes for description generation
-  const getMachineAttributes = useCallback((): MachineAttributes => {
+  const getMachineAttributes = useCallback(() => {
     if (generatedAttributes) {
       return {
-        name: generatedAttributes.name || '未命名机器',
         rarity: generatedAttributes.rarity || 'common',
         stability: generatedAttributes.stats?.stability || 50,
         power: generatedAttributes.stats?.powerOutput || 50,
@@ -145,7 +151,6 @@ export function AIAssistantPanel() {
       };
     }
     return {
-      name: '魔法机械装置',
       rarity: 'common',
       stability: 50,
       power: 50,
@@ -153,7 +158,7 @@ export function AIAssistantPanel() {
     };
   }, [generatedAttributes]);
   
-  // Generate names using AI service
+  // Generate names using AI service hook
   const handleGenerateNames = useCallback(async () => {
     if (modules.length === 0) {
       setNameError('请先添加模块后再生成名称');
@@ -166,25 +171,37 @@ export function AIAssistantPanel() {
     setSelectedName(null);
     
     try {
-      const aiService = getAIService();
-      const request: AINameRequest = {
-        context: buildCtx(),
-        style: nameStyle,
-        language: 'mixed',
-        maxLength: 20,
-      };
+      // Convert modules to format expected by hook
+      const hookModules = modules.map((m) => ({
+        type: m.type,
+        category: getCategoryFromType(m.type),
+        instanceId: m.instanceId,
+      }));
       
-      const response = await aiService.generateName(request);
-      setGeneratedNames([response]);
+      const result = await generateName({
+        modules: hookModules,
+        connections: connections.map((c) => ({
+          sourceModuleId: c.sourceModuleId,
+          targetModuleId: c.targetModuleId,
+        })),
+      });
       
-      // Generate alternatives if available
-      if (response.alternatives && response.alternatives.length > 0) {
-        const altResponses: AINameResponse[] = response.alternatives.map((alt) => ({
-          name: alt.name,
-          nameEn: alt.nameEn,
-          confidence: alt.confidence,
-        }));
-        setGeneratedNames((prev) => [...prev, ...altResponses]);
+      // Handle the result from the hook
+      const names: Array<{ name: string; nameEn?: string; confidence: number }> = [];
+      
+      if (result.data) {
+        // Primary name
+        names.push({
+          name: result.data,
+          confidence: result.confidence,
+        });
+      }
+      
+      setGeneratedNames(names);
+      
+      // Auto-select first if only one
+      if (names.length === 1) {
+        setSelectedName(names[0].name);
       }
     } catch (err) {
       setNameError('名称生成失败，请稍后重试');
@@ -192,9 +209,9 @@ export function AIAssistantPanel() {
     } finally {
       setIsGeneratingNames(false);
     }
-  }, [modules.length, nameStyle, buildCtx]);
+  }, [modules, connections, generateName]);
   
-  // Generate description using AI service
+  // Generate description using AI service hook
   const handleGenerateDescription = useCallback(async () => {
     if (modules.length === 0) {
       setDescriptionError('请先添加模块后再生成描述');
@@ -207,31 +224,65 @@ export function AIAssistantPanel() {
     setSuggestedTags([]);
     
     try {
-      const machineContext = buildCtx();
-      const attributes = getMachineAttributes();
+      // Convert modules to format expected by hook
+      const hookModules = modules.map((m) => ({
+        type: m.type,
+        category: getCategoryFromType(m.type),
+        instanceId: m.instanceId,
+      }));
       
-      const response = await generateMachineDescription(
-        machineContext,
-        attributes.name,
-        attributes,
-        selectedStyle,
-        300
+      const machineAttributes = getMachineAttributes();
+      
+      // Generate full attributes first to get name
+      const fullResult = await generateFullAttributes(
+        hookModules,
+        connections.map((c) => ({
+          sourceModuleId: c.sourceModuleId,
+          targetModuleId: c.targetModuleId,
+        }))
       );
       
-      setGeneratedDescription(response);
+      // Generate description
+      const descResult = await generateDescription({
+        modules: hookModules,
+        connections: connections.map((c) => ({
+          sourceModuleId: c.sourceModuleId,
+          targetModuleId: c.targetModuleId,
+        })),
+        machineName: fullResult.data.name,
+        attributes: {
+          rarity: machineAttributes.rarity,
+          stability: machineAttributes.stability,
+          power: machineAttributes.power,
+          tags: machineAttributes.tags,
+        },
+        style: selectedStyle === 'mixed' ? 'mixed' : selectedStyle === 'technical' ? 'technical' : selectedStyle === 'lore' ? 'lore' : 'flavor',
+        maxLength: 300,
+      });
       
-      // Generate suggested tags from modules
-      const tags = suggestTagsFromModules(
-        modules.map(m => ({ type: m.type, category: getCategoryFromType(m.type) }))
-      );
+      setGeneratedDescription({
+        description: descResult.data,
+        tags: machineAttributes.tags,
+      });
+      
+      // Suggest tags from modules
+      const tags = modules
+        .map((m) => getCategoryFromType(m.type))
+        .filter((tag, index, self) => self.indexOf(tag) === index)
+        .slice(0, 5);
       setSuggestedTags(tags);
+      
+      // Update machine attributes with generated data
+      if (fullResult.data) {
+        setGeneratedAttributes(fullResult.data);
+      }
     } catch (err) {
       setDescriptionError('描述生成失败，请稍后重试');
       console.error('AI description error:', err);
     } finally {
       setIsGeneratingDescription(false);
     }
-  }, [modules.length, selectedStyle, buildCtx, getMachineAttributes, modules]);
+  }, [modules, connections, selectedStyle, generateDescription, generateFullAttributes, getMachineAttributes, setGeneratedAttributes]);
   
   // Apply selected name to machine attributes
   const handleApplyName = useCallback(() => {
@@ -315,9 +366,44 @@ export function AIAssistantPanel() {
         return `${generatedDescription.description}\n\n${generatedDescription.descriptionEn || ''}`;
     }
   }, [generatedDescription, selectedLanguage]);
+
+  // Handle opening settings
+  const handleOpenSettings = useCallback(() => {
+    setShowSettings(true);
+  }, []);
+
+  // Handle closing settings
+  const handleCloseSettings = useCallback(() => {
+    setShowSettings(false);
+  }, []);
+
+  // Handle provider change from settings
+  const handleProviderChange = useCallback((newProvider: ProviderType) => {
+    setProvider(newProvider);
+  }, [setProvider]);
+
+  // Check if any generation is in progress
+  const isAnyGenerating = isGeneratingNames || isGeneratingDescription || isLoading;
+
+  // Description style labels
+  const DESCRIPTION_STYLE_LABELS: Record<DescriptionStyle, string> = {
+    technical: '技术描述',
+    flavor: '风味描述',
+    lore: '背景故事',
+    mixed: '综合描述',
+  };
   
   return (
     <div className="bg-gradient-to-br from-[#1a1a2e] via-[#121826] to-[#0a0e17] rounded-xl border border-[#7c3aed]/40 shadow-2xl overflow-hidden">
+      {/* Settings Panel Overlay */}
+      {showSettings && (
+        <AISettingsPanel
+          currentProvider={currentProvider}
+          onClose={handleCloseSettings}
+          onProviderChange={handleProviderChange}
+        />
+      )}
+      
       {/* Header */}
       <div className="px-4 py-3 border-b border-[#1e2a42] bg-[#121826]/50">
         <div className="flex items-center justify-between">
@@ -326,6 +412,16 @@ export function AIAssistantPanel() {
             <h2 className="text-lg font-bold text-white">AI 助手</h2>
           </div>
           <div className="flex items-center gap-2">
+            {/* Provider Indicator */}
+            <button
+              onClick={handleOpenSettings}
+              className="px-2 py-1 text-xs rounded bg-[#7c3aed]/20 text-[#a855f7] border border-[#7c3aed]/30 hover:bg-[#7c3aed]/30 transition-colors flex items-center gap-1"
+              title="AI 设置"
+            >
+              <span>{isUsingAI ? '🤖' : '🏠'}</span>
+              <span>{PROVIDER_DISPLAY_NAMES[currentProvider as ProviderType] || '本地生成器'}</span>
+              <span className="text-[#9ca3af]">⚙️</span>
+            </button>
             <span className="px-2 py-0.5 text-xs rounded bg-[#7c3aed]/20 text-[#a855f7] border border-[#7c3aed]/30">
               Beta
             </span>
@@ -356,10 +452,11 @@ export function AIAssistantPanel() {
                 <button
                   key={style}
                   onClick={() => setNameStyle(style)}
+                  disabled={isAnyGenerating}
                   className={`px-3 py-2 text-xs rounded-lg border transition-all ${
                     nameStyle === style
                       ? 'bg-[#7c3aed]/20 border-[#7c3aed] text-white'
-                      : 'bg-[#121826] border-[#1e2a42] text-[#9ca3af] hover:border-[#7c3aed]/50 hover:text-white'
+                      : 'bg-[#121826] border-[#1e2a42] text-[#9ca3af] hover:border-[#7c3aed]/50 hover:text-white disabled:opacity-50'
                   }`}
                 >
                   {NAME_STYLE_LABELS[style]}
@@ -371,16 +468,16 @@ export function AIAssistantPanel() {
           {/* Generate Names Button */}
           <button
             onClick={handleGenerateNames}
-            disabled={isGeneratingNames || modules.length === 0}
+            disabled={isAnyGenerating || modules.length === 0}
             className={`w-full px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-              isGeneratingNames
+              isAnyGenerating || isGeneratingNames
                 ? 'bg-[#7c3aed]/50 text-white/50 cursor-not-allowed'
                 : modules.length === 0
                 ? 'bg-[#1e2a42] text-[#6b7280] cursor-not-allowed'
                 : 'bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white hover:opacity-90'
             }`}
           >
-            {isGeneratingNames ? (
+            {isAnyGenerating || isGeneratingNames ? (
               <>
                 <LoadingSpinner />
                 <span>生成中...</span>
@@ -423,7 +520,7 @@ export function AIAssistantPanel() {
           )}
           
           {/* Apply Name Button */}
-          {selectedName && (
+          {selectedName && !isAnyGenerating && (
             <button
               onClick={handleApplyName}
               className="w-full px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white hover:opacity-90 transition-all flex items-center justify-center gap-2"
@@ -454,10 +551,11 @@ export function AIAssistantPanel() {
                 <button
                   key={style}
                   onClick={() => setSelectedStyle(style)}
+                  disabled={isAnyGenerating}
                   className={`px-3 py-2 text-xs rounded-lg border transition-all ${
                     selectedStyle === style
                       ? 'bg-[#3b82f6]/20 border-[#3b82f6] text-white'
-                      : 'bg-[#121826] border-[#1e2a42] text-[#9ca3af] hover:border-[#3b82f6]/50 hover:text-white'
+                      : 'bg-[#121826] border-[#1e2a42] text-[#9ca3af] hover:border-[#3b82f6]/50 hover:text-white disabled:opacity-50'
                   }`}
                 >
                   {DESCRIPTION_STYLE_LABELS[style]}
@@ -476,10 +574,11 @@ export function AIAssistantPanel() {
                 <button
                   key={lang}
                   onClick={() => setSelectedLanguage(lang)}
+                  disabled={isAnyGenerating}
                   className={`flex-1 px-3 py-2 text-xs rounded-lg border transition-all ${
                     selectedLanguage === lang
                       ? 'bg-[#8b5cf6]/20 border-[#8b5cf6] text-white'
-                      : 'bg-[#121826] border-[#1e2a42] text-[#9ca3af] hover:border-[#8b5cf6]/50 hover:text-white'
+                      : 'bg-[#121826] border-[#1e2a42] text-[#9ca3af] hover:border-[#8b5cf6]/50 hover:text-white disabled:opacity-50'
                   }`}
                 >
                   {LANGUAGE_LABELS[lang]}
@@ -491,16 +590,16 @@ export function AIAssistantPanel() {
           {/* Generate Description Button */}
           <button
             onClick={handleGenerateDescription}
-            disabled={isGeneratingDescription || modules.length === 0}
+            disabled={isAnyGenerating || modules.length === 0}
             className={`w-full px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-              isGeneratingDescription
+              isAnyGenerating || isGeneratingDescription
                 ? 'bg-[#3b82f6]/50 text-white/50 cursor-not-allowed'
                 : modules.length === 0
                 ? 'bg-[#1e2a42] text-[#6b7280] cursor-not-allowed'
                 : 'bg-gradient-to-r from-[#3b82f6] to-[#2563eb] text-white hover:opacity-90'
             }`}
           >
-            {isGeneratingDescription ? (
+            {isAnyGenerating || isGeneratingDescription ? (
               <>
                 <LoadingSpinner />
                 <span>生成中...</span>
@@ -584,19 +683,21 @@ export function AIAssistantPanel() {
               )}
               
               {/* Apply Description Button */}
-              <button
-                onClick={handleApplyDescription}
-                className="w-full px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white hover:opacity-90 transition-all flex items-center justify-center gap-2"
-              >
-                <span>✓</span>
-                <span>应用到机器</span>
-              </button>
+              {!isAnyGenerating && (
+                <button
+                  onClick={handleApplyDescription}
+                  className="w-full px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-[#22c55e] to-[#16a34a] text-white hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                >
+                  <span>✓</span>
+                  <span>应用到机器</span>
+                </button>
+              )}
               
               {/* Regenerate Button */}
               <button
                 onClick={handleGenerateDescription}
-                disabled={isGeneratingDescription}
-                className="w-full px-4 py-2 rounded-lg font-medium bg-[#1e2a42] text-[#9ca3af] hover:bg-[#2d3748] hover:text-white transition-all flex items-center justify-center gap-2"
+                disabled={isAnyGenerating}
+                className="w-full px-2 py-2 rounded-lg font-medium bg-[#1e2a42] text-[#9ca3af] hover:bg-[#2d3748] hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <span>🔄</span>
                 <span>重新生成</span>
