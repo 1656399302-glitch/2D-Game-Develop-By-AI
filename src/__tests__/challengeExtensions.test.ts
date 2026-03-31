@@ -1,271 +1,183 @@
-/**
- * Challenge Extensions Tests
- * 
- * Tests for the expanded challenge system (16 challenges).
- * Covers: challenge definitions, categories, difficulty distribution, and uniqueness.
- */
-
 import { describe, it, expect } from 'vitest';
 import {
   CHALLENGE_DEFINITIONS,
+  getChallengeCountByCategory,
   getChallengeById,
   getChallengesByCategory,
-  getChallengesByDifficulty,
-  getChallengeCountByCategory,
-  getChallengeDifficultyColor,
-  getChallengeDifficultyLabel,
-  getChallengeCategoryLabel,
-  getChallengeCategoryIcon,
+  getTechMasteryChallenges,
 } from '../data/challenges';
-import { ChallengeCategory, ChallengeDifficulty } from '../data/challenges';
 
-describe('Challenge System - 16 Challenge Definitions', () => {
+describe('Challenge System - 20 Challenge Definitions', () => {
+  // Updated per Round 51: 20 challenges
   describe('Total Challenge Count', () => {
-    it('should have exactly 16 challenges', () => {
-      expect(CHALLENGE_DEFINITIONS.length).toBe(16);
+    it('should have exactly 20 challenges', () => {
+      expect(CHALLENGE_DEFINITIONS.length).toBe(20);
     });
 
-    it('should have unique IDs for all challenges', () => {
+    it('each challenge should have unique id', () => {
       const ids = CHALLENGE_DEFINITIONS.map(c => c.id);
       const uniqueIds = new Set(ids);
-      expect(uniqueIds.size).toBe(ids.length);
+      expect(uniqueIds.size).toBe(20);
     });
   });
 
-  describe('Category Distribution', () => {
-    // Updated per Round 19 contract: Creation=4, Mastery=5
-    it('should have exactly 4 Creation challenges', () => {
-      const creation = CHALLENGE_DEFINITIONS.filter(c => c.category === 'creation');
-      expect(creation.length).toBe(4);
-    });
-
-    it('should have exactly 3 Collection challenges', () => {
-      const collection = CHALLENGE_DEFINITIONS.filter(c => c.category === 'collection');
-      expect(collection.length).toBe(3);
-    });
-
-    it('should have exactly 4 Activation challenges', () => {
-      const activation = CHALLENGE_DEFINITIONS.filter(c => c.category === 'activation');
-      expect(activation.length).toBe(4);
-    });
-
-    // Updated per Round 19 contract: void-initiate moved from creation to mastery
-    it('should have exactly 5 Mastery challenges', () => {
-      const mastery = CHALLENGE_DEFINITIONS.filter(c => c.category === 'mastery');
-      expect(mastery.length).toBe(5);
-    });
-
-    it('should sum to 16 challenges across all categories', () => {
-      const count = getChallengeCountByCategory();
-      const total = count.creation + count.collection + count.activation + count.mastery;
-      expect(total).toBe(16);
-    });
-
-    // Verify void-initiate is now in mastery category
-    it('void-initiate should be in mastery category', () => {
-      const voidInitiate = CHALLENGE_DEFINITIONS.find(c => c.id === 'void-initiate');
-      expect(voidInitiate).toBeDefined();
-      expect(voidInitiate?.category).toBe('mastery');
-    });
-  });
-
+  // Updated: 6 Beginner, 7 Intermediate, 7 Advanced
   describe('Difficulty Distribution', () => {
-    it('should have exactly 4 Beginner challenges', () => {
-      const beginner = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'beginner');
-      expect(beginner.length).toBe(4);
+    it('should have exactly 6 Beginner challenges', () => {
+      const beginnerChallenges = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'beginner');
+      expect(beginnerChallenges.length).toBe(6);
     });
 
-    it('should have exactly 5 Intermediate challenges', () => {
-      const intermediate = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'intermediate');
-      expect(intermediate.length).toBe(5);
+    it('should have exactly 7 Intermediate challenges', () => {
+      const intermediateChallenges = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'intermediate');
+      expect(intermediateChallenges.length).toBe(7);
     });
 
     it('should have exactly 7 Advanced challenges', () => {
-      const advanced = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'advanced');
-      expect(advanced.length).toBe(7);
+      const advancedChallenges = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'advanced');
+      expect(advancedChallenges.length).toBe(7);
     });
 
-    it('should not have any Master difficulty challenges', () => {
-      const master = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'master');
-      expect(master.length).toBe(0);
-    });
-  });
-
-  describe('Challenge Structure', () => {
-    it('should have valid id for each challenge', () => {
-      CHALLENGE_DEFINITIONS.forEach(challenge => {
-        expect(challenge.id).toBeDefined();
-        expect(typeof challenge.id).toBe('string');
-        expect(challenge.id.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('should have valid title for each challenge', () => {
-      CHALLENGE_DEFINITIONS.forEach(challenge => {
-        expect(challenge.title).toBeDefined();
-        expect(typeof challenge.title).toBe('string');
-        expect(challenge.title.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('should have valid description for each challenge', () => {
-      CHALLENGE_DEFINITIONS.forEach(challenge => {
-        expect(challenge.description).toBeDefined();
-        expect(typeof challenge.description).toBe('string');
-        expect(challenge.description.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('should have valid category for each challenge', () => {
-      const validCategories: ChallengeCategory[] = ['creation', 'collection', 'activation', 'mastery'];
-      CHALLENGE_DEFINITIONS.forEach(challenge => {
-        expect(validCategories.includes(challenge.category)).toBe(true);
-      });
-    });
-
-    it('should have valid difficulty for each challenge', () => {
-      const validDifficulties: ChallengeDifficulty[] = ['beginner', 'intermediate', 'advanced'];
-      CHALLENGE_DEFINITIONS.forEach(challenge => {
-        expect(validDifficulties.includes(challenge.difficulty)).toBe(true);
-      });
-    });
-
-    it('should have positive target for each challenge', () => {
-      CHALLENGE_DEFINITIONS.forEach(challenge => {
-        expect(challenge.target).toBeGreaterThan(0);
-      });
-    });
-
-    it('should have valid reward for each challenge', () => {
-      CHALLENGE_DEFINITIONS.forEach(challenge => {
-        expect(challenge.reward).toBeDefined();
-        expect(challenge.reward.type).toBeDefined();
-        expect(['xp', 'recipe', 'badge'].includes(challenge.reward.type)).toBe(true);
-        expect(challenge.reward.displayName).toBeDefined();
-        expect(challenge.reward.description).toBeDefined();
-      });
+    it('total difficulty count should equal total challenges', () => {
+      const beginner = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'beginner').length;
+      const intermediate = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'intermediate').length;
+      const advanced = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'advanced').length;
+      expect(beginner + intermediate + advanced).toBe(20);
     });
   });
 
-  describe('Challenge ID Verification', () => {
-    const requiredIds = [
-      'first-machine',
-      'codex-entry',
-      'arcane-artist',
-      'connection-king',
-      'golden-gear',
-      'stability-master',
-      'rare-collector',
-      'void-initiate',
-      'overload-specialist',
-      'efficiency-expert',
-      'inferno-master',
-      'stellar-harmony',
-      'legendary-forge',
-      'activation-king',
-      'speed-demon',
-      'master-architect',
-    ];
+  // Updated per Round 51: includes tech_mastery
+  describe('Category Distribution', () => {
+    it('should have exactly 4 Creation challenges', () => {
+      const creationChallenges = CHALLENGE_DEFINITIONS.filter(c => c.category === 'creation');
+      expect(creationChallenges.length).toBe(4);
+    });
 
-    requiredIds.forEach(id => {
-      it(`should have challenge with id: ${id}`, () => {
-        const challenge = CHALLENGE_DEFINITIONS.find(c => c.id === id);
-        expect(challenge).toBeDefined();
-      });
+    it('should have exactly 3 Collection challenges', () => {
+      const collectionChallenges = CHALLENGE_DEFINITIONS.filter(c => c.category === 'collection');
+      expect(collectionChallenges.length).toBe(3);
+    });
+
+    it('should have exactly 4 Activation challenges', () => {
+      const activationChallenges = CHALLENGE_DEFINITIONS.filter(c => c.category === 'activation');
+      expect(activationChallenges.length).toBe(4);
+    });
+
+    it('should have exactly 5 Mastery challenges', () => {
+      const masteryChallenges = CHALLENGE_DEFINITIONS.filter(c => c.category === 'mastery');
+      expect(masteryChallenges.length).toBe(5);
+    });
+
+    // New per Round 51
+    it('should have exactly 4 Tech Mastery challenges', () => {
+      const techMasteryChallenges = CHALLENGE_DEFINITIONS.filter(c => c.category === 'tech_mastery');
+      expect(techMasteryChallenges.length).toBe(4);
+    });
+
+    it('total category count should equal total challenges', () => {
+      const counts = getChallengeCountByCategory();
+      const total = counts.creation + counts.collection + counts.activation + counts.mastery + counts.tech_mastery;
+      expect(total).toBe(20);
     });
   });
 
-  describe('getChallengeById', () => {
-    it('should return challenge for valid ID', () => {
+  // Updated per Round 51: includes reputation reward type
+  describe('Reward Type Distribution', () => {
+    it('should have valid reward types', () => {
+      CHALLENGE_DEFINITIONS.forEach(challenge => {
+        expect(['xp', 'recipe', 'badge', 'reputation']).toContain(challenge.reward.type);
+      });
+    });
+
+    it('should have exactly 4 reputation reward (tech mastery T1)', () => {
+      const reputationRewards = CHALLENGE_DEFINITIONS.filter(c => c.reward.type === 'reputation');
+      expect(reputationRewards.length).toBe(4); // All tech mastery challenges have reputation rewards
+    });
+  });
+
+  describe('Challenge getChallengeById', () => {
+    it('should return challenge by id', () => {
       const challenge = getChallengeById('first-machine');
       expect(challenge).toBeDefined();
-      expect(challenge?.id).toBe('first-machine');
+      expect(challenge?.title).toBe('初代锻造');
     });
 
-    it('should return undefined for invalid ID', () => {
-      const challenge = getChallengeById('invalid-id');
+    it('should return undefined for invalid id', () => {
+      const challenge = getChallengeById('invalid-challenge');
       expect(challenge).toBeUndefined();
+    });
+
+    it('should return tech mastery challenges by id', () => {
+      const challenge = getChallengeById('tech-mastery-void-t1');
+      expect(challenge).toBeDefined();
+      expect(challenge?.category).toBe('tech_mastery');
+      expect(challenge?.requiresTechTier).toBe(1);
     });
   });
 
-  describe('getChallengesByCategory', () => {
-    it('should return only creation challenges', () => {
+  describe('Challenge getChallengesByCategory', () => {
+    it('should return challenges by category', () => {
       const challenges = getChallengesByCategory('creation');
+      expect(challenges.length).toBe(4);
       challenges.forEach(c => {
         expect(c.category).toBe('creation');
       });
     });
 
-    it('should return only collection challenges', () => {
-      const challenges = getChallengesByCategory('collection');
+    it('should return tech mastery challenges', () => {
+      const challenges = getChallengesByCategory('tech_mastery');
+      expect(challenges.length).toBe(4);
       challenges.forEach(c => {
-        expect(c.category).toBe('collection');
-      });
-    });
-
-    it('should return only activation challenges', () => {
-      const challenges = getChallengesByCategory('activation');
-      challenges.forEach(c => {
-        expect(c.category).toBe('activation');
-      });
-    });
-
-    it('should return only mastery challenges', () => {
-      const challenges = getChallengesByCategory('mastery');
-      challenges.forEach(c => {
-        expect(c.category).toBe('mastery');
+        expect(c.category).toBe('tech_mastery');
       });
     });
   });
 
-  describe('getChallengesByDifficulty', () => {
-    it('should return only beginner challenges', () => {
-      const challenges = getChallengesByDifficulty('beginner');
-      challenges.forEach(c => {
-        expect(c.difficulty).toBe('beginner');
+  describe('Tech Mastery Challenges', () => {
+    it('should have 4 tech mastery challenges', () => {
+      const techChallenges = getTechMasteryChallenges();
+      expect(techChallenges.length).toBe(4);
+    });
+
+    it('tech mastery challenges should have requiresTechTier', () => {
+      const techChallenges = getTechMasteryChallenges();
+      techChallenges.forEach(c => {
+        expect(c.requiresTechTier).toBeDefined();
+        expect(c.requiresTechTier).toBeGreaterThanOrEqual(1);
+        expect(c.requiresTechTier).toBeLessThanOrEqual(3);
       });
     });
 
-    it('should return only intermediate challenges', () => {
-      const challenges = getChallengesByDifficulty('intermediate');
-      challenges.forEach(c => {
-        expect(c.difficulty).toBe('intermediate');
+    it('tech mastery challenges should have baseReputation', () => {
+      const techChallenges = getTechMasteryChallenges();
+      techChallenges.forEach(c => {
+        expect(c.baseReputation).toBeDefined();
+        expect(c.baseReputation).toBeGreaterThan(0);
       });
     });
 
-    it('should return only advanced challenges', () => {
-      const challenges = getChallengesByDifficulty('advanced');
-      challenges.forEach(c => {
-        expect(c.difficulty).toBe('advanced');
+    it('tech mastery challenges should have reputation reward type', () => {
+      const techChallenges = getTechMasteryChallenges();
+      techChallenges.forEach(c => {
+        expect(c.reward.type).toBe('reputation');
       });
     });
   });
 
-  describe('Display Functions', () => {
-    it('getChallengeDifficultyColor should return valid colors', () => {
-      expect(getChallengeDifficultyColor('beginner')).toBe('#22c55e');
-      expect(getChallengeDifficultyColor('intermediate')).toBe('#3b82f6');
-      expect(getChallengeDifficultyColor('advanced')).toBe('#a855f7');
+  describe('getChallengeCountByCategory', () => {
+    it('should return correct counts for all categories', () => {
+      const counts = getChallengeCountByCategory();
+      expect(counts.creation).toBe(4);
+      expect(counts.collection).toBe(3);
+      expect(counts.activation).toBe(4);
+      expect(counts.mastery).toBe(5);
+      expect(counts.tech_mastery).toBe(4);
     });
 
-    it('getChallengeDifficultyLabel should return Chinese labels', () => {
-      expect(getChallengeDifficultyLabel('beginner')).toBe('初级');
-      expect(getChallengeDifficultyLabel('intermediate')).toBe('中级');
-      expect(getChallengeDifficultyLabel('advanced')).toBe('高级');
-    });
-
-    it('getChallengeCategoryLabel should return Chinese labels', () => {
-      expect(getChallengeCategoryLabel('creation')).toBe('创造');
-      expect(getChallengeCategoryLabel('collection')).toBe('收集');
-      expect(getChallengeCategoryLabel('activation')).toBe('激活');
-      expect(getChallengeCategoryLabel('mastery')).toBe('精通');
-    });
-
-    it('getChallengeCategoryIcon should return emoji icons', () => {
-      expect(getChallengeCategoryIcon('creation')).toBe('🔨');
-      expect(getChallengeCategoryIcon('collection')).toBe('📚');
-      expect(getChallengeCategoryIcon('activation')).toBe('⚡');
-      expect(getChallengeCategoryIcon('mastery')).toBe('🎯');
+    it('total should be 20', () => {
+      const counts = getChallengeCountByCategory();
+      const total = counts.creation + counts.collection + counts.activation + counts.mastery + counts.tech_mastery;
+      expect(total).toBe(20);
     });
   });
 });

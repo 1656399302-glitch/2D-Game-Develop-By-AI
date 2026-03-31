@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "operator-item-1774941228843",
+      "content": "\u5bf9\u6240\u6709\u529f\u80fd\u6a21\u578b\u8fdb\u884c\u6d4b\u8bd5\uff0c\u7279\u522b\u662f\u6a21\u5757\u4e0e\u6a21\u5757\u95f4\u7684\u4ea4\u4e92\uff0cUI\u7684\u4ea4\u4e92\uff0c\u5fc5\u987b\u7528\u6700\u4e25\u683c\u7684\u6d4b\u8bd5\u6807\u51c6\uff0c\u5e76\u5c06\u6d4b\u51fa\u6765\u7684Bug\u4fee\u590d",
+      "scope": "next_build",
+      "mode": "must_fix",
+      "status": "processed",
+      "created_at": 1774941228.843553,
+      "processed_at": 1774943926.811883,
+      "processed_phase": "build",
+      "processed_round": 51,
+      "result": "Injected into build phase of round 51",
+      "metadata": {}
+    }
+  ]
+}

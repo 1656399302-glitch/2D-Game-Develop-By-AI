@@ -8,11 +8,12 @@ export type UnlockConditionType =
   | 'machines_created'
   | 'tutorial_complete'
   | 'activation_count'
-  | 'connection_count';
+  | 'connection_count'
+  | 'tech_level'; // NEW: Requires completed tech research
 
 export interface UnlockCondition {
   type: UnlockConditionType;
-  value: string | number; // Challenge ID, count threshold, etc.
+  value: string | number | string[]; // Challenge ID, count threshold, or tech requirement
   description: string;
 }
 
@@ -42,7 +43,7 @@ export interface RecipeStoreState {
   pendingDiscoveries: string[]; // Recipe IDs pending discovery toast
 }
 
-// Predefined recipes for all module types - 14 recipes total
+// Predefined recipes for all module types - 16 recipes total (added Phase Modulator with tech requirement)
 export const RECIPE_DEFINITIONS: Recipe[] = [
   // Starting recipes (unlocked by default or tutorial)
   {
@@ -175,6 +176,7 @@ export const RECIPE_DEFINITIONS: Recipe[] = [
     },
     hint: 'Activate machines frequently to tap into the void',
   },
+  // Phase Modulator - requires Void T3 tech research
   {
     id: 'recipe-phase-modulator',
     name: 'Phase Modulator',
@@ -182,11 +184,11 @@ export const RECIPE_DEFINITIONS: Recipe[] = [
     moduleType: 'phase-modulator',
     rarity: 'legendary',
     unlockCondition: {
-      type: 'challenge_complete',
-      value: 'challenge-008',
-      description: 'Complete Challenge: Legendary Architect',
+      type: 'tech_level',
+      value: 'void-t3', // Requires exactly void-tier-3 completed
+      description: 'Requires: Void T3 Tech',
     },
-    hint: 'Prove your mastery to unlock this ancient technology',
+    hint: 'Requires: Void T3 Tech',
   },
   // Round 6 new recipes
   {
@@ -228,6 +230,19 @@ export const RECIPE_DEFINITIONS: Recipe[] = [
     },
     hint: 'Complete 3 challenges to unlock lightning conductors',
   },
+  // NEW: Advanced tech-locked recipes (no moduleType since dimension rift is conceptual)
+  {
+    id: 'recipe-dimension-rift',
+    name: 'Dimension Rift Generator',
+    description: 'Opens temporary rifts to parallel dimensions, allowing exotic energy harvesting.',
+    rarity: 'legendary',
+    unlockCondition: {
+      type: 'tech_level',
+      value: ['void-t2', 'storm-t1'], // OR condition - requires either void-t2 OR storm-t1
+      description: 'Requires: Void T2 or Storm T1 Tech',
+    },
+    hint: 'Requires: Void T2 or Storm T1 Tech',
+  },
 ];
 
 // Helper function to check if a recipe is unlocked
@@ -255,4 +270,51 @@ export const RARITY_COLORS: Record<Rarity, { primary: string; glow: string }> = 
   rare: { primary: '#3B82F6', glow: 'rgba(59, 130, 246, 0.5)' },
   epic: { primary: '#8B5CF6', glow: 'rgba(139, 92, 246, 0.5)' },
   legendary: { primary: '#F59E0B', glow: 'rgba(245, 158, 11, 0.5)' },
+};
+
+/**
+ * Normalize tech ID format between recipes and research store
+ * Recipes use format: 'void-t3'
+ * Research store uses format: 'void-tier-3'
+ */
+function normalizeTechId(techId: string): string {
+  // Convert 'void-t3' to 'void-tier-3' and vice versa
+  const withTierMatch = techId.match(/^(\w+)-t(\d+)$/);
+  if (withTierMatch) {
+    return `${withTierMatch[1]}-tier-${withTierMatch[2]}`;
+  }
+  const withoutTierMatch = techId.match(/^(\w+)-tier-(\d+)$/);
+  if (withoutTierMatch) {
+    return `${withoutTierMatch[1]}-t${withoutTierMatch[2]}`;
+  }
+  return techId;
+}
+
+/**
+ * Check if a tech-level recipe requirement is met
+ * 
+ * @param requiredTech - The required tech value from recipe unlockCondition
+ *   - string: single requirement like 'void-t3'
+ *   - string[]: OR condition, requires at least one of the listed techs
+ * @param completedResearch - The completedResearch object from the store
+ * @returns true if the requirement is met
+ */
+export const checkTechLevelRequirement = (
+  requiredTech: string | string[],
+  completedResearch: Record<string, string[]>
+): boolean => {
+  if (Array.isArray(requiredTech)) {
+    // OR condition - at least one tech must be completed
+    return requiredTech.some((techId) => {
+      // Normalize the tech ID
+      const normalizedTechId = normalizeTechId(techId);
+      const [faction] = normalizedTechId.split('-tier-');
+      return completedResearch[faction]?.includes(normalizedTechId);
+    });
+  } else {
+    // Single requirement - normalize the tech ID
+    const normalizedTechId = normalizeTechId(requiredTech);
+    const [faction] = normalizedTechId.split('-tier-');
+    return completedResearch[faction]?.includes(normalizedTechId) || false;
+  }
 };

@@ -3,6 +3,7 @@
  * 
  * Zustand store for managing faction reputation points and levels.
  * Also handles research system for tech tree progression.
+ * Includes tech bonus system for machine attribute enhancements.
  * Persists to localStorage for user progress.
  */
 
@@ -17,13 +18,39 @@ import {
   MAX_RESEARCH_QUEUE,
   ResearchItem,
 } from '../types/factionReputation';
-import { TechTreeNode, TECH_TREE_REQUIREMENTS, FactionId, FACTIONS } from '../types/factions';
+import { TechTreeNode, TECH_TREE_REQUIREMENTS, FactionId, FACTIONS, MODULE_TO_FACTION } from '../types/factions';
 import { useFactionStore } from './useFactionStore';
 
 /**
  * Result types for research operations
  */
 export type ResearchResult = 'ok' | 'queue_full' | 'already_researching' | 'locked';
+
+/**
+ * Bonus stat types
+ */
+export type BonusStatType = 'power_output' | 'stability' | 'energy_efficiency' | 'glow_intensity' | 'animation_speed';
+
+/**
+ * Tech bonus configuration per tier
+ * Note: Higher tiers REPLACE lower tiers, they don't stack
+ */
+export const TECH_BONUS_PER_TIER: Record<number, Record<BonusStatType, number>> = {
+  1: { power_output: 0.05, stability: 0.05, energy_efficiency: 0.05, glow_intensity: 0.05, animation_speed: 0.05 },
+  2: { power_output: 0.10, stability: 0.10, energy_efficiency: 0.10, glow_intensity: 0.10, animation_speed: 0.10 },
+  3: { power_output: 0.15, stability: 0.15, energy_efficiency: 0.15, glow_intensity: 0.15, animation_speed: 0.15 },
+};
+
+/**
+ * Tech bonus descriptions for UI
+ */
+export const TECH_BONUS_DESCRIPTIONS: Record<BonusStatType, { name: string; description: string }> = {
+  power_output: { name: 'Power Output', description: 'Increases machine power generation' },
+  stability: { name: 'Stability', description: 'Improves machine stability rating' },
+  energy_efficiency: { name: 'Energy Efficiency', description: 'Reduces energy consumption' },
+  glow_intensity: { name: 'Glow Intensity', description: 'Enhances visual glow effects' },
+  animation_speed: { name: 'Animation Speed', description: 'Speeds up activation animations' },
+};
 
 /**
  * Store state interface
@@ -61,6 +88,38 @@ interface FactionReputationState {
   /** Cancel a research */
   cancelResearch: (techId: string, factionId: string) => void;
   
+  // ========== Tech Bonus Methods ==========
+  
+  /**
+   * Get the highest completed tech tier for a faction
+   * Returns 0 if no tech completed, 1-3 based on highest tier
+   */
+  getUnlockedTechTiers: (factionId: FactionId) => number;
+  
+  /**
+   * Get tech bonus for a module type and stat
+   * Returns the bonus percentage for the module's faction's highest completed tier
+   * Higher tiers REPLACE lower tiers (don't stack)
+   */
+  getTechBonus: (moduleType: string, statType: BonusStatType) => number;
+  
+  /**
+   * Get total tech bonus for a set of modules
+   * Sums bonuses from each faction represented
+   */
+  getTotalTechBonus: (moduleTypes: string[], statType: BonusStatType) => number;
+  
+  /**
+   * Get all active tech bonuses for a faction
+   */
+  getActiveBonusesForFaction: (factionId: FactionId) => Record<BonusStatType, number>;
+  
+  /**
+   * Reset tech for a faction (called when faction reputation is reset)
+   * Removes all completed research for that faction
+   */
+  resetFactionTech: (factionId: string) => void;
+  
   // ========== Existing Reputation Methods ==========
   
   /** Add reputation points to a faction */
@@ -78,10 +137,10 @@ interface FactionReputationState {
   /** Get full reputation data for a faction */
   getReputationData: (factionId: string) => FactionReputation;
   
-  /** Reset reputation for a faction */
+  /** Reset reputation for a faction (also resets tech) */
   resetReputation: (factionId: string) => void;
   
-  /** Reset all faction reputations */
+  /** Reset all faction reputations (also resets all tech) */
   resetAllReputations: () => void;
   
   /** Award bonus reputation to all factions (for special events) */
@@ -105,6 +164,17 @@ const getDefaultReputations = (): Record<string, number> => {
 };
 
 /**
+ * Default completed research state
+ */
+const getDefaultCompletedResearch = (): Record<string, string[]> => {
+  const completed: Record<string, string[]> = {};
+  for (const factionId of FACTION_IDS) {
+    completed[factionId] = [];
+  }
+  return completed;
+};
+
+/**
  * Get tech tree node config by techId
  */
 const getTechTreeNodeConfig = (techId: string): { faction: FactionId; tier: number } | null => {
@@ -115,6 +185,13 @@ const getTechTreeNodeConfig = (techId: string): { faction: FactionId; tier: numb
   if (!['void', 'inferno', 'storm', 'stellar'].includes(faction)) return null;
   if (![1, 2, 3].includes(tier)) return null;
   return { faction, tier };
+};
+
+/**
+ * Get faction for a module type
+ */
+const getFactionForModule = (moduleType: string): FactionId | null => {
+  return MODULE_TO_FACTION[moduleType] || null;
 };
 
 /**
@@ -133,7 +210,7 @@ export const useFactionReputationStore = create<FactionReputationState>()(
       currentResearch: {},
       
       /** Completed research per faction */
-      completedResearch: {},
+      completedResearch: getDefaultCompletedResearch(),
 
       // ========== Research Methods ==========
 
@@ -204,17 +281,19 @@ export const useFactionReputationStore = create<FactionReputationState>()(
         const newCurrentResearch = { ...state.currentResearch };
         delete newCurrentResearch[techId];
         
-        // Add to completed research
+        // Add to completed research (avoid duplicates)
         const completedForFaction = state.completedResearch[factionId] || [];
-        const newCompletedResearch = {
-          ...state.completedResearch,
-          [factionId]: [...completedForFaction, techId],
-        };
-        
-        set({
-          currentResearch: newCurrentResearch,
-          completedResearch: newCompletedResearch,
-        });
+        if (!completedForFaction.includes(techId)) {
+          set({
+            currentResearch: newCurrentResearch,
+            completedResearch: {
+              ...state.completedResearch,
+              [factionId]: [...completedForFaction, techId],
+            },
+          });
+        } else {
+          set({ currentResearch: newCurrentResearch });
+        }
         
         // Unlock the tech tree node in faction store
         useFactionStore.getState().unlockTechTreeNode(techId);
@@ -308,6 +387,117 @@ export const useFactionReputationStore = create<FactionReputationState>()(
         set({ currentResearch: newCurrentResearch });
       },
 
+      // ========== Tech Bonus Methods ==========
+
+      /**
+       * Get the highest completed tech tier for a faction
+       * Returns 0 if no tech completed, 1-3 based on highest tier
+       */
+      getUnlockedTechTiers: (factionId: FactionId): number => {
+        const state = get();
+        const completedForFaction = state.completedResearch[factionId] || [];
+        
+        if (completedForFaction.length === 0) {
+          return 0;
+        }
+        
+        let highestTier = 0;
+        for (const techId of completedForFaction) {
+          const nodeConfig = getTechTreeNodeConfig(techId);
+          if (nodeConfig && nodeConfig.faction === factionId) {
+            if (nodeConfig.tier > highestTier) {
+              highestTier = nodeConfig.tier;
+            }
+          }
+        }
+        
+        return highestTier;
+      },
+
+      /**
+       * Get tech bonus for a module type and stat
+       * Returns the bonus percentage for the module's faction's highest completed tier
+       * Higher tiers REPLACE lower tiers (don't stack)
+       */
+      getTechBonus: (moduleType: string, statType: BonusStatType): number => {
+        const faction = getFactionForModule(moduleType);
+        if (!faction) {
+          return 0; // Neutral modules don't get tech bonuses
+        }
+        
+        const highestTier = get().getUnlockedTechTiers(faction);
+        if (highestTier === 0) {
+          return 0; // No tech completed for this faction
+        }
+        
+        return TECH_BONUS_PER_TIER[highestTier]?.[statType] || 0;
+      },
+
+      /**
+       * Get total tech bonus for a set of modules
+       * Sums bonuses from each faction represented
+       * Each faction contributes its highest tier bonus independently
+       */
+      getTotalTechBonus: (moduleTypes: string[], statType: BonusStatType): number => {
+        const state = get();
+        
+        // Track which factions have been processed
+        const processedFactions = new Set<FactionId>();
+        let totalBonus = 0;
+        
+        for (const moduleType of moduleTypes) {
+          const faction = getFactionForModule(moduleType);
+          if (!faction || processedFactions.has(faction)) {
+            continue; // Skip neutral modules or already processed factions
+          }
+          
+          processedFactions.add(faction);
+          const bonus = state.getTechBonus(moduleType, statType);
+          totalBonus += bonus;
+        }
+        
+        return totalBonus;
+      },
+
+      /**
+       * Get all active tech bonuses for a faction
+       */
+      getActiveBonusesForFaction: (factionId: FactionId): Record<BonusStatType, number> => {
+        const highestTier = get().getUnlockedTechTiers(factionId);
+        
+        if (highestTier === 0) {
+          return {
+            power_output: 0,
+            stability: 0,
+            energy_efficiency: 0,
+            glow_intensity: 0,
+            animation_speed: 0,
+          };
+        }
+        
+        return { ...TECH_BONUS_PER_TIER[highestTier] };
+      },
+
+      /**
+       * Reset tech for a faction (called when faction reputation is reset)
+       * Removes all completed research for that faction
+       */
+      resetFactionTech: (factionId: string) => {
+        set((state) => ({
+          completedResearch: {
+            ...state.completedResearch,
+            [factionId]: [],
+          },
+          // Also clear any active research for this faction
+          currentResearch: Object.fromEntries(
+            Object.entries(state.currentResearch).filter(([techId]) => {
+              const config = getTechTreeNodeConfig(techId);
+              return config && config.faction !== factionId;
+            })
+          ),
+        }));
+      },
+
       // ========== Existing Reputation Methods ==========
 
       /**
@@ -370,28 +560,46 @@ export const useFactionReputationStore = create<FactionReputationState>()(
       },
 
       /**
-       * Reset reputation for a specific faction
+       * Reset reputation for a specific faction (also resets tech)
        */
       resetReputation: (factionId: string) => {
         set((state) => {
           const removedReputation = state.reputations[factionId] || 0;
+          
+          // Reset completed research for this faction
+          const newCompletedResearch = { ...state.completedResearch };
+          newCompletedResearch[factionId] = [];
+          
+          // Remove active research for this faction
+          const newCurrentResearch = { ...state.currentResearch };
+          for (const techId of Object.keys(newCurrentResearch)) {
+            const config = getTechTreeNodeConfig(techId);
+            if (config && config.faction === factionId) {
+              delete newCurrentResearch[techId];
+            }
+          }
+          
           return {
             reputations: {
               ...state.reputations,
               [factionId]: 0,
             },
             totalReputationEarned: Math.max(0, state.totalReputationEarned - removedReputation),
+            completedResearch: newCompletedResearch,
+            currentResearch: newCurrentResearch,
           };
         });
       },
 
       /**
-       * Reset all faction reputations
+       * Reset all faction reputations (also resets all tech)
        */
       resetAllReputations: () => {
         set({
           reputations: getDefaultReputations(),
           totalReputationEarned: 0,
+          completedResearch: getDefaultCompletedResearch(),
+          currentResearch: {},
         });
       },
 
@@ -417,7 +625,7 @@ export const useFactionReputationStore = create<FactionReputationState>()(
       name: 'arcane-machine-reputation-store',
       
       /** Version for future migrations */
-      version: 2,
+      version: 3, // Incremented to handle completedResearch reset
       
       /** Partialize to only persist specific fields */
       partialize: (state) => ({
@@ -470,6 +678,20 @@ export function useFactionReputationLevel(factionId: string) {
 export function useIsVariantUnlocked(factionId: string) {
   const isUnlocked = useFactionReputationStore((state) => state.isVariantUnlocked(factionId));
   return isUnlocked;
+}
+
+/**
+ * Hook to get unlocked tech tier for a faction
+ */
+export function useUnlockedTechTier(factionId: string) {
+  return useFactionReputationStore((state) => state.getUnlockedTechTiers(factionId as FactionId));
+}
+
+/**
+ * Hook to get tech bonus for a module type
+ */
+export function useTechBonus(moduleType: string, statType: BonusStatType) {
+  return useFactionReputationStore((state) => state.getTechBonus(moduleType, statType));
 }
 
 // Selector for variant unlock status to prevent cascading updates

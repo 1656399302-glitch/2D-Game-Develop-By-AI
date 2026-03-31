@@ -7,12 +7,14 @@ import {
   getChallengeDifficultyColor,
   getChallengeDifficultyLabel,
   getChallengeCategoryLabel,
+  getTechMasteryChallenges,
 } from '../data/challenges';
 import { useChallengeStore } from '../store/useChallengeStore';
 
 describe('Challenge Definitions', () => {
-  it('should have exactly 16 challenges', () => {
-    expect(CHALLENGE_DEFINITIONS.length).toBe(16);
+  // Updated per Round 51: 20 challenges (16 + 4 Tech Mastery)
+  it('should have exactly 20 challenges', () => {
+    expect(CHALLENGE_DEFINITIONS.length).toBe(20);
   });
 
   it('should have challenges in all difficulty tiers', () => {
@@ -22,18 +24,21 @@ describe('Challenge Definitions', () => {
     expect(difficulties).toContain('advanced');
   });
 
+  // Updated: now includes tech_mastery category
   it('should have challenges in all categories', () => {
     const categories = CHALLENGE_DEFINITIONS.map(c => c.category);
     expect(categories).toContain('creation');
     expect(categories).toContain('collection');
     expect(categories).toContain('activation');
     expect(categories).toContain('mastery');
+    expect(categories).toContain('tech_mastery');
   });
 
+  // Updated: reputation is now a valid reward type
   it('each challenge should have valid reward', () => {
     CHALLENGE_DEFINITIONS.forEach(challenge => {
       expect(challenge.reward).toBeDefined();
-      expect(challenge.reward.type).toMatch(/^(xp|recipe|badge)$/);
+      expect(challenge.reward.type).toMatch(/^(xp|recipe|badge|reputation)$/);
     });
   });
 
@@ -50,20 +55,22 @@ describe('Challenge Definitions', () => {
     });
   });
 
+  // Updated per Round 51: 20 challenges
   it('each challenge should have unique id', () => {
     const ids = CHALLENGE_DEFINITIONS.map(c => c.id);
     const uniqueIds = new Set(ids);
-    expect(uniqueIds.size).toBe(16);
+    expect(uniqueIds.size).toBe(20);
   });
 
-  it('should have 4 Beginner challenges', () => {
+  // Updated: 6 Beginner, 7 Intermediate, 7 Advanced
+  it('should have 6 Beginner challenges', () => {
     const beginnerCount = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'beginner').length;
-    expect(beginnerCount).toBe(4);
+    expect(beginnerCount).toBe(6);
   });
 
-  it('should have 5 Intermediate challenges', () => {
+  it('should have 7 Intermediate challenges', () => {
     const intermediateCount = CHALLENGE_DEFINITIONS.filter(c => c.difficulty === 'intermediate').length;
-    expect(intermediateCount).toBe(5);
+    expect(intermediateCount).toBe(7);
   });
 
   it('should have 7 Advanced challenges', () => {
@@ -91,6 +98,22 @@ describe('Challenge Definitions', () => {
     const masteryCount = CHALLENGE_DEFINITIONS.filter(c => c.category === 'mastery').length;
     expect(masteryCount).toBe(5);
   });
+
+  // New per Round 51: Tech Mastery challenges
+  it('should have 4 Tech Mastery challenges', () => {
+    const techMasteryCount = CHALLENGE_DEFINITIONS.filter(c => c.category === 'tech_mastery').length;
+    expect(techMasteryCount).toBe(4);
+  });
+
+  // New per Round 51: Tech Mastery challenges have requiresTechTier
+  it('Tech Mastery challenges should have requiresTechTier', () => {
+    const techMasteryChallenges = getTechMasteryChallenges();
+    techMasteryChallenges.forEach(c => {
+      expect(c.requiresTechTier).toBeDefined();
+      expect(c.requiresTechTier).toBeGreaterThanOrEqual(1);
+      expect(c.requiresTechTier).toBeLessThanOrEqual(3);
+    });
+  });
 });
 
 describe('Challenge Helper Functions', () => {
@@ -114,9 +137,10 @@ describe('Challenge Helper Functions', () => {
     });
   });
 
+  // Updated: 6 Beginner challenges
   it('getChallengesByDifficulty should filter correctly', () => {
     const beginnerChallenges = getChallengesByDifficulty('beginner');
-    expect(beginnerChallenges.length).toBe(4);
+    expect(beginnerChallenges.length).toBe(6);
     beginnerChallenges.forEach(c => {
       expect(c.difficulty).toBe('beginner');
     });
@@ -139,6 +163,15 @@ describe('Challenge Helper Functions', () => {
     expect(getChallengeCategoryLabel('collection')).toBe('收集');
     expect(getChallengeCategoryLabel('activation')).toBe('激活');
     expect(getChallengeCategoryLabel('mastery')).toBe('精通');
+    expect(getChallengeCategoryLabel('tech_mastery')).toBe('科技精通');
+  });
+
+  // New per Round 51
+  it('getTechMasteryChallenges should return only tech_mastery challenges', () => {
+    const techChallenges = getTechMasteryChallenges();
+    techChallenges.forEach(c => {
+      expect(c.category).toBe('tech_mastery');
+    });
   });
 });
 
@@ -234,9 +267,10 @@ describe('useChallengeStore', () => {
     });
   });
 
+  // Updated: 6 Beginner challenges
   it('getChallengesByDifficulty should return correct challenges', () => {
     const beginnerChallenges = useChallengeStore.getState().getChallengesByDifficulty('beginner');
-    expect(beginnerChallenges.length).toBe(4);
+    expect(beginnerChallenges.length).toBe(6);
     beginnerChallenges.forEach(c => {
       expect(c.difficulty).toBe('beginner');
     });
@@ -247,9 +281,10 @@ describe('useChallengeStore', () => {
     expect(completed).toEqual([]);
   });
 
+  // Updated per Round 51: 20 total challenges
   it('getAvailableChallenges should return all challenges initially', () => {
     const available = useChallengeStore.getState().getAvailableChallenges();
-    expect(available.length).toBe(16);
+    expect(available.length).toBe(20);
   });
 
   it('isChallengeCompleted should return false for incomplete challenges', () => {
@@ -391,5 +426,52 @@ describe('Challenge Reward Types', () => {
     const badge = badges[0];
     expect(badge.earnedAt).toBeGreaterThanOrEqual(beforeTime);
     expect(badge.earnedAt).toBeLessThanOrEqual(afterTime);
+  });
+});
+
+describe('Tech Bonus Integration', () => {
+  beforeEach(() => {
+    useChallengeStore.setState({
+      completedChallenges: [],
+      claimedRewards: [],
+      totalXP: 0,
+      badges: [],
+      challengeProgress: {
+        machinesCreated: 0,
+        machinesSaved: 0,
+        connectionsCreated: 0,
+        activations: 0,
+        overloadsTriggered: 0,
+        gearsCreated: 0,
+        highestStability: 0,
+      },
+      loading: false,
+    });
+  });
+
+  it('getChallengeBonusMultiplier should return correct multiplier', () => {
+    expect(useChallengeStore.getState().getChallengeBonusMultiplier('first-machine', 0)).toBe(1.0);
+    expect(useChallengeStore.getState().getChallengeBonusMultiplier('first-machine', 1)).toBe(1.1);
+    expect(useChallengeStore.getState().getChallengeBonusMultiplier('first-machine', 2)).toBe(1.2);
+    expect(useChallengeStore.getState().getChallengeBonusMultiplier('first-machine', 3)).toBe(1.3);
+  });
+
+  it('getBonusReputation should return correct bonus', () => {
+    // first-machine has baseReputation 100
+    expect(useChallengeStore.getState().getBonusReputation('first-machine', 0)).toBe(100);
+    expect(useChallengeStore.getState().getBonusReputation('first-machine', 1)).toBe(110);
+    expect(useChallengeStore.getState().getBonusReputation('first-machine', 2)).toBe(120);
+    expect(useChallengeStore.getState().getBonusReputation('first-machine', 3)).toBe(130);
+  });
+
+  it('claimReward with tech tier should apply bonus', () => {
+    useChallengeStore.getState().claimReward('first-machine', 2);
+    // Base 100 + 20% bonus = 120 XP
+    expect(useChallengeStore.getState().totalXP).toBe(120);
+  });
+
+  it('claimReward without tech tier should not apply bonus', () => {
+    useChallengeStore.getState().claimReward('first-machine', 0);
+    expect(useChallengeStore.getState().totalXP).toBe(100);
   });
 });

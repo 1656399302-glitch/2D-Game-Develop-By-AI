@@ -5,6 +5,9 @@ import {
   ChallengeDefinition,
   ChallengeCategory,
   ChallengeDifficulty,
+  calculateChallengeBonusMultiplier,
+  calculateBonusReputation,
+  isTechMasteryAvailable,
 } from '../data/challenges';
 
 /**
@@ -56,7 +59,7 @@ interface ChallengeActions {
   checkChallengeCompletion: (type: string, value: number) => boolean;
   
   /** Claim reward for a completed challenge */
-  claimReward: (challengeId: string) => void;
+  claimReward: (challengeId: string, highestTechTier?: number) => void;
   
   /** Get challenges filtered by category */
   getChallengesByCategory: (category: ChallengeCategory) => ChallengeDefinition[];
@@ -84,6 +87,17 @@ interface ChallengeActions {
   
   /** Reset all challenge progress */
   resetChallenges: () => void;
+
+  // ===== Tech Integration =====
+  
+  /** Check if a tech mastery challenge is available based on current tech state */
+  isTechMasteryAvailable: (challengeId: string, completedResearch?: Record<string, string[]>) => boolean;
+  
+  /** Get the bonus multiplier for a challenge based on tech tier */
+  getChallengeBonusMultiplier: (challengeId: string, highestTechTier: number) => number;
+  
+  /** Get bonus reputation for completing a challenge with a machine */
+  getBonusReputation: (challengeId: string, highestTechTier: number) => number;
 
   // === Backward Compatibility Aliases ===
   
@@ -182,7 +196,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         return currentValue >= value;
       },
 
-      claimReward: (challengeId: string) => {
+      claimReward: (challengeId: string, highestTechTier: number = 0) => {
         const state = get();
         const challenge = CHALLENGE_DEFINITIONS.find(c => c.id === challengeId);
         
@@ -196,15 +210,36 @@ export const useChallengeStore = create<ChallengeStore>()(
           return;
         }
 
+        // Calculate bonus multiplier
+        const bonusMultiplier = calculateChallengeBonusMultiplier(highestTechTier);
+
         // Process reward based on type
         switch (challenge.reward.type) {
-          case 'xp':
+          case 'xp': {
+            // Calculate bonus reputation for tech tier
+            const baseXP = challenge.reward.value as number;
+            const bonusXP = Math.round(baseXP * (bonusMultiplier - 1));
             set({
               completedChallenges: addToArray(state.completedChallenges, challengeId),
               claimedRewards: addToArray(state.claimedRewards, challengeId),
-              totalXP: state.totalXP + (challenge.reward.value as number),
+              totalXP: state.totalXP + baseXP + bonusXP,
             });
             break;
+          }
+            
+          case 'reputation': {
+            // Calculate bonus reputation for tech tier
+            const baseRep = challenge.baseReputation || (challenge.reward.value as number);
+            const bonusRep = Math.round(baseRep * (bonusMultiplier - 1));
+            // This would need integration with faction reputation store
+            // For now, just mark as completed
+            set({
+              completedChallenges: addToArray(state.completedChallenges, challengeId),
+              claimedRewards: addToArray(state.claimedRewards, challengeId),
+            });
+            console.log(`+${baseRep + bonusRep} reputation (base: ${baseRep}, bonus: ${bonusRep})`);
+            break;
+          }
             
           case 'badge':
             const badge: Badge = {
@@ -271,6 +306,8 @@ export const useChallengeStore = create<ChallengeStore>()(
           'stability-master': 'highestStability',
           'legendary-forge': 'machinesCreated',
           'activation-king': 'activations',
+          'arcane-artist': 'machinesCreated',
+          'master-architect': 'machinesCreated',
         };
         
         const progressType = typeMap[challengeId];
@@ -288,20 +325,19 @@ export const useChallengeStore = create<ChallengeStore>()(
       },
 
       updateProgress: (updates: Partial<ChallengeProgress>) => {
-        set(state => {
-          const newProgress = { ...state.challengeProgress, ...updates };
-          
-          // Update highest stability if needed
-          if (updates.highestStability !== undefined) {
-            if (updates.highestStability > state.challengeProgress.highestStability) {
-              newProgress.highestStability = updates.highestStability;
-            } else {
-              newProgress.highestStability = state.challengeProgress.highestStability;
-            }
+        const state = get();
+        const newProgress = { ...state.challengeProgress, ...updates };
+        
+        // Update highest stability if needed
+        if (updates.highestStability !== undefined) {
+          if (updates.highestStability > state.challengeProgress.highestStability) {
+            newProgress.highestStability = updates.highestStability;
+          } else {
+            newProgress.highestStability = state.challengeProgress.highestStability;
           }
-          
-          return { challengeProgress: newProgress };
-        });
+        }
+        
+        set({ challengeProgress: newProgress });
       },
 
       resetChallenges: () => {
@@ -312,6 +348,29 @@ export const useChallengeStore = create<ChallengeStore>()(
           badges: [],
           challengeProgress: { ...DEFAULT_PROGRESS },
         });
+      },
+
+      // ===== Tech Integration =====
+
+      isTechMasteryAvailable: (_challengeId: string, completedResearch?: Record<string, string[]>) => {
+        // If completedResearch is provided, use it directly
+        if (completedResearch) {
+          return isTechMasteryAvailable(_challengeId, completedResearch);
+        }
+        // Otherwise, return true as a fallback (the actual check would happen in the component)
+        return true;
+      },
+
+      getChallengeBonusMultiplier: (_challengeId: string, highestTechTier: number) => {
+        return calculateChallengeBonusMultiplier(highestTechTier);
+      },
+
+      getBonusReputation: (challengeId: string, highestTechTier: number) => {
+        const challenge = CHALLENGE_DEFINITIONS.find(c => c.id === challengeId);
+        if (!challenge) return 0;
+        
+        const baseRep = challenge.baseReputation || (challenge.reward.value as number);
+        return calculateBonusReputation(baseRep, highestTechTier);
       },
 
       // === Backward Compatibility Aliases ===
@@ -334,7 +393,7 @@ export const useChallengeStore = create<ChallengeStore>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 1,
+      version: 2, // Incremented for tech integration
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.loading = false;

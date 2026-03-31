@@ -3,8 +3,10 @@ import { persist } from 'zustand/middleware';
 import { 
   Recipe, 
   RECIPE_DEFINITIONS,
-  isRecipeUnlocked 
-} from '../types/recipes';
+  isRecipeUnlocked,
+  checkTechLevelRequirement,
+} from '../data/recipes';
+import { useFactionReputationStore } from './useFactionReputationStore';
 
 interface RecipeUnlockState {
   recipeId: string;
@@ -32,12 +34,24 @@ interface RecipeStore extends RecipeStoreState {
   getLockedRecipes: () => Recipe[];
   getNextPendingDiscovery: () => Recipe | null;
   
+  // Check if a recipe's unlock condition is currently met (reactive to tech state)
+  isUnlockConditionMet: (recipeId: string) => boolean;
+  
   // Challenge integration
   checkChallengeUnlock: (challengeId: string) => void;
   checkChallengeCountUnlock: (count: number) => void;
   checkTutorialUnlock: () => void;
   checkMachinesCreatedUnlock: (count: number) => void;
   checkActivationCountUnlock: (count: number) => void;
+  
+  // Tech level integration - check all tech-level recipes
+  checkTechLevelUnlocks: () => void;
+  
+  // Relock recipes when tech is reset (called by faction store)
+  relockTechRecipes: () => void;
+  
+  // Reset all recipe unlocks
+  resetAllRecipes: () => void;
 }
 
 const RECIPE_STORAGE_KEY = 'arcane-codex-recipes';
@@ -48,6 +62,13 @@ const isRecipeInList = (
   unlockedRecipes: RecipeUnlockState[]
 ): boolean => {
   return unlockedRecipes.some((state) => state.recipeId === recipeId);
+};
+
+// Helper to get recipes with tech_level unlock condition
+const getTechLevelRecipes = (): Recipe[] => {
+  return RECIPE_DEFINITIONS.filter(
+    recipe => recipe.unlockCondition.type === 'tech_level'
+  );
 };
 
 export const useRecipeStore = create<RecipeStore>()(
@@ -161,6 +182,48 @@ export const useRecipeStore = create<RecipeStore>()(
         return null;
       },
 
+      // Check if a recipe's unlock condition is currently met
+      // This is reactive to tech state changes
+      isUnlockConditionMet: (recipeId: string) => {
+        const recipe = RECIPE_DEFINITIONS.find(r => r.id === recipeId);
+        if (!recipe) return false;
+        
+        const { unlockCondition } = recipe;
+        
+        switch (unlockCondition.type) {
+          case 'tech_level': {
+            // Get current completed research from faction reputation store
+            const completedResearch = useFactionReputationStore.getState().completedResearch;
+            return checkTechLevelRequirement(
+              unlockCondition.value as string | string[],
+              completedResearch
+            );
+          }
+          
+          case 'challenge_complete': {
+            // Would need challenge store integration - simplified for now
+            return false;
+          }
+          
+          case 'tutorial_complete': {
+            // Would need tutorial store integration - simplified for now
+            return false;
+          }
+          
+          case 'machines_created':
+          case 'activation_count':
+          case 'challenge_count':
+          case 'connection_count': {
+            // These are tracked separately by other stores
+            // For now, check if already unlocked
+            return get().isUnlocked(recipeId);
+          }
+          
+          default:
+            return false;
+        }
+      },
+
       // Check if completing a challenge unlocks any recipes
       checkChallengeUnlock: (challengeId: string) => {
         const recipesToUnlock = RECIPE_DEFINITIONS.filter(
@@ -224,6 +287,45 @@ export const useRecipeStore = create<RecipeStore>()(
         
         recipesToUnlock.forEach(recipe => {
           get().unlockRecipe(recipe.id);
+        });
+      },
+
+      // Check all tech-level recipes for unlock
+      checkTechLevelUnlocks: () => {
+        const completedResearch = useFactionReputationStore.getState().completedResearch;
+        
+        const techRecipes = getTechLevelRecipes();
+        for (const recipe of techRecipes) {
+          if (!get().isUnlocked(recipe.id)) {
+            const isMet = checkTechLevelRequirement(
+              recipe.unlockCondition.value as string | string[],
+              completedResearch
+            );
+            if (isMet) {
+              get().unlockRecipe(recipe.id);
+            }
+          }
+        }
+      },
+
+      // Relock tech-level recipes when tech is reset
+      // This removes tech-level recipes from the unlocked list
+      relockTechRecipes: () => {
+        const state = get();
+        const techRecipeIds = getTechLevelRecipes().map(r => r.id);
+        
+        const remainingRecipes = state.unlockedRecipes.filter(
+          r => !techRecipeIds.includes(r.recipeId)
+        );
+        
+        set({ unlockedRecipes: remainingRecipes });
+      },
+
+      // Reset all recipe unlocks
+      resetAllRecipes: () => {
+        set({
+          unlockedRecipes: [],
+          pendingDiscoveries: [],
         });
       },
     }),
