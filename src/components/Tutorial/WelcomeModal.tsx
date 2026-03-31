@@ -135,7 +135,7 @@ export function WelcomeModal({ onStartTutorial, onSkip }: WelcomeModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       {/* Background particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {particles.map((particle) => (

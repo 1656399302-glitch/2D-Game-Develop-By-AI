@@ -55,7 +55,7 @@ export function TutorialCompletion({ onContinue, onReplay }: TutorialCompletionP
   };
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       {/* Confetti particles */}
       {showConfetti && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
