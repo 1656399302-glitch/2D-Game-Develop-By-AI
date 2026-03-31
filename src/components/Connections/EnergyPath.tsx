@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import { gsap } from 'gsap';
 import { Connection, MachineState } from '../../types';
 import { getPulseWaveCount, getPulseWaveDuration } from '../../utils/activationChoreographer';
+import { usePrefersReducedMotion, shouldUseRAFAnimation, calculateStrokeDashoffset } from '../../utils/usePrefersReducedMotion';
 
 interface EnergyPathProps {
   connection: Connection;
@@ -22,10 +23,21 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
   const particleRef = useRef<SVGCircleElement>(null);
   const secondaryGlowRef = useRef<SVGPathElement>(null);
   const containerRef = useRef<SVGGElement>(null);
+  const rafAnimationRef = useRef<number | null>(null);
+  
+  // AC2: Detect prefers-reduced-motion preference
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const useRAF = shouldUseRAFAnimation(prefersReducedMotion);
   
   // Pulse wave elements
   const [pulseWaves, setPulseWaves] = useState<PulseWave[]>([]);
   const waveRefs = useRef<Map<string, SVGCircleElement>>(new Map());
+  
+  // RAF animation state
+  const rafStateRef = useRef({
+    startTime: 0,
+    isRunning: false,
+  });
   
   // Calculate path length for wave count
   const pathLength = useMemo(() => {
@@ -66,6 +78,75 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
     setPulseWaves(waves);
   }, [waveCount, connection.id]);
   
+  // AC2: RAF-based animation fallback for prefers-reduced-motion
+  useEffect(() => {
+    // Get the animated dash element
+    const animatedDashEl = containerRef.current?.querySelector('.energy-flow') as SVGPathElement | null;
+    if (!animatedDashEl || !isActive) {
+      if (rafAnimationRef.current !== null) {
+        cancelAnimationFrame(rafAnimationRef.current);
+        rafAnimationRef.current = null;
+      }
+      rafStateRef.current.isRunning = false;
+      return;
+    }
+    
+    // Only use RAF animation if CSS animations are disabled
+    if (!useRAF) {
+      if (rafAnimationRef.current !== null) {
+        cancelAnimationFrame(rafAnimationRef.current);
+        rafAnimationRef.current = null;
+      }
+      rafStateRef.current.isRunning = false;
+      return;
+    }
+    
+    // RAF fallback animation
+    rafStateRef.current.startTime = performance.now();
+    rafStateRef.current.isRunning = true;
+    
+    const animate = (timestamp: number) => {
+      try {
+        // AC1: RAF callback error handling
+        const elapsed = timestamp - rafStateRef.current.startTime;
+        
+        // Calculate stroke-dashoffset for energy flow effect
+        const dashoffset = calculateStrokeDashoffset(elapsed, 8, 12, 1);
+        animatedDashEl.style.strokeDashoffset = `${dashoffset}`;
+        
+        // Update glow intensity
+        if (glowRef.current) {
+          const glowPulse = 0.2 + Math.sin(elapsed / 400) * 0.2;
+          glowRef.current.setAttribute('opacity', String(glowPulse));
+        }
+        
+        if (particleRef.current) {
+          gsap.set(particleRef.current, { opacity: 0.5 + Math.sin(elapsed / 200) * 0.3 });
+        }
+        
+        rafAnimationRef.current = requestAnimationFrame(animate);
+      } catch (error) {
+        // AC6: Log error gracefully and halt animation
+        console.error('RAF error:', error);
+        if (rafAnimationRef.current !== null) {
+          cancelAnimationFrame(rafAnimationRef.current);
+          rafAnimationRef.current = null;
+        }
+        rafStateRef.current.isRunning = false;
+      }
+    };
+    
+    rafAnimationRef.current = requestAnimationFrame(animate);
+    
+    return () => {
+      if (rafAnimationRef.current !== null) {
+        cancelAnimationFrame(rafAnimationRef.current);
+        rafAnimationRef.current = null;
+      }
+      rafStateRef.current.isRunning = false;
+    };
+  }, [isActive, useRAF]);
+  
   useEffect(() => {
     if (!particleRef.current || !pathRef.current || !isActive) {
       // Clean up animations
@@ -96,10 +177,10 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         attr: { r: 4 },
       });
       
-      // Enhanced pulse animation with 0.8s duration (updated from 1s)
+      // Enhanced pulse animation with 0.8s duration
       gsap.to(particleRef.current, {
         attr: { r: 6 },
-        duration: 0.4, // Half of 0.8s for yoyo
+        duration: 0.4,
         yoyo: true,
         repeat: -1,
         ease: 'power1.inOut',
@@ -111,17 +192,17 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
       // Opacity pulse with 0.8s duration
       gsap.to(particleRef.current, {
         opacity: 0.5,
-        duration: 0.4, // Half of 0.8s for yoyo
+        duration: 0.4,
         yoyo: true,
         repeat: -1,
         ease: 'power1.inOut',
       });
       
-      // Primary glow pulse with 0.8s duration and stdDeviation=4
+      // Primary glow pulse with 0.8s duration
       if (glowRef.current) {
         gsap.to(glowRef.current, {
           opacity: 0.6,
-          duration: 0.4, // Half of 0.8s for yoyo
+          duration: 0.4,
           yoyo: true,
           repeat: -1,
           ease: 'power1.inOut',
@@ -153,7 +234,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         gsap.timeline({ delay: startDelay, repeat: -1 })
           .to(waveRef, {
             opacity: 0.9,
-            duration: waveDuration / 2000, // Half duration
+            duration: waveDuration / 2000,
             ease: 'power2.in',
           })
           .to(waveRef, {
@@ -214,7 +295,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         strokeLinecap="round"
       />
       
-      {/* Primary glow effect layer - enhanced stdDeviation=4 during active state */}
+      {/* Primary glow effect layer */}
       <path
         ref={glowRef}
         d={connection.pathData}
@@ -236,7 +317,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         className="transition-all duration-200"
       />
       
-      {/* Animated dash layer */}
+      {/* Animated dash layer - CSS animation with RAF fallback */}
       <path
         d={connection.pathData}
         fill="none"
@@ -244,7 +325,8 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         strokeWidth="2"
         strokeDasharray="8,12"
         strokeLinecap="round"
-        className={isActive ? 'energy-flow' : ''}
+        // AC2: energy-flow class handles CSS animation, RAF handles prefers-reduced-motion
+        className={isActive && !useRAF ? 'energy-flow' : ''}
         style={{
           opacity: isActive ? 1 : 0.5,
         }}
@@ -296,7 +378,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         fill={getGlowColor()}
         opacity="0"
       >
-        {isActive && (
+        {isActive && !useRAF && (
           <animate
             attributeName="fill"
             values={`${getGlowColor()};${getPathColor()};${getGlowColor()}`}
