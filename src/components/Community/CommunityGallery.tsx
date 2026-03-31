@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useMachineStore } from '../../store/useMachineStore';
+import { useFavoritesStore } from '../../store/useFavoritesStore';
 import { CommunityMachine, FactionFilter, RarityFilter, SortOption } from '../../data/communityGalleryData';
 import { FACTIONS, FactionId } from '../../types/factions';
 import { Rarity } from '../../types';
+import { FavoritesPanel } from '../Favorites/FavoritesPanel';
 
 // Rarity display config
 const RARITY_CONFIG: Record<Rarity, { color: string; label: string }> = {
@@ -112,10 +114,14 @@ function MachineCard({
   machine,
   onLoad,
   onLike,
+  onToggleFavorite,
+  isFavorite,
 }: {
   machine: CommunityMachine;
   onLoad: (m: CommunityMachine) => void;
   onLike: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
+  isFavorite: boolean;
 }) {
   const faction = FACTIONS[machine.dominantFaction];
   const rarityCfg = RARITY_CONFIG[machine.attributes.rarity];
@@ -127,6 +133,11 @@ function MachineCard({
       onLike(machine.id);
       setIsLiked(true);
     }
+  };
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleFavorite(machine.id);
   };
 
   return (
@@ -178,6 +189,15 @@ function MachineCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
+              onClick={handleFavorite}
+              className={`flex items-center gap-1 text-[11px] transition-colors ${
+                isFavorite ? 'text-[#ef4444]' : 'text-[#6b7280] hover:text-[#ef4444]'
+              }`}
+              aria-label={`${isFavorite ? 'Remove from' : 'Add to'} favorites - ${machine.attributes.name}`}
+            >
+              <span>{isFavorite ? '❤️' : '🤍'}</span>
+            </button>
+            <button
               onClick={handleLike}
               disabled={isLiked}
               className={`flex items-center gap-1 text-[11px] transition-colors ${
@@ -227,6 +247,9 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 }
 
 export function CommunityGallery() {
+  // Tabs state
+  const [activeTab, setActiveTab] = useState<'gallery' | 'favorites'>('gallery');
+  
   // FIX: Use individual selectors for primitive values
   const communityMachines = useCommunityStore((s) => s.communityMachines);
   const publishedMachines = useCommunityStore((s) => s.publishedMachines);
@@ -244,6 +267,10 @@ export function CommunityGallery() {
   const likeMachineRef = useRef(useCommunityStore.getState().likeMachine);
   const viewMachineRef = useRef(useCommunityStore.getState().viewMachine);
 
+  // Favorites store
+  const favoriteIds = useFavoritesStore((s) => s.favoriteIds);
+  const toggleFavoriteRef = useRef(useFavoritesStore.getState().toggleFavorite);
+
   // FIX: Periodically sync refs
   useEffect(() => {
     setSearchQueryRef.current = useCommunityStore.getState().setSearchQuery;
@@ -253,18 +280,28 @@ export function CommunityGallery() {
     closeGalleryRef.current = useCommunityStore.getState().closeGallery;
     likeMachineRef.current = useCommunityStore.getState().likeMachine;
     viewMachineRef.current = useCommunityStore.getState().viewMachine;
+    toggleFavoriteRef.current = useFavoritesStore.getState().toggleFavorite;
   });
 
   const loadMachine = useMachineStore((s) => s.loadMachine);
   const modules = useMachineStore((s) => s.modules);
 
   const [confirmLoad, setConfirmLoad] = useState<CommunityMachine | null>(null);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   // FIX: Use useMemo to call getState() method (not subscription)
   const filteredMachines = useMemo(() => 
     useCommunityStore.getState().getFilteredMachinesList(),
     [communityMachines, publishedMachines, searchQuery, factionFilter, rarityFilter, sortOption]
   );
+
+  // Get favorite machines
+  const favoriteMachines = useMemo(() => {
+    const allMachines = [...communityMachines, ...publishedMachines];
+    return favoriteIds
+      .map((id) => allMachines.find((m) => m.id === id))
+      .filter((m): m is CommunityMachine => m !== undefined);
+  }, [favoriteIds, communityMachines, publishedMachines]);
 
   const hasFilters = searchQuery !== '' || factionFilter !== 'all' || rarityFilter !== 'all';
   const totalCount = communityMachines.length + publishedMachines.length;
@@ -317,6 +354,10 @@ export function CommunityGallery() {
     likeMachineRef.current(id);
   }, []);
 
+  const handleToggleFavorite = useCallback((id: string) => {
+    toggleFavoriteRef.current(id);
+  }, []);
+
   // FIX: Track views only once per gallery open session using a session-scoped ref
   // This ensures views are counted once when gallery opens, not on every filter change
   const viewsTrackedRef = useRef(false);
@@ -338,6 +379,11 @@ export function CommunityGallery() {
 
   // Reset views tracked flag when gallery closes (next open will track views again)
   // This is handled by the component unmounting when gallery closes
+
+  // Show favorites panel if that tab is active
+  if (showFavorites) {
+    return <FavoritesPanel onClose={() => setShowFavorites(false)} />;
+  }
 
   return (
     <>
@@ -367,102 +413,168 @@ export function CommunityGallery() {
             </button>
           </div>
 
-          <div className="px-6 py-3 border-b border-[#1e2a42] bg-[#0a0e17] space-y-3">
-            <div className="relative">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search machines, authors, tags..."
-                className="w-full bg-[#121826] border border-[#1e2a42] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[#7c3aed] transition-colors"
-                aria-label="Search community machines"
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a5568]" aria-hidden="true">
-                🔍
-              </span>
-              {searchQuery && (
-                <button
-                  onClick={() => handleSearchChange('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b7280] hover:text-white text-xs"
-                  aria-label="Clear search"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={factionFilter}
-                onChange={(e) => handleFactionChange(e.target.value as FactionFilter)}
-                className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer"
-                aria-label="Filter by faction"
-              >
-                <option value="all">⚔ All Factions</option>
-                {(Object.keys(FACTIONS) as FactionId[]).map((fid) => (
-                  <option key={fid} value={fid}>
-                    {FACTIONS[fid].icon} {FACTIONS[fid].nameCn}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={rarityFilter}
-                onChange={(e) => handleRarityChange(e.target.value as RarityFilter)}
-                className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer"
-                aria-label="Filter by rarity"
-              >
-                <option value="all">✨ All Rarities</option>
-                {(Object.keys(RARITY_CONFIG) as Rarity[]).map((r) => (
-                  <option key={r} value={r}>
-                    {RARITY_CONFIG[r].label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={sortOption}
-                onChange={(e) => handleSortChange(e.target.value as SortOption)}
-                className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer ml-auto"
-                aria-label="Sort machines"
-              >
-                <option value="newest">🕐 Newest First</option>
-                <option value="most-liked">❤️ Most Liked</option>
-                <option value="most-viewed">👁 Most Viewed</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6">
-            {filteredMachines.length === 0 ? (
-              <EmptyState hasFilters={hasFilters} />
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredMachines.map((machine) => (
-                  <MachineCard
-                    key={machine.id}
-                    machine={machine}
-                    onLoad={handleLoadMachine}
-                    onLike={handleLike}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="px-6 py-3 border-t border-[#1e2a42] bg-[#121826] flex items-center justify-between">
-            <p className="text-xs text-[#6b7280]">
-              Showing {filteredMachines.length} of {totalCount} machines
-              {publishedMachines.length > 0 && (
-                <span className="ml-2 text-[#7c3aed]">
-                  ({publishedMachines.length} published this session)
+          {/* Tabs */}
+          <div className="flex items-center gap-1 px-6 py-2 border-b border-[#1e2a42] bg-[#0a0e17]">
+            <button
+              onClick={() => setActiveTab('gallery')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'gallery'
+                  ? 'bg-[#7c3aed] text-white'
+                  : 'bg-[#1e2a42] text-[#9ca3af] hover:text-white'
+              }`}
+              aria-selected={activeTab === 'gallery'}
+              role="tab"
+            >
+              🌐 All Machines
+            </button>
+            <button
+              onClick={() => setActiveTab('favorites')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                activeTab === 'favorites'
+                  ? 'bg-[#ef4444] text-white'
+                  : 'bg-[#1e2a42] text-[#9ca3af] hover:text-white'
+              }`}
+              aria-selected={activeTab === 'favorites'}
+              role="tab"
+            >
+              ❤️ My Favorites
+              {favoriteIds.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-xs">
+                  {favoriteIds.length}
                 </span>
               )}
-            </p>
-            <p className="text-xs text-[#4a5568]">
-              Published machines persist across browser restarts
-            </p>
+            </button>
           </div>
+
+          {activeTab === 'gallery' && (
+            <>
+              <div className="px-6 py-3 border-b border-[#1e2a42] bg-[#0a0e17] space-y-3">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Search machines, authors, tags..."
+                    className="w-full bg-[#121826] border border-[#1e2a42] rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-[#4a5568] focus:outline-none focus:border-[#7c3aed] transition-colors"
+                    aria-label="Search community machines"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4a5568]" aria-hidden="true">
+                    🔍
+                  </span>
+                  {searchQuery && (
+                    <button
+                      onClick={() => handleSearchChange('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b7280] hover:text-white text-xs"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={factionFilter}
+                    onChange={(e) => handleFactionChange(e.target.value as FactionFilter)}
+                    className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer"
+                    aria-label="Filter by faction"
+                  >
+                    <option value="all">⚔ All Factions</option>
+                    {(Object.keys(FACTIONS) as FactionId[]).map((fid) => (
+                      <option key={fid} value={fid}>
+                        {FACTIONS[fid].icon} {FACTIONS[fid].nameCn}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={rarityFilter}
+                    onChange={(e) => handleRarityChange(e.target.value as RarityFilter)}
+                    className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer"
+                    aria-label="Filter by rarity"
+                  >
+                    <option value="all">✨ All Rarities</option>
+                    {(Object.keys(RARITY_CONFIG) as Rarity[]).map((r) => (
+                      <option key={r} value={r}>
+                        {RARITY_CONFIG[r].label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={sortOption}
+                    onChange={(e) => handleSortChange(e.target.value as SortOption)}
+                    className="bg-[#121826] border border-[#1e2a42] rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#7c3aed] transition-colors cursor-pointer ml-auto"
+                    aria-label="Sort machines"
+                  >
+                    <option value="newest">🕐 Newest First</option>
+                    <option value="most-liked">❤️ Most Liked</option>
+                    <option value="most-viewed">👁 Most Viewed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                {filteredMachines.length === 0 ? (
+                  <EmptyState hasFilters={hasFilters} />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredMachines.map((machine) => (
+                      <MachineCard
+                        key={machine.id}
+                        machine={machine}
+                        onLoad={handleLoadMachine}
+                        onLike={handleLike}
+                        onToggleFavorite={handleToggleFavorite}
+                        isFavorite={favoriteIds.includes(machine.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-3 border-t border-[#1e2a42] bg-[#121826] flex items-center justify-between">
+                <p className="text-xs text-[#6b7280]">
+                  Showing {filteredMachines.length} of {totalCount} machines
+                  {publishedMachines.length > 0 && (
+                    <span className="ml-2 text-[#7c3aed]">
+                      ({publishedMachines.length} published this session)
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-[#4a5568]">
+                  Click the heart icon to add machines to favorites
+                </p>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'favorites' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              {favoriteMachines.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="text-5xl mb-4">💔</div>
+                  <h3 className="text-lg font-bold text-white mb-2">No Favorites Yet</h3>
+                  <p className="text-sm text-[#6b7280] max-w-xs">
+                    Browse machines in the gallery and click the heart icon to add them here.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {favoriteMachines.map((machine) => (
+                    <MachineCard
+                      key={machine.id}
+                      machine={machine}
+                      onLoad={handleLoadMachine}
+                      onLike={handleLike}
+                      onToggleFavorite={handleToggleFavorite}
+                      isFavorite={true}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

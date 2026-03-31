@@ -120,7 +120,25 @@ export interface CodexEntry {
   attributes: GeneratedAttributes;
   createdAt: number;
   thumbnail?: string;
+  tags?: string[]; // Custom user tags
 }
+
+// Machine Tags System (Round 65)
+export interface MachineTag {
+  id: string;
+  name: string;
+  color?: string;
+  createdAt: number;
+}
+
+export interface MachineTagAssignment {
+  machineId: string;
+  tags: string[];
+}
+
+export const MAX_TAGS_PER_MACHINE = 5;
+export const MAX_TAG_LENGTH = 20;
+export const MAX_TOTAL_TAGS = 100;
 
 // Editor State
 export interface ViewportState {
@@ -171,6 +189,23 @@ export interface EnhancedExportOptions extends ExportOptions {
   resolution?: ExportResolution;
   transparentBackground?: boolean;
   aspectRatio?: ExportAspectRatio;
+}
+
+// Duplicate Detection Types (Round 65)
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  similarity: number; // 0-100 percentage
+  existingMachineId: string | null;
+  existingMachineName: string | null;
+  threshold: number;
+}
+
+export interface MachineSignature {
+  moduleTypes: string;
+  connectionCount: number;
+  moduleCount: number;
+  moduleTypeHash: string;
+  connectionPatternHash: string;
 }
 
 // Event Types
@@ -345,3 +380,15 @@ export const ASPECT_RATIO_DIMS: Record<ExportAspectRatio, { width: number; heigh
   'portrait': { width: 600, height: 800 },
   'landscape': { width: 800, height: 600 },
 };
+
+// Collection Statistics Types (Round 65)
+export interface CollectionStats {
+  totalMachines: number;
+  rarityDistribution: Record<Rarity, number>;
+  factionDistribution: Record<string, number>;
+  moduleUsage: Record<ModuleType, number>;
+  averageComplexity: number;
+  completionPercentage: number;
+  totalModules: number;
+  totalConnections: number;
+}

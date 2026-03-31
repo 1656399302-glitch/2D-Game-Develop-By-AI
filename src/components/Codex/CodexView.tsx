@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useCodexStore } from '../../store/useCodexStore';
+import { useMachineTagsStore } from '../../store/useMachineTagsStore';
 import { CodexEntry, PlacedModule, Connection, Rarity } from '../../types';
 import { getRarityColor, getRarityLabel } from '../../utils/attributeGenerator';
+import { MachineTagEditor } from './MachineTagEditor';
 
 interface CodexViewProps {
   onLoadToEditor: (modules: PlacedModule[], connections: Connection[]) => void;
@@ -26,13 +28,28 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
     removeEntryRef.current(entryId);
   }, []);
 
+  // Tag filter state
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [filterBy, setFilterBy] = useState<FilterOption>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<CodexEntry | null>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [editingTagsFor, setEditingTagsFor] = useState<string | null>(null);
+
+  // Get all tags from machine tags store
+  const allTags = useMachineTagsStore((s) => s.getAllTags)();
+  const getTags = useMachineTagsStore((s) => s.getTags);
 
   const filteredAndSortedEntries = useMemo(() => {
     let result = [...entries];
+
+    // Filter by tag first
+    if (tagFilter) {
+      result = result.filter((e) => {
+        const entryTags = getTags(e.id);
+        return entryTags.includes(tagFilter);
+      });
+    }
 
     if (filterBy !== 'all') {
       result = result.filter((e) => e.rarity === filterBy);
@@ -71,7 +88,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
     }
 
     return result;
-  }, [entries, sortBy, filterBy, searchQuery]);
+  }, [entries, sortBy, filterBy, searchQuery, tagFilter, getTags]);
 
   const handleLoad = (entry: CodexEntry) => {
     onLoadToEditor(entry.modules, entry.connections);
@@ -85,6 +102,11 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
         setSelectedEntry(null);
       }
     }
+  };
+
+  const handleEditTags = (entryId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingTagsFor(entryId);
   };
 
   return (
@@ -155,6 +177,36 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
               <option value="legendary">Legendary</option>
             </select>
           </div>
+
+          {/* Tag Filter */}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              <span className="text-xs text-[#6b7280]">Filter by tag:</span>
+              <button
+                onClick={() => setTagFilter(null)}
+                className={`px-2 py-1 rounded text-xs transition-colors ${
+                  tagFilter === null
+                    ? 'bg-[#7c3aed] text-white'
+                    : 'bg-[#1e2a42] text-[#9ca3af] hover:text-white'
+                }`}
+              >
+                All
+              </button>
+              {allTags.slice(0, 10).map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setTagFilter(tag === tagFilter ? null : tag)}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    tagFilter === tag
+                      ? 'bg-[#7c3aed] text-white'
+                      : 'bg-[#1e2a42] text-[#9ca3af] hover:text-white'
+                  }`}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Grid */}
@@ -181,6 +233,7 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
                   onClick={() => setSelectedEntry(entry)}
                   onLoad={() => handleLoad(entry)}
                   onDelete={(e) => handleDelete(entry.id, e)}
+                  onEditTags={(e) => handleEditTags(entry.id, e)}
                 />
               ))}
             </div>
@@ -195,6 +248,15 @@ export function CodexView({ onLoadToEditor }: CodexViewProps) {
           onClose={() => setSelectedEntry(null)}
           onLoad={() => handleLoad(selectedEntry)}
           onDelete={(e) => handleDelete(selectedEntry.id, e)}
+          onEditTags={(e) => handleEditTags(selectedEntry.id, e)}
+        />
+      )}
+
+      {/* Tag Editor Modal */}
+      {editingTagsFor && (
+        <MachineTagEditor
+          machineId={editingTagsFor}
+          onClose={() => setEditingTagsFor(null)}
         />
       )}
     </div>
@@ -207,10 +269,12 @@ interface CodexCardProps {
   onClick: () => void;
   onLoad: () => void;
   onDelete: (e: React.MouseEvent) => void;
+  onEditTags: (e: React.MouseEvent) => void;
 }
 
-function CodexCard({ entry, isSelected, onClick, onLoad, onDelete }: CodexCardProps) {
+function CodexCard({ entry, isSelected, onClick, onLoad, onDelete, onEditTags }: CodexCardProps) {
   const rarityColor = getRarityColor(entry.rarity);
+  const tags = useMachineTagsStore((s) => s.getTags)(entry.id);
 
   return (
     <div
@@ -244,7 +308,18 @@ function CodexCard({ entry, isSelected, onClick, onLoad, onDelete }: CodexCardPr
         </div>
       </div>
 
-      {/* Tags */}
+      {/* Tags (from machine tags store) */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          {tags.map((tag) => (
+            <span key={tag} className="text-xs px-2 py-0.5 rounded bg-[#7c3aed]/20 text-[#a78bfa]">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Original Tags */}
       <div className="flex flex-wrap gap-1 mb-3">
         {entry.attributes.tags.slice(0, 3).map((tag) => (
           <span key={tag} className="text-xs px-2 py-0.5 rounded bg-[#1e2a42] text-[#9ca3af]">
@@ -260,7 +335,7 @@ function CodexCard({ entry, isSelected, onClick, onLoad, onDelete }: CodexCardPr
       </div>
 
       {/* Hover actions */}
-      <div className="absolute inset-0 bg-[#0a0e17]/90 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
+      <div className="absolute inset-0 bg-[#0a0e17]/90 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg flex-wrap">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -269,6 +344,12 @@ function CodexCard({ entry, isSelected, onClick, onLoad, onDelete }: CodexCardPr
           className="px-4 py-2 rounded-lg bg-[#00d4ff] text-[#0a0e17] font-medium hover:bg-[#00ffcc] transition-colors"
         >
           Load to Editor
+        </button>
+        <button
+          onClick={onEditTags}
+          className="px-4 py-2 rounded-lg bg-[#7c3aed] text-white font-medium hover:bg-[#6d28d9] transition-colors"
+        >
+          🏷️ Tags
         </button>
         <button
           onClick={onDelete}
@@ -286,10 +367,12 @@ interface CodexDetailPanelProps {
   onClose: () => void;
   onLoad: () => void;
   onDelete: (e: React.MouseEvent) => void;
+  onEditTags: (e: React.MouseEvent) => void;
 }
 
-function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanelProps) {
+function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: CodexDetailPanelProps) {
   const rarityColor = getRarityColor(entry.rarity);
+  const tags = useMachineTagsStore((s) => s.getTags)(entry.id);
 
   return (
     <div className="w-96 bg-[#121826] border-l border-[#1e2a42] flex flex-col overflow-hidden">
@@ -328,6 +411,33 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
           <MachinePreview modules={entry.modules} large />
         </div>
 
+        {/* Custom Tags Section */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-medium text-[#a78bfa] uppercase">My Tags</h4>
+            <button
+              onClick={onEditTags}
+              className="text-xs px-2 py-1 rounded bg-[#7c3aed]/20 text-[#a78bfa] hover:bg-[#7c3aed]/40 transition-colors"
+            >
+              Edit Tags
+            </button>
+          </div>
+          {tags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="text-sm px-3 py-1 rounded-lg bg-[#7c3aed]/20 text-[#a78bfa]"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-[#4a5568] italic">No custom tags yet</p>
+          )}
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
           <StatItem label="Stability" value={entry.attributes.stats.stability} color="#22c55e" />
@@ -336,9 +446,9 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete }: CodexDetailPanel
           <StatItem label="Failure" value={entry.attributes.stats.failureRate} color="#ef4444" />
         </div>
 
-        {/* Tags */}
+        {/* Generated Tags */}
         <div>
-          <h4 className="text-xs font-medium text-[#9ca3af] uppercase mb-2">Tags</h4>
+          <h4 className="text-xs font-medium text-[#9ca3af] uppercase mb-2">Attribute Tags</h4>
           <div className="flex flex-wrap gap-2">
             {entry.attributes.tags.map((tag) => (
               <span
