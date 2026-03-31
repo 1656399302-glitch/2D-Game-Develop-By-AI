@@ -11,6 +11,16 @@ import { AmplifierCrystalSVG } from './AmplifierCrystal';
 import { StabilizerCoreSVG } from './StabilizerCore';
 import { VoidSiphonSVG } from './VoidSiphon';
 import { PhaseModulatorSVG } from './PhaseModulator';
+import { ResonanceChamberSVG } from './ResonanceChamber';
+import { FireCrystalSVG } from './FireCrystal';
+import { LightningConductorSVG } from './LightningConductor';
+// Import faction variant SVGs
+import { 
+  VoidArcaneGearSVG, 
+  InfernoBlazingCoreSVG, 
+  StormThunderingPipeSVG, 
+  StellarHarmonicCrystalSVG 
+} from './FactionVariantModules';
 
 interface ModulePreviewProps {
   type: ModuleType;
@@ -55,6 +65,21 @@ export const ModulePreview: React.FC<ModulePreviewProps> = ({
         return <VoidSiphonSVG {...props} />;
       case 'phase-modulator':
         return <PhaseModulatorSVG {...props} />;
+      case 'resonance-chamber':
+        return <ResonanceChamberSVG {...props} />;
+      case 'fire-crystal':
+        return <FireCrystalSVG {...props} />;
+      case 'lightning-conductor':
+        return <LightningConductorSVG {...props} />;
+      // FACTION VARIANT MODULES
+      case 'void-arcane-gear':
+        return <VoidArcaneGearSVG {...props} />;
+      case 'inferno-blazing-core':
+        return <InfernoBlazingCoreSVG {...props} />;
+      case 'storm-thundering-pipe':
+        return <StormThunderingPipeSVG {...props} />;
+      case 'stellar-harmonic-crystal':
+        return <StellarHarmonicCrystalSVG {...props} />;
       default:
         return (
           <svg width={size} height={size} viewBox="0 0 80 80">
@@ -80,7 +105,7 @@ export const ModulePreview: React.FC<ModulePreviewProps> = ({
         {/* Glow effect for active state */}
         {isActive && (
           <defs>
-            <filter id={`glow-${type}`} x="-50%" y="-50%" width="200%" height="200%">
+            <filter id={`glow-${type.replace(/-/g, '_')}`} x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
               <feMerge>
                 <feMergeNode in="coloredBlur" />
@@ -89,7 +114,7 @@ export const ModulePreview: React.FC<ModulePreviewProps> = ({
             </filter>
           </defs>
         )}
-        <g filter={isActive ? `url(#glow-${type})` : undefined}>
+        <g filter={isActive ? `url(#glow-${type.replace(/-/g, '_')})` : undefined}>
           {renderModuleSVG()}
         </g>
       </svg>

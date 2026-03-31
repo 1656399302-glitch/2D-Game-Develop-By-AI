@@ -18,6 +18,33 @@ const LAYOUT_OPTIONS: { type: LayoutType; label: string; icon: string }[] = [
   { type: 'cascade', label: '层叠', icon: '⫷' },
 ];
 
+// Recipe browser state - stored at module level for cross-component access
+let recipeBrowserOpen = false;
+const recipeBrowserListeners: Set<(open: boolean) => void> = new Set();
+
+export function setRecipeBrowserOpen(open: boolean) {
+  recipeBrowserOpen = open;
+  recipeBrowserListeners.forEach(listener => listener(open));
+}
+
+export function useRecipeBrowserToggle() {
+  const [isOpen, setIsOpen] = useState(recipeBrowserOpen);
+  
+  useEffect(() => {
+    const listener = (open: boolean) => setIsOpen(open);
+    recipeBrowserListeners.add(listener);
+    return () => {
+      recipeBrowserListeners.delete(listener);
+    };
+  }, []);
+  
+  const toggle = useCallback(() => {
+    setRecipeBrowserOpen(!recipeBrowserOpen);
+  }, []);
+  
+  return { isOpen, toggle };
+}
+
 export function Toolbar() {
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
@@ -175,9 +202,22 @@ export function Toolbar() {
         </span>
       </div>
 
-      {/* Center - Test Mode buttons and Auto-Layout */}
+      {/* Center - Test Mode buttons, Auto-Layout, and Recipe Button */}
       <div className="flex-1 flex justify-center">
         <div className="flex items-center gap-3">
+          {/* Recipe Button - Opens the Recipe Browser */}
+          <button
+            onClick={() => setRecipeBrowserOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#a855f7]/20 text-[#a855f7] hover:bg-[#a855f7]/30 border border-[#a855f7]/40 transition-colors"
+            title="配方图鉴 - 查看所有模块配方"
+            aria-label="配方"
+          >
+            <span aria-hidden="true">📜</span>
+            <span>配方</span>
+          </button>
+
+          <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
+
           {/* Auto-Layout Button with Dropdown */}
           <div className="relative" ref={menuRef}>
             <button

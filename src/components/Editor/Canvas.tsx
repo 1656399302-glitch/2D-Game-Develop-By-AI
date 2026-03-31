@@ -18,6 +18,7 @@ import {
   THROTTLE_INTERVAL_60FPS,
 } from '../../utils/performanceUtils';
 import { calculateGroupCenter } from '../../utils/groupingUtils';
+import { ModuleSpatialIndex, getCanvasSpatialIndex } from '../../utils/spatialIndex';
 
 const GRID_SIZE = 20;
 const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
@@ -73,6 +74,9 @@ export function Canvas() {
   const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; modulePositions: Map<string, { x: number; y: number }> } | null>(null);
   
+  // Spatial index for O(log n) hit testing
+  const spatialIndexRef = useRef<ModuleSpatialIndex | null>(null);
+  
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -125,6 +129,22 @@ export function Canvas() {
   const toggleSelection = useSelectionStore((state) => state.toggleSelection);
   const setSelection = useSelectionStore((state) => state.setSelection);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
+  
+  // Initialize spatial index
+  useEffect(() => {
+    if (!spatialIndexRef.current) {
+      spatialIndexRef.current = getCanvasSpatialIndex();
+    }
+  }, []);
+  
+  // Rebuild spatial index when modules change
+  useEffect(() => {
+    if (spatialIndexRef.current && modules.length > 0) {
+      spatialIndexRef.current.rebuild(modules);
+    } else if (spatialIndexRef.current && modules.length === 0) {
+      spatialIndexRef.current.clear();
+    }
+  }, [modules]);
   
   // FIX (Round 29): Use refs for stable function references to avoid dependency issues
   // Store setActivationModuleIndex in a ref to use in effects without causing re-runs
@@ -299,10 +319,22 @@ export function Canvas() {
     };
   }, [isBoxSelecting, boxStart, boxEnd]);
   
-  // Find modules within box selection
+  // Find modules within box selection - using spatial index for better performance
   const modulesInBoxSelection = useMemo(() => {
     if (!isBoxSelecting || !boxSelectionRect) return new Set<string>();
     
+    // Use spatial index for O(log n) query if available
+    if (spatialIndexRef.current && spatialIndexRef.current.size > 0) {
+      const moduleIds = spatialIndexRef.current.getModulesInRect(
+        boxSelectionRect.x,
+        boxSelectionRect.y,
+        boxSelectionRect.width,
+        boxSelectionRect.height
+      );
+      return new Set(moduleIds);
+    }
+    
+    // Fallback to O(n) search
     const selectedIds = new Set<string>();
     modules.forEach((module) => {
       const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
@@ -339,6 +371,14 @@ export function Canvas() {
     if (moduleType) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       addModule(moduleType as any, coords.x, coords.y);
+      
+      // Update spatial index after adding module
+      setTimeout(() => {
+        const updatedModules = useMachineStore.getState().modules;
+        if (spatialIndexRef.current) {
+          spatialIndexRef.current.rebuild(updatedModules);
+        }
+      }, 0);
     }
   }, [addModule, getCanvasCoordinates]);
   
@@ -346,10 +386,16 @@ export function Canvas() {
     e.preventDefault();
   }, []);
   
-  // Check if a module is at the given screen coordinates
+  // Check if a module is at the given screen coordinates - Using spatial index for O(log n) hit testing
   const getModuleAtPoint = useCallback((clientX: number, clientY: number): string | null => {
     const coords = getCanvasCoordinates(clientX, clientY);
     
+    // Use spatial index for O(log n) hit testing if available and has modules
+    if (spatialIndexRef.current && spatialIndexRef.current.size > 0) {
+      return spatialIndexRef.current.getModuleAtPoint(coords.x, coords.y);
+    }
+    
+    // Fallback to O(n) search for small module counts or when spatial index is empty
     for (let i = modules.length - 1; i >= 0; i--) {
       const module = modules[i];
       const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
@@ -469,6 +515,14 @@ export function Canvas() {
         
         if (updates.length > 0) {
           updateModulesBatch(updates);
+          
+          // Update spatial index after batch move
+          setTimeout(() => {
+            const updatedModules = useMachineStore.getState().modules;
+            if (spatialIndexRef.current) {
+              spatialIndexRef.current.rebuild(updatedModules);
+            }
+          }, 0);
         }
       } else {
         // Single module drag with smart snap-to-grid
@@ -482,6 +536,14 @@ export function Canvas() {
         }
         
         updateModulePosition(draggingModule, newX, newY);
+        
+        // Update spatial index after single module move
+        setTimeout(() => {
+          const updatedModules = useMachineStore.getState().modules;
+          if (spatialIndexRef.current) {
+            spatialIndexRef.current.rebuild(updatedModules);
+          }
+        }, 0);
       }
     } else if (isConnecting) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
@@ -587,6 +649,14 @@ export function Canvas() {
     
     if (updates.length > 0) {
       updateModulesBatch(updates);
+      
+      // Update spatial index after batch move
+      setTimeout(() => {
+        const updatedModules = useMachineStore.getState().modules;
+        if (spatialIndexRef.current) {
+          spatialIndexRef.current.rebuild(updatedModules);
+        }
+      }, 0);
     }
   }, [selectedModuleIds, modules, gridEnabled, updateModulesBatch]);
   
@@ -664,6 +734,14 @@ export function Canvas() {
       });
       useMachineStore.setState({ modules: updatedModules });
       
+      // Update spatial index after rotation
+      setTimeout(() => {
+        const updatedModules = useMachineStore.getState().modules;
+        if (spatialIndexRef.current) {
+          spatialIndexRef.current.rebuild(updatedModules);
+        }
+      }, 0);
+      
       saveToHistory();
     }
   }, [selectedModuleIds, selectedModuleId, updateModulesBatch, saveToHistory]);
@@ -739,6 +817,14 @@ export function Canvas() {
         return m;
       });
       useMachineStore.setState({ modules: updatedModules });
+      
+      // Update spatial index after scale
+      setTimeout(() => {
+        const updatedModules = useMachineStore.getState().modules;
+        if (spatialIndexRef.current) {
+          spatialIndexRef.current.rebuild(updatedModules);
+        }
+      }, 0);
       
       saveToHistory();
     }
@@ -1027,6 +1113,11 @@ export function Canvas() {
         {gridEnabled && (
           <span className="ml-2 text-[#22c55e]" title={`网格吸附已开启 (${SNAP_THRESHOLD}px阈值)`}>
             📐
+          </span>
+        )}
+        {spatialIndexRef.current && spatialIndexRef.current.size > 0 && (
+          <span className="ml-2 text-[#a855f7]" title="Spatial indexing enabled for O(log n) hit testing">
+            🗂
           </span>
         )}
       </div>

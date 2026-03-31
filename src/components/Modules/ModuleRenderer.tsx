@@ -3,6 +3,29 @@ import { gsap } from 'gsap';
 import { PlacedModule, Port, MachineState, MODULE_SIZES, MODULE_ACCENT_COLORS } from '../../types';
 import { useMachineStore } from '../../store/useMachineStore';
 
+// Import all module SVGs
+import { CoreFurnaceSVG } from './CoreFurnace';
+import { EnergyPipeSVG } from './EnergyPipe';
+import { GearSVG } from './Gear';
+import { RuneNodeSVG } from './RuneNode';
+import { ShieldShellSVG } from './ShieldShell';
+import { TriggerSwitchSVG } from './TriggerSwitch';
+import { OutputArraySVG } from './OutputArray';
+import { AmplifierCrystalSVG } from './AmplifierCrystal';
+import { StabilizerCoreSVG } from './StabilizerCore';
+import { VoidSiphonSVG } from './VoidSiphon';
+import { PhaseModulatorSVG } from './PhaseModulator';
+import { ResonanceChamberSVG } from './ResonanceChamber';
+import { FireCrystalSVG } from './FireCrystal';
+import { LightningConductorSVG } from './LightningConductor';
+// Import faction variant SVGs
+import { 
+  VoidArcaneGearSVG, 
+  InfernoBlazingCoreSVG, 
+  StormThunderingPipeSVG, 
+  StellarHarmonicCrystalSVG 
+} from './FactionVariantModules';
+
 interface ModuleRendererProps {
   module: PlacedModule;
   isSelected: boolean;
@@ -50,9 +73,10 @@ export const ModuleRenderer = memo(function ModuleRenderer({
           duration: 0.3,
         });
       } else if (machineState === 'charging') {
-        // Charging state - pulsing blue glow
+        // Charging state - pulsing glow based on faction color
+        const factionColor = getModuleAccentColor();
         gsap.to(groupRef.current, {
-          filter: `drop-shadow(0 0 ${8 + baseGlowIntensity * 8}px #00d4ff)`,
+          filter: `drop-shadow(0 0 ${8 + baseGlowIntensity * 8}px ${factionColor})`,
           duration: 0.5,
           repeat: -1,
           yoyo: true,
@@ -60,9 +84,9 @@ export const ModuleRenderer = memo(function ModuleRenderer({
       } else if (machineState === 'active') {
         // Active state - enhanced glow for activated modules
         const glowAmount = isActivated ? 16 : 8;
-        const glowColor = isActivated ? '#00ffcc' : '#00d4ff';
+        const factionColor = getModuleAccentColor();
         gsap.to(groupRef.current, {
-          filter: `drop-shadow(0 0 ${glowAmount + baseGlowIntensity * 8}px ${glowColor})`,
+          filter: `drop-shadow(0 0 ${glowAmount + baseGlowIntensity * 8}px ${factionColor})`,
           duration: isActivated ? 0.2 : 0.3,
         });
       } else if (machineState === 'failure') {
@@ -83,7 +107,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
           yoyo: true,
         });
       } else if (machineState === 'overload') {
-        // Overload state - intense pulsing orange glow with scale
+        // Overload state - intense pulsing glow with scale
         gsap.to(groupRef.current, {
           filter: `drop-shadow(0 0 ${20 + baseGlowIntensity * 10}px #ff6b35)`,
           scale: isActivated ? 1.15 : 1.1,
@@ -102,7 +126,7 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     });
     
     return () => ctx.revert();
-  }, [machineState, isActivated, activationIntensity]);
+  }, [machineState, isActivated, activationIntensity, getModuleAccentColor]);
   
   // Module activation glow effect - burst when module becomes activated
   useEffect(() => {
@@ -195,10 +219,19 @@ export const ModuleRenderer = memo(function ModuleRenderer({
         return <FireCrystalSVG {...props} />;
       case 'lightning-conductor':
         return <LightningConductorSVG {...props} />;
+      // FACTION VARIANT MODULES - Render with faction-specific styling
+      case 'void-arcane-gear':
+        return <VoidArcaneGearSVG {...props} />;
+      case 'inferno-blazing-core':
+        return <InfernoBlazingCoreSVG {...props} />;
+      case 'storm-thundering-pipe':
+        return <StormThunderingPipeSVG {...props} />;
+      case 'stellar-harmonic-crystal':
+        return <StellarHarmonicCrystalSVG {...props} />;
       default:
         return <rect width={size.width} height={size.height} fill="#333" />;
     }
-  }, [module.type, machineState]);
+  }, [module.type, machineState, size]);
   
   // Get port label with index
   const getPortLabel = useCallback((port: Port, index: number) => {
@@ -403,21 +436,5 @@ export const ModuleRenderer = memo(function ModuleRenderer({
     prevProps.activationIntensity === nextProps.activationIntensity
   );
 });
-
-// Import all module SVGs
-import { CoreFurnaceSVG } from './CoreFurnace';
-import { EnergyPipeSVG } from './EnergyPipe';
-import { GearSVG } from './Gear';
-import { RuneNodeSVG } from './RuneNode';
-import { ShieldShellSVG } from './ShieldShell';
-import { TriggerSwitchSVG } from './TriggerSwitch';
-import { OutputArraySVG } from './OutputArray';
-import { AmplifierCrystalSVG } from './AmplifierCrystal';
-import { StabilizerCoreSVG } from './StabilizerCore';
-import { VoidSiphonSVG } from './VoidSiphon';
-import { PhaseModulatorSVG } from './PhaseModulator';
-import { ResonanceChamberSVG } from './ResonanceChamber';
-import { FireCrystalSVG } from './FireCrystal';
-import { LightningConductorSVG } from './LightningConductor';
 
 export default ModuleRenderer;

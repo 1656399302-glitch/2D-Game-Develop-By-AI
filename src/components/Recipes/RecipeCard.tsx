@@ -7,6 +7,10 @@ interface RecipeCardProps {
   isUnlocked: boolean;
   onClick?: () => void;
   showHint?: boolean;
+  /** Whether this is a faction variant recipe */
+  isFactionVariant?: boolean;
+  /** Faction-specific color */
+  factionColor?: string;
 }
 
 export const RecipeCard: React.FC<RecipeCardProps> = ({
@@ -14,8 +18,11 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
   isUnlocked,
   onClick,
   showHint = true,
+  isFactionVariant = false,
+  factionColor,
 }) => {
   const rarityStyle = RARITY_COLORS[recipe.rarity];
+  const displayColor = isFactionVariant && factionColor ? factionColor : rarityStyle.primary;
   
   return (
     <div
@@ -28,21 +35,24 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         }
       `}
       style={{
-        borderColor: isUnlocked ? rarityStyle.primary : undefined,
-        boxShadow: isUnlocked ? `0 0 20px ${rarityStyle.glow}` : undefined,
+        borderColor: isUnlocked ? displayColor : undefined,
+        boxShadow: isUnlocked ? `0 0 20px ${isFactionVariant ? factionColor : rarityStyle.glow}` : undefined,
       }}
       onClick={onClick}
     >
       {/* Rarity badge */}
       <div
-        className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider"
+        className="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1"
         style={{
-          backgroundColor: `${rarityStyle.primary}20`,
-          color: rarityStyle.primary,
-          border: `1px solid ${rarityStyle.primary}40`,
+          backgroundColor: `${displayColor}20`,
+          color: displayColor,
+          border: `1px solid ${displayColor}40`,
         }}
       >
         {recipe.rarity}
+        {isFactionVariant && (
+          <span className="text-[10px]" title="Faction Variant - Requires Grandmaster rank">★</span>
+        )}
       </div>
       
       {/* Module preview or lock icon */}
@@ -58,7 +68,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
                 viewBox="0 0 24 24"
                 className="w-12 h-12"
                 fill="none"
-                stroke={rarityStyle.primary}
+                stroke={displayColor}
                 strokeWidth="1.5"
               >
                 <path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
@@ -85,10 +95,19 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
       {/* Recipe info */}
       <div className="p-3">
         <h4 
-          className="font-bold text-sm mb-1 truncate"
-          style={{ color: isUnlocked ? rarityStyle.primary : '#9CA3AF' }}
+          className="font-bold text-sm mb-1 truncate flex items-center gap-1"
+          style={{ color: isUnlocked ? displayColor : '#9CA3AF' }}
         >
           {recipe.name}
+          {isFactionVariant && (
+            <span 
+              className="text-[10px] px-1 py-0.5 rounded font-normal"
+              style={{ backgroundColor: `${factionColor}30`, color: factionColor }}
+              title="Faction Variant"
+            >
+              GM
+            </span>
+          )}
         </h4>
         
         {isUnlocked ? (
@@ -113,6 +132,14 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
             </span>
           </div>
         )}
+        
+        {/* Faction variant indicator for locked items */}
+        {isFactionVariant && !isUnlocked && (
+          <div className="mt-2 flex items-center gap-1 text-xs text-gray-500">
+            <span>🏆</span>
+            <span>Requires Grandmaster rank</span>
+          </div>
+        )}
       </div>
       
       {/* Glow effect on hover for unlocked */}
@@ -120,7 +147,7 @@ export const RecipeCard: React.FC<RecipeCardProps> = ({
         <div
           className="absolute inset-0 opacity-0 hover:opacity-20 transition-opacity pointer-events-none"
           style={{
-            background: `radial-gradient(circle at center, ${rarityStyle.glow}, transparent 70%)`,
+            background: `radial-gradient(circle at center, ${isFactionVariant ? factionColor : rarityStyle.glow}, transparent 70%)`,
           }}
         />
       )}
