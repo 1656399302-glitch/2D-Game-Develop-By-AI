@@ -20,10 +20,15 @@ import {
 import { calculateGroupCenter } from '../../utils/groupingUtils';
 import { ModuleSpatialIndex, getCanvasSpatialIndex } from '../../utils/spatialIndex';
 
+// D8 Integration: Import useCanvasPerformance hook (Round 82)
+import { useCanvasPerformance } from '../../hooks/useCanvasPerformance';
+
 const GRID_SIZE = 20;
 const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
 // AC8: Viewport culling with 50px buffer
 const VIEWPORT_CULLING_MARGIN = VIEWPORT_CULLING_BUFFER; // 50px
+// D8 Integration: 16ms debounce for 60fps performance
+const DEBOUNCE_MS = 16;
 
 // Lazy import LayersPanel to avoid circular dependency
 const LayersPanel = lazy(() => import('./LayersPanel').then(m => ({ default: m.LayersPanel })));
@@ -72,10 +77,18 @@ export function Canvas() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; modulePositions: Map<string, { x: number; y: number }> } | null>(null);
   
   // Spatial index for O(log n) hit testing
   const spatialIndexRef = useRef<ModuleSpatialIndex | null>(null);
+  
+  // D8 Integration: Canvas performance hook (Round 82)
+  // Provides rAF batching for transform updates and high performance mode detection
+  const { 
+    batchedTransform, 
+    isHighPerformance 
+  } = useCanvasPerformance({ forceHighPerformance: undefined });
   
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -354,6 +367,33 @@ export function Canvas() {
     return selectedIds;
   }, [isBoxSelecting, boxSelectionRect, modules]);
   
+  // D8 Integration: Pending connection preview coords for debouncing (Round 82)
+  const pendingConnectionCoordsRef = useRef<{ x: number; y: number } | null>(null);
+  
+  // D8 Integration: Debounced connection preview update for 60fps performance (Round 82)
+  // Uses 16ms debounce to batch rapid updates
+  const updateConnectionPreviewDebounced = useCallback((x: number, y: number) => {
+    // Store pending coords
+    pendingConnectionCoordsRef.current = { x, y };
+    
+    // If already scheduled, skip
+    if (connectionDebounceRef.current !== null) {
+      return;
+    }
+    
+    // Schedule debounced update
+    connectionDebounceRef.current = setTimeout(() => {
+      if (pendingConnectionCoordsRef.current) {
+        updateConnectionPreview(
+          pendingConnectionCoordsRef.current.x,
+          pendingConnectionCoordsRef.current.y
+        );
+        pendingConnectionCoordsRef.current = null;
+      }
+      connectionDebounceRef.current = null;
+    }, DEBOUNCE_MS);
+  }, [updateConnectionPreview]);
+  
   const getCanvasCoordinates = useCallback((clientX: number, clientY: number) => {
     if (!svgRef.current) return { x: 0, y: 0 };
     
@@ -363,6 +403,13 @@ export function Canvas() {
     
     return { x, y };
   }, [viewport]);
+  
+  // D8 Integration: Batched viewport transform updates (Round 82)
+  // Coalesces multiple transform updates into single rAF call
+  const setBatchedViewport = useCallback((newViewport: { x: number; y: number }) => {
+    batchedTransform(newViewport);
+    setViewport(newViewport);
+  }, [batchedTransform, setViewport]);
   
   // Handle drop from module panel
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -483,7 +530,7 @@ export function Canvas() {
         };
         // Request throttled update
         viewportThrottler.requestUpdate(newViewport);
-        setViewport(newViewport);
+        setBatchedViewport(newViewport);
       }, THROTTLE_INTERVAL_60FPS);
     } else if (isBoxSelecting) {
       const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
@@ -547,9 +594,10 @@ export function Canvas() {
       }
     } else if (isConnecting) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
-      updateConnectionPreview(coords.x, coords.y);
+      // D8 Integration: Use debounced connection preview for 60fps performance (Round 82)
+      updateConnectionPreviewDebounced(coords.x, coords.y);
     }
-  }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setViewport, updateModulePosition, updateModulesBatch, updateConnectionPreview, selectedModuleIds, viewport.zoom, gridEnabled]);
+  }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setBatchedViewport, viewportThrottler, updateModulePosition, updateModulesBatch, selectedModuleIds, viewport.zoom, gridEnabled, updateConnectionPreviewDebounced]);
   
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
@@ -587,9 +635,9 @@ export function Canvas() {
       
       // Use throttled update for zoom
       viewportThrottler.requestUpdate(newViewport);
-      setViewport(newViewport);
+      setBatchedViewport(newViewport);
     }
-  }, [viewport, setViewport]);
+  }, [viewport, setBatchedViewport, viewportThrottler]);
   
   // Handle module drag start
   const handleModuleDragStart = useCallback((id: string, e: React.MouseEvent) => {
@@ -1097,7 +1145,7 @@ export function Canvas() {
         </div>
       )}
       
-      {/* AC8: Zoom indicator with viewport culling info */}
+      {/* D8 Integration: AC8: Zoom indicator with viewport culling info and performance mode (Round 82) */}
       <div 
         className="absolute bottom-4 left-4 px-3 py-1 rounded bg-[#121826] border border-[#1e2a42] text-xs text-[#9ca3af]" 
         role="status" 
@@ -1118,6 +1166,11 @@ export function Canvas() {
         {spatialIndexRef.current && spatialIndexRef.current.size > 0 && (
           <span className="ml-2 text-[#a855f7]" title="Spatial indexing enabled for O(log n) hit testing">
             🗂
+          </span>
+        )}
+        {isHighPerformance && (
+          <span className="ml-2 text-[#00d4ff]" title="High performance mode enabled (useCanvasPerformance)">
+            ⚡
           </span>
         )}
       </div>

@@ -42,6 +42,12 @@ import { TradeNotification } from './components/Exchange/TradeNotification';
 import { PlacedModule, Connection } from './types';
 import { RandomGeneratorModal } from './components/Editor/RandomGeneratorModal';
 
+// D5 Integration: Import QuickActionsToolbar (Round 82)
+import { QuickActionsToolbar } from './components/QuickActionsToolbar';
+
+// D6 Integration: Import KeyboardShortcutsPanel and useKeyboardShortcutsPanel hook (Round 82)
+import { KeyboardShortcutsPanel, useKeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
+
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
 const LazyChallengePanel = lazy(() => import('./components/Challenge/ChallengePanel'));
@@ -188,6 +194,28 @@ function AppContent() {
   
   // Use keyboard shortcuts hook
   const { shortcutFeedback } = useKeyboardShortcuts({ enabled: viewMode === 'editor' });
+  
+  // D6 Integration: Keyboard shortcuts panel state and toggle (Round 82)
+  const { isOpen: isShortcutsPanelOpen, toggle: toggleShortcutsPanel, close: closeShortcutsPanel } = useKeyboardShortcutsPanel();
+  
+  // D6 Integration: Global keyboard handler for ? key toggle (Round 82)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle shortcuts panel with ? key (Shift + /)
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        // Only trigger if not typing in an input
+        if (document.activeElement?.tagName !== 'INPUT' && 
+            document.activeElement?.tagName !== 'TEXTAREA' &&
+            !document.activeElement?.hasAttribute('contenteditable')) {
+          e.preventDefault();
+          toggleShortcutsPanel();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleShortcutsPanel]);
   
   // Sync store modal states with local state - FIX: Only sync after hydration
   useEffect(() => {
@@ -524,6 +552,15 @@ function AppContent() {
           <span>网格: {useMachineStore.getState().gridEnabled ? '开启' : '关闭'}</span>
         </footer>
         
+        {/* D5 Integration: QuickActionsToolbar - Fixed bottom-right toolbar (Round 82) */}
+        {viewMode === 'editor' && <QuickActionsToolbar />}
+        
+        {/* D6 Integration: KeyboardShortcutsPanel - Toggle with ? key (Round 82) */}
+        <KeyboardShortcutsPanel 
+          isOpen={isShortcutsPanelOpen} 
+          onClose={closeShortcutsPanel} 
+        />
+        
         {/* Shortcut Feedback Toast */}
         {shortcutFeedback && (
           <div 
@@ -642,6 +679,7 @@ function AppContent() {
                       <li>• 从输出端口拖拽到输入端口来连接</li>
                       <li>• 使用随机锻造快速获得灵感</li>
                       <li>• Tab键在模块间导航</li>
+                      <li>• 按 <kbd className="px-1 bg-[#1e2a42] rounded text-[#c084fc]">?</kbd> 查看所有快捷键</li>
                     </ul>
                   </div>
                 </div>
@@ -756,6 +794,13 @@ function AppContent() {
             </Suspense>
           )
         }
+      />
+      {/* D5 Integration: QuickActionsToolbar for mobile (Round 82) */}
+      {viewMode === 'editor' && <QuickActionsToolbar />}
+      {/* D6 Integration: KeyboardShortcutsPanel for mobile (Round 82) */}
+      <KeyboardShortcutsPanel 
+        isOpen={isShortcutsPanelOpen} 
+        onClose={closeShortcutsPanel} 
       />
     </MobileTouchEnhancer>
   );
