@@ -4,6 +4,9 @@ import { useMachineTagsStore } from '../../store/useMachineTagsStore';
 import { CodexEntry, PlacedModule, Connection, Rarity } from '../../types';
 import { getRarityColor, getRarityLabel } from '../../utils/attributeGenerator';
 import { MachineTagEditor } from './MachineTagEditor';
+import { FactionBadge } from '../FactionBadge';
+import { getComplexityDetails, getComplexityColor } from '../../utils/complexityAnalyzer';
+import { MODULE_TO_FACTION, FactionId } from '../../types/factions';
 
 interface CodexViewProps {
   onLoadToEditor: (modules: PlacedModule[], connections: Connection[]) => void;
@@ -276,30 +279,56 @@ function CodexCard({ entry, isSelected, onClick, onLoad, onDelete, onEditTags }:
   const rarityColor = getRarityColor(entry.rarity);
   const tags = useMachineTagsStore((s) => s.getTags)(entry.id);
 
+  // Calculate complexity tier for this entry (ROUND 81 D7)
+  const complexityDetails = getComplexityDetails(entry.modules, entry.connections);
+  const complexityColor = getComplexityColor(complexityDetails.tier);
+
+  // Determine faction from modules (ROUND 81 D7)
+  const dominantFaction = getDominantFaction(entry.modules);
+
   return (
     <div
       onClick={onClick}
-      className={`arcane-card cursor-pointer transition-all ${
+      className={`arcane-card cursor-pointer transition-all relative ${
         isSelected ? 'ring-2 ring-[#00d4ff]' : ''
       }`}
       style={{ borderTopColor: rarityColor, borderTopWidth: '3px' }}
     >
-      {/* Header */}
+      {/* Header with Faction Badge (ROUND 81 D7) */}
       <div className="flex items-start justify-between mb-3">
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="font-medium text-white truncate">{entry.name}</h3>
           <p className="text-xs text-[#4a5568]">{entry.codexId}</p>
         </div>
-        <span
-          className="text-xs px-2 py-0.5 rounded"
-          style={{
-            backgroundColor: `${rarityColor}20`,
-            color: rarityColor,
-          }}
-        >
-          {getRarityLabel(entry.rarity)}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className="text-xs px-2 py-0.5 rounded"
+            style={{
+              backgroundColor: `${rarityColor}20`,
+              color: rarityColor,
+            }}
+          >
+            {getRarityLabel(entry.rarity)}
+          </span>
+          {/* Complexity Tier Badge (ROUND 81 D7) */}
+          <span
+            className="text-xs px-2 py-0.5 rounded"
+            style={{
+              backgroundColor: `${complexityColor}20`,
+              color: complexityColor,
+            }}
+          >
+            {complexityDetails.tier}
+          </span>
+        </div>
       </div>
+
+      {/* Faction Badge (ROUND 81 D7) */}
+      {dominantFaction && (
+        <div className="mb-3">
+          <FactionBadge factionId={dominantFaction} size="sm" showTooltip={false} />
+        </div>
+      )}
 
       {/* Preview */}
       <div className="aspect-video bg-[#0a0e17] rounded mb-3 flex items-center justify-center overflow-hidden">
@@ -373,6 +402,25 @@ interface CodexDetailPanelProps {
 function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: CodexDetailPanelProps) {
   const rarityColor = getRarityColor(entry.rarity);
   const tags = useMachineTagsStore((s) => s.getTags)(entry.id);
+  const addEntryToCodex = useCodexStore((s) => s.addEntry);
+
+  // Calculate complexity tier (ROUND 81 D7)
+  const complexityDetails = getComplexityDetails(entry.modules, entry.connections);
+  const complexityColor = getComplexityColor(complexityDetails.tier);
+
+  // Determine faction (ROUND 81 D7)
+  const dominantFaction = getDominantFaction(entry.modules);
+
+  // Handle duplicate (ROUND 81 D7)
+  const handleDuplicate = useCallback(() => {
+    // Create a copy with "(Copy)" suffix
+    addEntryToCodex(
+      entry.name + ' (Copy)',
+      entry.modules,
+      entry.connections,
+      entry.attributes
+    );
+  }, [entry, addEntryToCodex]);
 
   return (
     <div className="w-96 bg-[#121826] border-l border-[#1e2a42] flex flex-col overflow-hidden">
@@ -392,7 +440,7 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: Code
         {/* Title */}
         <div>
           <h3 className="text-xl font-bold text-white mb-1">{entry.name}</h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span
               className="text-sm px-3 py-1 rounded"
               style={{
@@ -404,6 +452,20 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: Code
             </span>
             <span className="text-sm text-[#4a5568]">{entry.codexId}</span>
           </div>
+        </div>
+
+        {/* Faction Badge and Complexity (ROUND 81 D7) */}
+        <div className="flex items-center gap-3">
+          {dominantFaction && <FactionBadge factionId={dominantFaction} size="md" />}
+          <span
+            className="text-sm px-3 py-1 rounded"
+            style={{
+              backgroundColor: `${complexityColor}20`,
+              color: complexityColor,
+            }}
+          >
+            {complexityDetails.tier}
+          </span>
         </div>
 
         {/* Preview */}
@@ -461,6 +523,37 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: Code
           </div>
         </div>
 
+        {/* Complexity Details (ROUND 81 D7) */}
+        <div>
+          <h4 className="text-xs font-medium text-[#9ca3af] uppercase mb-2">Complexity Analysis</h4>
+          <div className="bg-[#0a0e17] rounded-lg p-3 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-[#9ca3af]">Modules:</span>
+              <span className="text-white">{complexityDetails.moduleCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#9ca3af]">Connections:</span>
+              <span className="text-white">{complexityDetails.connectionCount}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#9ca3af]">Density:</span>
+              <span className="text-white">{complexityDetails.connectionDensity}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[#9ca3af]">Rare Modules:</span>
+              <span className="text-white">{complexityDetails.rareModuleCount}</span>
+            </div>
+            {complexityDetails.bonuses.length > 0 && (
+              <div className="pt-2 border-t border-[#1e2a42]">
+                <span className="text-[#9ca3af] block mb-1">Bonuses:</span>
+                {complexityDetails.bonuses.map((bonus, i) => (
+                  <span key={i} className="block text-xs text-[#a78bfa]">+ {bonus}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Module List */}
         <div>
           <h4 className="text-xs font-medium text-[#9ca3af] uppercase mb-2">
@@ -506,6 +599,12 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: Code
           className="w-full arcane-button"
         >
           Load to Editor
+        </button>
+        <button
+          onClick={handleDuplicate}
+          className="w-full arcane-button-secondary"
+        >
+          Duplicate Entry
         </button>
         <button
           onClick={onDelete}
@@ -573,6 +672,32 @@ function MachinePreview({ modules, large = false }: { modules: PlacedModule[]; l
       })}
     </svg>
   );
+}
+
+/**
+ * Get dominant faction from module types (ROUND 81 D7)
+ */
+function getDominantFaction(modules: PlacedModule[]): FactionId | null {
+  const factionCounts: Record<string, number> = {};
+  
+  modules.forEach((module) => {
+    const faction = MODULE_TO_FACTION[module.type];
+    if (faction) {
+      factionCounts[faction] = (factionCounts[faction] || 0) + 1;
+    }
+  });
+  
+  let dominantFaction: string | null = null;
+  let maxCount = 0;
+  
+  Object.entries(factionCounts).forEach(([faction, count]) => {
+    if (count > maxCount) {
+      maxCount = count;
+      dominantFaction = faction;
+    }
+  });
+  
+  return dominantFaction as FactionId | null;
 }
 
 export default CodexView;
