@@ -1,136 +1,338 @@
-# Sprint Contract — Round 87
+# Sprint Contract — Round 88
 
-## APPROVED
+> **Contract Status:** ACTIVE — Ready for execution
 
-## Scope
+## Contract Overview
 
-This sprint focuses on **quality assurance and polish improvements** following the successful Challenge-Codex integration in Round 86. The primary goal is to identify and address any edge cases, improve robustness, and enhance user-facing quality without introducing new major features.
+**Project:** Arcane Machine Codex Workshop (交互式魔法机械图鉴工坊)
+**Sprint Type:** Remediation Sprint — Fix contract verification gaps
+**Start:** Round 88
+**End:** Round 88 completion
 
-## Spec Traceability
+---
 
-### P0 items (Core System — assume fully implemented)
-- Module drag-and-drop editor with 6+ SVG module types
-- Energy connection system with path rendering
-- Activation preview system with state machine (idle, charging, active, overload, failure, shutdown)
-- Machine attribute generation system
-- Codex save/load/view system
-- SVG/PNG export capabilities
+## Purpose
 
-### P1 items (Feature Complete — assume fully implemented)
-- Random generation mode
-- Undo/redo system
-- Challenge system with faction progression
-- Challenge-Codex integration (Round 86)
-- Machine rarity and attribute display
+This sprint addresses the Round 87 contract rejection issues. The previous contract had zero functional acceptance criteria verifying that the interactive editor actually works. This revision adds verifiable functional ACs for core editor capabilities, fixes performance targets, strengthens test methods, and clarifies scope.
 
-### P2 items this round may address (partial scope)
-- Visual polish improvements
-- Edge case handling
-- Performance optimization
-- Code quality and maintainability
+---
 
-### Remaining P0/P1 after this round
-- All P0/P1 items from spec are assumed complete from prior rounds
-- This sprint does NOT unblock any critical P0/P1 work
+## Spec Coverage
 
-### P2 intentionally deferred
-- AI naming/description assistant integration
-- Community sharing features
-- Challenge recipe unlock system
-- Faction tech tree progression
-- Advanced layout suggestions
+This sprint addresses **SPEC MAINTENANCE** — verifying that existing functionality continues to work:
 
-## Deliverables
+| Spec Section | Status | Notes |
+|--------------|--------|-------|
+| Module Editor (Canvas, ModulePanel, drag-drop) | Regression Testing | Verify modules can be added to canvas |
+| Energy Connection System | Regression Testing | Verify connections can be created |
+| Activation Preview System | Regression Testing | Verify state machine transitions work |
+| Codex System (save/load) | Regression Testing | Verify entries persist |
+| Build & Test Infrastructure | Regression Testing | Verify bundle size and test suite |
 
-1. **Code quality audit report** — Summary of current code health metrics (file count, complexity indicators, type coverage if applicable)
+**Spec Portion Deferred:** No new features this round.
 
-2. **Edge case test coverage** — Additional integration tests for critical user workflows not yet covered
-
-3. **Performance baseline** — Documented build metrics (size, test duration) for comparison
-
-4. **Polished component improvements** — Any targeted visual/interaction polish identified during the sprint
-
-5. **Updated documentation** — Any needed README or internal documentation updates
+---
 
 ## Acceptance Criteria
 
-1. **AC-MAINTENANCE-001**: All existing 2933 tests continue to pass after any changes
+### Functional ACs (Editor Core)
 
-2. **AC-MAINTENANCE-002**: Build succeeds with 0 TypeScript errors, bundle size remains ≤ 560KB
+#### AC-EDITOR-001: Module Drag onto Canvas
+**Criterion:** User can add modules from the panel to the canvas via the store API
 
-3. **AC-TEST-GAP**: At least 5 new integration tests added covering previously untested code paths
+**Verification Method:**
+```typescript
+// Test: useMachineStore.addModule() creates a module on the canvas
+const { addModule, modules } = useMachineStore.getState();
+await act(async () => {
+  addModule('core-furnace', 100, 100);
+});
+const state = useMachineStore.getState();
+expect(state.modules.length).toBe(1);
+expect(state.modules[0].type).toBe('core-furnace');
+```
 
-4. **AC-CODE-QUALITY**: No critical (blocking) code review findings introduced by sprint changes
+**Test File:** `src/__tests__/functional/editorCore.test.ts`
+**Status:** TO BE VERIFIED
 
-5. **AC-DOCUMENTATION**: Any new public APIs or store methods are documented in JSDoc or TypeScript types
+---
+
+#### AC-EDITOR-002: Connection Creation Between Modules
+**Criterion:** User can create energy connections between two placed modules
+
+**Verification Method:**
+```typescript
+// Test: useMachineStore connection methods create valid connections
+const { addModule, startConnection, completeConnection, connections } = useMachineStore.getState();
+// Add two modules
+await act(async () => {
+  addModule('core-furnace', 100, 100);
+  addModule('rune-node', 200, 100);
+});
+const modules = useMachineStore.getState().modules;
+// Create connection
+await act(async () => {
+  startConnection(modules[0].instanceId, 'output', 'output-1');
+  completeConnection(modules[1].instanceId, 'input', 'input-1');
+});
+expect(useMachineStore.getState().connections.length).toBe(1);
+```
+
+**Test File:** `src/__tests__/functional/editorCore.test.ts`
+**Status:** TO BE VERIFIED
+
+---
+
+#### AC-EDITOR-003: Activation State Machine
+**Criterion:** Machine activation triggers animation state changes through the state machine
+
+**Verification Method:**
+```typescript
+// Test: setMachineState() transitions between valid states
+const { setMachineState, machineState } = useMachineStore.getState();
+const validStates = ['idle', 'charging', 'active', 'overload', 'failure', 'shutdown'];
+await act(async () => {
+  setMachineState('charging');
+});
+expect(useMachineStore.getState().machineState).toBe('charging');
+await act(async () => {
+  setMachineState('active');
+});
+expect(useMachineStore.getState().machineState).toBe('active');
+```
+
+**Test File:** `src/__tests__/functional/activationCore.test.ts`
+**Status:** TO BE VERIFIED
+
+---
+
+#### AC-CODEX-001: Codex Save and Retrieve
+**Criterion:** Machine can be saved to codex and retrieved with correct data
+
+**Verification Method:**
+```typescript
+// Test: useCodexStore.addEntry() and getEntry() work correctly
+const codex = useCodexStore.getState();
+await act(async () => {
+  codex.addEntry('Test Machine', [], [], {
+    rarity: 'rare',
+    stability: 0.8,
+    energy: 100,
+    failureRate: 0.1,
+    output: 'fire',
+    能耗: 'medium',
+    coreFaction: 'arcane',
+    description: 'Test',
+    tags: ['test'],
+    codexNumber: 'MC-0001',
+  });
+});
+const entries = useCodexStore.getState().entries;
+expect(entries.length).toBeGreaterThan(0);
+const savedEntry = entries[entries.length - 1];
+expect(savedEntry.name).toBe('Test Machine');
+expect(savedEntry.rarity).toBe('rare');
+```
+
+**Test File:** `src/__tests__/functional/codexCore.test.ts`
+**Status:** TO BE VERIFIED
+
+---
+
+### Build & Infrastructure ACs
+
+#### AC-BUILD-001: Bundle Size Compliance
+**Criterion:** Build succeeds with bundle size ≤560KB
+
+**Verification Method:**
+```bash
+Command: npm run build 2>&1
+Expected: Exit code 0, output contains "index-*.js" with size ≤560KB
+```
+
+**Test File:** `src/__tests__/functional/buildCompliance.test.ts`
+**Status:** TO BE VERIFIED
+
+---
+
+#### AC-TEST-001: Test Suite Passes
+**Criterion:** All 3102+ tests pass
+
+**Verification Method:**
+```bash
+Command: npx vitest run 2>&1
+Expected: All test files pass, total tests ≥3102
+```
+
+**Test File:** Existing test suite
+**Status:** TO BE VERIFIED
+
+---
+
+#### AC-TEST-PERF-001: Test Suite Duration
+**Criterion:** Test suite completes in reasonable time with parallelization enabled
+
+**Verification Method:**
+```bash
+Command: npx vitest run 2>&1
+Expected: Duration ≤15s (with pool: 'forks' enabled)
+Fallback: If parallelization causes instability, accept ≤16s with sequential pool
+```
+
+**Test File:** Existing vitest run
+**Status:** TO BE VERIFIED
+
+---
+
+### Documentation ACs
+
+#### AC-DOC-001: README Content Verification
+**Criterion:** README contains required sections for developer onboarding
+
+**Verification Method:**
+```bash
+Command: grep -E "(Setup|Architecture|Modules|Connections|Activation|Codex|Export)" README.md
+Expected: At least 6 of 8 expected sections present
+```
+
+**Status:** TO BE VERIFIED
+
+---
+
+#### AC-DOC-002: Store API Documentation
+**Criterion:** Key stores documented in API.md
+
+**Verification Method:**
+```bash
+Command: grep -E "(useMachineStore|useCodexStore|useFactionStore|useActivationStore)" API.md
+Expected: At least 4 store names appear in documentation
+```
+
+**Status:** TO BE VERIFIED
+
+---
+
+## Deliverables
+
+### D1: Functional Test Suite for Editor Core
+**File:** `src/__tests__/functional/editorCore.test.ts`
+**Content:**
+- AC-EDITOR-001: Module drag/add to canvas
+- AC-EDITOR-002: Connection creation between modules
+- Additional edge cases for module placement
+
+**Size:** ≥50 lines, ≥5 test cases
+**Status:** TO BE IMPLEMENTED
+
+---
+
+### D2: Functional Test Suite for Activation System
+**File:** `src/__tests__/functional/activationCore.test.ts`
+**Content:**
+- AC-EDITOR-003: State machine transitions
+- State transition edge cases
+- Invalid state handling
+
+**Size:** ≥40 lines, ≥4 test cases
+**Status:** TO BE IMPLEMENTED
+
+---
+
+### D3: Functional Test Suite for Codex System
+**File:** `src/__tests__/functional/codexCore.test.ts`
+**Content:**
+- AC-CODEX-001: Save and retrieve entries
+- Entry data integrity
+- Duplicate handling
+
+**Size:** ≥40 lines, ≥4 test cases
+**Status:** TO BE IMPLEMENTED
+
+---
+
+### D4: Build Compliance Test
+**File:** `src/__tests__/functional/buildCompliance.test.ts`
+**Content:**
+- AC-BUILD-001: Bundle size verification
+- Parse build output for actual bundle size
+- Assert ≤560KB threshold
+
+**Size:** ≥30 lines, ≥2 test cases
+**Status:** TO BE IMPLEMENTED
+
+---
 
 ## Test Methods
 
-1. **AC-MAINTENANCE-001**:
-   - Run `npx vitest run` and confirm all tests pass
-   - Verify test count ≥ 2933 (allowing for new additions)
+### Functional Tests
 
-2. **AC-MAINTENANCE-002**:
-   - Run `npm run build` and confirm exit code 0
-   - Verify bundle size from build output ≤ 560KB
-   - Verify `tsc --noEmit` returns 0 errors
+| Test | Method | Expected Result |
+|------|--------|-----------------|
+| AC-EDITOR-001 | Call `addModule()`, verify module in store | Module appears in `modules` array |
+| AC-EDITOR-002 | Call `startConnection()` + `completeConnection()` | Connection appears in `connections` array |
+| AC-EDITOR-003 | Call `setMachineState()` with each state | `machineState` matches input |
+| AC-CODEX-001 | Call `addEntry()`, verify data integrity | Entry saved with correct data |
 
-3. **AC-TEST-GAP**:
-   - Review existing test coverage for store methods and components
-   - Add tests for any store selectors/helpers not covered
-   - Add tests for edge cases in challenge-machine relationships
-   - Confirm new test file(s) exist and pass
+### Build Verification
 
-4. **AC-CODE-QUALITY**:
-   - Self-review code changes for: no `any` types without justification, proper error handling, clean component structure
-   - No console.error calls in production code paths
-   - All store updates follow existing patterns
+```bash
+# Bundle size test
+npm run build 2>&1 | grep "index-*.js"
+# Parse size from output, assert ≤560KB
+```
 
-5. **AC-DOCUMENTATION**:
-   - New exported functions have JSDoc comments
-   - New types/interfaces are properly defined in `/types`
-   - Store methods have clear parameter/return type annotations
+### Documentation Verification
 
-## Risks
+```bash
+# README sections
+grep -E "(Setup|Architecture|Modules|Connections|Activation|Codex|Export)" README.md
+# Expected: At least 6 sections
 
-1. **Risk: Scope creep** — Without specific feedback pointing to problems, there's temptation to add features. Mitigation: Focus on maintenance and documented gaps only.
+# Store documentation
+grep -E "(useMachineStore|useCodexStore|useFactionStore|useActivationStore)" API.md
+# Expected: At least 4 stores documented
+```
 
-2. **Risk: False improvements** — Adding tests or refactoring that doesn't improve actual product quality. Mitigation: Prioritize changes that directly address known complexity or edge cases.
-
-3. **Risk: Test pollution** — New tests may mask or conflict with existing behavior. Mitigation: Run full test suite before and after any changes.
-
-## Failure Conditions
-
-1. **FC-001**: Any existing test fails after sprint changes
-2. **FC-002**: Build size exceeds 560KB or TypeScript errors are introduced
-3. **FC-003**: New features or non-trivial functionality added (sprint is maintenance-only)
-4. **FC-004**: Critical user-facing bug introduced by refactoring
+---
 
 ## Done Definition
 
-All of the following must be true before claiming the round complete:
+1. **Functional Correctness:** All 4 functional ACs (EDITOR-001, EDITOR-002, EDITOR-003, CODEX-001) pass
+2. **Build Compliance:** Bundle size ≤560KB, TypeScript 0 errors
+3. **Test Suite:** All 3102+ tests pass, duration ≤15s
+4. **Documentation:** README has ≥6 required sections, API.md documents ≥4 stores
+5. **Test Coverage:** New functional tests cover core editor capabilities
 
-1. ✅ `npx vitest run` passes with ≥ 2933 tests (original count + new additions)
-2. ✅ `npm run build` succeeds with 0 errors, bundle ≤ 560KB
-3. ✅ At least 5 new integration tests added and passing
-4. ✅ No new `any` types or critical code quality issues in changed files
-5. ✅ Code changes reviewed and approved (self-review acceptable)
-6. ✅ New tests cover edge cases not previously tested
-7. ✅ Documentation updated for any new public APIs
+---
+
+## Risks & Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| Parallel tests cause flakiness | Medium | High | Enable `pool: 'forks'` with fallback to sequential |
+| Store API changes break tests | Low | High | Tests use current API, documented in ACs |
+| Build environment differs | Low | Medium | Test runs actual build command |
+
+---
 
 ## Out of Scope
 
-- **No new features** from the spec (AI assistant, community features, tech tree, recipe system)
-- **No major refactoring** of existing working systems
-- **No UI/UX redesigns** of core workflows
-- **No new module types** added to the editor
-- **No new export formats** beyond what exists
-- **No changes to the core state management architecture**
-- **No modifications to passing acceptance criteria from prior rounds**
+- New features
+- UI/UX improvements
+- Module type additions
+- Export format expansion
 
-## Notes
+---
 
-- This is a **maintenance sprint** following a successful Round 86
-- The project passed QA with no blocking issues
-- Focus is on sustainable code quality and test coverage
-- Any discovered bugs should be reported but may be deferred to feature sprints if non-critical
+## Success Criteria
+
+**All 9 acceptance criteria must pass:**
+- [ ] AC-EDITOR-001: Module drag to canvas works
+- [ ] AC-EDITOR-002: Connection creation works
+- [ ] AC-EDITOR-003: Activation state machine works
+- [ ] AC-CODEX-001: Codex save/retrieve works
+- [ ] AC-BUILD-001: Bundle ≤560KB
+- [ ] AC-TEST-001: All tests pass
+- [ ] AC-TEST-PERF-001: Duration ≤15s
+- [ ] AC-DOC-001: README content verified
+- [ ] AC-DOC-002: Store docs verified
