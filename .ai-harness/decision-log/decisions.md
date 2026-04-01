@@ -816,3 +816,9 @@
 ## Round 78 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 78 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 79 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

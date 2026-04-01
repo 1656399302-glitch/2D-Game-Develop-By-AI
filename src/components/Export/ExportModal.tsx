@@ -203,13 +203,20 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   }
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Export Machine"
+      aria-labelledby="export-modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    >
       <div className="w-full max-w-lg bg-[#121826] border border-[#1e2a42] rounded-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-[#00d4ff]">Export Machine</h2>
+          <h2 id="export-modal-title" className="text-xl font-bold text-[#00d4ff]">Export Machine</h2>
           <button
             onClick={onClose}
+            aria-label="Close export dialog"
             className="w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors"
           >
             ✕
