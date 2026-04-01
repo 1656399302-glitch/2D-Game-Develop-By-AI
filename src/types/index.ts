@@ -170,6 +170,57 @@ export interface HistoryState {
 export type ExportResolution = '1x' | '2x' | '4x';
 export type ExportAspectRatio = 'default' | 'square' | 'portrait' | 'landscape';
 
+// Social Media Platform Presets (Round 73)
+export type SocialPlatform = 'twitter' | 'instagram' | 'discord';
+
+export interface PlatformPreset {
+  id: SocialPlatform;
+  name: string;
+  nameCn: string;
+  description: string;
+  icon: string;
+  width: number;
+  height: number;
+  aspectRatio: string;
+  accentColor: string;
+}
+
+export const PLATFORM_PRESETS: Record<SocialPlatform, PlatformPreset> = {
+  twitter: {
+    id: 'twitter',
+    name: 'Twitter/X',
+    nameCn: '推特/X',
+    description: '16:9 - 1200×675px',
+    icon: '𝕏',
+    width: 1200,
+    height: 675,
+    aspectRatio: '16:9',
+    accentColor: '#1DA1F2',
+  },
+  instagram: {
+    id: 'instagram',
+    name: 'Instagram',
+    nameCn: 'Instagram',
+    description: '1:1 - 1080×1080px',
+    icon: '📷',
+    width: 1080,
+    height: 1080,
+    aspectRatio: '1:1',
+    accentColor: '#E4405F',
+  },
+  discord: {
+    id: 'discord',
+    name: 'Discord',
+    nameCn: 'Discord',
+    description: '3:2 - 600×400px',
+    icon: '💬',
+    width: 600,
+    height: 400,
+    aspectRatio: '3:2',
+    accentColor: '#5865F2',
+  },
+};
+
 export interface ExportOptions {
   format: 'svg' | 'png' | 'poster';
   width?: number;
@@ -189,6 +240,9 @@ export interface EnhancedExportOptions extends ExportOptions {
   resolution?: ExportResolution;
   transparentBackground?: boolean;
   aspectRatio?: ExportAspectRatio;
+  platform?: SocialPlatform;
+  username?: string;
+  includeWatermark?: boolean;
 }
 
 // Duplicate Detection Types (Round 65)

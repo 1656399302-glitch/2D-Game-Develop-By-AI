@@ -68,6 +68,7 @@ vi.mock('../utils/exportUtils', () => ({
   exportToPNG: vi.fn(() => Promise.resolve(new Blob(['fake-png'], { type: 'image/png' }))),
   exportPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
   exportEnhancedPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
+  exportSocialPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
   exportFactionCard: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
   downloadFile: vi.fn(),
   getResolutionDimensions: vi.fn((_modules, resolution) => {
@@ -188,7 +189,6 @@ describe('ExportModal', () => {
       render(<ExportModal onClose={mockOnClose} />);
       
       fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
-      fireEvent.click(screen.getByRole('button', { name: /默认.*Default/i }));
       fireEvent.click(screen.getByRole('button', { name: /方形.*Square/i }));
       
       const dimensionText = screen.getByTestId('dimension-indicator');
@@ -206,56 +206,93 @@ describe('ExportModal', () => {
     });
   });
 
-  describe('AC6: Quick presets', () => {
-    it('Social Media preset selects PNG format', () => {
+  describe('AC1: 8 Format Options', () => {
+    it('Default format is SVG when modal opens', () => {
       render(<ExportModal onClose={mockOnClose} />);
-      fireEvent.click(screen.getByRole('button', { name: /Social Media/i }));
-      const pngTab = screen.getByRole('tab', { name: /png/i });
-      expect(pngTab.getAttribute('aria-selected')).toBe('true');
-    });
-
-    it('Social Media preset selects 2x resolution', () => {
-      render(<ExportModal onClose={mockOnClose} />);
-      fireEvent.click(screen.getByRole('button', { name: /Social Media/i }));
-      const btn = screen.getByRole('button', { name: /Resolution 2x/i });
-      expect(btn.classList.contains('selected')).toBe(true);
-    });
-
-    it('Social Media preset selects square aspect ratio', () => {
-      render(<ExportModal onClose={mockOnClose} />);
-      fireEvent.click(screen.getByRole('button', { name: /Social Media/i }));
-      // First need to switch to poster format to see aspect ratio buttons
-      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
-      const btn = screen.getByRole('button', { name: /方形.*Square/i });
-      expect(btn.classList.contains('selected')).toBe(true);
-    });
-
-    it('Print preset selects 4x resolution', () => {
-      render(<ExportModal onClose={mockOnClose} />);
-      fireEvent.click(screen.getByRole('button', { name: /Print/i }));
-      const btn = screen.getByRole('button', { name: /Resolution 4x/i });
-      expect(btn.classList.contains('selected')).toBe(true);
-    });
-
-    it('Icon preset enables transparent background', () => {
-      render(<ExportModal onClose={mockOnClose} />);
-      fireEvent.click(screen.getByRole('button', { name: /Icon/i }));
-      const checkbox = screen.getByRole('checkbox', { name: /transparent/i });
-      expect((checkbox as HTMLInputElement).checked).toBe(true);
-    });
-
-    it('Icon preset selects 1x resolution', () => {
-      render(<ExportModal onClose={mockOnClose} />);
-      fireEvent.click(screen.getByRole('button', { name: /Icon/i }));
-      const btn = screen.getByRole('button', { name: /Resolution 1x/i });
-      expect(btn.classList.contains('selected')).toBe(true);
-    });
-
-    it('Presentation preset selects SVG format', () => {
-      render(<ExportModal onClose={mockOnClose} />);
-      fireEvent.click(screen.getByRole('button', { name: /Presentation/i }));
+      // SVG is selected by default when modal opens
       const svgTab = screen.getByRole('tab', { name: /svg/i });
       expect(svgTab.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('shows all 8 format options', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      // Check for all 8 format buttons
+      expect(screen.getByRole('tab', { name: /svg/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /png/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /poster/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /enhanced/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /faction card/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /twitter/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /instagram/i })).toBeTruthy();
+      expect(screen.getByRole('tab', { name: /discord/i })).toBeTruthy();
+    });
+  });
+
+  describe('Social Media Preset Dimensions', () => {
+    it('shows 1200×675 for Twitter/X preset', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /twitter/i }));
+      
+      const dimensionText = screen.getByTestId('dimension-indicator');
+      expect(dimensionText.textContent).toMatch(/1200.*675/);
+    });
+
+    it('shows 1080×1080 for Instagram preset', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /instagram/i }));
+      
+      const dimensionText = screen.getByTestId('dimension-indicator');
+      expect(dimensionText.textContent).toMatch(/1080.*1080/);
+    });
+
+    it('shows 600×400 for Discord preset', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /discord/i }));
+      
+      const dimensionText = screen.getByTestId('dimension-indicator');
+      expect(dimensionText.textContent).toMatch(/600.*400/);
+    });
+  });
+
+  describe('AC4: Username/Watermark Input', () => {
+    it('shows username input for enhanced poster format', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /enhanced/i }));
+      
+      const usernameInput = screen.getByTestId('username-input');
+      expect(usernameInput).toBeTruthy();
+    });
+
+    it('username input has correct placeholder', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /enhanced/i }));
+      
+      const usernameInput = screen.getByTestId('username-input');
+      expect(usernameInput.getAttribute('placeholder')).toBe('Author (optional)');
+    });
+
+    it('shows watermark toggle for enhanced poster format', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /enhanced/i }));
+      
+      const toggle = screen.getByTestId('watermark-toggle');
+      expect(toggle).toBeTruthy();
+    });
+
+    it('shows username input for Twitter preset', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /twitter/i }));
+      
+      const usernameInput = screen.getByTestId('username-input');
+      expect(usernameInput).toBeTruthy();
     });
   });
 });

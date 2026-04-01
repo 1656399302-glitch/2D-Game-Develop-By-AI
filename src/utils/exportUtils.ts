@@ -1,4 +1,4 @@
-import { PlacedModule, Connection, GeneratedAttributes, ExportResolution, ExportAspectRatio, ASPECT_RATIO_DIMS, RESOLUTION_DIMS } from '../types';
+import { PlacedModule, Connection, GeneratedAttributes, ExportResolution, ExportAspectRatio, ASPECT_RATIO_DIMS, RESOLUTION_DIMS, SocialPlatform, PLATFORM_PRESETS } from '../types';
 import { FactionConfig } from '../types/factions';
 
 export function exportToSVG(
@@ -209,14 +209,6 @@ function calculateBounds(modules: PlacedModule[]): { minX: number; minY: number;
 
 /**
  * Export to PNG with resolution scaling and transparent background support
- * 
- * @param modules - Array of placed modules
- * @param connections - Array of connections
- * @param options - Export options including:
- *   - scale: Resolution multiplier (1x, 2x, 4x). Default is 2.
- *   - transparentBackground: If true, exports with transparent background. Default is false.
- *   - width: Optional custom width
- *   - height: Optional custom height
  */
 export async function exportToPNG(
   modules: PlacedModule[],
@@ -233,7 +225,6 @@ export async function exportToPNG(
   const ctx = canvas.getContext('2d')!;
   const img = new Image();
   
-  // Get scale value from resolution
   const scaleMap: Record<ExportResolution, number> = {
     '1x': 1,
     '2x': 2,
@@ -249,17 +240,13 @@ export async function exportToPNG(
       canvas.width = baseWidth * scale;
       canvas.height = baseHeight * scale;
       
-      // Handle transparent background
       if (options.transparentBackground) {
-        // Clear canvas to transparent
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       } else {
-        // Fill with dark background
         ctx.fillStyle = '#0a0e17';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
       
-      // Scale the drawing
       ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0);
       
@@ -277,9 +264,6 @@ export async function exportToPNG(
   });
 }
 
-/**
- * Get the expected output dimensions for a given resolution
- */
 export function getResolutionDimensions(
   modules: PlacedModule[],
   resolution: ExportResolution
@@ -397,24 +381,26 @@ export function exportPoster(
 </svg>`;
 }
 
+/**
+ * Enhanced poster export with watermark support (AC5)
+ * Options include username for watermark display
+ */
 export function exportEnhancedPoster(
   modules: PlacedModule[],
   connections: Connection[],
   attributes: GeneratedAttributes,
-  aspectRatio: ExportAspectRatio = 'default'
+  aspectRatio: ExportAspectRatio = 'default',
+  options: { username?: string } = {}
 ): string {
   const bounds = calculateBounds(modules);
   const dims = ASPECT_RATIO_DIMS[aspectRatio];
   
-  // Calculate proportions based on aspect ratio
   const isLandscape = aspectRatio === 'landscape';
   const isSquare = aspectRatio === 'square';
   
-  // Preview dimensions scale with aspect ratio
   const previewHeight = isLandscape ? 280 : (isSquare ? 300 : 350);
   const previewY = 100;
   
-  // Machine preview position calculations
   const machineScale = Math.min(
     (dims.width - 100) / Math.max(bounds.width, 1),
     previewHeight / Math.max(bounds.height, 1),
@@ -425,9 +411,18 @@ export function exportEnhancedPoster(
   const offsetX = (dims.width - scaledWidth) / 2 - bounds.minX * machineScale;
   const offsetY = previewY + (previewHeight - scaledHeight) / 2 - bounds.minY * machineScale;
   
-  // Get background gradient based on dominant tag
   const dominantTag = getDominantTag(attributes.tags);
   const bgGradient = getTagGradient(dominantTag);
+  
+  // AC5: Watermark rendering
+  const watermarkSection = options.username ? `
+  <!-- AC5: Watermark/Username in bottom-right -->
+  <g transform="translate(${dims.width - 20}, ${dims.height - 20})">
+    <rect x="-120" y="-24" width="120" height="24" rx="4" fill="#0a0e17" opacity="0.7"/>
+    <text x="-10" y="-6" text-anchor="end" fill="white" font-size="12" opacity="0.6" font-family="sans-serif">
+      @${options.username}
+    </text>
+  </g>` : '';
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" 
@@ -464,26 +459,42 @@ export function exportEnhancedPoster(
   <!-- Background -->
   <rect width="100%" height="100%" fill="url(#enhancedBg)"/>
   
-  <!-- Decorative corner ornaments -->
+  <!-- AC6: Animated decorative corner ornaments with SVG stroke-dasharray animation -->
   <g stroke="url(#goldGradient)" stroke-width="2" fill="none">
-    <!-- Top left -->
-    <path d="M10,50 L10,10 L50,10"/>
-    <path d="M15,40 L15,15 L40,15"/>
+    <!-- Top left corner flourish with animation -->
+    <path d="M10,50 L10,10 L50,10" stroke-dasharray="60" stroke-dashoffset="60">
+      <animate attributeName="stroke-dashoffset" from="60" to="0" dur="1s" fill="freeze"/>
+    </path>
+    <path d="M15,40 L15,15 L40,15" stroke-dasharray="40" stroke-dashoffset="40">
+      <animate attributeName="stroke-dashoffset" from="40" to="0" dur="0.8s" fill="freeze"/>
+    </path>
     <circle cx="10" cy="10" r="3" fill="#fbbf24"/>
     
-    <!-- Top right -->
-    <path d="M${dims.width - 10},50 L${dims.width - 10},10 L${dims.width - 50},10"/>
-    <path d="M${dims.width - 15},40 L${dims.width - 15},15 L${dims.width - 40},15"/>
+    <!-- Top right corner flourish with animation -->
+    <path d="M${dims.width - 10},50 L${dims.width - 10},10 L${dims.width - 50},10" stroke-dasharray="60" stroke-dashoffset="60">
+      <animate attributeName="stroke-dashoffset" from="60" to="0" dur="1s" fill="freeze"/>
+    </path>
+    <path d="M${dims.width - 15},40 L${dims.width - 15},15 L${dims.width - 40},15" stroke-dasharray="40" stroke-dashoffset="40">
+      <animate attributeName="stroke-dashoffset" from="40" to="0" dur="0.8s" fill="freeze"/>
+    </path>
     <circle cx="${dims.width - 10}" cy="10" r="3" fill="#fbbf24"/>
     
-    <!-- Bottom left -->
-    <path d="M10,${dims.height - 50} L10,${dims.height - 10} L50,${dims.height - 10}"/>
-    <path d="M15,${dims.height - 40} L15,${dims.height - 15} L40,${dims.height - 15}"/>
+    <!-- Bottom left corner flourish with animation -->
+    <path d="M10,${dims.height - 50} L10,${dims.height - 10} L50,${dims.height - 10}" stroke-dasharray="60" stroke-dashoffset="60">
+      <animate attributeName="stroke-dashoffset" from="60" to="0" dur="1s" fill="freeze"/>
+    </path>
+    <path d="M15,${dims.height - 40} L15,${dims.height - 15} L40,${dims.height - 15}" stroke-dasharray="40" stroke-dashoffset="40">
+      <animate attributeName="stroke-dashoffset" from="40" to="0" dur="0.8s" fill="freeze"/>
+    </path>
     <circle cx="10" cy="${dims.height - 10}" r="3" fill="#fbbf24"/>
     
-    <!-- Bottom right -->
-    <path d="M${dims.width - 10},${dims.height - 50} L${dims.width - 10},${dims.height - 10} L${dims.width - 50},${dims.height - 10}"/>
-    <path d="M${dims.width - 15},${dims.height - 40} L${dims.width - 15},${dims.height - 15} L${dims.width - 40},${dims.height - 15}"/>
+    <!-- Bottom right corner flourish with animation -->
+    <path d="M${dims.width - 10},${dims.height - 50} L${dims.width - 10},${dims.height - 10} L${dims.width - 50},${dims.height - 10}" stroke-dasharray="60" stroke-dashoffset="60">
+      <animate attributeName="stroke-dashoffset" from="60" to="0" dur="1s" fill="freeze"/>
+    </path>
+    <path d="M${dims.width - 15},${dims.height - 40} L${dims.width - 15},${dims.height - 15} L${dims.width - 40},${dims.height - 15}" stroke-dasharray="40" stroke-dashoffset="40">
+      <animate attributeName="stroke-dashoffset" from="40" to="0" dur="0.8s" fill="freeze"/>
+    </path>
     <circle cx="${dims.width - 10}" cy="${dims.height - 10}" r="3" fill="#fbbf24"/>
   </g>
   
@@ -572,6 +583,220 @@ export function exportEnhancedPoster(
       ID: ${attributes.codexId}
     </text>
   </g>
+  
+  ${watermarkSection ? `<!-- AC5: Watermark -->
+  ${watermarkSection}` : ''}
+</svg>`;
+}
+
+/**
+ * AC1/AC2/AC3/AC3b: Social media optimized poster export
+ * Twitter/X: 16:9 - 1200×675px
+ * Instagram: 1:1 - 1080×1080px
+ * Discord: 3:2 - 600×400px
+ */
+export function exportSocialPoster(
+  modules: PlacedModule[],
+  connections: Connection[],
+  attributes: GeneratedAttributes,
+  platform: SocialPlatform,
+  options: { username?: string } = {}
+): string {
+  const preset = PLATFORM_PRESETS[platform];
+  const dims = { width: preset.width, height: preset.height };
+  
+  const bounds = calculateBounds(modules);
+  
+  // Calculate preview area based on platform dimensions
+  const isLandscape = platform === 'twitter';
+  const isSquare = platform === 'instagram';
+  
+  const previewTopMargin = isSquare ? 200 : (isLandscape ? 100 : 120);
+  const previewHeight = isSquare ? 500 : (isLandscape ? 350 : 180);
+  const previewY = previewTopMargin;
+  
+  // Machine preview positioning
+  const machineScale = Math.min(
+    (dims.width - 150) / Math.max(bounds.width, 1),
+    previewHeight / Math.max(bounds.height, 1),
+    0.8
+  );
+  const scaledWidth = bounds.width * machineScale;
+  const scaledHeight = bounds.height * machineScale;
+  const offsetX = (dims.width - scaledWidth) / 2 - bounds.minX * machineScale;
+  const offsetY = previewY + (previewHeight - scaledHeight) / 2 - bounds.minY * machineScale;
+  
+  // Platform-specific styling
+  const accentColor = preset.accentColor;
+  const dominantTag = getDominantTag(attributes.tags);
+  const bgGradient = getTagGradient(dominantTag);
+  
+  // AC5: Watermark rendering for social posters
+  const watermarkSection = options.username ? `
+  <!-- AC5: Watermark/Username in bottom-right -->
+  <g transform="translate(${dims.width - 25}, ${dims.height - 25})">
+    <rect x="-${options.username.length * 8 + 30}" y="-28" width="${options.username.length * 8 + 30}" height="28" rx="6" fill="#0a0e17" opacity="0.8"/>
+    <text x="-${options.username.length * 4 + 10}" y="-8" text-anchor="end" fill="white" font-size="14" opacity="0.7" font-family="sans-serif" font-weight="500">
+      @${options.username}
+    </text>
+  </g>` : '';
+  
+  // AC6: Animated decorative corners with platform-specific accent color
+  const cornerFlourishes = `
+  <!-- AC6: Animated decorative corner ornaments -->
+  <g stroke="${accentColor}" stroke-width="2" fill="none">
+    <!-- Top left corner -->
+    <path d="M15,60 L15,15 L60,15" stroke-dasharray="80" stroke-dashoffset="80">
+      <animate attributeName="stroke-dashoffset" from="80" to="0" dur="1.2s" fill="freeze"/>
+    </path>
+    <circle cx="15" cy="15" r="4" fill="${accentColor}"/>
+    
+    <!-- Top right corner -->
+    <path d="M${dims.width - 15},60 L${dims.width - 15},15 L${dims.width - 60},15" stroke-dasharray="80" stroke-dashoffset="80">
+      <animate attributeName="stroke-dashoffset" from="80" to="0" dur="1.2s" fill="freeze"/>
+    </path>
+    <circle cx="${dims.width - 15}" cy="15" r="4" fill="${accentColor}"/>
+    
+    <!-- Bottom left corner -->
+    <path d="M15,${dims.height - 60} L15,${dims.height - 15} L60,${dims.height - 15}" stroke-dasharray="80" stroke-dashoffset="80">
+      <animate attributeName="stroke-dashoffset" from="80" to="0" dur="1.2s" fill="freeze"/>
+    </path>
+    <circle cx="15" cy="${dims.height - 15}" r="4" fill="${accentColor}"/>
+    
+    <!-- Bottom right corner -->
+    <path d="M${dims.width - 15},${dims.height - 60} L${dims.width - 15},${dims.height - 15} L${dims.width - 60},${dims.height - 15}" stroke-dasharray="80" stroke-dashoffset="80">
+      <animate attributeName="stroke-dashoffset" from="80" to="0" dur="1.2s" fill="freeze"/>
+    </path>
+    <circle cx="${dims.width - 15}" cy="${dims.height - 15}" r="4" fill="${accentColor}"/>
+  </g>`;
+  
+  // Faction accent line decoration
+  const factionAccentLine = `
+  <!-- Faction-colored accent line -->
+  <line x1="50" y1="${isSquare ? 170 : (isLandscape ? 80 : 100)}" x2="${dims.width - 50}" y2="${isSquare ? 170 : (isLandscape ? 80 : 100)}" stroke="${accentColor}" stroke-width="1" opacity="0.5"/>`;
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" 
+     viewBox="0 0 ${dims.width} ${dims.height}" 
+     width="${dims.width}" 
+     height="${dims.height}">
+  <defs>
+    <linearGradient id="socialBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${bgGradient.start}"/>
+      <stop offset="100%" style="stop-color:${bgGradient.end}"/>
+    </linearGradient>
+    <linearGradient id="platformAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:${accentColor}"/>
+      <stop offset="50%" style="stop-color:${accentColor}cc"/>
+      <stop offset="100%" style="stop-color:${accentColor}"/>
+    </linearGradient>
+    <filter id="socialGlow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="url(#socialBg)"/>
+  
+  <!-- Corner flourishes -->
+  ${cornerFlourishes}
+  
+  <!-- Platform badge -->
+  <g transform="translate(${dims.width - 120}, 20)">
+    <rect width="100" height="36" rx="8" fill="${accentColor}" opacity="0.2"/>
+    <rect width="100" height="36" rx="8" fill="none" stroke="${accentColor}" stroke-width="1.5"/>
+    <text x="50" y="23" text-anchor="middle" fill="${accentColor}" font-size="12" font-weight="bold">
+      ${preset.icon} ${preset.nameCn}
+    </text>
+  </g>
+  
+  <!-- Machine Name with platform accent -->
+  <g transform="translate(${dims.width / 2}, ${isSquare ? 60 : (isLandscape ? 50 : 55)})">
+    <text x="0" y="0" text-anchor="middle" fill="${accentColor}" font-family="serif" font-size="${isSquare ? 32 : (isLandscape ? 36 : 30)}" font-weight="bold" filter="url(#socialGlow)">
+      ${attributes.name}
+    </text>
+    <!-- Decorative elements -->
+    <line x1="-100" y1="12" x2="-15" y2="12" stroke="${accentColor}" stroke-width="1" opacity="0.5"/>
+    <circle cx="0" cy="12" r="3" fill="${accentColor}"/>
+    <line x1="15" y1="12" x2="100" y2="12" stroke="${accentColor}" stroke-width="1" opacity="0.5"/>
+  </g>
+  
+  <!-- Rarity badge -->
+  ${factionAccentLine}
+  <g transform="translate(${dims.width / 2}, ${isSquare ? 100 : (isLandscape ? 60 : 70)})">
+    <rect x="-50" y="-12" width="100" height="24" rx="12" 
+          fill="${getRarityColorHex(attributes.rarity)}" opacity="0.25"/>
+    <text x="0" y="4" text-anchor="middle" fill="${getRarityColorHex(attributes.rarity)}" font-size="11" font-weight="bold" letter-spacing="1">
+      ${getRarityIcon(attributes.rarity)} ${attributes.rarity.toUpperCase()} ${getRarityIcon(attributes.rarity)}
+    </text>
+  </g>
+  
+  <!-- Machine Preview Container -->
+  <rect x="30" y="${previewY}" width="${dims.width - 60}" height="${previewHeight}" 
+        fill="#0a0e17" stroke="${accentColor}" stroke-width="1" rx="8" opacity="0.9"/>
+  
+  <!-- Machine Preview -->
+  <g transform="translate(${offsetX}, ${offsetY}) scale(${machineScale})">
+    ${connections.map(conn => `
+    <path d="${conn.pathData}" 
+          fill="none" 
+          stroke="#00ffcc" 
+          stroke-width="3" 
+          stroke-dasharray="8,4"
+          opacity="0.9"
+          filter="url(#socialGlow)"/>`
+    ).join('')}
+    ${modules.map(module => renderModuleToSVG(module)).join('')}
+  </g>
+  
+  <!-- Stats Panel -->
+  <g transform="translate(50, ${previewY + previewHeight + 25})">
+    <text x="0" y="0" fill="#9ca3af" font-size="12" letter-spacing="1">◆ ATTRIBUTES</text>
+    <line x1="0" y1="8" x2="${isLandscape ? 300 : 200}" y2="8" stroke="${accentColor}" stroke-width="0.5"/>
+    
+    <g transform="translate(0, 25)">
+      <rect x="0" y="0" width="100" height="8" rx="4" fill="#1e2a42"/>
+      <rect x="0" y="0" width="${attributes.stats.stability}" height="8" rx="4" fill="#4ade80"/>
+      <text x="110" y="8" fill="#4ade80" font-size="11">Stability ${attributes.stats.stability}%</text>
+    </g>
+    
+    <g transform="translate(0, 45)">
+      <rect x="0" y="0" width="100" height="8" rx="4" fill="#1e2a42"/>
+      <rect x="0" y="0" width="${attributes.stats.powerOutput}" height="8" rx="4" fill="#f59e0b"/>
+      <text x="110" y="8" fill="#f59e0b" font-size="11">Power ${attributes.stats.powerOutput}</text>
+    </g>
+    
+    <g transform="translate(0, 65)">
+      <rect x="0" y="0" width="100" height="8" rx="4" fill="#1e2a42"/>
+      <rect x="0" y="0" width="${attributes.stats.failureRate}" height="8" rx="4" fill="#ef4444"/>
+      <text x="110" y="8" fill="#ef4444" font-size="11">Failure ${attributes.stats.failureRate}%</text>
+    </g>
+  </g>
+  
+  <!-- Tags -->
+  <g transform="translate(${isLandscape ? 400 : (isSquare ? 300 : 250)}, ${previewY + previewHeight + 25})">
+    <text x="0" y="0" fill="#9ca3af" font-size="12" letter-spacing="1">◆ TAGS</text>
+    <line x1="0" y1="8" x2="100" y2="8" stroke="${accentColor}" stroke-width="0.5"/>
+    ${attributes.tags.slice(0, 4).map((tag, idx) => `
+    <g transform="translate(0, ${25 + idx * 20})">
+      <rect x="0" y="-8" width="90" height="18" rx="4" fill="${getTagColor(tag)}" opacity="0.15"/>
+      <text x="10" y="3" fill="${getTagColor(tag)}" font-size="10">${getTagIcon(tag)} ${tag}</text>
+    </g>`).join('')}
+  </g>
+  
+  <!-- Footer -->
+  <g transform="translate(${dims.width / 2}, ${dims.height - 25})">
+    <text x="0" y="0" text-anchor="middle" fill="#6b7280" font-size="10">
+      Arcane Machine Codex • ${attributes.codexId}
+    </text>
+  </g>
+  
+  ${watermarkSection ? `<!-- AC5: Watermark -->
+  ${watermarkSection}` : ''}
 </svg>`;
 }
 
@@ -647,19 +872,6 @@ function renderTagsPanel(
   </g>`;
 }
 
-/**
- * Export Faction Card
- * 
- * Generates a faction-branded share card SVG matching the EnhancedShareCard component.
- * The card includes faction-specific coloring, decorative borders, machine preview,
- * stats panel, and tags - all themed to the dominant faction of the machine.
- * 
- * @param modules - Array of placed modules on the canvas
- * @param connections - Array of connections between modules
- * @param attributes - Generated machine attributes (name, rarity, stats, tags, etc.)
- * @param faction - Faction configuration with colors and theming
- * @returns SVG string suitable for download as .svg file
- */
 export function exportFactionCard(
   modules: PlacedModule[],
   _connections: Connection[],
@@ -671,7 +883,6 @@ export function exportFactionCard(
   const factionColor = faction.color;
   const factionSecondaryColor = faction.secondaryColor;
   
-  // Rarity colors
   const rarityColors: Record<string, { primary: string }> = {
     common: { primary: '#9ca3af' },
     uncommon: { primary: '#22c55e' },
@@ -689,7 +900,6 @@ export function exportFactionCard(
     `<line x1="${idx * 30}" y1="0" x2="${idx * 30}" y2="600" stroke="${factionColor}" stroke-width="0.5"/>`
   ).join('');
   
-  // Generate corner decorations
   const corners = [
     { x: 30, y: 30, rotate: 0 },
     { x: 770, y: 30, rotate: 90 },
@@ -702,14 +912,12 @@ export function exportFactionCard(
     </g>
   `).join('');
   
-  // Generate module preview circles
   const moduleCircles = modules.slice(0, 6).map((_, idx) => {
     const cx = 80 + (idx % 4) * 100;
     const cy = 60 + Math.floor(idx / 4) * 80;
     return `<circle cx="${cx}" cy="${cy}" r="30" fill="${factionColor}" opacity="0.3"/>`;
   }).join('');
   
-  // Generate stats
   const stats = [
     { label: '稳定性', value: attributes.stats.stability, max: 100, color: '#22c55e' },
     { label: '输出功率', value: attributes.stats.powerOutput, max: 100, color: '#3b82f6' },
@@ -727,7 +935,6 @@ export function exportFactionCard(
     `;
   }).join('');
   
-  // Generate tags
   const tagsX = 100;
   const tags = attributes.tags.map((tag, idx) => `
     <g transform="translate(${tagsX + idx * 80}, 90)">
@@ -742,21 +949,18 @@ export function exportFactionCard(
      width="${cardWidth}" 
      height="${cardHeight}">
   <defs>
-    <!-- Background gradient -->
     <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1a1a2e"/>
       <stop offset="50%" stop-color="#121826"/>
       <stop offset="100%" stop-color="#0a0e17"/>
     </linearGradient>
     
-    <!-- Faction gradient for borders -->
     <linearGradient id="factionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="${factionColor}"/>
       <stop offset="50%" stop-color="${factionSecondaryColor}"/>
       <stop offset="100%" stop-color="${factionColor}"/>
     </linearGradient>
     
-    <!-- Glow filter -->
     <filter id="cardGlow">
       <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
       <feMerge>
@@ -766,25 +970,19 @@ export function exportFactionCard(
     </filter>
   </defs>
   
-  <!-- Card background -->
   <rect width="${cardWidth}" height="${cardHeight}" fill="url(#cardBg)"/>
   
-  <!-- Decorative grid pattern -->
   <g opacity="0.1">
     ${gridRows}
     ${gridCols}
   </g>
   
-  <!-- Outer border with faction gradient -->
   <rect x="10" y="10" width="780" height="580" fill="none" stroke="url(#factionGradient)" stroke-width="3" rx="20"/>
   
-  <!-- Inner border -->
   <rect x="25" y="25" width="750" height="550" fill="none" stroke="${factionColor}" stroke-width="1" opacity="0.5" rx="15"/>
   
-  <!-- Corner decorations -->
   ${corners}
   
-  <!-- Faction badge - top left -->
   <g transform="translate(50, 50)">
     <rect width="120" height="40" rx="8" fill="${factionColor}" opacity="0.2"/>
     <rect width="120" height="40" rx="8" fill="none" stroke="${factionColor}" stroke-width="2"/>
@@ -793,7 +991,6 @@ export function exportFactionCard(
     </text>
   </g>
   
-  <!-- Rarity badge - top right -->
   <g transform="translate(650, 50)">
     <rect width="100" height="40" rx="8" fill="${rarityColor}" opacity="0.2"/>
     <rect width="100" height="40" rx="8" fill="none" stroke="${rarityColor}" stroke-width="2"/>
@@ -802,34 +999,27 @@ export function exportFactionCard(
     </text>
   </g>
   
-  <!-- Machine title -->
   <text x="400" y="150" text-anchor="middle" fill="white" font-size="36" font-weight="bold" filter="url(#cardGlow)">
     ${attributes.name}
   </text>
   
-  <!-- Machine preview area -->
   <g transform="translate(200, 180)">
     <rect width="${previewWidth}" height="${previewHeight}" rx="10" fill="#0a0e17" opacity="0.5"/>
     <rect width="${previewWidth}" height="${previewHeight}" rx="10" fill="none" stroke="${factionColor}" stroke-width="1" opacity="0.3"/>
     
-    <!-- Module preview circles -->
     ${moduleCircles}
   </g>
   
-  <!-- Stats panel -->
   <g transform="translate(50, 420)">
     <rect width="700" height="120" rx="10" fill="#0a0e17" opacity="0.8"/>
     <rect width="700" height="120" rx="10" fill="none" stroke="${factionColor}" stroke-width="1" opacity="0.3"/>
     
-    <!-- Stats bars -->
     ${stats}
     
-    <!-- Tags -->
     <text x="20" y="100" fill="#9ca3af" font-size="11">属性标签:</text>
     ${tags}
   </g>
   
-  <!-- Footer -->
   <text x="400" y="570" text-anchor="middle" fill="#6b7280" font-size="12">
     ARCANE MACHINE CODEX • ${attributes.codexId}
   </text>
@@ -948,25 +1138,10 @@ export function downloadFile(content: string | Blob, filename: string, mimeType:
   URL.revokeObjectURL(url);
 }
 
-/**
- * Sanitize filename by converting to lowercase, replacing special characters with hyphens,
- * collapsing consecutive hyphens, and trimming leading/trailing hyphens.
- * 
- * @param filename - The original filename to sanitize
- * @returns A sanitized filename safe for file system use
- */
 export function sanitizeFilename(filename: string): string {
-  // Step 1: Convert to lowercase
   let result = filename.toLowerCase();
-  
-  // Step 2: Replace each non-alphanumeric character (except hyphens) with a single hyphen
   result = result.replace(/[^a-z0-9]+/g, '-');
-  
-  // Step 3: Collapse consecutive hyphens into one
   result = result.replace(/-+/g, '-');
-  
-  // Step 4: Trim leading and trailing hyphens
   result = result.replace(/^-+/, '').replace(/-+$/, '');
-  
   return result;
 }

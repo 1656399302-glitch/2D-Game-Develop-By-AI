@@ -1,5 +1,5 @@
 {
-  "round": 73,
+  "round": 72,
   "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
   "branch": "main",
   "commit": "d8a3991ea7874b2e30aa3f2719bcdeadaf133b75",
@@ -19,9 +19,7 @@
     "Round 72 (Activation System Tests) is **COMPLETE and VERIFIED**:"
   ],
   "incomplete_items": [],
-  "failure_reasons": [
-    "Interrupted by SIGINT during build phase of round 73."
-  ],
+  "failure_reasons": [],
   "key_files": [
     ".ai-harness/decision-log/decisions.md",
     ".ai-harness/handoffs/latest.json",
@@ -37,7 +35,6 @@
     "src/__tests__/activationOverlayState.test.ts",
     "src/__tests__/activationPanZoom.test.ts",
     "src/__tests__/activationStateMachine.test.ts",
-    "src/types/index.ts",
     "tests/e2e/activation-interaction.spec.ts",
     "tests/e2e/keyboard-activation.spec.ts"
   ],
@@ -45,9 +42,7 @@
     "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
     "python harness.py dashboard"
   ],
-  "known_issues": [
-    "Interrupted by SIGINT during build phase of round 73."
-  ],
+  "known_issues": [],
   "next_priorities": [],
   "evaluator_failures": [],
   "restore_instructions": [
