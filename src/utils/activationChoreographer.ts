@@ -34,15 +34,15 @@ export interface ChoreographyResult {
  * 
  * @param modules - All placed modules
  * @param connections - All connections
- * @param depthDelay - Delay between depth levels in ms (default: 200ms)
- * @param connectionLeadTime - How long before module activates to light up connections (default: 100ms)
+ * @param depthDelay - Delay between depth levels in ms (default: 67ms)
+ * @param connectionLeadTime - How long before module activates to light up connections (default: 33ms)
  * @returns ChoreographyResult with activation steps and timing
  */
 export function calculateActivationChoreography(
   modules: PlacedModule[],
   connections: Connection[],
-  depthDelay: number = 200,
-  connectionLeadTime: number = 100
+  depthDelay: number = 67,
+  connectionLeadTime: number = 33
 ): ChoreographyResult {
   if (modules.length === 0) {
     return { steps: [], totalDuration: 0, depthCount: 0 };

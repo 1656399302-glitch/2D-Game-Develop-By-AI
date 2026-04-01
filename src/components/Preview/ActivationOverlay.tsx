@@ -317,9 +317,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     // Start activation zoom to focus on machine
     startActivationZoomRef.current();
     
-    const chargingDuration = 800;
-    const activatingDuration = 1200;
-    const onlineDuration = 500;
+    const chargingDuration = 267;
+    const activatingDuration = 400;
+    const onlineDuration = 167;
     
     let startTime = Date.now();
     let animationFrame: number;
@@ -363,7 +363,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
                 if (module) {
                   triggerModuleBurstRef.current(module.instanceId);
                 }
-              }, moduleIndex * (activatingDuration / (currentModules.length || 1)) * 0.4);
+              }, moduleIndex * (activatingDuration / (currentModules.length || 1)) * 0.3);
             });
           });
         }

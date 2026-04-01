@@ -117,7 +117,7 @@ describe('Activation State Machine', () => {
       
       // Advance timers and transition to active
       act(() => {
-        vi.advanceTimersByTime(800);
+        vi.advanceTimersByTime(267);
       });
       
       act(() => {
@@ -126,7 +126,7 @@ describe('Activation State Machine', () => {
       
       // After some time, should transition to shutdown then idle
       act(() => {
-        vi.advanceTimersByTime(1200);
+        vi.advanceTimersByTime(400);
       });
       
       act(() => {
@@ -134,7 +134,7 @@ describe('Activation State Machine', () => {
       });
       
       act(() => {
-        vi.advanceTimersByTime(500);
+        vi.advanceTimersByTime(167);
       });
       
       act(() => {
@@ -275,19 +275,19 @@ describe('Activation State Machine', () => {
       expect(useMachineStore.getState().machineState).toBe('charging');
       
       act(() => {
-        vi.advanceTimersByTime(800);
+        vi.advanceTimersByTime(267);
         store.setMachineState('active');
       });
       expect(useMachineStore.getState().machineState).toBe('active');
       
       act(() => {
-        vi.advanceTimersByTime(1200);
+        vi.advanceTimersByTime(400);
         store.setMachineState('shutdown');
       });
       expect(useMachineStore.getState().machineState).toBe('shutdown');
       
       act(() => {
-        vi.advanceTimersByTime(500);
+        vi.advanceTimersByTime(167);
         store.setMachineState('idle');
       });
       expect(useMachineStore.getState().machineState).toBe('idle');
@@ -299,19 +299,19 @@ describe('Activation State Machine', () => {
       expect(useMachineStore.getState().machineState).toBe('charging');
       
       act(() => {
-        vi.advanceTimersByTime(800);
+        vi.advanceTimersByTime(267);
         store.setMachineState('active');
       });
       expect(useMachineStore.getState().machineState).toBe('active');
       
       act(() => {
-        vi.advanceTimersByTime(1200);
+        vi.advanceTimersByTime(400);
         store.setMachineState('shutdown');
       });
       expect(useMachineStore.getState().machineState).toBe('shutdown');
       
       act(() => {
-        vi.advanceTimersByTime(500);
+        vi.advanceTimersByTime(167);
         store.setMachineState('idle');
       });
       expect(useMachineStore.getState().machineState).toBe('idle');

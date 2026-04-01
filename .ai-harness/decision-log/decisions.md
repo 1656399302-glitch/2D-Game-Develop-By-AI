@@ -852,3 +852,12 @@
 ## Round 84 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 84 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 85 Contract Operator Inbox
+- Rationale: Injected queued operator instructions into the phase boundary: operator-item-1775053300925[must_fix]
+
+## Round 85 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

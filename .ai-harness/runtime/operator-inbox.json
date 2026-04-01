@@ -13,6 +13,19 @@
       "processed_round": 51,
       "result": "Injected into build phase of round 51",
       "metadata": {}
+    },
+    {
+      "id": "operator-item-1775053300925",
+      "content": "\u5f53\u6211\u70b9\u51fb\u6fc0\u6d3b\u673a\u5668\u540e\uff0c\u6fc0\u6d3b\u7684\u8fc7\u7a0b\u4e3a\u4ec0\u4e48\u7279\u522b\u4e45\uff0c\u5982\u679c\u662fBug\uff0c\u4fee\u590d\u4e00\u4e0b\uff0c\u5982\u679c\u662f\u8bbe\u8ba1\uff0c\u628a\u6fc0\u6d3b\u65f6\u95f4\u7f29\u77ed\u5230\u539f\u6765\u7684\u4e09\u5206\u4e4b\u4e00",
+      "scope": "next_round",
+      "mode": "must_fix",
+      "status": "processed",
+      "created_at": 1775053300.9254951,
+      "processed_at": 1775053484.5163462,
+      "processed_phase": "contract",
+      "processed_round": 85,
+      "result": "Injected into contract phase of round 85",
+      "metadata": {}
     }
   ]
 }

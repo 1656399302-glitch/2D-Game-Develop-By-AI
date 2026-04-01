@@ -66,14 +66,14 @@ describe('calculateActivationChoreography', () => {
     expect(inputStep?.activationTime).toBe(0);
     
     expect(aStep?.depth).toBe(1);
-    expect(aStep?.activationTime).toBe(200); // 1 * 200ms
+    expect(aStep?.activationTime).toBe(67); // 1 * 67ms
     
     expect(bStep?.depth).toBe(2);
-    expect(bStep?.activationTime).toBe(400); // 2 * 200ms
+    expect(bStep?.activationTime).toBe(134); // 2 * 67ms
     
     // Input's connection to A should light up 100ms before A
     expect(aStep?.connectionsToLight).toContainEqual(
-      expect.objectContaining({ connectionId: 'conn1', activationTime: 100 }) // 200 - 100
+      expect.objectContaining({ connectionId: 'conn1', activationTime: 34 }) // FIX (Round 85): 67 - 33
     );
   });
 
@@ -141,7 +141,7 @@ describe('calculateActivationChoreography', () => {
     });
   });
 
-  test('Connection lead time is 100ms before module activation', () => {
+  test('Connection lead time is 33ms before module activation', () => {
     const input = createModule('input', 'trigger-switch');
     const moduleA = createModule('A');
     
@@ -153,9 +153,9 @@ describe('calculateActivationChoreography', () => {
     const aStep = result.steps.find(s => s.moduleId === 'A');
     const connLightUp = aStep?.connectionsToLight.find(c => c.connectionId === 'conn1');
     
-    // A activates at 200ms, connection should light at 100ms
-    expect(connLightUp?.activationTime).toBe(100);
-    expect(aStep?.activationTime - connLightUp!.activationTime).toBe(100);
+    // A activates at 67ms, connection should light at 34ms
+    expect(connLightUp?.activationTime).toBe(34);
+    expect(aStep?.activationTime - connLightUp!.activationTime).toBe(33); // FIX (Round 85): lead time
   });
 
   test('Multiple depth levels with correct timing (200ms intervals)', () => {
@@ -183,7 +183,7 @@ describe('calculateActivationChoreography', () => {
     const l3Step = result.steps.find(s => s.moduleId === 'L3');
     
     expect(inputStep?.activationTime).toBe(0);
-    expect(l1Step?.activationTime).toBe(200);
+    expect(l1Step?.activationTime).toBe(67);
     // L2a and L2b at same depth
     expect(Math.abs(l2aStep!.activationTime - l2bStep!.activationTime)).toBeLessThanOrEqual(50);
     expect(l3Step?.activationTime).toBeGreaterThan(l2aStep!.activationTime);
