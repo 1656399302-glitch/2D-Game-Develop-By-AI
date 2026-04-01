@@ -3,6 +3,8 @@
  * 
  * Displays floating tips when user places first module of a new faction type.
  * Auto-dismisses after 5 seconds or on user action.
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -25,13 +27,15 @@ export const TutorialTip: React.FC<TutorialTipProps> = ({
   
   const faction = FACTIONS[factionId];
   
-  // Get faction-specific tip message
+  // Get faction-specific tip message - extended to 6 factions
   const getFactionTip = useCallback((id: FactionId): string => {
     const tips: Record<FactionId, string> = {
       void: '虚空派系擅长吸收和转化能量，构建能量吸收回路可提升稳定性',
       inferno: '熔岩派系释放强大热能，注意能量过载风险',
       storm: '风暴派系传输高速能量，连接多个模块效果更佳',
       stellar: '星辉派系和谐共振，适合构建能量放大系统',
+      arcane: '奥术秩序派系掌控神秘力量，适合构建符文网络',
+      chaos: '混沌无序派系释放不稳定能量，充满挑战与机遇',
     };
     return tips[id] || '尝试连接更多模块来激活派系特殊效果';
   }, []);

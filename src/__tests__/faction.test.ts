@@ -2,6 +2,8 @@
  * Faction System Tests
  * 
  * Tests for faction tech tree, node unlocking, and faction-related functionality.
+ * 
+ * Updated: Round 80 faction names - Void Abyss, Molten Star Forge, Thunder Phase, etc.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -17,32 +19,34 @@ import {
 import { useFactionStore } from '../store/useFactionStore';
 
 describe('Faction Definitions', () => {
-  it('should have exactly 4 factions', () => {
-    expect(Object.keys(FACTIONS)).toHaveLength(4);
+  // Updated: 6 factions in Round 80
+  it('should have exactly 6 factions', () => {
+    expect(Object.keys(FACTIONS)).toHaveLength(6);
   });
 
+  // Updated: Faction names changed in Round 80
   it('should have void faction', () => {
     const voidFaction = FACTIONS.void;
     expect(voidFaction.id).toBe('void');
-    expect(voidFaction.name).toBe('Void');
-    expect(voidFaction.nameCn).toBe('深渊派系');
-    expect(voidFaction.color).toBe('#a78bfa');
+    expect(voidFaction.name).toBe('Void Abyss');
+    expect(voidFaction.nameCn).toBe('虚空深渊');
+    expect(voidFaction.color).toBe('#7B2FBE');
   });
 
   it('should have inferno faction', () => {
     const infernoFaction = FACTIONS.inferno;
     expect(infernoFaction.id).toBe('inferno');
-    expect(infernoFaction.name).toBe('Inferno');
-    expect(infernoFaction.nameCn).toBe('熔岩派系');
-    expect(infernoFaction.color).toBe('#f97316');
+    expect(infernoFaction.name).toBe('Molten Star Forge');
+    expect(infernoFaction.nameCn).toBe('熔星锻造');
+    expect(infernoFaction.color).toBe('#E85D04');
   });
 
   it('should have storm faction', () => {
     const stormFaction = FACTIONS.storm;
     expect(stormFaction.id).toBe('storm');
-    expect(stormFaction.name).toBe('Storm');
-    expect(stormFaction.nameCn).toBe('雷霆派系');
-    expect(stormFaction.color).toBe('#22d3ee');
+    expect(stormFaction.name).toBe('Thunder Phase');
+    expect(stormFaction.nameCn).toBe('雷霆相位');
+    expect(stormFaction.color).toBe('#48CAE4');
   });
 
   it('should have stellar faction', () => {
@@ -51,6 +55,23 @@ describe('Faction Definitions', () => {
     expect(stellarFaction.name).toBe('Stellar');
     expect(stellarFaction.nameCn).toBe('星辉派系');
     expect(stellarFaction.color).toBe('#fbbf24');
+  });
+
+  // NEW: Test new factions in Round 80
+  it('should have arcane faction', () => {
+    const arcaneFaction = FACTIONS.arcane;
+    expect(arcaneFaction.id).toBe('arcane');
+    expect(arcaneFaction.name).toBe('Arcane Order');
+    expect(arcaneFaction.nameCn).toBeDefined();
+    expect(arcaneFaction.color).toBe('#3A0CA3');
+  });
+
+  it('should have chaos faction', () => {
+    const chaosFaction = FACTIONS.chaos;
+    expect(chaosFaction.id).toBe('chaos');
+    expect(chaosFaction.name).toBe('Chaos Disorder');
+    expect(chaosFaction.nameCn).toBeDefined();
+    expect(chaosFaction.color).toBe('#9D0208');
   });
 
   it('each faction should have required properties', () => {
@@ -102,16 +123,20 @@ describe('Tech Tree Requirements', () => {
 });
 
 describe('Tech Tree Node Generation', () => {
+  // Updated: 6 factions in Round 80
   const emptyCounts: Record<FactionId, number> = {
     void: 0,
     inferno: 0,
     storm: 0,
     stellar: 0,
+    arcane: 0,
+    chaos: 0,
   };
 
-  it('should generate 12 nodes (4 factions x 3 tiers)', () => {
+  // Updated: 18 nodes (6 factions x 3 tiers)
+  it('should generate 18 nodes (6 factions x 3 tiers)', () => {
     const nodes = generateTechTreeNodes(emptyCounts);
-    expect(nodes).toHaveLength(12);
+    expect(nodes).toHaveLength(18);
   });
 
   it('should have 3 tiers per faction', () => {
@@ -136,6 +161,8 @@ describe('Tech Tree Node Generation', () => {
       inferno: 0,
       storm: 0,
       stellar: 0,
+      arcane: 0,
+      chaos: 0,
     };
     
     const nodes = generateTechTreeNodes(counts);
@@ -159,6 +186,8 @@ describe('Tech Tree Node Generation', () => {
       inferno: 0,
       storm: 0,
       stellar: 0,
+      arcane: 0,
+      chaos: 0,
     };
     
     const nodes = generateTechTreeNodes(counts);
@@ -178,6 +207,8 @@ describe('Tech Tree Node Generation', () => {
       inferno: 0,
       storm: 0,
       stellar: 0,
+      arcane: 0,
+      chaos: 0,
     };
     
     const nodes = generateTechTreeNodes(counts);
@@ -255,6 +286,15 @@ describe('Module to Faction Mapping', () => {
   it('resonance-chamber should map to stellar faction', () => {
     expect(MODULE_TO_FACTION['resonance-chamber']).toBe('stellar');
   });
+
+  // NEW: Test arcane and chaos module mappings
+  it('arcane-matrix-grid should map to arcane faction', () => {
+    expect(MODULE_TO_FACTION['arcane-matrix-grid']).toBe('arcane');
+  });
+
+  it('temporal-distorter should map to chaos faction', () => {
+    expect(MODULE_TO_FACTION['temporal-distorter']).toBe('chaos');
+  });
 });
 
 describe('Neutral Modules', () => {
@@ -263,9 +303,9 @@ describe('Neutral Modules', () => {
     expect(Array.isArray(NEUTRAL_MODULES)).toBe(true);
   });
 
+  // Updated: rune-node is no longer neutral (it's arcane faction in Round 80)
   it('should include common modules in neutral list', () => {
     expect(NEUTRAL_MODULES).toContain('gear');
-    expect(NEUTRAL_MODULES).toContain('rune-node');
     expect(NEUTRAL_MODULES).toContain('shield-shell');
     expect(NEUTRAL_MODULES).toContain('trigger-switch');
     expect(NEUTRAL_MODULES).toContain('output-array');
@@ -275,23 +315,27 @@ describe('Neutral Modules', () => {
 
 describe('Faction Store', () => {
   beforeEach(() => {
-    // Reset store
+    // Reset store - Updated: 6 factions in Round 80
     useFactionStore.setState({
       factionCounts: {
         void: 0,
         inferno: 0,
         storm: 0,
         stellar: 0,
+        arcane: 0,
+        chaos: 0,
       },
     });
   });
 
-  it('should have initial zero counts', () => {
+  it('should have initial zero counts for all 6 factions', () => {
     const { factionCounts } = useFactionStore.getState();
     expect(factionCounts.void).toBe(0);
     expect(factionCounts.inferno).toBe(0);
     expect(factionCounts.storm).toBe(0);
     expect(factionCounts.stellar).toBe(0);
+    expect(factionCounts.arcane).toBe(0);
+    expect(factionCounts.chaos).toBe(0);
   });
 
   it('should have getTechTreeNodes function', () => {
@@ -299,10 +343,11 @@ describe('Faction Store', () => {
     expect(typeof getTechTreeNodes).toBe('function');
   });
 
-  it('getTechTreeNodes should return 12 nodes', () => {
+  // Updated: 18 nodes (6 factions x 3 tiers)
+  it('getTechTreeNodes should return 18 nodes', () => {
     const { getTechTreeNodes } = useFactionStore.getState();
     const nodes = getTechTreeNodes();
-    expect(nodes).toHaveLength(12);
+    expect(nodes).toHaveLength(18);
   });
 
   it('should update faction count', () => {
@@ -326,6 +371,8 @@ describe('Faction Store', () => {
         inferno: 2,
         storm: 4,
         stellar: 10,
+        arcane: 0,
+        chaos: 0,
       },
     });
     

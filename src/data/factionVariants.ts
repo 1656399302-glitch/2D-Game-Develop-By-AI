@@ -3,22 +3,26 @@
  * 
  * Data file containing faction-exclusive variant module definitions.
  * These modules are unlocked at Grandmaster reputation rank (2000+).
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { FactionId } from '../types/factions';
 
 /**
- * Module type definitions for faction variants
+ * Module type definitions for faction variants - extended to 6 factions
  */
 export const FACTION_VARIANT_MODULES: Record<FactionId, string> = {
   'void': 'void-arcane-gear',
   'inferno': 'inferno-blazing-core',
   'storm': 'storm-thundering-pipe',
   'stellar': 'stellar-harmonic-crystal',
+  'arcane': 'arcane-order-rune',
+  'chaos': 'chaos-disorder-core',
 };
 
 /**
- * Module definitions for faction variants
+ * Module definitions for faction variants - extended with 2 new factions
  */
 export const FACTION_VARIANT_DEFINITIONS: Record<string, {
   id: string;
@@ -64,6 +68,26 @@ export const FACTION_VARIANT_DEFINITIONS: Record<string, {
     description: 'A crystalline amplifier that harmonizes cosmic energy frequencies.',
     icon: '✨',
     accentColor: '#fcd34d',
+  },
+  // NEW: Arcane Order variant
+  'arcane-order-rune': {
+    id: 'arcane-order-rune',
+    name: 'Arcane Order Rune',
+    nameCn: '奥术秩序符文',
+    faction: 'arcane',
+    description: 'A mystical rune inscribed with ancient arcane sigils, channeling pure magical order.',
+    icon: '🔮',
+    accentColor: '#8b5cf6',
+  },
+  // NEW: Chaos Disorder variant
+  'chaos-disorder-core': {
+    id: 'chaos-disorder-core',
+    name: 'Chaos Disorder Core',
+    nameCn: '混沌无序核心',
+    faction: 'chaos',
+    description: 'An unstable core radiating unpredictable chaotic energies from beyond dimensions.',
+    icon: '💀',
+    accentColor: '#dc2626',
   },
 };
 

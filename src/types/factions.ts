@@ -1,8 +1,12 @@
 /**
  * Faction System Types
  * 
- * Defines the 4 magical factions, their tech trees, and module-to-faction mappings.
+ * Defines the 6 magical factions, their tech trees, and module-to-faction mappings.
  * Factions provide thematic alignment for machines and unlock special abilities.
+ * 
+ * ROUND 80 MIGRATION: Extended from 4 factions to 6 factions per contract specification.
+ * New factions: 虚空深渊 (Void Abyss), 熔星锻造 (Molten Star Forge), 雷霆相位 (Thunder Phase), 
+ * 森灵结界 (Forest Spirit Barrier), 奥术秩序 (Arcane Order), 混沌无序 (Chaos Disorder)
  */
 
 // Re-export faction reputation types
@@ -18,8 +22,8 @@ export {
   isVariantUnlockedForLevel,
 } from './factionReputation';
 
-// Faction identifiers
-export type FactionId = 'void' | 'inferno' | 'storm' | 'stellar';
+// Faction identifiers - extended to 6 factions per Round 80 contract
+export type FactionId = 'void' | 'inferno' | 'storm' | 'stellar' | 'arcane' | 'chaos';
 
 // Faction configuration
 export interface FactionConfig {
@@ -49,38 +53,38 @@ export interface TechTreeNode {
   position: { row: number; col: number }; // Grid position
 }
 
-// All 4 factions
+// All 6 factions - extended per Round 80 contract
 export const FACTIONS: Record<FactionId, FactionConfig> = {
   void: {
     id: 'void',
-    name: 'Void',
-    nameCn: '深渊派系',
+    name: 'Void Abyss',
+    nameCn: '虚空深渊',
     description: 'Masters of entropy and darkness, channeling energy from the void between dimensions.',
-    color: '#a78bfa',
-    secondaryColor: '#7c3aed',
-    glowColor: 'rgba(167, 139, 250, 0.5)',
+    color: '#7B2FBE',  // Contract specified: #7B2FBE
+    secondaryColor: '#581C87',
+    glowColor: 'rgba(123, 47, 190, 0.5)',
     icon: '🌑',
     moduleTypes: ['void-siphon', 'phase-modulator'],
   },
   inferno: {
     id: 'inferno',
-    name: 'Inferno',
-    nameCn: '熔岩派系',
+    name: 'Molten Star Forge',
+    nameCn: '熔星锻造',
     description: 'Wielders of primal fire, channeling volcanic fury and thermal destruction.',
-    color: '#f97316',
-    secondaryColor: '#ea580c',
-    glowColor: 'rgba(249, 115, 22, 0.5)',
+    color: '#E85D04',  // Contract specified: #E85D04
+    secondaryColor: '#C2410C',
+    glowColor: 'rgba(232, 93, 4, 0.5)',
     icon: '🔥',
     moduleTypes: ['fire-crystal', 'core-furnace'],
   },
   storm: {
     id: 'storm',
-    name: 'Storm',
-    nameCn: '雷霆派系',
+    name: 'Thunder Phase',
+    nameCn: '雷霆相位',
     description: 'Controllers of lightning and electromagnetic forces, harnessing nature\'s raw power.',
-    color: '#22d3ee',
-    secondaryColor: '#06b6d4',
-    glowColor: 'rgba(34, 211, 238, 0.5)',
+    color: '#48CAE4',  // Contract specified: #48CAE4
+    secondaryColor: '#0891B2',
+    glowColor: 'rgba(72, 202, 228, 0.5)',
     icon: '⚡',
     moduleTypes: ['lightning-conductor', 'energy-pipe'],
   },
@@ -95,19 +99,41 @@ export const FACTIONS: Record<FactionId, FactionConfig> = {
     icon: '✨',
     moduleTypes: ['amplifier-crystal', 'resonance-chamber'],
   },
+  // NEW FACTIONS per Round 80 contract
+  arcane: {
+    id: 'arcane',
+    name: 'Arcane Order',
+    nameCn: '奥术秩序',
+    description: 'Guardians of ancient knowledge and mystical order, wielding pure arcane energies.',
+    color: '#3A0CA3',  // Contract specified: #3A0CA3
+    secondaryColor: '#2B00A7',
+    glowColor: 'rgba(58, 12, 163, 0.5)',
+    icon: '🔮',
+    moduleTypes: ['arcane-matrix-grid', 'rune-node'],
+  },
+  chaos: {
+    id: 'chaos',
+    name: 'Chaos Disorder',
+    nameCn: '混沌无序',
+    description: 'Embracers of entropy and unpredictable forces, channeling raw chaos energy.',
+    color: '#9D0208',  // Contract specified: #9D0208
+    secondaryColor: '#7F1D1D',
+    glowColor: 'rgba(157, 2, 8, 0.5)',
+    icon: '💀',
+    moduleTypes: ['temporal-distorter', 'ether-infusion-chamber'],
+  },
 };
 
 // Neutral modules (not counted for faction)
 export const NEUTRAL_MODULES = [
   'gear',
-  'rune-node',
   'shield-shell',
   'trigger-switch',
   'output-array',
   'stabilizer-core',
 ];
 
-// Module-to-faction mapping
+// Module-to-faction mapping - extended with new factions
 export interface ModuleFactionMapping {
   [moduleType: string]: FactionId;
 }
@@ -125,6 +151,12 @@ export const MODULE_TO_FACTION: ModuleFactionMapping = {
   // Stellar modules
   'amplifier-crystal': 'stellar',
   'resonance-chamber': 'stellar',
+  // Arcane Order modules
+  'arcane-matrix-grid': 'arcane',
+  'rune-node': 'arcane',
+  // Chaos Disorder modules
+  'temporal-distorter': 'chaos',
+  'ether-infusion-chamber': 'chaos',
   // Neutral modules (not mapped)
 };
 
@@ -138,10 +170,10 @@ export const TECH_TREE_REQUIREMENTS = {
   3: 15,
 };
 
-// Generate all 12 tech tree nodes (4 factions × 3 tiers)
+// Generate all 18 tech tree nodes (6 factions × 3 tiers)
 export function generateTechTreeNodes(factionCounts: Record<FactionId, number>): TechTreeNode[] {
   const nodes: TechTreeNode[] = [];
-  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar'];
+  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos'];
   
   factionIds.forEach((factionId, factionIndex) => {
     for (let tier = 1; tier <= 3; tier++) {
@@ -177,11 +209,6 @@ export function generateTechTreeNodes(factionCounts: Record<FactionId, number>):
   return nodes;
 }
 
-// Extended stats for achievement checking - includes tutorial completion
-export interface ExtendedUserStats extends UserStats {
-  tutorialCompleted?: boolean;
-}
-
 // Achievement definitions
 export interface Achievement {
   id: string;
@@ -193,88 +220,23 @@ export interface Achievement {
   faction?: FactionId; // Associated faction for badge display
 }
 
-export interface UserStats {
+// Extended stats for achievement checking - includes tutorial completion and new Round 80 stats
+export interface ExtendedUserStats {
   machinesCreated: number;
   activations: number;
   errors: number;
   playtimeMinutes: number;
   factionCounts: Record<FactionId, number>;
   codexEntries: number;
+  machinesExported: number;
+  complexMachinesCreated: number;
+  tutorialCompleted?: boolean;
 }
 
-// All achievements
-export const ACHIEVEMENTS: Achievement[] = [
-  {
-    id: 'first-forge',
-    name: 'First Forge',
-    nameCn: '初次锻造',
-    description: 'Create your first machine',
-    icon: '🔨',
-    condition: (stats) => stats.machinesCreated >= 1,
-  },
-  {
-    id: 'energy-master',
-    name: 'Energy Master',
-    nameCn: '能量大师',
-    description: 'Create 10 machines',
-    icon: '⚡',
-    condition: (stats) => stats.machinesCreated >= 10,
-  },
-  {
-    id: 'void-conqueror',
-    name: 'Void Conqueror',
-    nameCn: '虚空征服者',
-    description: 'Create 5 Void-aligned machines',
-    icon: '🌑',
-    condition: (stats) => (stats.factionCounts['void'] || 0) >= 5,
-    faction: 'void',
-  },
-  {
-    id: 'inferno-master',
-    name: 'Inferno Master',
-    nameCn: '熔岩大师',
-    description: 'Create 5 Inferno-aligned machines',
-    icon: '🔥',
-    condition: (stats) => (stats.factionCounts['inferno'] || 0) >= 5,
-    faction: 'inferno',
-  },
-  {
-    id: 'storm-ruler',
-    name: 'Storm Ruler',
-    nameCn: '雷霆主宰',
-    description: 'Create 5 Storm-aligned machines',
-    icon: '⚡',
-    condition: (stats) => (stats.factionCounts['storm'] || 0) >= 5,
-    faction: 'storm',
-  },
-  {
-    id: 'stellar-harmonizer',
-    name: 'Stellar Harmonizer',
-    nameCn: '星辉和谐者',
-    description: 'Create 5 Stellar-aligned machines',
-    icon: '✨',
-    condition: (stats) => (stats.factionCounts['stellar'] || 0) >= 5,
-    faction: 'stellar',
-  },
-  {
-    id: 'perfect-activation',
-    name: 'Perfect Activation',
-    nameCn: '完美激活',
-    description: 'Activate a machine without errors',
-    icon: '✨',
-    condition: (stats) => stats.activations >= 1 && stats.errors === 0,
-  },
-  {
-    id: 'codex-collector',
-    name: 'Codex Collector',
-    nameCn: '图鉴收藏家',
-    description: 'Collect 10 machines in your codex',
-    icon: '📖',
-    condition: (stats) => stats.codexEntries >= 10,
-  },
-];
+// UserStats is same as ExtendedUserStats for simplicity
+export type UserStats = ExtendedUserStats;
 
-// Default stats
+// Default stats - extended with new faction counts and new tracking fields
 export const DEFAULT_USER_STATS: UserStats = {
   machinesCreated: 0,
   activations: 0,
@@ -285,6 +247,10 @@ export const DEFAULT_USER_STATS: UserStats = {
     inferno: 0,
     storm: 0,
     stellar: 0,
+    arcane: 0,
+    chaos: 0,
   },
   codexEntries: 0,
+  machinesExported: 0,
+  complexMachinesCreated: 0,
 };

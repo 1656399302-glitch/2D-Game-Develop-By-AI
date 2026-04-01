@@ -2,6 +2,7 @@
  * Achievement Expansion Tests
  * 
  * Tests for the expanded milestone achievements and toast queue system.
+ * Updated for Round 80 with 6 factions and 23 achievements.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -28,11 +29,12 @@ describe('Achievement Expansion Tests', () => {
   });
 
   describe('Achievement Definitions', () => {
-    it('should have 15 total achievements', async () => {
+    // Updated: 23 achievements in Round 80 (from 15)
+    it('should have 23 total achievements after Round 80 expansion', async () => {
       const { ACHIEVEMENTS } = await import('../data/achievements');
       
       expect(ACHIEVEMENTS).toBeDefined();
-      expect(ACHIEVEMENTS.length).toBe(15);
+      expect(ACHIEVEMENTS.length).toBe(23);
     });
 
     it('should include all milestone achievements', async () => {
@@ -67,6 +69,27 @@ describe('Achievement Expansion Tests', () => {
       const voidAchievements = getAchievementsByFaction('void');
       expect(voidAchievements.length).toBeGreaterThan(0);
       expect(voidAchievements[0].faction).toBe('void');
+    });
+
+    // NEW: Test new Round 80 achievements
+    it('should include first-export achievement', async () => {
+      const { getAchievementById } = await import('../data/achievements');
+      
+      const firstExport = getAchievementById('first-export');
+      
+      expect(firstExport).toBeDefined();
+      expect(firstExport?.id).toBe('first-export');
+      expect(firstExport?.nameCn).toBe('初次导出');
+    });
+
+    it('should include complex-machine-created achievement', async () => {
+      const { getAchievementById } = await import('../data/achievements');
+      
+      const complexMachine = getAchievementById('complex-machine-created');
+      
+      expect(complexMachine).toBeDefined();
+      expect(complexMachine?.id).toBe('complex-machine-created');
+      expect(complexMachine?.nameCn).toBe('复杂机器制造者');
     });
   });
 
@@ -222,6 +245,7 @@ describe('Achievement Expansion Tests', () => {
   });
 
   describe('Achievement Faction Integration', () => {
+    // Updated: 6 factions in Round 80
     it('should check faction conditions correctly', async () => {
       const { getAchievementById } = await import('../data/achievements');
       
@@ -229,32 +253,37 @@ describe('Achievement Expansion Tests', () => {
       
       // Should unlock when void count >= 5
       expect(voidConqueror?.condition({
-        factionCounts: { void: 5, inferno: 0, storm: 0, stellar: 0 }
+        factionCounts: { void: 5, inferno: 0, storm: 0, stellar: 0, arcane: 0, chaos: 0 }
       })).toBe(true);
       
       // Should not unlock when void count < 5
       expect(voidConqueror?.condition({
-        factionCounts: { void: 4, inferno: 0, storm: 0, stellar: 0 }
+        factionCounts: { void: 4, inferno: 0, storm: 0, stellar: 0, arcane: 0, chaos: 0 }
       })).toBe(false);
       
       // Should not unlock when faction count is 0
       expect(voidConqueror?.condition({
-        factionCounts: { void: 0, inferno: 0, storm: 0, stellar: 0 }
+        factionCounts: { void: 0, inferno: 0, storm: 0, stellar: 0, arcane: 0, chaos: 0 }
       })).toBe(false);
     });
 
-    it('should include all four faction achievements', async () => {
+    // Updated: 6 factions
+    it('should include all six faction achievements', async () => {
       const { getAchievementsByFaction } = await import('../data/achievements');
       
       const voidAchievements = getAchievementsByFaction('void');
       const infernoAchievements = getAchievementsByFaction('inferno');
       const stormAchievements = getAchievementsByFaction('storm');
       const stellarAchievements = getAchievementsByFaction('stellar');
+      const arcaneAchievements = getAchievementsByFaction('arcane');
+      const chaosAchievements = getAchievementsByFaction('chaos');
       
       expect(voidAchievements.length).toBeGreaterThan(0);
       expect(infernoAchievements.length).toBeGreaterThan(0);
       expect(stormAchievements.length).toBeGreaterThan(0);
       expect(stellarAchievements.length).toBeGreaterThan(0);
+      expect(arcaneAchievements.length).toBeGreaterThan(0);
+      expect(chaosAchievements.length).toBeGreaterThan(0);
     });
   });
 
@@ -272,10 +301,11 @@ describe('Achievement Expansion Tests', () => {
   });
 
   describe('Total Achievements Count', () => {
-    it('should export TOTAL_ACHIEVEMENTS constant', async () => {
+    // Updated: 23 achievements in Round 80
+    it('should export TOTAL_ACHIEVEMENTS constant (23 in Round 80)', async () => {
       const { TOTAL_ACHIEVEMENTS } = await import('../data/achievements');
       
-      expect(TOTAL_ACHIEVEMENTS).toBe(15);
+      expect(TOTAL_ACHIEVEMENTS).toBe(23);
     });
 
     it('should match count of ACHIEVEMENTS array', async () => {

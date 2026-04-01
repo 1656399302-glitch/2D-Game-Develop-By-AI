@@ -5,6 +5,8 @@
  * - My Listings: Machines marked as available for trade
  * - Browse Trades: Community machines available for trade
  * - Trade History: Completed trades
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { useState, useMemo, lazy, Suspense } from 'react';
@@ -109,13 +111,15 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
     return colors[rarity];
   };
 
-  // Faction icon
+  // Faction icon - extended to 6 factions
   const getFactionIcon = (faction: FactionId): string => {
     const icons: Record<FactionId, string> = {
       void: '🌑',
       inferno: '🔥',
       storm: '⚡',
       stellar: '✨',
+      arcane: '🔮',
+      chaos: '💀',
     };
     return icons[faction] || '⚙';
   };
@@ -333,7 +337,7 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
           {/* Browse Trades Tab */}
           {activeTab === 'browse-trades' && (
             <div className="space-y-6">
-              {/* Filters */}
+              {/* Filters - extended to 6 factions */}
               <div className="flex gap-4">
                 <select
                   value={factionFilter}
@@ -341,10 +345,12 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
                   className="px-3 py-2 rounded-lg bg-[#1e2a42] text-white border border-[#2d3a4f] focus:border-[#7c3aed] focus:outline-none text-sm"
                 >
                   <option value="all">所有派系</option>
-                  <option value="void">🌑 虚空</option>
-                  <option value="inferno">🔥 炼狱</option>
-                  <option value="storm">⚡ 风暴</option>
+                  <option value="void">🌑 虚空深渊</option>
+                  <option value="inferno">🔥 熔星锻造</option>
+                  <option value="storm">⚡ 雷霆相位</option>
                   <option value="stellar">✨ 星辉</option>
+                  <option value="arcane">🔮 奥术秩序</option>
+                  <option value="chaos">💀 混沌无序</option>
                 </select>
 
                 <select

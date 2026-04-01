@@ -3,6 +3,8 @@
  * 
  * Zustand store for tracking user statistics.
  * Persists data to localStorage.
+ * 
+ * ROUND 80: Extended UserStats with machinesExported and complexMachinesCreated.
  */
 
 import { create } from 'zustand';
@@ -26,6 +28,8 @@ interface StatsStore extends UserStats {
   incrementActivations: () => void;
   incrementErrors: () => void;
   incrementCodexEntries: () => void;
+  incrementMachinesExported: () => void;
+  incrementComplexMachinesCreated: () => void;
   addPlaytime: (minutes: number) => void;
   updateFactionCount: (faction: FactionId, count: number) => void;
   addEarnedAchievement: (achievementId: string) => void;
@@ -95,6 +99,20 @@ export const useStatsStore = create<StatsStore>()(
         }));
       },
       
+      // NEW: Increment machines exported
+      incrementMachinesExported: () => {
+        set((state) => ({
+          machinesExported: state.machinesExported + 1,
+        }));
+      },
+      
+      // NEW: Increment complex machines created
+      incrementComplexMachinesCreated: () => {
+        set((state) => ({
+          complexMachinesCreated: state.complexMachinesCreated + 1,
+        }));
+      },
+      
       // Add playtime
       addPlaytime: (minutes) => {
         set((state) => ({
@@ -149,23 +167,25 @@ export const useStatsStore = create<StatsStore>()(
           playtimeMinutes: state.playtimeMinutes,
           factionCounts: state.factionCounts,
           codexEntries: state.codexEntries,
+          machinesExported: state.machinesExported,
+          complexMachinesCreated: state.complexMachinesCreated,
         };
       },
     }),
     {
       name: STORAGE_KEY,
-      // FIX: Skip automatic hydration to prevent cascading state updates
+      // Skip automatic hydration to prevent cascading state updates
       skipHydration: true,
     }
   )
 );
 
-// FIX: Helper to manually trigger hydration
+// Helper to manually trigger hydration
 export const hydrateStatsStore = () => {
   useStatsStore.persist.rehydrate();
 };
 
-// FIX: Helper to check if hydration is complete
+// Helper to check if hydration is complete
 export const isStatsHydrated = () => {
   return useStatsStore.persist.hasHydrated();
 };

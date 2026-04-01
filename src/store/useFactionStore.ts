@@ -3,6 +3,8 @@
  * 
  * Zustand store for managing faction progress and tech tree unlocks.
  * Persists data to localStorage.
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { create } from 'zustand';
@@ -35,12 +37,14 @@ const STORAGE_KEY = 'arcane-machine-faction-store';
 export const useFactionStore = create<FactionStore>()(
   persist(
     (set, get) => ({
-      // Initial state
+      // Initial state - extended to 6 factions
       factionCounts: {
         void: 0,
         inferno: 0,
         storm: 0,
         stellar: 0,
+        arcane: 0,
+        chaos: 0,
       },
       
       techTreeUnlocks: {},
@@ -116,7 +120,7 @@ export const useFactionStore = create<FactionStore>()(
         return techTreeUnlocks[nodeId] || (node?.isUnlocked ?? false);
       },
       
-      // Reset all faction progress
+      // Reset all faction progress - extended to 6 factions
       resetFactionProgress: () => {
         set({
           factionCounts: {
@@ -124,6 +128,8 @@ export const useFactionStore = create<FactionStore>()(
             inferno: 0,
             storm: 0,
             stellar: 0,
+            arcane: 0,
+            chaos: 0,
           },
           techTreeUnlocks: {},
           selectedFaction: null,
@@ -132,18 +138,18 @@ export const useFactionStore = create<FactionStore>()(
     }),
     {
       name: STORAGE_KEY,
-      // FIX: Skip automatic hydration to prevent cascading state updates
+      // Skip automatic hydration to prevent cascading state updates
       skipHydration: true,
     }
   )
 );
 
-// FIX: Helper to manually trigger hydration
+// Helper to manually trigger hydration
 export const hydrateFactionStore = () => {
   useFactionStore.persist.rehydrate();
 };
 
-// FIX: Helper to check if hydration is complete
+// Helper to check if hydration is complete
 export const isFactionHydrated = () => {
   return useFactionStore.persist.hasHydrated();
 };

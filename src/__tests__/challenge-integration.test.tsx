@@ -9,7 +9,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { ChallengePanel } from '../components/Challenge/ChallengePanel';
 import { useAchievementStore } from '../store/useAchievementStore';
 import { useChallengeStore } from '../store/useChallengeStore';
-import { ACHIEVEMENTS } from '../types/factions';
+import { ACHIEVEMENTS } from '../data/achievements';
 import React from 'react';
 
 describe('ChallengePanel Integration', () => {

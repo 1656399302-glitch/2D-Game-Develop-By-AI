@@ -3,6 +3,8 @@
  * 
  * Provides analysis functions for machine data across the Codex.
  * Used by the enhanced Statistics Dashboard for comparison and trend analysis.
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { CodexEntry, PlacedModule, Connection, Rarity, ModuleType } from '../types';
@@ -244,7 +246,7 @@ function getFactionFromAttributes(attributes: CodexEntry['attributes']): Faction
 }
 
 /**
- * Calculate dominant faction from modules.
+ * Calculate dominant faction from modules - extended to 6 factions.
  */
 function calculateDominantFaction(modules: PlacedModule[]): FactionId | null {
   const factionCounts: Record<FactionId, number> = {
@@ -252,6 +254,8 @@ function calculateDominantFaction(modules: PlacedModule[]): FactionId | null {
     inferno: 0,
     storm: 0,
     stellar: 0,
+    arcane: 0,
+    chaos: 0,
   };
   
   modules.forEach(m => {

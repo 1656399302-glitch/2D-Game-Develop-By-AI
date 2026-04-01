@@ -2,6 +2,7 @@
  * Tutorial Enhancement Tests
  * 
  * Tests for the tutorial callback wiring, faction tips, and step completion tracking.
+ * Updated for Round 80: Reduced from 8 to 5 tutorial steps per contract specification.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -138,15 +139,17 @@ describe('Tutorial Enhancement Tests', () => {
       expect(typeof useFactionTip).toBe('function');
     });
 
-    it('should have faction-specific tip messages', async () => {
+    it('should have faction-specific tip messages - extended to 6 factions', async () => {
       const fs = await import('fs');
       const tutorialTipContent = fs.readFileSync('src/components/Tutorial/TutorialTip.tsx', 'utf8');
       
-      // Verify faction tip messages exist
+      // Verify faction tip messages exist (6 factions in Round 80)
       expect(tutorialTipContent).toContain('虚空派系');
       expect(tutorialTipContent).toContain('熔岩派系');
       expect(tutorialTipContent).toContain('风暴派系');
       expect(tutorialTipContent).toContain('星辉派系');
+      expect(tutorialTipContent).toContain('奥术秩序派系');
+      expect(tutorialTipContent).toContain('混沌无序派系');
     });
 
     it('should auto-dismiss timer be configurable', async () => {
@@ -164,7 +167,7 @@ describe('Tutorial Enhancement Tests', () => {
       
       // First session: complete some steps
       useTutorialStore.setState({
-        completedSteps: new Set(['welcome-module-panel', 'drag-module']),
+        completedSteps: new Set(['place-module', 'connect-modules']),
       });
       
       // Get persisted state
@@ -178,8 +181,8 @@ describe('Tutorial Enhancement Tests', () => {
       }));
       
       // Verify state can be persisted
-      expect(stateToPersist.completedSteps).toContain('welcome-module-panel');
-      expect(stateToPersist.completedSteps).toContain('drag-module');
+      expect(stateToPersist.completedSteps).toContain('place-module');
+      expect(stateToPersist.completedSteps).toContain('connect-modules');
     });
 
     it('should have markTutorialCompleted function', async () => {
@@ -204,24 +207,23 @@ describe('Tutorial Enhancement Tests', () => {
   });
 
   describe('Tutorial Steps Configuration', () => {
-    it('should have correct number of tutorial steps', async () => {
+    // Updated: 5 steps in Round 80
+    it('should have correct number of tutorial steps (5)', async () => {
       const { TUTORIAL_STEPS, TOTAL_TUTORIAL_STEPS } = await import('../data/tutorialSteps');
       
-      expect(TUTORIAL_STEPS.length).toBe(8);
-      expect(TOTAL_TUTORIAL_STEPS).toBe(8);
+      expect(TUTORIAL_STEPS.length).toBe(5);
+      expect(TOTAL_TUTORIAL_STEPS).toBe(5);
     });
 
-    it('should have correct step IDs', async () => {
+    it('should have correct step IDs - 5 essential steps', async () => {
       const { TUTORIAL_STEPS } = await import('../data/tutorialSteps');
       
-      expect(TUTORIAL_STEPS[0].id).toBe('welcome-module-panel');
-      expect(TUTORIAL_STEPS[1].id).toBe('drag-module');
-      expect(TUTORIAL_STEPS[2].id).toBe('select-rotate');
-      expect(TUTORIAL_STEPS[3].id).toBe('connect-modules');
-      expect(TUTORIAL_STEPS[4].id).toBe('activate-machine');
-      expect(TUTORIAL_STEPS[5].id).toBe('save-to-codex');
-      expect(TUTORIAL_STEPS[6].id).toBe('export-share');
-      expect(TUTORIAL_STEPS[7].id).toBe('random-forge');
+      // 5 essential steps per contract: place-module, connect-modules, activate-machine, save-to-codex, export-share
+      expect(TUTORIAL_STEPS[0].id).toBe('place-module');
+      expect(TUTORIAL_STEPS[1].id).toBe('connect-modules');
+      expect(TUTORIAL_STEPS[2].id).toBe('activate-machine');
+      expect(TUTORIAL_STEPS[3].id).toBe('save-to-codex');
+      expect(TUTORIAL_STEPS[4].id).toBe('export-share');
     });
   });
 });

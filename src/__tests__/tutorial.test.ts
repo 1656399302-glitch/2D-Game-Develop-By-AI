@@ -2,6 +2,7 @@
  * Tutorial System Tests
  * 
  * Tests for the tutorial overlay, spotlight, and step navigation.
+ * Updated for Round 80: Reduced from 8 to 5 tutorial steps per contract specification.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -11,12 +12,13 @@ import { useTutorialStore } from '../store/useTutorialStore';
 
 // Test Tutorial Step Definitions
 describe('Tutorial Step Definitions', () => {
-  it('should have exactly 8 tutorial steps', () => {
-    expect(TUTORIAL_STEPS.length).toBe(8);
+  // Updated: 5 steps in Round 80
+  it('should have exactly 5 tutorial steps', () => {
+    expect(TUTORIAL_STEPS.length).toBe(5);
   });
 
   it('should have TOTAL_TUTORIAL_STEPS constant equal to array length', () => {
-    expect(TOTAL_TUTORIAL_STEPS).toBe(8);
+    expect(TOTAL_TUTORIAL_STEPS).toBe(5);
   });
 
   it('each step should have required properties', () => {
@@ -32,7 +34,7 @@ describe('Tutorial Step Definitions', () => {
     });
   });
 
-  it('step numbers should be sequential from 0 to 7', () => {
+  it('step numbers should be sequential from 0 to 4', () => {
     TUTORIAL_STEPS.forEach((step, index) => {
       expect(step.stepNumber).toBe(index);
     });
@@ -45,14 +47,14 @@ describe('Tutorial Step Definitions', () => {
   });
 
   it('should find step by ID', () => {
-    const step = getStepById('welcome-module-panel');
+    const step = getStepById('place-module');
     expect(step).toBeDefined();
     expect(step?.stepNumber).toBe(0);
-    expect(step?.title).toContain('Welcome');
+    expect(step?.title).toContain('Place');
   });
 
   it('should find step by number', () => {
-    const step = getStepByNumber(4);
+    const step = getStepByNumber(2);
     expect(step).toBeDefined();
     expect(step?.id).toBe('activate-machine');
     expect(step?.title).toContain('Activate');
@@ -74,22 +76,14 @@ describe('Tutorial Step Definitions', () => {
     });
   });
 
-  it('steps 0-5 should cover basic workflow', () => {
-    // Welcome, Add Module, Select/Rotate, Connect, Activate, Save
-    expect(TUTORIAL_STEPS[0].id).toBe('welcome-module-panel');
-    expect(TUTORIAL_STEPS[1].id).toBe('drag-module');
-    expect(TUTORIAL_STEPS[2].id).toBe('select-rotate');
-    expect(TUTORIAL_STEPS[3].id).toBe('connect-modules');
-    expect(TUTORIAL_STEPS[4].id).toBe('activate-machine');
-    expect(TUTORIAL_STEPS[5].id).toBe('save-to-codex');
-  });
-
-  it('steps 6-7 should cover export and random forge', () => {
-    // Export/Share and Random Forge
-    expect(TUTORIAL_STEPS[6].id).toBe('export-share');
-    expect(TUTORIAL_STEPS[6].targetSelector).toContain('export');
-    expect(TUTORIAL_STEPS[7].id).toBe('random-forge');
-    expect(TUTORIAL_STEPS[7].targetSelector).toContain('random-forge');
+  // Updated: 5 essential steps per contract
+  it('5 essential steps should cover basic workflow', () => {
+    // place-module, connect-modules, activate-machine, save-to-codex, export-share
+    expect(TUTORIAL_STEPS[0].id).toBe('place-module');
+    expect(TUTORIAL_STEPS[1].id).toBe('connect-modules');
+    expect(TUTORIAL_STEPS[2].id).toBe('activate-machine');
+    expect(TUTORIAL_STEPS[3].id).toBe('save-to-codex');
+    expect(TUTORIAL_STEPS[4].id).toBe('export-share');
   });
 
   it('each step should have action description when action is not "none"', () => {
@@ -102,13 +96,8 @@ describe('Tutorial Step Definitions', () => {
   });
 
   it('export-share step should have click action', () => {
-    const exportStep = getStepByNumber(6);
+    const exportStep = getStepByNumber(4);
     expect(exportStep?.action).toBe('click');
-  });
-
-  it('random-forge step should have click action', () => {
-    const randomStep = getStepByNumber(7);
-    expect(randomStep?.action).toBe('click');
   });
 });
 
@@ -169,11 +158,11 @@ describe('Tutorial Store', () => {
     
     act(() => {
       store.startTutorial();
-      store.goToStep(5);
+      store.goToStep(3);
     });
     
     const { currentStep } = useTutorialStore.getState();
-    expect(currentStep).toBe(5);
+    expect(currentStep).toBe(3);
   });
 
   it('should complete tutorial when completeTutorial is called', () => {

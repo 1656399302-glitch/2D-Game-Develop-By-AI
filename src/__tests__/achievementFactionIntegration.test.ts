@@ -3,15 +3,14 @@
  * 
  * Tests the integration between achievement unlocks and faction reputation.
  * When an achievement with a faction property is unlocked, it should add +10 reputation.
+ * 
+ * Updated for Round 80: Extended to 6 factions with 10 faction achievements.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAchievementStore } from '../store/useAchievementStore';
 import { useFactionReputationStore } from '../store/useFactionReputationStore';
-import { ACHIEVEMENTS, Achievement, FactionId } from '../types/factions';
-
-// Store original addReputation function for spying
-const originalAddReputation = useFactionReputationStore.getState().addReputation;
+import { ACHIEVEMENTS, Achievement, FactionId } from '../data/achievements';
 
 describe('Achievement → Faction Reputation Integration', () => {
   beforeEach(() => {
@@ -21,22 +20,25 @@ describe('Achievement → Faction Reputation Integration', () => {
       recentlyUnlocked: new Set(),
     });
     
-    // Reset faction reputation store state
+    // Reset faction reputation store state - extended to 6 factions
     useFactionReputationStore.setState({
       reputations: {
         void: 0,
         inferno: 0,
         storm: 0,
         stellar: 0,
+        arcane: 0,
+        chaos: 0,
       },
       totalReputationEarned: 0,
     });
   });
 
   describe('Achievement with faction property', () => {
-    it('should have faction achievements defined', () => {
+    // Updated: 10 faction achievements in Round 80
+    it('should have 10 faction achievements defined', () => {
       const factionAchievements = ACHIEVEMENTS.filter(a => a.faction);
-      expect(factionAchievements.length).toBe(4); // One for each faction
+      expect(factionAchievements.length).toBe(10);
     });
 
     it('should find void faction achievement', () => {
@@ -61,6 +63,19 @@ describe('Achievement → Faction Reputation Integration', () => {
       const stellarAchievement = ACHIEVEMENTS.find(a => a.faction === 'stellar');
       expect(stellarAchievement).toBeDefined();
       expect(stellarAchievement!.faction).toBe('stellar');
+    });
+
+    // Test new factions
+    it('should find arcane faction achievement', () => {
+      const arcaneAchievement = ACHIEVEMENTS.find(a => a.faction === 'arcane');
+      expect(arcaneAchievement).toBeDefined();
+      expect(arcaneAchievement!.faction).toBe('arcane');
+    });
+
+    it('should find chaos faction achievement', () => {
+      const chaosAchievement = ACHIEVEMENTS.find(a => a.faction === 'chaos');
+      expect(chaosAchievement).toBeDefined();
+      expect(chaosAchievement!.faction).toBe('chaos');
     });
   });
 
@@ -167,7 +182,8 @@ describe('Achievement → Faction Reputation Integration', () => {
   });
 
   describe('Faction Achievement Coverage', () => {
-    const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar'];
+    // Updated: 6 factions in Round 80
+    const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos'];
 
     factionIds.forEach(factionId => {
       it(`should have achievement for ${factionId} faction`, () => {

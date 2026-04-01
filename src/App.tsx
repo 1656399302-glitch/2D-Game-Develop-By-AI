@@ -241,6 +241,8 @@ function AppContent() {
           factionCounts,
           codexEntries,
           tutorialCompleted: true,
+          machinesExported: 0,
+          complexMachinesCreated: 0,
         };
         
         // Check if the achievement condition is met
@@ -309,6 +311,8 @@ function AppContent() {
           factionCounts,
           codexEntries,
           tutorialCompleted: earnedAchievements.includes('getting-started'),
+          machinesExported: 0,
+          complexMachinesCreated: 0,
         };
         
         if (achievement.condition(stats)) {

@@ -3,9 +3,12 @@
  * 
  * Detects when achievements are earned based on user statistics.
  * Triggers callbacks when achievements are unlocked.
+ * 
+ * ROUND 80: Updated to import ACHIEVEMENTS from the correct location.
  */
 
-import { Achievement, ACHIEVEMENTS, UserStats } from '../types/factions';
+import { Achievement, UserStats } from '../types/factions';
+import { ACHIEVEMENTS } from '../data/achievements';
 
 export type AchievementCallback = (achievement: Achievement) => void;
 

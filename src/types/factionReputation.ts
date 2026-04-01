@@ -3,6 +3,8 @@
  * 
  * Reputation system allows players to earn reputation points with factions
  * and unlock faction-exclusive content at higher ranks.
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 /**
@@ -155,20 +157,22 @@ export const REPUTATION_LEVEL_INFO: Record<FactionReputationLevel, ReputationLev
 };
 
 /**
- * Faction variant module types unlocked at Grandmaster rank
+ * Faction variant module types unlocked at Grandmaster rank - extended to 6 factions
  */
-export const FACTION_VARIANT_MODULES = {
+export const FACTION_VARIANT_MODULES: Record<string, string> = {
   'void': 'void-arcane-gear',
   'inferno': 'inferno-blazing-core',
   'storm': 'storm-thundering-pipe',
   'stellar': 'stellar-harmonic-crystal',
-} as const;
+  'arcane': 'arcane-order-rune',
+  'chaos': 'chaos-disorder-core',
+};
 
 /**
  * Get variant module ID for a faction
  */
 export function getFactionVariantModule(factionId: string): string | null {
-  return FACTION_VARIANT_MODULES[factionId as keyof typeof FACTION_VARIANT_MODULES] || null;
+  return FACTION_VARIANT_MODULES[factionId] || null;
 }
 
 /**

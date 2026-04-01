@@ -1,4 +1,5 @@
 // Tutorial step definitions for the Arcane Machine Codex Workshop
+// ROUND 80 MIGRATION: Reduced from 8 to 5 steps per contract specification
 
 export interface TutorialStep {
   id: string;
@@ -13,21 +14,16 @@ export interface TutorialStep {
   highlightPadding?: number;
 }
 
+// REDUCED TO 5 STEPS per Round 80 contract specification:
+// 1. Place module
+// 2. Connect modules
+// 3. Activate machine
+// 4. Save to codex
+// 5. Export
 export const TUTORIAL_STEPS: TutorialStep[] = [
   {
-    id: 'welcome-module-panel',
+    id: 'place-module',
     stepNumber: 0,
-    title: 'Welcome to the Arcane Machine Codex',
-    description: 'This is the Module Palette where you can find all the magical components to build your arcane machines. Drag any module to the canvas to start building.',
-    targetSelector: '[data-tutorial="module-panel"]',
-    position: 'right',
-    action: 'none',
-    actionDescription: 'Take a moment to explore the available modules.',
-    expectedResult: 'User should see the module palette with 11 module types',
-  },
-  {
-    id: 'drag-module',
-    stepNumber: 1,
     title: 'Place Your First Module',
     description: 'Drag the Core Furnace from the palette and drop it onto the canvas. The Core Furnace is the heart of your machine!',
     targetSelector: '[data-tutorial="canvas"]',
@@ -37,19 +33,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     expectedResult: 'Module appears on canvas and becomes selected',
   },
   {
-    id: 'select-rotate',
-    stepNumber: 2,
-    title: 'Select and Rotate Modules',
-    description: 'Click on any module to select it. Use the rotation control or press R to rotate the module 90 degrees. Try it now!',
-    targetSelector: '[data-tutorial="canvas"]',
-    position: 'bottom',
-    action: 'click',
-    actionDescription: 'Click on a module to select it, then press R to rotate',
-    expectedResult: 'Module becomes selected and rotates',
-  },
-  {
     id: 'connect-modules',
-    stepNumber: 3,
+    stepNumber: 1,
     title: 'Connect Your Modules',
     description: 'Modules can be connected by dragging from one port to another. Click on a module\'s output port (marked with an arrow) and drag to another module\'s input port.',
     targetSelector: '[data-tutorial="canvas"]',
@@ -60,7 +45,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'activate-machine',
-    stepNumber: 4,
+    stepNumber: 2,
     title: 'Activate Your Machine',
     description: 'Once you have your machine set up, click the "Activate Machine" button to see your creation come to life!',
     targetSelector: '[data-tutorial="activate-button"]',
@@ -71,7 +56,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'save-to-codex',
-    stepNumber: 5,
+    stepNumber: 3,
     title: 'Save to Your Codex',
     description: 'Save your masterpiece to the Codex! This creates a permanent record of your machine with auto-generated name, rarity, and attributes.',
     targetSelector: '[data-tutorial="save-button"]',
@@ -82,7 +67,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'export-share',
-    stepNumber: 6,
+    stepNumber: 4,
     title: 'Export and Share',
     description: 'Export your machine as an SVG or PNG image, or generate a shareable poster card! Perfect for showcasing your creation.',
     targetSelector: '[data-tutorial="export-button"]',
@@ -90,17 +75,6 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     action: 'click',
     actionDescription: 'Click Export to see sharing options',
     expectedResult: 'Export modal opens with SVG, PNG, and poster options',
-  },
-  {
-    id: 'random-forge',
-    stepNumber: 7,
-    title: 'Try the Random Forge',
-    description: 'Not sure where to start? Use the Random Forge to generate a complete machine with random modules and connections. You can always edit it afterwards!',
-    targetSelector: '[data-tutorial="random-forge-button"]',
-    position: 'left',
-    action: 'click',
-    actionDescription: 'Click Random Forge to generate inspiration',
-    expectedResult: 'A complete machine is generated with random configuration',
   },
 ];
 

@@ -11,13 +11,16 @@ import {
 import { UserStats } from '../types/factions';
 
 describe('achievementChecker', () => {
+  // Extended to 6 factions - Round 80
   const createStats = (overrides: Partial<UserStats>): UserStats => ({
     machinesCreated: 0,
     activations: 0,
     errors: 0,
     playtimeMinutes: 0,
-    factionCounts: { void: 0, inferno: 0, storm: 0, stellar: 0 },
+    factionCounts: { void: 0, inferno: 0, storm: 0, stellar: 0, arcane: 0, chaos: 0 },
     codexEntries: 0,
+    machinesExported: 0,
+    complexMachinesCreated: 0,
     ...overrides,
   });
   
@@ -49,18 +52,22 @@ describe('achievementChecker', () => {
       expect(result).toContain('energy-master');
     });
     
-    it('returns both first-forge and energy-master when machinesCreated >= 10', () => {
+    // Updated: first-forge triggers at exactly 1 machine (exact threshold), not >= 10
+    // skilled-artisan triggers at exactly 10 machines
+    it('returns skilled-artisan and energy-master when machinesCreated >= 10', () => {
       const stats = createStats({ machinesCreated: 10 });
       const earned = new Set();
       
       const result = checkAchievements(stats, earned);
       
-      expect(result).toContain('first-forge');
+      // skilled-artisan triggers at exactly 10 (exact threshold)
+      expect(result).toContain('skilled-artisan');
+      // energy-master triggers at >= 10 (minimum threshold)
       expect(result).toContain('energy-master');
     });
     
     it('returns void-conqueror when factionCounts.void >= 5', () => {
-      const stats = createStats({ factionCounts: { void: 5, inferno: 0, storm: 0, stellar: 0 } });
+      const stats = createStats({ factionCounts: { void: 5, inferno: 0, storm: 0, stellar: 0, arcane: 0, chaos: 0 } });
       const earned = new Set();
       
       const result = checkAchievements(stats, earned);
@@ -169,10 +176,11 @@ describe('achievementChecker', () => {
   });
   
   describe('getTotalAchievementCount', () => {
-    it('returns correct total count (8 achievements)', () => {
+    // Updated to reflect 23 achievements in Round 80
+    it('returns correct total count (23 achievements after Round 80 expansion)', () => {
       const count = getTotalAchievementCount();
       
-      expect(count).toBe(8);
+      expect(count).toBe(23);
     });
   });
   
@@ -203,14 +211,16 @@ describe('achievementChecker', () => {
       expect(progress).toBe(0);
     });
     
-    it('returns 13 for 1 of 8 achievements (rounded from 12.5)', () => {
+    // Updated: 1/23 = 4.35%, rounded to 4%
+    it('returns 4 for 1 of 23 achievements (rounded from 4.35)', () => {
       const earned = new Set(['first-forge']);
       
       const progress = getAchievementProgress(earned);
       
-      expect(progress).toBe(13); // Math.round(100/8 * 1) = 13
+      expect(progress).toBe(4); // Math.round(100/23 * 1) = 4
     });
     
+    // Updated: Should include all 23 achievements
     it('returns 100 for all achievements', () => {
       const earned = new Set([
         'first-forge', 
@@ -220,7 +230,22 @@ describe('achievementChecker', () => {
         'storm-ruler',
         'stellar-harmonizer',
         'perfect-activation', 
-        'codex-collector'
+        'codex-collector',
+        'first-activation',
+        'first-export',
+        'complex-machine-created',
+        'apprentice-forge',
+        'skilled-artisan',
+        'master-creator',
+        'legendary-machinist',
+        'eternal-forger',
+        'getting-started',
+        'faction-void',
+        'faction-forge',
+        'faction-phase',
+        'faction-barrier',
+        'faction-order',
+        'faction-chaos',
       ]);
       
       const progress = getAchievementProgress(earned);

@@ -3,9 +3,9 @@ import { useFactionStore } from '../store/useFactionStore';
 
 describe('useFactionStore', () => {
   beforeEach(() => {
-    // Reset store state
+    // Reset store state - extended to 6 factions
     useFactionStore.setState({
-      factionCounts: { void: 0, inferno: 0, storm: 0, stellar: 0 },
+      factionCounts: { void: 0, inferno: 0, storm: 0, stellar: 0, arcane: 0, chaos: 0 },
       techTreeUnlocks: {},
       selectedFaction: null,
     });
@@ -19,6 +19,8 @@ describe('useFactionStore', () => {
       expect(state.factionCounts.inferno).toBe(0);
       expect(state.factionCounts.storm).toBe(0);
       expect(state.factionCounts.stellar).toBe(0);
+      expect(state.factionCounts.arcane).toBe(0);
+      expect(state.factionCounts.chaos).toBe(0);
     });
     
     it('increments void faction count', () => {
@@ -51,6 +53,23 @@ describe('useFactionStore', () => {
       store.incrementFactionCount('stellar');
       
       expect(useFactionStore.getState().factionCounts.stellar).toBe(1);
+    });
+    
+    // NEW: Test arcane and chaos factions
+    it('increments arcane faction count', () => {
+      const store = useFactionStore.getState();
+      
+      store.incrementFactionCount('arcane');
+      
+      expect(useFactionStore.getState().factionCounts.arcane).toBe(1);
+    });
+    
+    it('increments chaos faction count', () => {
+      const store = useFactionStore.getState();
+      
+      store.incrementFactionCount('chaos');
+      
+      expect(useFactionStore.getState().factionCounts.chaos).toBe(1);
     });
     
     it('increments multiple times', () => {
@@ -100,12 +119,12 @@ describe('useFactionStore', () => {
   });
   
   describe('tech tree', () => {
-    it('generates 12 nodes (4 factions x 3 tiers)', () => {
+    it('generates 18 nodes (6 factions x 3 tiers) - Round 80 extended', () => {
       const store = useFactionStore.getState();
       
       const nodes = store.getTechTreeNodes();
       
-      expect(nodes.length).toBe(12);
+      expect(nodes.length).toBe(18);
     });
     
     it('returns nodes grouped by faction', () => {
@@ -207,20 +226,25 @@ describe('useFactionStore', () => {
       
       expect(store.getFactionCount('void')).toBe(2);
       expect(store.getFactionCount('inferno')).toBe(0);
+      expect(store.getFactionCount('arcane')).toBe(0);
+      expect(store.getFactionCount('chaos')).toBe(0);
     });
   });
   
   describe('resetFactionProgress', () => {
-    it('resets all counts to zero', () => {
+    it('resets all counts to zero - extended to 6 factions', () => {
       const store = useFactionStore.getState();
       
       store.incrementFactionCount('void');
       store.incrementFactionCount('inferno');
+      store.incrementFactionCount('arcane');
       store.setSelectedFaction('void');
       store.resetFactionProgress();
       
       expect(useFactionStore.getState().factionCounts.void).toBe(0);
       expect(useFactionStore.getState().factionCounts.inferno).toBe(0);
+      expect(useFactionStore.getState().factionCounts.arcane).toBe(0);
+      expect(useFactionStore.getState().factionCounts.chaos).toBe(0);
       expect(useFactionStore.getState().selectedFaction).toBeNull();
     });
   });

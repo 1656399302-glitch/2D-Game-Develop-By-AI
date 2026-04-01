@@ -203,6 +203,7 @@ describe('factionCalculator', () => {
   });
   
   describe('getFactionCounts', () => {
+    // Updated: 6 factions in Round 80
     it('counts modules per faction', () => {
       const modules: PlacedModule[] = [
         { id: '1', instanceId: 'i1', type: 'void-siphon', x: 0, y: 0, rotation: 0, scale: 1, flipped: false, ports: [] },
@@ -217,8 +218,11 @@ describe('factionCalculator', () => {
       expect(counts.inferno).toBe(1);
       expect(counts.storm).toBe(0);
       expect(counts.stellar).toBe(0);
+      expect(counts.arcane).toBe(0);
+      expect(counts.chaos).toBe(0);
     });
     
+    // Updated: 6 factions in Round 80
     it('returns zeros for empty array', () => {
       const counts = getFactionCounts([]);
       
@@ -226,17 +230,20 @@ describe('factionCalculator', () => {
       expect(counts.inferno).toBe(0);
       expect(counts.storm).toBe(0);
       expect(counts.stellar).toBe(0);
+      expect(counts.arcane).toBe(0);
+      expect(counts.chaos).toBe(0);
     });
   });
   
   describe('getFactionConfig', () => {
+    // Updated: Faction names changed in Round 80
     it('returns config for valid faction', () => {
       const config = getFactionConfig('void');
       
       expect(config).not.toBeNull();
       expect(config?.id).toBe('void');
-      expect(config?.name).toBe('Void');
-      expect(config?.nameCn).toBe('深渊派系');
+      expect(config?.name).toBe('Void Abyss'); // Updated in Round 80
+      expect(config?.nameCn).toBe('虚空深渊');
     });
     
     it('returns null for invalid faction', () => {
@@ -263,11 +270,23 @@ describe('factionCalculator', () => {
       expect(isModuleInFaction('amplifier-crystal', 'stellar')).toBe(true);
     });
     
+    // Updated: 6 factions in Round 80
     it('returns false for neutral module', () => {
       expect(isModuleInFaction('gear', 'void')).toBe(false);
       expect(isModuleInFaction('gear', 'inferno')).toBe(false);
       expect(isModuleInFaction('gear', 'storm')).toBe(false);
       expect(isModuleInFaction('gear', 'stellar')).toBe(false);
+      expect(isModuleInFaction('gear', 'arcane')).toBe(false);
+      expect(isModuleInFaction('gear', 'chaos')).toBe(false);
+    });
+
+    // NEW: Test arcane and chaos modules
+    it('returns true for arcane-matrix-grid in arcane faction', () => {
+      expect(isModuleInFaction('arcane-matrix-grid', 'arcane')).toBe(true);
+    });
+    
+    it('returns true for temporal-distorter in chaos faction', () => {
+      expect(isModuleInFaction('temporal-distorter', 'chaos')).toBe(true);
     });
   });
 });

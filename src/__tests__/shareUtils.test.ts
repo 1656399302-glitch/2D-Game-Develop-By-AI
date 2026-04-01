@@ -37,14 +37,16 @@ describe('Share Utilities', () => {
       const meta = generateOpenGraphMeta('Test Machine', mockAttributes);
       
       expect(meta.title).toContain('Test Machine');
-      expect(meta.title).toContain('Void Machine'); // Based on dominant tag
+      // Updated: Faction names expanded in Round 80 - Void Abyss, Molten Star Forge, etc.
+      expect(meta.title).toContain('Void Abyss Machine'); // Based on dominant tag 'void' maps to 'Void Abyss'
     });
 
     it('should include machine rarity in meta', () => {
       const meta = generateOpenGraphMeta('Test Machine', mockAttributes);
       
-      // Title should contain rarity in lowercase (epic)
-      expect(meta.title).toMatch(/Test Machine.*Void Machine.*Arcane Machine Codex/i);
+      // Title should contain rarity in uppercase (EPIC)
+      // Updated: Format includes full faction name (Void Abyss Machine)
+      expect(meta.title).toMatch(/Test Machine.*Void Abyss.*Arcane Machine Codex/i);
     });
 
     it('should include stats in description', () => {

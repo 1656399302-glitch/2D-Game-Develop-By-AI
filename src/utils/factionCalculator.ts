@@ -2,6 +2,8 @@
  * Faction Calculator Utility
  * 
  * Calculates the dominant faction for a machine based on its module composition.
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { FactionId, FACTIONS, MODULE_TO_FACTION } from '../types/factions';
@@ -15,12 +17,14 @@ export type { FactionId } from '../types/factions';
  * @returns The dominant faction ID, or null if no faction modules
  */
 export function calculateFaction(modules: { type: ModuleType }[]): FactionId | null {
-  // Count modules per faction
+  // Count modules per faction - extended to 6 factions
   const factionCounts: Record<FactionId, number> = {
     void: 0,
     inferno: 0,
     storm: 0,
     stellar: 0,
+    arcane: 0,
+    chaos: 0,
   };
   
   modules.forEach((module) => {
@@ -47,7 +51,7 @@ export function calculateFaction(modules: { type: ModuleType }[]): FactionId | n
 /**
  * Get faction counts for a set of modules
  * @param modules - Array of placed modules
- * @returns Object with faction counts
+ * @returns Object with faction counts - extended to 6 factions
  */
 export function getFactionCounts(modules: { type: ModuleType }[]): Record<FactionId, number> {
   const factionCounts: Record<FactionId, number> = {
@@ -55,6 +59,8 @@ export function getFactionCounts(modules: { type: ModuleType }[]): Record<Factio
     inferno: 0,
     storm: 0,
     stellar: 0,
+    arcane: 0,
+    chaos: 0,
   };
   
   modules.forEach((module) => {
@@ -77,11 +83,11 @@ export function getFactionConfig(factionId: FactionId) {
 }
 
 /**
- * Get all faction IDs
+ * Get all faction IDs - extended to 6 factions
  * @returns Array of faction IDs
  */
 export function getAllFactionIds(): FactionId[] {
-  return ['void', 'inferno', 'storm', 'stellar'];
+  return ['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos'];
 }
 
 /**

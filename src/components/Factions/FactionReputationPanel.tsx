@@ -3,6 +3,8 @@
  * 
  * Displays per-faction reputation bars, level icons, and progress to next level.
  * Integrates with the faction reputation store.
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { useFactionReputationStore } from '../../store/useFactionReputationStore';
@@ -155,7 +157,7 @@ function getNextLevelName(currentLevel: FactionReputationLevel): string {
 /**
  * Faction Reputation Panel Component
  * 
- * Displays reputation bars for all 4 factions with level indicators and progress.
+ * Displays reputation bars for all 6 factions with level indicators and progress.
  */
 export function FactionReputationPanel({
   className = '',
@@ -165,7 +167,8 @@ export function FactionReputationPanel({
   const totalReputation = useFactionReputationStore((state) => 
     Object.values(state.reputations).reduce((sum, rep) => sum + rep, 0)
   );
-  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar'];
+  // Extended to 6 factions per Round 80 contract
+  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos'];
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -204,12 +207,15 @@ export function FactionReputationPanel({
  * Component showing what's unlocked at Grandmaster rank
  */
 function GrandmasterUnlocks() {
-  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar'];
+  // Extended to 6 factions per Round 80 contract
+  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos'];
   const variantModules: Record<FactionId, string> = {
     void: '🌑 虚空奥术齿轮',
     inferno: '🔥 烈焰核心',
     storm: '⚡ 雷霆管道',
     stellar: '✨ 星辉晶体',
+    arcane: '🔮 奥术秩序符文',
+    chaos: '💀 混沌时空扭曲',
   };
 
   const unlockedCount = factionIds.filter((fid) => {
@@ -231,7 +237,7 @@ function GrandmasterUnlocks() {
           宗师解锁进度
         </h4>
         <span className="text-xs text-[#4a5568]">
-          ({unlockedCount}/4)
+          ({unlockedCount}/6)
         </span>
       </div>
 

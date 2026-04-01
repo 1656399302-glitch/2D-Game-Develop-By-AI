@@ -3,6 +3,8 @@
  * 
  * Tests for faction-exclusive variant modules.
  * Covers: variant module rendering, unlock conditions, and no conflicts with base modules.
+ * 
+ * Updated: 6 variants in Round 80 (void, inferno, storm, stellar, arcane, chaos)
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -17,9 +19,10 @@ import { getReputationLevel } from '../utils/factionReputationUtils';
 
 describe('Faction Variants', () => {
   describe('FACTION_VARIANT_MODULES', () => {
-    it('should have 4 faction variants', () => {
+    // Updated: 6 faction variants in Round 80
+    it('should have 6 faction variants', () => {
       const variantCount = Object.keys(FACTION_VARIANT_MODULES).length;
-      expect(variantCount).toBe(4);
+      expect(variantCount).toBe(6);
     });
 
     it('should map void faction to void-arcane-gear', () => {
@@ -38,6 +41,17 @@ describe('Faction Variants', () => {
       expect(FACTION_VARIANT_MODULES['stellar']).toBe('stellar-harmonic-crystal');
     });
 
+    // NEW: Test new faction variants in Round 80
+    it('should map arcane faction to arcane-variant module', () => {
+      expect(FACTION_VARIANT_MODULES['arcane']).toBeDefined();
+      expect(FACTION_VARIANT_MODULES['arcane']).toContain('arcane');
+    });
+
+    it('should map chaos faction to chaos-variant module', () => {
+      expect(FACTION_VARIANT_MODULES['chaos']).toBeDefined();
+      expect(FACTION_VARIANT_MODULES['chaos']).toContain('chaos');
+    });
+
     it('should have unique variant module IDs', () => {
       const variants = Object.values(FACTION_VARIANT_MODULES);
       const uniqueVariants = new Set(variants);
@@ -53,9 +67,10 @@ describe('Faction Variants', () => {
       });
     });
 
+    // Updated: 6 factions in Round 80
     it('should have valid faction mapping for each variant', () => {
       Object.entries(FACTION_VARIANT_DEFINITIONS).forEach(([variantId, def]) => {
-        expect(['void', 'inferno', 'storm', 'stellar']).toContain(def.faction);
+        expect(['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos']).toContain(def.faction);
       });
     });
 
@@ -125,12 +140,15 @@ describe('Faction Variants', () => {
       useFactionReputationStore.getState().resetAllReputations();
     });
 
+    // Updated: 6 factions in Round 80
     it('should not unlock variants at 0 reputation', () => {
       const store = useFactionReputationStore.getState();
       expect(store.isVariantUnlocked('void')).toBe(false);
       expect(store.isVariantUnlocked('inferno')).toBe(false);
       expect(store.isVariantUnlocked('storm')).toBe(false);
       expect(store.isVariantUnlocked('stellar')).toBe(false);
+      expect(store.isVariantUnlocked('arcane')).toBe(false);
+      expect(store.isVariantUnlocked('chaos')).toBe(false);
     });
 
     it('should not unlock variants at intermediate levels', () => {
@@ -145,35 +163,47 @@ describe('Faction Variants', () => {
       expect(store.isVariantUnlocked('void')).toBe(true);
     });
 
+    // Updated: 6 factions in Round 80
     it('should unlock all variants when all factions reach Grandmaster', () => {
       const store = useFactionReputationStore.getState();
       store.addReputation('void', 2000);
       store.addReputation('inferno', 2500);
       store.addReputation('storm', 3000);
       store.addReputation('stellar', 5000);
+      store.addReputation('arcane', 5000);
+      store.addReputation('chaos', 5000);
       expect(store.isVariantUnlocked('void')).toBe(true);
       expect(store.isVariantUnlocked('inferno')).toBe(true);
       expect(store.isVariantUnlocked('storm')).toBe(true);
       expect(store.isVariantUnlocked('stellar')).toBe(true);
+      expect(store.isVariantUnlocked('arcane')).toBe(true);
+      expect(store.isVariantUnlocked('chaos')).toBe(true);
     });
 
+    // Updated: 6 factions in Round 80
     it('should return correct variant module ID at Grandmaster', () => {
       const store = useFactionReputationStore.getState();
       store.addReputation('void', 2000);
       store.addReputation('inferno', 2000);
       store.addReputation('storm', 2000);
       store.addReputation('stellar', 2000);
+      store.addReputation('arcane', 2000);
+      store.addReputation('chaos', 2000);
       
       // Check via reputation data
       const voidRep = store.getReputationData('void');
       const infernoRep = store.getReputationData('inferno');
       const stormRep = store.getReputationData('storm');
       const stellarRep = store.getReputationData('stellar');
+      const arcaneRep = store.getReputationData('arcane');
+      const chaosRep = store.getReputationData('chaos');
       
       expect(voidRep.level).toBe(FactionReputationLevel.Grandmaster);
       expect(infernoRep.level).toBe(FactionReputationLevel.Grandmaster);
       expect(stormRep.level).toBe(FactionReputationLevel.Grandmaster);
       expect(stellarRep.level).toBe(FactionReputationLevel.Grandmaster);
+      expect(arcaneRep.level).toBe(FactionReputationLevel.Grandmaster);
+      expect(chaosRep.level).toBe(FactionReputationLevel.Grandmaster);
     });
   });
 
@@ -202,12 +232,16 @@ describe('Faction Variants', () => {
       });
     });
 
+    // Updated: 6 variants in Round 80
     it('variant IDs should be namespaced with faction prefix', () => {
       const variantIds = Object.values(FACTION_VARIANT_MODULES);
       expect(variantIds).toContain('void-arcane-gear');
       expect(variantIds).toContain('inferno-blazing-core');
       expect(variantIds).toContain('storm-thundering-pipe');
       expect(variantIds).toContain('stellar-harmonic-crystal');
+      // New variants
+      expect(variantIds.some(id => id.startsWith('arcane'))).toBe(true);
+      expect(variantIds.some(id => id.startsWith('chaos'))).toBe(true);
     });
   });
 

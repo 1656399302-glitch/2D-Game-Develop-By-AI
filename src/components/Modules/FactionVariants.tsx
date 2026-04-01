@@ -3,6 +3,8 @@
  * 
  * Displays and manages faction-exclusive variant modules that are unlocked
  * at Grandmaster reputation rank (2000+ reputation).
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { useFactionReputationStore } from '../../store/useFactionReputationStore';
@@ -25,7 +27,7 @@ interface FactionVariantsProps {
 /**
  * Faction Variants Component
  * 
- * Displays all 4 faction variant modules, highlighting those that are unlocked
+ * Displays all 6 faction variant modules, highlighting those that are unlocked
  * at Grandmaster rank (2000+ reputation).
  */
 export function FactionVariants({
@@ -33,7 +35,8 @@ export function FactionVariants({
   showLocked = false,
   className = '',
 }: FactionVariantsProps) {
-  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar'];
+  // Extended to 6 factions
+  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos'];
   
   const getUnlockedVariants = () => {
     const state = useFactionReputationStore.getState();
@@ -112,11 +115,14 @@ function VariantModuleCard({
   isUnlocked: boolean;
   onClick?: () => void;
 }) {
+  // Extended to 6 factions
   const FACTION_ICONS: Record<FactionId, string> = {
     void: '🌑',
     inferno: '🔥',
     storm: '⚡',
     stellar: '✨',
+    arcane: '🔮',
+    chaos: '💀',
   };
 
   return (
@@ -194,11 +200,16 @@ function VariantModuleCard({
 export function useIsVariantUnlocked(variantModuleId: string): boolean {
   const reputations = useFactionReputationStore((state) => state.reputations);
   
-  for (const [factionId, variant] of Object.entries(FACTION_VARIANT_MODULES)) {
+  for (const [, variant] of Object.entries(FACTION_VARIANT_MODULES)) {
     if (variant === variantModuleId) {
-      const rep = reputations[factionId] || 0;
-      const level = getReputationLevel(rep);
-      return isVariantUnlockedForLevel(level);
+      // Find faction by variant
+      for (const [factionId, v] of Object.entries(FACTION_VARIANT_MODULES)) {
+        if (v === variantModuleId) {
+          const rep = reputations[factionId as FactionId] || 0;
+          const level = getReputationLevel(rep);
+          return isVariantUnlockedForLevel(level);
+        }
+      }
     }
   }
   
@@ -210,7 +221,8 @@ export function useIsVariantUnlocked(variantModuleId: string): boolean {
  */
 export function useUnlockedVariants(): string[] {
   const reputations = useFactionReputationStore((state) => state.reputations);
-  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar'];
+  // Extended to 6 factions
+  const factionIds: FactionId[] = ['void', 'inferno', 'storm', 'stellar', 'arcane', 'chaos'];
   const unlocked: string[] = [];
   
   for (const factionId of factionIds) {

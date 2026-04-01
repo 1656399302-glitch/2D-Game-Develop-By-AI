@@ -3,6 +3,8 @@
  * 
  * Calculation functions for machine statistics analysis.
  * Used by the Machine Statistics Dashboard to compute metrics.
+ * 
+ * ROUND 80: Extended to 6 factions per contract specification.
  */
 
 import { PlacedModule, Connection, ModuleType } from '../types';
@@ -170,10 +172,10 @@ export function calculateComplexityFactors(
   const maxPossibleTypes = 18; // Total module types available
   const moduleTypeDiversity = (uniqueTypes / maxPossibleTypes) * 100;
   
-  // Faction diversity
+  // Faction diversity - extended to 6 factions
   const factions = modules.map(m => MODULE_TO_FACTION[m.type]).filter(Boolean);
   const uniqueFactions = new Set(factions).size;
-  const factionDiversity = (uniqueFactions / 4) * 100; // 4 total factions
+  const factionDiversity = (uniqueFactions / 6) * 100; // 6 total factions
   
   // Has essential modules
   const moduleTypes = new Set(modules.map(m => m.type));
@@ -393,7 +395,7 @@ function calculateStatsFromModules(
 // ============================================================================
 
 /**
- * Calculate dominant faction based on module composition
+ * Calculate dominant faction based on module composition - extended to 6 factions
  */
 function calculateDominantFaction(modules: PlacedModule[]): FactionId | null {
   if (modules.length === 0) return null;
@@ -403,6 +405,8 @@ function calculateDominantFaction(modules: PlacedModule[]): FactionId | null {
     inferno: 0,
     storm: 0,
     stellar: 0,
+    arcane: 0,
+    chaos: 0,
   };
   
   modules.forEach(m => {
@@ -426,7 +430,7 @@ function calculateDominantFaction(modules: PlacedModule[]): FactionId | null {
 }
 
 /**
- * Format faction ID to display name
+ * Format faction ID to display name - extended to 6 factions
  */
 function formatFactionName(faction: FactionId): string {
   const names: Record<FactionId, string> = {
@@ -434,6 +438,8 @@ function formatFactionName(faction: FactionId): string {
     inferno: 'Inferno',
     storm: 'Storm',
     stellar: 'Stellar',
+    arcane: 'Arcane',
+    chaos: 'Chaos',
   };
   return names[faction] || 'Unknown';
 }

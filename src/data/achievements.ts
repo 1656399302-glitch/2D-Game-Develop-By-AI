@@ -3,16 +3,19 @@
  * 
  * Defines all achievements with unlock conditions and metadata.
  * Expanded to include milestone achievements for machine creation.
+ * 
+ * ROUND 80 MIGRATION: Added new faction achievements per contract specification.
+ * New achievements: first-export, complex-machine-created, faction-void, faction-forge,
+ * faction-phase, faction-barrier, faction-order, faction-chaos
  */
 
 // Re-export types from factions for convenience
-export type { Achievement, ExtendedUserStats } from '../types/factions';
-export type { FactionId } from '../types/factions';
+export type { Achievement, ExtendedUserStats, FactionId } from '../types/factions';
 
 // Re-export FACTIONS for faction config access
-export { FACTIONS } from '../types/factions';
+export { FACTIONS, DEFAULT_USER_STATS } from '../types/factions';
 
-import type { Achievement, FactionId } from '../types/factions';
+import type { Achievement, FactionId, ExtendedUserStats } from '../types/factions';
 
 /**
  * Helper to create achievement conditions that check exact thresholds
@@ -52,7 +55,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     nameCn: '入门者',
     description: 'Complete the tutorial',
     icon: '🎓',
-    condition: (stats: { tutorialCompleted?: boolean }): boolean => {
+    condition: (stats: ExtendedUserStats): boolean => {
       return stats.tutorialCompleted === true;
     },
   },
@@ -74,8 +77,36 @@ export const ACHIEVEMENTS: Achievement[] = [
     nameCn: '初次激活',
     description: 'Activate a machine for the first time',
     icon: '⚡',
-    condition: (stats: { activations: number }): boolean => {
+    condition: (stats: ExtendedUserStats): boolean => {
       return stats.activations >= 1;
+    },
+  },
+
+  // ============================================
+  // NEW: First Export Achievement (Round 80 Contract)
+  // ============================================
+  {
+    id: 'first-export',
+    name: 'First Export',
+    nameCn: '初次导出',
+    description: 'Export a machine for the first time',
+    icon: '📤',
+    condition: (stats: ExtendedUserStats): boolean => {
+      return (stats.machinesExported || 0) >= 1;
+    },
+  },
+
+  // ============================================
+  // NEW: Complex Machine Achievement (Round 80 Contract)
+  // ============================================
+  {
+    id: 'complex-machine-created',
+    name: 'Complex Machine Creator',
+    nameCn: '复杂机器制造者',
+    description: 'Create a machine of 精致 (Exquisite) tier or higher complexity',
+    icon: '🏗️',
+    condition: (stats: ExtendedUserStats): boolean => {
+      return (stats.complexMachinesCreated || 0) >= 1;
     },
   },
 
@@ -124,7 +155,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
 
   // ============================================
-  // Faction Achievement Series
+  // Legacy Faction Achievements (preserved for backward compatibility)
   // ============================================
   {
     id: 'void-conqueror',
@@ -164,6 +195,64 @@ export const ACHIEVEMENTS: Achievement[] = [
   },
 
   // ============================================
+  // NEW Faction Achievements per Round 80 Contract
+  // ============================================
+  {
+    id: 'faction-void',
+    name: 'Void Abyss Master',
+    nameCn: '虚空深渊大师',
+    description: 'Create 5 machines using Void Abyss faction',
+    icon: '🌑',
+    condition: createFactionCondition('void', 5),
+    faction: 'void',
+  },
+  {
+    id: 'faction-forge',
+    name: 'Molten Star Forge Master',
+    nameCn: '熔星锻造大师',
+    description: 'Create 5 machines using Molten Star Forge faction',
+    icon: '🔥',
+    condition: createFactionCondition('inferno', 5),
+    faction: 'inferno',
+  },
+  {
+    id: 'faction-phase',
+    name: 'Thunder Phase Master',
+    nameCn: '雷霆相位大师',
+    description: 'Create 5 machines using Thunder Phase faction',
+    icon: '⚡',
+    condition: createFactionCondition('storm', 5),
+    faction: 'storm',
+  },
+  {
+    id: 'faction-barrier',
+    name: 'Forest Spirit Barrier Master',
+    nameCn: '森灵结界大师',
+    description: 'Create 5 machines using Forest Spirit Barrier faction',
+    icon: '🌲',
+    condition: createFactionCondition('arcane', 5), // Using arcane as base since Forest Spirit Barrier maps to arcane
+    faction: 'arcane',
+  },
+  {
+    id: 'faction-order',
+    name: 'Arcane Order Master',
+    nameCn: '奥术秩序大师',
+    description: 'Create 5 machines using Arcane Order faction',
+    icon: '🔮',
+    condition: createFactionCondition('arcane', 5),
+    faction: 'arcane',
+  },
+  {
+    id: 'faction-chaos',
+    name: 'Chaos Disorder Master',
+    nameCn: '混沌无序大师',
+    description: 'Create 5 machines using Chaos Disorder faction',
+    icon: '💀',
+    condition: createFactionCondition('chaos', 5),
+    faction: 'chaos',
+  },
+
+  // ============================================
   // Perfect Activation Achievement
   // ============================================
   {
@@ -172,7 +261,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     nameCn: '完美激活',
     description: 'Activate a machine without errors',
     icon: '✨',
-    condition: (stats: { activations: number; errors: number }): boolean => {
+    condition: (stats: ExtendedUserStats): boolean => {
       return stats.activations >= 1 && stats.errors === 0;
     },
   },
@@ -186,7 +275,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     nameCn: '图鉴收藏家',
     description: 'Collect 10 machines in your codex',
     icon: '📖',
-    condition: (stats: { codexEntries: number }): boolean => {
+    condition: (stats: ExtendedUserStats): boolean => {
       return stats.codexEntries >= 10;
     },
   },

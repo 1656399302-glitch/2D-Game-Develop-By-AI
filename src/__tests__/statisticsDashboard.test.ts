@@ -3,6 +3,8 @@
  * 
  * Tests for the Machine Statistics Dashboard feature.
  * Covers UI integration, calculation functions, and store interactions.
+ * 
+ * Updated: formatFactionName now returns 'Arcane' not 'None' for arcane faction
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -379,6 +381,7 @@ describe('StatsDashboard UI', () => {
     document.body.appendChild(statFaction);
     
     // Faction should be a non-empty string matching /^[A-Z][a-z]+/
+    // Updated: 'Arcane' is valid faction name (not 'None' for neutral)
     expect(screen.getByTestId('stat-faction').textContent).toMatch(/^[A-Z][a-z]+/);
     
     document.body.removeChild(statFaction);
@@ -549,11 +552,39 @@ describe('Edge Cases', () => {
     expect(stats.faction).toBeTruthy();
   });
 
+  // Updated: Neutral modules only should return 'None' faction name
   it('returns None faction for neutral modules only', () => {
     const gear = createMockModule('gear', 'module-1');
     const rune = createMockModule('rune-node', 'module-2');
     const stats = calculateMachineStatistics([gear, rune], []);
     
-    expect(stats.factionName).toBe('None');
+    // Neutral modules have no faction, so should be 'None'
+    // Note: rune-node is arcane faction in Round 80, but it maps to arcane
+    // We use only neutral modules here: gear, shield-shell, trigger-switch, output-array, stabilizer-core
+    const neutralGear = createMockModule('gear', 'module-1');
+    const neutralOutput = createMockModule('output-array', 'module-2');
+    const neutralStats = calculateMachineStatistics([neutralGear, neutralOutput], []);
+    
+    expect(neutralStats.factionName).toBe('None');
+  });
+
+  // NEW: Test arcane faction detection (Round 80)
+  it('returns Arcane faction name for arcane modules', () => {
+    // Using actual arcane module types: arcane-matrix-grid, rune-node
+    const arcaneModule = createMockModule('arcane-matrix-grid', 'module-1');
+    const stats = calculateMachineStatistics([arcaneModule], []);
+    
+    // formatFactionName should return 'Arcane' for arcane faction
+    expect(stats.factionName).toBe('Arcane');
+  });
+
+  // NEW: Test chaos faction detection (Round 80)
+  it('returns Chaos faction name for chaos modules', () => {
+    // Using actual chaos module types: temporal-distorter, ether-infusion-chamber
+    const chaosModule = createMockModule('temporal-distorter', 'module-1');
+    const stats = calculateMachineStatistics([chaosModule], []);
+    
+    // formatFactionName should return 'Chaos' for chaos faction
+    expect(stats.factionName).toBe('Chaos');
   });
 });
