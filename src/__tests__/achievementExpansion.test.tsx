@@ -172,7 +172,7 @@ describe('Achievement Expansion Tests', () => {
       const toastContent = fs.readFileSync('src/components/Achievements/AchievementToast.tsx', 'utf8');
       
       expect(toastContent).toContain('interface ToastQueueItem');
-      expect(toastContent).toContain('achievement: Achievement');
+      expect(toastContent).toContain('achievement: typeof ACHIEVEMENTS[number]');
       expect(toastContent).toContain('timestamp: number');
       expect(toastContent).toContain('id: string');
     });

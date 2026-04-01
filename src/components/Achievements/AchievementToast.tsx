@@ -6,11 +6,12 @@
  * Auto-dismisses after 4 seconds per toast.
  */
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Achievement, FACTIONS, FactionId } from '../../types/factions';
+import React, { useEffect, useState, useCallback } from 'react';
+import { FACTIONS, ACHIEVEMENTS } from '../../data/achievements';
+import type { FactionId } from '../../types/factions';
 
 interface AchievementToastProps {
-  achievement: Achievement | null;
+  achievement: typeof ACHIEVEMENTS[number];
   onDismiss: () => void;
   duration?: number;
   position?: number; // Position in queue (0 = first)
@@ -188,7 +189,7 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
  */
 
 interface ToastQueueItem {
-  achievement: Achievement;
+  achievement: typeof ACHIEVEMENTS[number];
   timestamp: number;
   id: string; // Unique ID for this queue item
 }
@@ -207,8 +208,8 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
   
   const [queue, setQueue] = useState<ToastQueueItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const processingRef = useRef(false);
-  const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const processingRef = React.useRef(false);
+  const processTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Get currently visible achievements
   const visibleAchievements = queue.slice(currentIndex, currentIndex + maxVisible);
@@ -250,7 +251,7 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
   }, [queue.length, processQueue]);
   
   // Add achievements to queue
-  const addToQueue = useCallback((achievements: Achievement[]) => {
+  const addToQueue = useCallback((achievements: typeof ACHIEVEMENTS) => {
     const newItems: ToastQueueItem[] = achievements.map((achievement, index) => ({
       achievement,
       timestamp: Date.now() + index * 100, // Slight timestamp offset

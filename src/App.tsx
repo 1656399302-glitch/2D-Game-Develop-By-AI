@@ -30,8 +30,8 @@ import { hasSavedState } from './utils/localStorage';
 import { calculateFaction } from './utils/factionCalculator';
 import { EnhancedStatsDashboard } from './components/Stats/EnhancedStatsDashboard';
 import { AchievementList } from './components/Achievements/AchievementList';
-import { AchievementToast } from './components/Achievements/AchievementToast';
-import { Achievement } from './types/factions';
+import { AchievementToastContainer, useAchievementToastQueue } from './components/Achievements/AchievementToast';
+import { getAchievementById } from './data/achievements';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AccessibilityLayer, MobileCanvasLayout, useViewportSize } from './components/Accessibility';
 import { MobileTouchEnhancer } from './components/Accessibility/MobileTouchEnhancer';
@@ -98,7 +98,11 @@ function AppContent() {
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   
-  const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null);
+  // Achievement toast queue
+  const { addToQueue } = useAchievementToastQueue({
+    maxVisible: 3,
+    staggerDelay: 3000,
+  });
   
   // FIX: Use store hydration hook to prevent cascading updates
   const { isHydrated } = useStoreHydration();
@@ -141,6 +145,12 @@ function AppContent() {
   const incrementActivations = useStatsStore((state) => state.incrementActivations);
   const incrementCodexEntries = useStatsStore((state) => state.incrementCodexEntries);
   const earnedAchievements = useStatsStore((state) => state.earnedAchievements);
+  const addEarnedAchievement = useStatsStore((state) => state.addEarnedAchievement);
+  const machinesCreated = useStatsStore((state) => state.machinesCreated);
+  const activations = useStatsStore((state) => state.activations);
+  const errors = useStatsStore((state) => state.errors);
+  const codexEntries = useStatsStore((state) => state.codexEntries);
+  const factionCounts = useStatsStore((state) => state.factionCounts);
   
   // Faction store - FIX: Use selector
   const incrementFactionCount = useFactionStore((state) => state.incrementFactionCount);
@@ -203,13 +213,11 @@ function AppContent() {
     }
   }, [isHydrated]); // Only run once after hydration
   
-  // Connect AchievementToast to achievement store callbacks
+  // Connect AchievementToastContainer to achievement store callbacks
   useEffect(() => {
-    const handleAchievementUnlock = (achievement: Achievement) => {
-      setCurrentAchievement(achievement);
-      setTimeout(() => {
-        setCurrentAchievement(null);
-      }, 5000);
+    const handleAchievementUnlock = (achievement: any) => {
+      // Add achievement to toast queue
+      addToQueue([achievement]);
     };
     
     useAchievementStore.getState().setOnUnlockCallback(handleAchievementUnlock);
@@ -217,11 +225,45 @@ function AppContent() {
     return () => {
       useAchievementStore.getState().setOnUnlockCallback(null);
     };
-  }, []);
+  }, [addToQueue]);
   
-  const handleAchievementDismiss = useCallback(() => {
-    setCurrentAchievement(null);
-  }, []);
+  // FIX: Listen for tutorial:completed event and trigger "入门者" achievement
+  useEffect(() => {
+    const handleTutorialCompleted = () => {
+      // Get the "入门者" (getting-started) achievement
+      const gettingStartedAchievement = getAchievementById('getting-started');
+      
+      if (gettingStartedAchievement) {
+        // Build stats with tutorialCompleted = true
+        const stats = {
+          machinesCreated,
+          activations,
+          errors,
+          playtimeMinutes: 0,
+          factionCounts,
+          codexEntries,
+          tutorialCompleted: true,
+        };
+        
+        // Check if the achievement condition is met
+        if (gettingStartedAchievement.condition(stats)) {
+          // Trigger the achievement
+          useAchievementStore.getState().triggerUnlock(gettingStartedAchievement);
+          
+          // Also add it to earned achievements
+          if (!earnedAchievements.includes('getting-started')) {
+            addEarnedAchievement('getting-started');
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('tutorial:completed', handleTutorialCompleted);
+    
+    return () => {
+      window.removeEventListener('tutorial:completed', handleTutorialCompleted);
+    };
+  }, [machinesCreated, activations, errors, factionCounts, codexEntries, earnedAchievements, addEarnedAchievement]);
   
   const handleSaveToCodex = useCallback(() => {
     if (modules.length === 0) {
@@ -235,13 +277,49 @@ function AppContent() {
     incrementMachinesCreated();
     incrementCodexEntries();
     
+    // Check for machine creation achievements
+    const newMachinesCreated = machinesCreated + 1;
+    checkAchievementsForMachines(newMachinesCreated);
+    
     const faction = calculateFaction(modules);
     if (faction) {
       incrementFactionCount(faction);
     }
     
     alert(`机器 "${entry.name}" 已保存到图鉴! (${entry.codexId})`);
-  }, [modules, connections, addEntry, incrementMachinesCreated, incrementCodexEntries, incrementFactionCount]);
+  }, [modules, connections, addEntry, incrementMachinesCreated, incrementCodexEntries, incrementFactionCount, machinesCreated]);
+  
+  // Helper function to check machine-related achievements
+  const checkAchievementsForMachines = (count: number) => {
+    const machineThresholdAchievements = [
+      'first-forge',      // 1 machine
+      'apprentice-forge', // 5 machines
+      'skilled-artisan',  // 10 machines
+      'master-creator',   // 25 machines
+      'legendary-machinist', // 50 machines
+      'eternal-forger',   // 100 machines
+    ];
+    
+    machineThresholdAchievements.forEach(achievementId => {
+      const achievement = getAchievementById(achievementId);
+      if (achievement && !earnedAchievements.includes(achievementId)) {
+        const stats = {
+          machinesCreated: count,
+          activations,
+          errors,
+          playtimeMinutes: 0,
+          factionCounts,
+          codexEntries,
+          tutorialCompleted: earnedAchievements.includes('getting-started'),
+        };
+        
+        if (achievement.condition(stats)) {
+          useAchievementStore.getState().triggerUnlock(achievement);
+          addEarnedAchievement(achievementId);
+        }
+      }
+    });
+  };
   
   const handleActivate = useCallback(() => {
     if (modules.length === 0) {
@@ -607,7 +685,8 @@ function AppContent() {
         {/* Toast Notifications */}
         <ConnectionErrorFeedback />
         <RandomForgeToast />
-        <AchievementToast achievement={currentAchievement} onDismiss={handleAchievementDismiss} />
+        {/* FIX: Use AchievementToastContainer with queue system instead of single AchievementToast */}
+        <AchievementToastContainer options={{ maxVisible: 3, staggerDelay: 3000 }} />
         <RecipeToastManager />
         
         {/* Trade Notification */}

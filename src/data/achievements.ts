@@ -5,13 +5,20 @@
  * Expanded to include milestone achievements for machine creation.
  */
 
-import { Achievement, ExtendedUserStats, FactionId } from '../types/factions';
+// Re-export types from factions for convenience
+export type { Achievement, ExtendedUserStats } from '../types/factions';
+export type { FactionId } from '../types/factions';
+
+// Re-export FACTIONS for faction config access
+export { FACTIONS } from '../types/factions';
+
+import type { Achievement, FactionId } from '../types/factions';
 
 /**
  * Helper to create achievement conditions that check exact thresholds
  */
 const createMachineThresholdCondition = (threshold: number) => {
-  return (stats: ExtendedUserStats): boolean => {
+  return (stats: { machinesCreated: number }): boolean => {
     return stats.machinesCreated === threshold;
   };
 };
@@ -20,7 +27,7 @@ const createMachineThresholdCondition = (threshold: number) => {
  * Helper to create achievement conditions that check minimum thresholds
  */
 const createMinimumMachineCondition = (minThreshold: number) => {
-  return (stats: ExtendedUserStats): boolean => {
+  return (stats: { machinesCreated: number }): boolean => {
     return stats.machinesCreated >= minThreshold;
   };
 };
@@ -45,7 +52,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     nameCn: '入门者',
     description: 'Complete the tutorial',
     icon: '🎓',
-    condition: (stats: ExtendedUserStats) => {
+    condition: (stats: { tutorialCompleted?: boolean }): boolean => {
       return stats.tutorialCompleted === true;
     },
   },
@@ -67,7 +74,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     nameCn: '初次激活',
     description: 'Activate a machine for the first time',
     icon: '⚡',
-    condition: (stats: { activations: number }) => {
+    condition: (stats: { activations: number }): boolean => {
       return stats.activations >= 1;
     },
   },

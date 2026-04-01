@@ -2,11 +2,13 @@
  * Achievement List Component
  * 
  * Displays all achievements with earned/locked status.
+ * Shows 15 achievements including milestone achievements with progress indicators.
  */
 
 import React from 'react';
-import { Achievement, ACHIEVEMENTS, FACTIONS, FactionId } from '../../types/factions';
+import { ACHIEVEMENTS, FACTIONS, getMilestoneThreshold } from '../../data/achievements';
 import { useStatsStore } from '../../store/useStatsStore';
+import type { FactionId } from '../../types/factions';
 
 interface AchievementListProps {
   onClose?: () => void;
@@ -14,6 +16,7 @@ interface AchievementListProps {
 
 export const AchievementList: React.FC<AchievementListProps> = ({ onClose }) => {
   const earnedAchievements = useStatsStore((state) => state.earnedAchievements);
+  const machinesCreated = useStatsStore((state) => state.machinesCreated);
   const earnedSet = new Set(earnedAchievements);
   
   const earnedCount = ACHIEVEMENTS.filter((a) => earnedSet.has(a.id)).length;
@@ -85,6 +88,7 @@ export const AchievementList: React.FC<AchievementListProps> = ({ onClose }) => 
               key={achievement.id}
               achievement={achievement}
               earned={earnedSet.has(achievement.id)}
+              machinesCreated={machinesCreated}
             />
           ))}
         </div>
@@ -94,13 +98,23 @@ export const AchievementList: React.FC<AchievementListProps> = ({ onClose }) => 
 };
 
 interface AchievementItemProps {
-  achievement: Achievement;
+  achievement: typeof ACHIEVEMENTS[number];
   earned: boolean;
+  machinesCreated?: number;
 }
 
-const AchievementItem: React.FC<AchievementItemProps> = ({ achievement, earned }) => {
+const AchievementItem: React.FC<AchievementItemProps> = ({ achievement, earned, machinesCreated = 0 }) => {
   const factionConfig = achievement.faction ? FACTIONS[achievement.faction as FactionId] : null;
   const badgeColor = factionConfig?.color || '#fbbf24';
+  
+  // Check if this is a milestone achievement
+  const milestoneThreshold = getMilestoneThreshold(achievement.id);
+  const isMilestone = milestoneThreshold !== null;
+  
+  // Calculate progress for milestone achievements
+  const progressText = isMilestone 
+    ? `${Math.min(machinesCreated, milestoneThreshold)}/${milestoneThreshold}`
+    : null;
   
   return (
     <div
@@ -157,6 +171,21 @@ const AchievementItem: React.FC<AchievementItemProps> = ({ achievement, earned }
           <p className="text-xs mt-1" style={{ color: earned ? badgeColor : '#4a5568' }}>
             {achievement.name}
           </p>
+          
+          {/* Milestone progress indicator */}
+          {isMilestone && progressText && (
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-[#0a0e17] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#fbbf24] to-[#f59e0b] transition-all duration-300"
+                  style={{ 
+                    width: `${Math.min((machinesCreated / milestoneThreshold) * 100, 100)}%` 
+                  }}
+                />
+              </div>
+              <span className="text-xs text-[#9ca3af]">{progressText}</span>
+            </div>
+          )}
         </div>
         
         {/* Status */}
