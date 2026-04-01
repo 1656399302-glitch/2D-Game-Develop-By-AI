@@ -1,6 +1,7 @@
 /**
  * Challenge System Type Definitions
  * Extended for Time Trial and Leaderboard functionality
+ * Round 86: Added ChallengeCompletion type for codex integration
  */
 
 // Re-export existing challenge types from data/challenges.ts
@@ -110,6 +111,20 @@ export interface TimeTrialState {
   isCompleted: boolean;
   /** Completion time (milliseconds) */
   completionTime: number | null;
+}
+
+/**
+ * Challenge completion record (Round 86)
+ * Tracks which codex machine IDs were used/completed when a challenge was finished.
+ * Used to display "Challenge Mastery" badges on qualifying machines in the Codex.
+ */
+export interface ChallengeCompletion {
+  /** Challenge ID that was completed */
+  challengeId: string;
+  /** Array of codex entry IDs (machines) that were used/created during this challenge */
+  machinesUsed: string[];
+  /** ISO timestamp of when the challenge was completed */
+  completedAt: string;
 }
 
 /**

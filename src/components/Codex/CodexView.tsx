@@ -1,12 +1,15 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useCodexStore } from '../../store/useCodexStore';
 import { useMachineTagsStore } from '../../store/useMachineTagsStore';
+import { useChallengeStore } from '../../store/useChallengeStore';
 import { CodexEntry, PlacedModule, Connection, Rarity } from '../../types';
 import { getRarityColor, getRarityLabel } from '../../utils/attributeGenerator';
 import { MachineTagEditor } from './MachineTagEditor';
 import { FactionBadge } from '../FactionBadge';
 import { getComplexityDetails, getComplexityColor } from '../../utils/complexityAnalyzer';
 import { MODULE_TO_FACTION, FactionId } from '../../types/factions';
+import { getChallengeById } from '../../data/challenges';
+import type { ChallengeCompletion } from '../../types/challenge';
 
 interface CodexViewProps {
   onLoadToEditor: (modules: PlacedModule[], connections: Connection[]) => void;
@@ -278,6 +281,7 @@ interface CodexCardProps {
 function CodexCard({ entry, isSelected, onClick, onLoad, onDelete, onEditTags }: CodexCardProps) {
   const rarityColor = getRarityColor(entry.rarity);
   const tags = useMachineTagsStore((s) => s.getTags)(entry.id);
+  const hasChallengeMastery = useChallengeStore((s) => s.hasChallengeMastery)(entry.id);
 
   // Calculate complexity tier for this entry (ROUND 81 D7)
   const complexityDetails = getComplexityDetails(entry.modules, entry.connections);
@@ -322,6 +326,13 @@ function CodexCard({ entry, isSelected, onClick, onLoad, onDelete, onEditTags }:
           </span>
         </div>
       </div>
+
+      {/* Challenge Mastery Indicator (Round 86) */}
+      {hasChallengeMastery && (
+        <div className="absolute -top-1 -right-1 w-6 h-6">
+          <ChallengeMasteryBadgeIcon />
+        </div>
+      )}
 
       {/* Faction Badge (ROUND 81 D7) */}
       {dominantFaction && (
@@ -403,6 +414,12 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: Code
   const rarityColor = getRarityColor(entry.rarity);
   const tags = useMachineTagsStore((s) => s.getTags)(entry.id);
   const addEntryToCodex = useCodexStore((s) => s.addEntry);
+  const getCompletionsForMachine = useChallengeStore((s) => s.getCompletionsForMachine);
+
+  // Get challenge completions for this machine (Round 86)
+  const challengeCompletions = useMemo(() => {
+    return getCompletionsForMachine(entry.id);
+  }, [entry.id, getCompletionsForMachine]);
 
   // Calculate complexity tier (ROUND 81 D7)
   const complexityDetails = getComplexityDetails(entry.modules, entry.connections);
@@ -467,6 +484,23 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: Code
             {complexityDetails.tier}
           </span>
         </div>
+
+        {/* Challenge Mastery Badges (Round 86) */}
+        {challengeCompletions.length > 0 && (
+          <div>
+            <h4 className="text-xs font-medium text-[#fbbf24] uppercase mb-2 flex items-center gap-1">
+              <span>🏆</span> Challenge Mastery
+            </h4>
+            <div className="space-y-2">
+              {challengeCompletions.map((completion) => (
+                <ChallengeMasteryBadge
+                  key={`${completion.challengeId}-${completion.completedAt}`}
+                  completion={completion}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Preview */}
         <div className="aspect-square bg-[#0a0e17] rounded-lg flex items-center justify-center">
@@ -615,6 +649,82 @@ function CodexDetailPanel({ entry, onClose, onLoad, onDelete, onEditTags }: Code
       </div>
     </div>
   );
+}
+
+/**
+ * Challenge Mastery Badge Component (Round 86)
+ * Displays a hexagonal badge showing challenge name, completion date, and faction color
+ */
+function ChallengeMasteryBadge({ completion }: { completion: ChallengeCompletion }) {
+  const challenge = getChallengeById(completion.challengeId);
+  
+  if (!challenge) {
+    return null;
+  }
+
+  // Get faction color for accent (default to gold if no faction)
+  const factionColor = getChallengeFactionColor(challenge.category);
+  
+  // Format completion date
+  const completedDate = new Date(completion.completedAt);
+  const formattedDate = completedDate.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+
+  return (
+    <div
+      className="flex items-center gap-3 p-2 rounded-lg bg-[#0a0e17] border border-[#1e2a42]"
+      style={{ borderLeftColor: factionColor, borderLeftWidth: '3px' }}
+    >
+      {/* Hexagon icon */}
+      <div
+        className="w-8 h-8 flex items-center justify-center"
+        style={{ color: factionColor }}
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+          <path d="M12 2l-9.5 5.5 3.5 7.5 6-8.5 6 8.5 3.5-7.5z" />
+        </svg>
+      </div>
+      
+      {/* Challenge info */}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-white truncate">
+          {challenge.title}
+        </div>
+        <div className="text-xs text-[#6b7280]">
+          {formattedDate}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Challenge Mastery Badge Icon (for CodexCard)
+ * Small hexagonal badge indicator
+ */
+function ChallengeMasteryBadgeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="#fbbf24" className="w-6 h-6 drop-shadow-lg">
+      <path d="M12 2l-9.5 5.5 3.5 7.5 6-8.5 6 8.5 3.5-7.5z" />
+    </svg>
+  );
+}
+
+/**
+ * Get faction color for challenge badge based on challenge category
+ */
+function getChallengeFactionColor(category: string): string {
+  const categoryColors: Record<string, string> = {
+    creation: '#3b82f6',      // Blue
+    collection: '#22c55e',    // Green
+    activation: '#f59e0b',    // Amber
+    mastery: '#a855f7',       // Purple
+    tech_mastery: '#06b6d4',  // Cyan
+  };
+  return categoryColors[category] || '#fbbf24'; // Default gold
 }
 
 function StatItem({ label, value, color }: { label: string; value: number; color: string }) {

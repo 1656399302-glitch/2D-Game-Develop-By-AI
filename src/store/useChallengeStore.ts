@@ -12,6 +12,7 @@ import {
 import {
   LeaderboardEntry,
   TimeTrialState,
+  ChallengeCompletion,
 } from '../types/challenge';
 
 /**
@@ -84,6 +85,10 @@ interface ChallengeState {
   timeTrialState: TimeTrialState;
   /** Leaderboard data (challengeId -> entries[]) */
   leaderboard: Record<string, LeaderboardEntry[]>;
+
+  // ===== Round 86: Challenge-Codex Integration =====
+  /** Challenge completions with machine associations */
+  challengeCompletions: ChallengeCompletion[];
 }
 
 /**
@@ -95,6 +100,9 @@ interface ChallengeActions {
   
   /** Claim reward for a completed challenge */
   claimReward: (challengeId: string, highestTechTier?: number) => void;
+
+  /** Claim reward for a completed challenge with machine association (Round 86) */
+  claimRewardWithMachines: (challengeId: string, machineIds: string[], highestTechTier?: number) => void;
   
   /** Get challenges filtered by category */
   getChallengesByCategory: (category: ChallengeCategory) => ChallengeDefinition[];
@@ -173,6 +181,17 @@ interface ChallengeActions {
   
   /** Clear all leaderboard data */
   clearAllLeaderboard: () => void;
+
+  // ===== Round 86: Challenge-Codex Integration =====
+
+  /** Get all challenge completions for a specific machine */
+  getCompletionsForMachine: (machineId: string) => ChallengeCompletion[];
+  
+  /** Get all machines that were used in a specific challenge */
+  getMachinesForChallenge: (challengeId: string) => string[];
+  
+  /** Check if a machine was used in any completed challenges */
+  hasChallengeMastery: (machineId: string) => boolean;
 
   // === Backward Compatibility Aliases ===
   
@@ -267,6 +286,7 @@ function addToArray(arr: string[], id: string): string[] {
 
 /**
  * Challenge store with XP, badges, progress tracking, time trials, and leaderboard
+ * Extended with Challenge-Codex integration (Round 86)
  */
 export const useChallengeStore = create<ChallengeStore>()(
   persist(
@@ -284,6 +304,9 @@ export const useChallengeStore = create<ChallengeStore>()(
       
       // Leaderboard data (initialized from localStorage)
       leaderboard: {},
+
+      // Round 86: Challenge-Codex Integration
+      challengeCompletions: [],
 
       // Actions
       checkChallengeCompletion: (type: string, value: number) => {
@@ -369,6 +392,88 @@ export const useChallengeStore = create<ChallengeStore>()(
         }
       },
 
+      // Round 86: Claim reward with machine associations
+      claimRewardWithMachines: (challengeId: string, machineIds: string[], highestTechTier: number = 0) => {
+        const state = get();
+        const challenge = CHALLENGE_DEFINITIONS.find(c => c.id === challengeId);
+        
+        if (!challenge) {
+          console.warn(`Challenge not found: ${challengeId}`);
+          return;
+        }
+
+        // Don't allow claiming if already completed
+        if (isInArray(state.completedChallenges, challengeId)) {
+          return;
+        }
+
+        // Calculate bonus multiplier
+        const bonusMultiplier = calculateChallengeBonusMultiplier(highestTechTier);
+
+        // Create challenge completion record (Round 86)
+        const completion: ChallengeCompletion = {
+          challengeId,
+          machinesUsed: machineIds,
+          completedAt: new Date().toISOString(),
+        };
+
+        // Process reward based on type
+        switch (challenge.reward.type) {
+          case 'xp': {
+            const baseXP = challenge.reward.value as number;
+            const bonusXP = Math.round(baseXP * (bonusMultiplier - 1));
+            set({
+              completedChallenges: addToArray(state.completedChallenges, challengeId),
+              claimedRewards: addToArray(state.claimedRewards, challengeId),
+              totalXP: state.totalXP + baseXP + bonusXP,
+              // Round 86: Track completion with machines
+              challengeCompletions: [...state.challengeCompletions, completion],
+            });
+            break;
+          }
+            
+          case 'reputation': {
+            const baseRep = challenge.baseReputation || (challenge.reward.value as number);
+            const bonusRep = Math.round(baseRep * (bonusMultiplier - 1));
+            set({
+              completedChallenges: addToArray(state.completedChallenges, challengeId),
+              claimedRewards: addToArray(state.claimedRewards, challengeId),
+              challengeCompletions: [...state.challengeCompletions, completion],
+            });
+            console.log(`+${baseRep + bonusRep} reputation (base: ${baseRep}, bonus: ${bonusRep})`);
+            break;
+          }
+            
+          case 'badge':
+            const badge: Badge = {
+              id: challenge.reward.value as string,
+              displayName: challenge.reward.displayName,
+              description: challenge.reward.description,
+              earnedAt: Date.now(),
+            };
+            set({
+              completedChallenges: addToArray(state.completedChallenges, challengeId),
+              claimedRewards: addToArray(state.claimedRewards, challengeId),
+              badges: [...state.badges, badge],
+              challengeCompletions: [...state.challengeCompletions, completion],
+            });
+            break;
+            
+          case 'recipe':
+            set({
+              completedChallenges: addToArray(state.completedChallenges, challengeId),
+              claimedRewards: addToArray(state.claimedRewards, challengeId),
+              challengeCompletions: [...state.challengeCompletions, completion],
+            });
+            setTimeout(() => {
+              import('./useRecipeStore').then(({ useRecipeStore }) => {
+                useRecipeStore.getState().unlockRecipe(challenge.reward.value as string);
+              }).catch(() => {});
+            }, 0);
+            break;
+        }
+      },
+
       getChallengesByCategory: (category: ChallengeCategory) => {
         return CHALLENGE_DEFINITIONS.filter(c => c.category === category);
       },
@@ -444,17 +549,16 @@ export const useChallengeStore = create<ChallengeStore>()(
           badges: [],
           challengeProgress: { ...DEFAULT_PROGRESS },
           timeTrialState: { ...DEFAULT_TIME_TRIAL_STATE },
+          challengeCompletions: [], // Round 86: Reset completions too
         });
       },
 
       // ===== Tech Integration =====
 
       isTechMasteryAvailable: (_challengeId: string, completedResearch?: Record<string, string[]>) => {
-        // If completedResearch is provided, use it directly
         if (completedResearch) {
           return isTechMasteryAvailable(_challengeId, completedResearch);
         }
-        // Otherwise, return true as a fallback (the actual check would happen in the component)
         return true;
       },
 
@@ -594,6 +698,34 @@ export const useChallengeStore = create<ChallengeStore>()(
         set({ leaderboard: {} });
       },
 
+      // ===== Round 86: Challenge-Codex Integration =====
+
+      /**
+       * Get all challenge completions for a specific machine
+       * Used to display Challenge Mastery badges on codex entries
+       */
+      getCompletionsForMachine: (machineId: string) => {
+        const completions = get().challengeCompletions;
+        return completions.filter((c) => c.machinesUsed.includes(machineId));
+      },
+
+      /**
+       * Get all machines that were used in a specific challenge
+       */
+      getMachinesForChallenge: (challengeId: string) => {
+        const completions = get().challengeCompletions;
+        const completion = completions.find((c) => c.challengeId === challengeId);
+        return completion ? completion.machinesUsed : [];
+      },
+
+      /**
+       * Check if a machine was used in any completed challenges
+       */
+      hasChallengeMastery: (machineId: string) => {
+        const completions = get().challengeCompletions;
+        return completions.some((c) => c.machinesUsed.includes(machineId));
+      },
+
       // === Backward Compatibility Aliases ===
       
       isCompleted: (challengeId: string) => {
@@ -614,7 +746,7 @@ export const useChallengeStore = create<ChallengeStore>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 3, // Incremented for time trial + leaderboard
+      version: 4, // Round 86: Incremented for challengeCompletions
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.loading = false;
@@ -633,7 +765,7 @@ export const useChallengeStore = create<ChallengeStore>()(
         badges: state.badges,
         challengeProgress: state.challengeProgress,
         timeTrialState: state.timeTrialState,
-        // Note: leaderboard is managed separately in localStorage
+        challengeCompletions: state.challengeCompletions, // Round 86: Persist completions
       }),
       // FIX: Skip automatic hydration to prevent cascading state updates
       skipHydration: true,
@@ -657,5 +789,6 @@ export const selectTotalXP = (state: ChallengeStore) => state.totalXP;
 export const selectBadges = (state: ChallengeStore) => state.badges;
 export const selectTimeTrialState = (state: ChallengeStore) => state.timeTrialState;
 export const selectLeaderboard = (state: ChallengeStore) => state.leaderboard;
+export const selectChallengeCompletions = (state: ChallengeStore) => state.challengeCompletions; // Round 86
 
 export default useChallengeStore;
