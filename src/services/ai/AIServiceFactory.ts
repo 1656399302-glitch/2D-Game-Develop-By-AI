@@ -7,6 +7,7 @@
 
 import { AIProvider } from './AIProvider';
 import { LocalAIProvider } from './LocalAIProvider';
+import { OpenAIProvider } from './OpenAIProvider';
 import { AIProviderConfig, ConfigValidationResult } from './types';
 
 /**
@@ -45,6 +46,11 @@ export function createProvider(
       return new LocalAIProvider(config);
 
     case 'openai':
+      // Create OpenAI provider with config
+      // If API key is invalid or missing, it will still create the provider
+      // but isAvailable() will return false
+      return new OpenAIProvider(config);
+
     case 'anthropic':
     case 'gemini':
       // Future: Implement actual AI providers here
@@ -87,9 +93,7 @@ export function validateProviderConfig(
       };
 
     case 'openai':
-    case 'anthropic':
-    case 'gemini':
-      // These require API keys
+      // OpenAI requires API key
       if (!config?.apiKey) {
         return {
           isValid: false,
@@ -98,15 +102,41 @@ export function validateProviderConfig(
         };
       }
 
+      // Validate API key format
+      const validation = OpenAIProvider.validateAPIKey(config.apiKey);
+      if (!validation.isValid) {
+        return {
+          isValid: false,
+          error: validation.error,
+          warnings: ['Local provider will be used as fallback'],
+        };
+      }
+
       // Check for warnings about incomplete configuration
       const warnings: string[] = [];
       if (!config.model) {
-        warnings.push(`Provider '${type}' is using default model. Consider specifying a model.`);
+        warnings.push(`Provider '${type}' is using default model (gpt-3.5-turbo). Consider specifying a model.`);
       }
 
       return {
         isValid: true,
         warnings,
+      };
+
+    case 'anthropic':
+    case 'gemini':
+      // These require API keys (not yet implemented)
+      if (!config?.apiKey) {
+        return {
+          isValid: false,
+          error: `Provider '${type}' requires an API key.`,
+          warnings: ['Local provider will be used as fallback'],
+        };
+      }
+
+      return {
+        isValid: true,
+        warnings: [`Provider '${type}' is not yet implemented. Using local provider.`],
       };
 
     default:
@@ -141,7 +171,7 @@ export function getDefaultProviderConfig(type: ProviderType): AIProviderConfig {
       return {
         ...baseConfig,
         type: 'openai',
-        model: 'gpt-4',
+        model: 'gpt-3.5-turbo',
       } as AIProviderConfig;
 
     case 'anthropic':
@@ -211,7 +241,7 @@ export function createProviderFromConfig(config: AIProviderConfig): AIProvider {
  * @returns True if provider is fully implemented
  */
 export function isProviderImplemented(type: ProviderType): boolean {
-  return type === 'local';
+  return type === 'local' || type === 'openai';
 }
 
 /**
@@ -220,7 +250,7 @@ export function isProviderImplemented(type: ProviderType): boolean {
  * @returns Array of implemented provider type identifiers
  */
 export function getImplementedProviders(): ProviderType[] {
-  return ['local'];
+  return ['local', 'openai'];
 }
 
 /**

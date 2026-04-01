@@ -50,8 +50,8 @@ describe('LocalAIProvider', () => {
   });
 
   describe('generateMachineName', () => {
-    it('should generate a name string', () => {
-      const result = provider.generateMachineName({
+    it('should generate a name string', async () => {
+      const result = await provider.generateMachineName({
         modules: [
           { type: 'core-furnace', category: 'energy' },
           { type: 'gear', category: 'mechanical' },
@@ -64,8 +64,8 @@ describe('LocalAIProvider', () => {
       expect(result.data.length).toBeGreaterThan(0);
     });
 
-    it('should include expected name pattern (adjective + noun + suffix)', () => {
-      const result = provider.generateMachineName({
+    it('should include expected name pattern (adjective + noun + suffix)', async () => {
+      const result = await provider.generateMachineName({
         modules: [
           { type: 'core-furnace', category: 'energy' },
         ],
@@ -77,8 +77,8 @@ describe('LocalAIProvider', () => {
       expect(parts.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('should return isFromAI as false', () => {
-      const result = provider.generateMachineName({
+    it('should return isFromAI as false', async () => {
+      const result = await provider.generateMachineName({
         modules: [],
         connections: [],
       });
@@ -86,8 +86,8 @@ describe('LocalAIProvider', () => {
       expect(result.isFromAI).toBe(false);
     });
 
-    it('should return local as provider', () => {
-      const result = provider.generateMachineName({
+    it('should return local as provider', async () => {
+      const result = await provider.generateMachineName({
         modules: [],
         connections: [],
       });
@@ -95,8 +95,8 @@ describe('LocalAIProvider', () => {
       expect(result.provider).toBe('local');
     });
 
-    it('should return confidence greater than 0.9', () => {
-      const result = provider.generateMachineName({
+    it('should return confidence greater than 0.9', async () => {
+      const result = await provider.generateMachineName({
         modules: [],
         connections: [],
       });
@@ -104,10 +104,10 @@ describe('LocalAIProvider', () => {
       expect(result.confidence).toBeGreaterThan(0.9);
     });
 
-    it('should generate consistent names for empty modules (baseline test)', () => {
+    it('should generate consistent names for empty modules (baseline test)', async () => {
       const results = new Set<string>();
       for (let i = 0; i < 10; i++) {
-        const result = provider.generateMachineName({
+        const result = await provider.generateMachineName({
           modules: [],
           connections: [],
         });
@@ -136,26 +136,26 @@ describe('LocalAIProvider', () => {
       },
     };
 
-    it('should generate a description string', () => {
-      const result = provider.generateMachineDescription(baseParams);
+    it('should generate a description string', async () => {
+      const result = await provider.generateMachineDescription(baseParams);
 
       expect(result).toBeDefined();
       expect(typeof result.data).toBe('string');
       expect(result.data.length).toBeGreaterThan(0);
     });
 
-    it('should return isFromAI as false', () => {
-      const result = provider.generateMachineDescription(baseParams);
+    it('should return isFromAI as false', async () => {
+      const result = await provider.generateMachineDescription(baseParams);
       expect(result.isFromAI).toBe(false);
     });
 
-    it('should return local as provider', () => {
-      const result = provider.generateMachineDescription(baseParams);
+    it('should return local as provider', async () => {
+      const result = await provider.generateMachineDescription(baseParams);
       expect(result.provider).toBe('local');
     });
 
-    it('should handle technical style', () => {
-      const result = provider.generateMachineDescription({
+    it('should handle technical style', async () => {
+      const result = await provider.generateMachineDescription({
         ...baseParams,
         style: 'technical',
       });
@@ -164,8 +164,8 @@ describe('LocalAIProvider', () => {
       expect(result.data.length).toBeGreaterThan(0);
     });
 
-    it('should handle flavor style', () => {
-      const result = provider.generateMachineDescription({
+    it('should handle flavor style', async () => {
+      const result = await provider.generateMachineDescription({
         ...baseParams,
         style: 'flavor',
       });
@@ -174,8 +174,8 @@ describe('LocalAIProvider', () => {
       expect(result.data.length).toBeGreaterThan(0);
     });
 
-    it('should handle lore style', () => {
-      const result = provider.generateMachineDescription({
+    it('should handle lore style', async () => {
+      const result = await provider.generateMachineDescription({
         ...baseParams,
         style: 'lore',
       });
@@ -184,8 +184,8 @@ describe('LocalAIProvider', () => {
       expect(result.data.length).toBeGreaterThan(0);
     });
 
-    it('should handle mixed style', () => {
-      const result = provider.generateMachineDescription({
+    it('should handle mixed style', async () => {
+      const result = await provider.generateMachineDescription({
         ...baseParams,
         style: 'mixed',
       });
@@ -194,9 +194,9 @@ describe('LocalAIProvider', () => {
       expect(result.data.length).toBeGreaterThan(0);
     });
 
-    it('should respect maxLength parameter', () => {
+    it('should respect maxLength parameter', async () => {
       const maxLength = 50;
-      const result = provider.generateMachineDescription({
+      const result = await provider.generateMachineDescription({
         ...baseParams,
         maxLength,
       });
@@ -205,13 +205,13 @@ describe('LocalAIProvider', () => {
       expect(result.data.length).toBeLessThanOrEqual(maxLength + 50);
     });
 
-    it('should add stability-based flavor text', () => {
-      const highStabilityResult = provider.generateMachineDescription({
+    it('should add stability-based flavor text', async () => {
+      const highStabilityResult = await provider.generateMachineDescription({
         ...baseParams,
         attributes: { ...baseParams.attributes, stability: 90 },
       });
 
-      const lowStabilityResult = provider.generateMachineDescription({
+      const lowStabilityResult = await provider.generateMachineDescription({
         ...baseParams,
         attributes: { ...baseParams.attributes, stability: 30 },
       });
@@ -224,7 +224,7 @@ describe('LocalAIProvider', () => {
   });
 
   describe('generateFullAttributes', () => {
-    it('should return complete GeneratedAttributes', () => {
+    it('should return complete GeneratedAttributes', async () => {
       const modules = [
         { type: 'core-furnace', instanceId: 'module1' },
         { type: 'gear', instanceId: 'module2' },
@@ -233,7 +233,7 @@ describe('LocalAIProvider', () => {
         { sourceModuleId: 'module1', targetModuleId: 'module2' },
       ];
 
-      const result = provider.generateFullAttributes(modules, connections);
+      const result = await provider.generateFullAttributes(modules, connections);
 
       expect(result).toBeDefined();
       expect(result.data).toBeDefined();
@@ -245,30 +245,30 @@ describe('LocalAIProvider', () => {
       expect(Array.isArray(result.data.tags)).toBe(true);
     });
 
-    it('should return isFromAI as false', () => {
-      const result = provider.generateFullAttributes([], []);
+    it('should return isFromAI as false', async () => {
+      const result = await provider.generateFullAttributes([], []);
       expect(result.isFromAI).toBe(false);
     });
 
-    it('should return local as provider', () => {
-      const result = provider.generateFullAttributes([], []);
+    it('should return local as provider', async () => {
+      const result = await provider.generateFullAttributes([], []);
       expect(result.provider).toBe('local');
     });
 
-    it('should handle empty modules', () => {
-      const result = provider.generateFullAttributes([], []);
+    it('should handle empty modules', async () => {
+      const result = await provider.generateFullAttributes([], []);
 
       expect(result.data).toBeDefined();
       expect(result.data.name).toBe('Unnamed Machine');
       expect(result.data.rarity).toBe('common');
     });
 
-    it('should generate unique names for different module combinations', () => {
+    it('should generate unique names for different module combinations', async () => {
       const modules1 = [{ type: 'core-furnace', instanceId: 'm1' }];
       const modules2 = [{ type: 'void-siphon', instanceId: 'm2' }];
 
-      const result1 = provider.generateFullAttributes(modules1, []);
-      const result2 = provider.generateFullAttributes(modules2, []);
+      const result1 = await provider.generateFullAttributes(modules1, []);
+      const result2 = await provider.generateFullAttributes(modules2, []);
 
       // Names should be strings (may or may not be different due to randomness)
       expect(typeof result1.data.name).toBe('string');
@@ -277,7 +277,7 @@ describe('LocalAIProvider', () => {
   });
 
   describe('Output Match with Original Utilities (AC1)', () => {
-    it('should generate valid GeneratedAttributes structure', () => {
+    it('should generate valid GeneratedAttributes structure', async () => {
       const modules = [
         { type: 'core-furnace', instanceId: 'm1' },
         { type: 'energy-pipe', instanceId: 'm2' },
@@ -288,7 +288,7 @@ describe('LocalAIProvider', () => {
         { sourceModuleId: 'm2', targetModuleId: 'm3' },
       ];
 
-      const result = provider.generateFullAttributes(modules, connections);
+      const result = await provider.generateFullAttributes(modules, connections);
 
       // Verify structure matches expected GeneratedAttributes
       expect(result.data).toHaveProperty('name');
@@ -310,7 +310,7 @@ describe('LocalAIProvider', () => {
       expect(Array.isArray(result.data.tags)).toBe(true);
     });
 
-    it('should generate valid names for 50+ random configurations', () => {
+    it('should generate valid names for 50+ random configurations', async () => {
       const moduleTypes = [
         'core-furnace', 'energy-pipe', 'gear', 'rune-node',
         'shield-shell', 'trigger-switch', 'output-array',
@@ -340,7 +340,7 @@ describe('LocalAIProvider', () => {
           });
         }
 
-        const result = provider.generateMachineName({ modules, connections });
+        const result = await provider.generateMachineName({ modules, connections });
 
         // Verify name is valid
         expect(typeof result.data).toBe('string');

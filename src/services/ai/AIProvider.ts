@@ -3,7 +3,9 @@
  * 
  * Abstract interface for AI naming and description generation services.
  * Implement this interface to create providers for different AI backends
- * (local rule-based, OpenAI, Anthropic, etc.)
+ * (local rule-based, OpenAI, Anthropic, etc.).
+ * 
+ * All methods are async to support both local (sync) and remote (async) providers.
  */
 
 import { AIProviderConfig, AIProviderResult, ConfigValidationResult } from './types';
@@ -35,7 +37,7 @@ export interface AIProvider {
     faction?: string;
     preferredTags?: string[];
     preferredRarity?: string;
-  }): AIProviderResult<string>;
+  }): Promise<AIProviderResult<string>>;
 
   /**
    * Generate a description for a machine
@@ -54,7 +56,7 @@ export interface AIProvider {
     };
     style?: 'technical' | 'flavor' | 'lore' | 'mixed';
     maxLength?: number;
-  }): AIProviderResult<string>;
+  }): Promise<AIProviderResult<string>>;
 
   /**
    * Generate complete machine attributes (name, description, stats, tags)
@@ -65,7 +67,7 @@ export interface AIProvider {
   generateFullAttributes(
     modules: Array<{ type: string; category?: string; id?: string; instanceId?: string }>,
     connections: Array<{ sourceModuleId: string; targetModuleId: string }>
-  ): AIProviderResult<GeneratedAttributes>;
+  ): Promise<AIProviderResult<GeneratedAttributes>>;
 
   /**
    * Validate the provider configuration
@@ -85,3 +87,5 @@ export interface AIProvider {
    */
   isAvailable(): boolean;
 }
+
+export default AIProvider;

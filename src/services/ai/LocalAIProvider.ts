@@ -79,13 +79,13 @@ export class LocalAIProvider implements AIProvider {
   /**
    * Generate a machine name using local rules
    */
-  generateMachineName(params: {
+  async generateMachineName(params: {
     modules: Array<{ type: string; category?: string; id?: string; instanceId?: string }>;
     connections: Array<{ sourceModuleId: string; targetModuleId: string }>;
     faction?: string;
     preferredTags?: string[];
     preferredRarity?: string;
-  }): AIProviderResult<string> {
+  }): Promise<AIProviderResult<string>> {
     const name = this.generateLocalName(params);
     return {
       data: name,
@@ -206,7 +206,7 @@ export class LocalAIProvider implements AIProvider {
   /**
    * Generate a machine description using local rules
    */
-  generateMachineDescription(params: {
+  async generateMachineDescription(params: {
     modules: Array<{ type: string; category?: string; id?: string; instanceId?: string }>;
     connections: Array<{ sourceModuleId: string; targetModuleId: string }>;
     machineName: string;
@@ -218,7 +218,7 @@ export class LocalAIProvider implements AIProvider {
     };
     style?: 'technical' | 'flavor' | 'lore' | 'mixed';
     maxLength?: number;
-  }): AIProviderResult<string> {
+  }): Promise<AIProviderResult<string>> {
     const description = this.generateLocalDescription(params);
     return {
       data: description,
@@ -390,10 +390,10 @@ export class LocalAIProvider implements AIProvider {
   /**
    * Generate complete machine attributes using existing utilities
    */
-  generateFullAttributes(
+  async generateFullAttributes(
     modules: Array<{ type: string; category?: string; id?: string; instanceId?: string }>,
     connections: Array<{ sourceModuleId: string; targetModuleId: string }>
-  ): AIProviderResult<GeneratedAttributes> {
+  ): Promise<AIProviderResult<GeneratedAttributes>> {
     // Convert to PlacedModule format expected by original function
     const convertedModules: PlacedModule[] = modules.map(m => ({
       id: m.id || '',
@@ -416,7 +416,7 @@ export class LocalAIProvider implements AIProvider {
       pathData: '',
     }));
 
-    // Use the original generateAttributes function
+    // Use the original generateAttributes function (wrapped in Promise for async interface)
     const attributes = originalGenerateAttributes(convertedModules, convertedConnections);
 
     return {
@@ -458,3 +458,5 @@ export class LocalAIProvider implements AIProvider {
 export function createLocalAIProvider(config?: Partial<AIProviderConfig>): LocalAIProvider {
   return new LocalAIProvider(config);
 }
+
+export default LocalAIProvider;

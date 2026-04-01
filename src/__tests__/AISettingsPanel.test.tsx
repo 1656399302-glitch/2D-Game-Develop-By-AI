@@ -55,13 +55,13 @@ describe('AISettingsPanel', () => {
   });
 
   describe('Component Rendering', () => {
-    it('should render settings panel header', () => {
+    it('should Render settings panel header', () => {
       const props = createMockProps();
       render(<AISettingsPanel {...props} />);
       expect(screen.getByText('AI 设置')).toBeInTheDocument();
     });
 
-    it('should render close button', () => {
+    it('should Render close button', () => {
       const props = createMockProps();
       render(<AISettingsPanel {...props} />);
       expect(screen.getByRole('button', { name: '关闭设置' })).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe('AISettingsPanel', () => {
   });
 
   describe('Provider Selection (AC3)', () => {
-    it('should render radio buttons for all provider types', () => {
+    it('should Render radio buttons for all provider types', () => {
       const props = createMockProps();
       render(<AISettingsPanel {...props} />);
       
@@ -121,7 +121,7 @@ describe('AISettingsPanel', () => {
       expect(screen.queryByText('添加 API Key')).not.toBeInTheDocument();
     });
 
-    it('should not crash when rendering (AC8)', () => {
+    it('should not crash when Rendering (AC8)', () => {
       const props = createMockProps();
       expect(() => render(<AISettingsPanel {...props} currentProvider="openai" />)).not.toThrow();
     });
@@ -158,8 +158,8 @@ describe('AISettingsPanel', () => {
       const props = createMockProps();
       render(<AISettingsPanel {...props} />);
       
-      // All providers except local should show "即将推出" badge
-      expect(screen.getAllByText('即将推出').length).toBe(3);
+      // Only Anthropic and Gemini are not implemented (OpenAI is now implemented)
+      expect(screen.getAllByText('即将推出').length).toBe(2);
     });
 
     it('should display status section', () => {

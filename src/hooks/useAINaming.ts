@@ -186,7 +186,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
     setLoading(true);
 
     try {
-      const result = providerRef.current.generateMachineName(params);
+      const result = await providerRef.current.generateMachineName(params);
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -201,7 +201,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
         console.warn('[useAINaming] Primary provider failed, falling back to local:', error);
         try {
           const localProvider = new LocalAIProvider();
-          const result = localProvider.generateMachineName(params);
+          const result = await localProvider.generateMachineName(params);
           setState(prev => ({
             ...prev,
             isLoading: false,
@@ -242,7 +242,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
     setLoading(true);
 
     try {
-      const result = providerRef.current.generateMachineDescription(params);
+      const result = await providerRef.current.generateMachineDescription(params);
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -257,7 +257,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
         console.warn('[useAINaming] Primary provider failed, falling back to local:', error);
         try {
           const localProvider = new LocalAIProvider();
-          const result = localProvider.generateMachineDescription(params);
+          const result = await localProvider.generateMachineDescription(params);
           setState(prev => ({
             ...prev,
             isLoading: false,
@@ -289,7 +289,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
     setLoading(true);
 
     try {
-      const result = providerRef.current.generateFullAttributes(modules, connections);
+      const result = await providerRef.current.generateFullAttributes(modules, connections);
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -304,7 +304,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
         console.warn('[useAINaming] Primary provider failed, falling back to local:', error);
         try {
           const localProvider = new LocalAIProvider();
-          const result = localProvider.generateFullAttributes(modules, connections);
+          const result = await localProvider.generateFullAttributes(modules, connections);
           setState(prev => ({
             ...prev,
             isLoading: false,
