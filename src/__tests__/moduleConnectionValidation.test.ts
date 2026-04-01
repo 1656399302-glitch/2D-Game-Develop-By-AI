@@ -66,7 +66,7 @@ describe('Module Connection Validation Tests', () => {
       // Connection should fail - no connection created
       const { connections, connectionError } = useMachineStore.getState();
       expect(connections.length).toBe(0);
-      expect(connectionError).toBe('连接类型冲突 - 不能连接相同类型的端口');
+      expect(connectionError).toBe('输入端口无法连接到输入端口');
     });
 
     it('prevents connection between same port types (output to output)', () => {
@@ -85,7 +85,7 @@ describe('Module Connection Validation Tests', () => {
       
       const { connections, connectionError } = useMachineStore.getState();
       expect(connections.length).toBe(0);
-      expect(connectionError).toBe('连接类型冲突 - 不能连接相同类型的端口');
+      expect(connectionError).toBe('输出端口无法连接到输出端口');
     });
 
     it('allows valid connection between different port types (input to output)', () => {
@@ -224,7 +224,7 @@ describe('Module Connection Validation Tests', () => {
       
       const { connections, connectionError } = useMachineStore.getState();
       expect(connections.length).toBe(0);
-      expect(connectionError).toBe('连接类型冲突 - 不能连接相同类型的端口');
+      expect(connectionError).toBe('输出端口无法连接到输出端口');
     });
   });
 
@@ -325,7 +325,7 @@ describe('Module Connection Validation Tests', () => {
       useMachineStore.getState().startConnection('m1', 'm1-output');
       useMachineStore.getState().completeConnection('m2', 'm2-output');
       
-      expect(useMachineStore.getState().connectionError).toBe('连接类型冲突 - 不能连接相同类型的端口');
+      expect(useMachineStore.getState().connectionError).toBe('输出端口无法连接到输出端口');
       
       // Fast forward time
       vi.advanceTimersByTime(2500);

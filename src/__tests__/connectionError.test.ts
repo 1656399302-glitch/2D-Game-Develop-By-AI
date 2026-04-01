@@ -41,7 +41,8 @@ describe('Connection Error Feedback', () => {
         
         const state = useMachineStore.getState();
         expect(state.connectionError).toBeTruthy();
-        expect(state.connectionError).toContain('连接类型冲突');
+        // Updated to match new specific error message (AC-CONN-VALID-001)
+        expect(state.connectionError).toContain('输入端口无法连接到输入端口');
       }
     });
   });
@@ -82,15 +83,15 @@ describe('Connection Error Feedback', () => {
   });
 
   describe('Error auto-clear', () => {
-    it('should auto-clear connection error after 2 seconds', async () => {
+    it('should auto-clear connection error after 2.5 seconds', async () => {
       const { addModule, startConnection, completeConnection, setConnectionError } = useMachineStore.getState();
       
       // Manually set an error
       setConnectionError('Test error');
       expect(useMachineStore.getState().connectionError).toBe('Test error');
       
-      // Wait for auto-clear (2 seconds)
-      await new Promise(resolve => setTimeout(resolve, 2100));
+      // Wait for auto-clear (2.5 seconds + buffer)
+      await new Promise(resolve => setTimeout(resolve, 2600));
       
       expect(useMachineStore.getState().connectionError).toBeNull();
     });

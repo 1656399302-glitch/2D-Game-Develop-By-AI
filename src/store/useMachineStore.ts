@@ -15,6 +15,7 @@ import {
 } from '../types';
 import { calculateConnectionPath, updatePathsForModule } from '../utils/connectionEngine';
 import { saveCanvasState, loadCanvasState, clearCanvasState } from '../utils/localStorage';
+import { validateConnection } from '../utils/connectionValidator';
 
 interface MachineStore {
   // State
@@ -144,6 +145,7 @@ const DUPLICATE_OFFSET = 20;
 const AUTO_SAVE_DEBOUNCE = 500; // 500ms debounce for auto-save
 const CLIPBOARD_OFFSET = 30; // Offset for pasted modules
 const ACTIVATION_ZOOM_DURATION = 800; // Duration for zoom animation in ms
+const CONNECTION_ERROR_AUTO_CLEAR = 2500; // 2.5 seconds for error auto-clear
 
 // Debounce helper
 let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -708,6 +710,13 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     set({ connectionPreview: { x, y } });
   },
 
+  /**
+   * Complete a connection between modules
+   * Uses validateConnection for validation with specific error messages per contract:
+   * - AC-CONN-VALID-001: "输入端口无法连接到输入端口"
+   * - AC-CONN-VALID-002: "输出端口无法连接到输出端口"
+   * - AC-CONN-VALID-003: "模块无法连接到自身"
+   */
   completeConnection: (targetModuleId, targetPortId) => {
     const { connectionStart, modules, connections } = get();
     if (!connectionStart) return;
@@ -728,40 +737,31 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       return;
     }
 
-    if (sourcePort.type === targetPort.type) {
-      set({ 
-        isConnecting: false, 
-        connectionStart: null, 
-        connectionPreview: null,
-        connectionError: '连接类型冲突 - 不能连接相同类型的端口',
-      });
-      setTimeout(() => {
-        set({ connectionError: null });
-      }, 2000);
-      return;
-    }
-
-    const exists = connections.some(
-      (c) =>
-        (c.sourceModuleId === connectionStart.moduleId && c.sourcePortId === connectionStart.portId &&
-         c.targetModuleId === targetModuleId && c.targetPortId === targetPortId) ||
-        (c.sourceModuleId === targetModuleId && c.sourcePortId === targetPortId &&
-         c.targetModuleId === connectionStart.moduleId && c.targetPortId === connectionStart.portId)
+    // Use the validateConnection utility for validation
+    const validationResult = validateConnection(
+      connectionStart.moduleId,
+      sourcePort,
+      targetModuleId,
+      targetPort,
+      connections,
+      modules
     );
 
-    if (exists) {
-      set({ 
-        isConnecting: false, 
-        connectionStart: null, 
+    if (!validationResult.valid && validationResult.error) {
+      // Set the specific error message from validation
+      set({
+        isConnecting: false,
+        connectionStart: null,
         connectionPreview: null,
-        connectionError: '连接已存在',
+        connectionError: validationResult.error.message,
       });
       setTimeout(() => {
         set({ connectionError: null });
-      }, 2000);
+      }, CONNECTION_ERROR_AUTO_CLEAR);
       return;
     }
 
+    // Connection is valid - create the connection
     const pathData = calculateConnectionPath(
       modules,
       connectionStart.moduleId,
