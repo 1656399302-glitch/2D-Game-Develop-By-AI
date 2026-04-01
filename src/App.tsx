@@ -30,7 +30,7 @@ import { hasSavedState } from './utils/localStorage';
 import { calculateFaction } from './utils/factionCalculator';
 import { EnhancedStatsDashboard } from './components/Stats/EnhancedStatsDashboard';
 import { AchievementList } from './components/Achievements/AchievementList';
-import { AchievementToastContainer, useAchievementToastQueue } from './components/Achievements/AchievementToast';
+import { AchievementToastContainer, AchievementToastProvider, useAchievementToastQueueContext } from './components/Achievements/AchievementToast';
 import { getAchievementById } from './data/achievements';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AccessibilityLayer, MobileCanvasLayout, useViewportSize } from './components/Accessibility';
@@ -98,11 +98,9 @@ function AppContent() {
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   
-  // Achievement toast queue
-  const { addToQueue } = useAchievementToastQueue({
-    maxVisible: 3,
-    staggerDelay: 3000,
-  });
+  // FIX Round 77: Use context hook instead of direct hook call
+  // This ensures the same queue state is shared with AchievementToastContainer
+  const { addToQueue } = useAchievementToastQueueContext();
   
   // FIX: Use store hydration hook to prevent cascading updates
   const { isHydrated } = useStoreHydration();
@@ -216,7 +214,7 @@ function AppContent() {
   // Connect AchievementToastContainer to achievement store callbacks
   useEffect(() => {
     const handleAchievementUnlock = (achievement: any) => {
-      // Add achievement to toast queue
+      // Add achievement to toast queue - uses shared context state
       addToQueue([achievement]);
     };
     
@@ -685,7 +683,8 @@ function AppContent() {
         {/* Toast Notifications */}
         <ConnectionErrorFeedback />
         <RandomForgeToast />
-        {/* FIX: Use AchievementToastContainer with queue system instead of single AchievementToast */}
+        {/* FIX Round 77: AchievementToastContainer is now inside AchievementToastProvider (see App wrapper) 
+            and uses useAchievementToastQueueContext to share queue state with App.tsx */}
         <AchievementToastContainer options={{ maxVisible: 3, staggerDelay: 3000 }} />
         <RecipeToastManager />
         
@@ -758,7 +757,8 @@ function AppContent() {
   );
 }
 
-// Main App with Error Boundary and Accessibility Layer
+// Main App with Error Boundary, Accessibility Layer, and AchievementToastProvider
+// FIX Round 77: Wrap with AchievementToastProvider to share toast queue state
 function App() {
   return (
     <ErrorBoundary
@@ -766,9 +766,11 @@ function App() {
         console.error('App Error:', error, errorInfo);
       }}
     >
-      <AccessibilityLayer>
-        <AppContent />
-      </AccessibilityLayer>
+      <AchievementToastProvider options={{ maxVisible: 3, staggerDelay: 3000 }}>
+        <AccessibilityLayer>
+          <AppContent />
+        </AccessibilityLayer>
+      </AchievementToastProvider>
     </ErrorBoundary>
   );
 }

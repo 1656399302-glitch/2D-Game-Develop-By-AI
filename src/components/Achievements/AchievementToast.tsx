@@ -4,9 +4,13 @@
  * Displays toast notifications when achievements are unlocked.
  * Supports a queue system for multiple simultaneous achievement unlocks.
  * Auto-dismisses after 4 seconds per toast.
+ * 
+ * Round 77 Fix: Uses React Context to ensure all components share the same
+ * queue state instance, preventing the bug where toast notifications never
+ * appeared due to separate hook instances.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { FACTIONS, ACHIEVEMENTS } from '../../data/achievements';
 import type { FactionId } from '../../types/factions';
 
@@ -199,17 +203,37 @@ interface AchievementToastQueueOptions {
   staggerDelay?: number;
 }
 
+// Return type for the hook
+interface AchievementToastQueueState {
+  visibleAchievements: ToastQueueItem[];
+  addToQueue: (achievements: typeof ACHIEVEMENTS) => void;
+  removeFromQueue: (id: string) => void;
+  clearQueue: () => void;
+  isProcessing: boolean;
+  remainingCount: number;
+  totalInQueue: number;
+}
+
+/**
+ * Context for sharing toast queue state across components.
+ * This ensures all components share the same queue instance.
+ */
+const AchievementToastContext = createContext<AchievementToastQueueState | null>(null);
+
 /**
  * Hook to manage achievement toast queue
  * This is a proper React hook that uses useState and useEffect internally
+ * 
+ * NOTE: This hook manages its own state. For shared state across components,
+ * use the AchievementToastProvider and useAchievementToastQueueContext instead.
  */
 export function useAchievementToastQueue(options: AchievementToastQueueOptions = {}) {
   const { maxVisible = 3, staggerDelay = 3000 } = options;
   
   const [queue, setQueue] = useState<ToastQueueItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const processingRef = React.useRef(false);
-  const processTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const processingRef = useRef(false);
+  const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Get currently visible achievements
   const visibleAchievements = queue.slice(currentIndex, currentIndex + maxVisible);
@@ -299,15 +323,93 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
 }
 
 /**
+ * Provider component that wraps the app and provides shared toast queue state.
+ * 
+ * Usage:
+ * ```tsx
+ * <AchievementToastProvider>
+ *   <App />
+ * </AchievementToastProvider>
+ * ```
+ */
+export const AchievementToastProvider: React.FC<{
+  options?: AchievementToastQueueOptions;
+  children: React.ReactNode;
+}> = ({ options = {}, children }) => {
+  const queueState = useAchievementToastQueue(options);
+  
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(
+    () => queueState,
+    [
+      queueState.visibleAchievements,
+      queueState.isProcessing,
+      queueState.remainingCount,
+      queueState.totalInQueue,
+      // Note: addToQueue, removeFromQueue, clearQueue are stable callbacks
+    ]
+  );
+  
+  return (
+    <AchievementToastContext.Provider value={contextValue}>
+      {children}
+    </AchievementToastContext.Provider>
+  );
+};
+
+/**
+ * Hook to access the shared achievement toast queue context.
+ * 
+ * MUST be used within an AchievementToastProvider.
+ * 
+ * Usage:
+ * ```tsx
+ * // In App.tsx
+ * function App() {
+ *   return (
+ *     <AchievementToastProvider>
+ *       <AppContent />
+ *     </AchievementToastProvider>
+ *   );
+ * }
+ * 
+ * // In any component that needs addToQueue
+ * function SomeComponent() {
+ *   const { addToQueue } = useAchievementToastQueueContext();
+ *   // ...
+ * }
+ * ```
+ * 
+ * @throws Error if used outside of AchievementToastProvider
+ */
+export function useAchievementToastQueueContext(): AchievementToastQueueState {
+  const context = useContext(AchievementToastContext);
+  
+  if (context === null) {
+    throw new Error(
+      'useAchievementToastQueueContext must be used within an AchievementToastProvider. ' +
+      'Wrap your app with <AchievementToastProvider> in App.tsx.'
+    );
+  }
+  
+  return context;
+}
+
+/**
  * Achievement Toast Container Component
  * 
  * Renders multiple achievement toasts based on the queue state.
- * This component wraps the useAchievementToastQueue hook.
+ * Uses context to share state with other components (like App.tsx).
+ * 
+ * FIX: No longer calls useAchievementToastQueue directly.
+ * Now uses useAchievementToastQueueContext to access shared queue state.
  */
 export const AchievementToastContainer: React.FC<{
   options?: AchievementToastQueueOptions;
 }> = ({ options = {} }) => {
-  const { visibleAchievements, removeFromQueue } = useAchievementToastQueue(options);
+  // FIX: Use context hook instead of direct hook call
+  // This ensures we read from the same queue state that App.tsx writes to
+  const { visibleAchievements, removeFromQueue } = useAchievementToastQueueContext();
   
   if (visibleAchievements.length === 0) {
     return null;
