@@ -8,7 +8,7 @@ import { AlignmentToolbar } from './AlignmentToolbar';
 import { EnergyPulseVisualizer } from '../Preview/EnergyPulseVisualizer';
 import { SelectionHandles } from './SelectionHandles';
 import { calculateShakeOffset } from '../../utils/activationChoreographer';
-import { MODULE_SIZES } from '../../types';
+import { MODULE_SIZES, PlacedModule } from '../../types';
 import {
   throttleViewportUpdates,
   createVirtualizedModuleList,
@@ -19,6 +19,7 @@ import {
 } from '../../utils/performanceUtils';
 import { calculateGroupCenter } from '../../utils/groupingUtils';
 import { ModuleSpatialIndex, getCanvasSpatialIndex } from '../../utils/spatialIndex';
+import { getCanvasDimensions, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, calculateSafeViewportBounds } from '../../utils/canvasSizeUtils';
 
 // D8 Integration: Import useCanvasPerformance hook (Round 82)
 import { useCanvasPerformance } from '../../hooks/useCanvasPerformance';
@@ -29,6 +30,9 @@ const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
 const VIEWPORT_CULLING_MARGIN = VIEWPORT_CULLING_BUFFER; // 50px
 // D8 Integration: 16ms debounce for 60fps performance
 const DEBOUNCE_MS = 16;
+
+// Round 92 Fix: Safe module position range - modules within this distance from origin should always be visible
+const SAFE_MODULE_POSITION = 500;
 
 // Lazy import LayersPanel to avoid circular dependency
 const LayersPanel = lazy(() => import('./LayersPanel').then(m => ({ default: m.LayersPanel })));
@@ -73,6 +77,43 @@ function getSnappedPosition(
 const memoizer = memoizeModuleRender();
 const viewportThrottler = throttleViewportUpdates({ minInterval: THROTTLE_INTERVAL_60FPS });
 
+/**
+ * Round 92 Fix: Check if a module should be considered "potentially visible"
+ * even when viewport calculation is uncertain (e.g., in headless environments)
+ * 
+ * Modules near the origin (0,0) are considered potentially visible
+ * to ensure they render even when viewport size detection fails.
+ */
+function isModulePotentiallyVisible(
+  module: PlacedModule,
+  viewportSize: { width: number; height: number }
+): boolean {
+  const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
+  
+  // If viewport size is default (800x600), modules near origin should always be visible
+  if (viewportSize.width === DEFAULT_CANVAS_WIDTH && viewportSize.height === DEFAULT_CANVAS_HEIGHT) {
+    // Check if module is near the origin (within safe range)
+    if (Math.abs(module.x) < SAFE_MODULE_POSITION && Math.abs(module.y) < SAFE_MODULE_POSITION) {
+      return true;
+    }
+    // Also check if module is within the default viewport range (with buffer)
+    return (
+      module.x < viewportSize.width + VIEWPORT_CULLING_MARGIN &&
+      module.y < viewportSize.height + VIEWPORT_CULLING_MARGIN &&
+      module.x + size.width > -VIEWPORT_CULLING_MARGIN &&
+      module.y + size.height > -VIEWPORT_CULLING_MARGIN
+    );
+  }
+  
+  // If viewport is valid (> 0), use normal visibility check
+  if (viewportSize.width > 0 && viewportSize.height > 0) {
+    return true; // Let createVirtualizedModuleList decide
+  }
+  
+  // Zero or negative viewport - use safe defaults
+  return Math.abs(module.x) < SAFE_MODULE_POSITION && Math.abs(module.y) < SAFE_MODULE_POSITION;
+}
+
 export function Canvas() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,7 +135,17 @@ export function Canvas() {
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [draggingModule, setDraggingModule] = useState<string | null>(null);
-  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
+  
+  // Round 92 Fix: Use robust viewport size detection with safe defaults
+  // Initialize with defaults but will be updated after mount
+  const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({
+    width: DEFAULT_CANVAS_WIDTH,
+    height: DEFAULT_CANVAS_HEIGHT,
+  });
+  
+  // Round 92 Fix: Track whether we've successfully measured the container size
+  // This state triggers re-measurement if initial measurement failed
+  const [measurementAttempt, setMeasurementAttempt] = useState(0);
   
   // Box selection state
   const [isBoxSelecting, setIsBoxSelecting] = useState(false);
@@ -172,21 +223,103 @@ export function Canvas() {
     modulesLengthRef.current = modules.length;
   }, [modules.length]);
   
-  // Update viewport size on resize
+  // Round 92 Fix: Robust viewport size detection with multiple fallback methods
+  // This effect runs whenever measurementAttempt changes (initial mount + retry)
   useEffect(() => {
     const updateSize = () => {
-      if (containerRef.current) {
-        setViewportSize({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
+      const dims = getCanvasDimensions(containerRef, svgRef);
+      
+      // Only update if we got a valid size or we're still at defaults
+      const isDefault = dims.width === DEFAULT_CANVAS_WIDTH && dims.height === DEFAULT_CANVAS_HEIGHT;
+      const currentIsDefault = viewportSize.width === DEFAULT_CANVAS_WIDTH && viewportSize.height === DEFAULT_CANVAS_HEIGHT;
+      
+      // Update if we got a valid (non-default) size, or if we're still at defaults and should retry
+      if (!isDefault || currentIsDefault) {
+        setViewportSize(dims);
       }
     };
     
-    updateSize();
+    // Use requestAnimationFrame to ensure DOM is ready
+    // This is more reliable than setTimeout for initial measurements
+    let rafId = requestAnimationFrame(() => {
+      updateSize();
+      
+      // If still at defaults after rAF, schedule another check
+      // This handles edge cases where container isn't ready yet
+      const dims = getCanvasDimensions(containerRef, svgRef);
+      if (dims.width === DEFAULT_CANVAS_WIDTH && dims.height === DEFAULT_CANVAS_HEIGHT) {
+        setTimeout(() => {
+          updateSize();
+        }, 100);
+      }
+    });
+    
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [measurementAttempt]);
+  
+  // Round 92 Fix: Set up ResizeObserver with fallback
+  // This effect runs once on mount and sets up all size detection methods
+  useEffect(() => {
+    const updateSize = () => {
+      const dims = getCanvasDimensions(containerRef, svgRef);
+      setViewportSize(dims);
+      
+      // If dimensions are still defaults, trigger a retry measurement
+      if (dims.width === DEFAULT_CANVAS_WIDTH && dims.height === DEFAULT_CANVAS_HEIGHT) {
+        // This will cause the measurement effect above to re-run
+        setMeasurementAttempt(prev => prev + 1);
+      }
+    };
+    
+    // Set up window resize listener as backup
     window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
+    
+    // Set up ResizeObserver
+    let resizeObserver: ResizeObserver | null = null;
+    
+    try {
+      if (containerRef.current) {
+        resizeObserver = new ResizeObserver(() => {
+          updateSize();
+        });
+        resizeObserver.observe(containerRef.current);
+      }
+    } catch (error) {
+      // ResizeObserver not supported - will rely on other methods
+      console.warn('ResizeObserver not available, using fallback methods');
+    }
+    
+    // Round 92 Fix: Periodic fallback check for environments where ResizeObserver doesn't fire
+    // This ensures we eventually get the correct dimensions even in headless browsers
+    const fallbackInterval = setInterval(() => {
+      const currentDims = getCanvasDimensions(containerRef, svgRef);
+      if (currentDims.width > 0 && currentDims.height > 0) {
+        // Only update if we have valid dimensions
+        if (currentDims.width !== viewportSize.width || currentDims.height !== viewportSize.height) {
+          setViewportSize(currentDims);
+        }
+        
+        // If dimensions are now valid (non-default), stop the fallback checks
+        if (currentDims.width !== DEFAULT_CANVAS_WIDTH || currentDims.height !== DEFAULT_CANVAS_HEIGHT) {
+          clearInterval(fallbackInterval);
+        }
+      }
+    }, 500); // Check every 500ms
+    
+    return () => {
+      window.removeEventListener('resize', updateSize);
+      clearInterval(fallbackInterval);
+      if (resizeObserver) {
+        try {
+          resizeObserver.disconnect();
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+    };
+  }, []); // Run once on mount
   
   // Camera shake parameters based on machine state
   const shakeParams = {
@@ -289,13 +422,56 @@ export function Canvas() {
     return () => clearInterval(activationInterval);
   }, [machineState]); // Only depend on machineState, not setActivationModuleIndex or modules.length
   
-  // AC8: Viewport culling with 50px buffer - Using performance utils
+  // AC8: Viewport culling with 50px buffer - Using robust safe bounds calculation (Round 92 fix)
   const { visibleModules, visibleCount, totalCount } = useMemo(() => {
+    // Round 92 Fix: Use safe viewport bounds that ensure modules near origin are visible
+    // even when viewport size detection is uncertain
+    const safeBounds = calculateSafeViewportBounds(
+      viewport,
+      viewportSize,
+      VIEWPORT_CULLING_MARGIN
+    );
+    
+    // Round 92 Fix: If using default viewport and safe bounds, ensure near-origin modules are included
+    if (safeBounds.isDefaultFallback) {
+      const result = createVirtualizedModuleList(
+        modules,
+        viewport,
+        viewportSize,
+        { bufferSize: VIEWPORT_CULLING_MARGIN }
+      );
+      
+      const allModules = modules;
+      const visibleIds = new Set(result.visibleModules.map(m => m.instanceId));
+      
+      // Check if any near-origin modules are missing from visible list
+      const nearOriginModules = allModules.filter(m => 
+        isModulePotentiallyVisible(m, viewportSize) && !visibleIds.has(m.instanceId)
+      );
+      
+      if (nearOriginModules.length > 0) {
+        // Add near-origin modules to visible list
+        const combinedModules = [...result.visibleModules, ...nearOriginModules];
+        return {
+          visibleModules: combinedModules,
+          visibleCount: combinedModules.length,
+          totalCount: allModules.length,
+        };
+      }
+      
+      return {
+        visibleModules: result.visibleModules,
+        visibleCount: result.visibleCount,
+        totalCount: result.totalCount,
+      };
+    }
+    
+    // Normal path for non-default viewport
     const result = createVirtualizedModuleList(
       modules,
       viewport,
       viewportSize,
-      { bufferSize: VIEWPORT_CULLING_MARGIN } // 50px buffer per AC8
+      { bufferSize: VIEWPORT_CULLING_MARGIN }
     );
     
     return {
@@ -710,20 +886,17 @@ export function Canvas() {
   
   // Handle selection rotate - rotates selected modules 90° clockwise around selection center
   const handleSelectionRotate = useCallback((_newRotation: number) => {
-    // Determine which modules to rotate
     const targetIds = selectedModuleIds.length > 0 
       ? selectedModuleIds 
       : (selectedModuleId ? [selectedModuleId] : []);
     
     if (targetIds.length === 0) return;
     
-    // Get the current modules
     const currentModules = useMachineStore.getState().modules;
     const targetModules = currentModules.filter(m => targetIds.includes(m.instanceId));
     
     if (targetModules.length === 0) return;
     
-    // Calculate the center of the selection
     const center = calculateGroupCenter(targetModules, targetIds);
     if (!center) return;
     
@@ -732,7 +905,6 @@ export function Canvas() {
     const cos = Math.cos(radians);
     const sin = Math.sin(radians);
     
-    // Calculate new positions for each module
     const updates: Array<{ instanceId: string; x: number; y: number; rotation: number }> = [];
     
     targetModules.forEach(module => {
@@ -740,17 +912,13 @@ export function Canvas() {
       const moduleCenterX = module.x + size.width / 2;
       const moduleCenterY = module.y + size.height / 2;
       
-      // Rotate module center around selection center
       const dx = moduleCenterX - center.x;
       const dy = moduleCenterY - center.y;
       const newModuleCenterX = center.x + dx * cos - dy * sin;
       const newModuleCenterY = center.y + dx * sin + dy * cos;
       
-      // Calculate new position (top-left corner)
       const newX = newModuleCenterX - size.width / 2;
       const newY = newModuleCenterY - size.height / 2;
-      
-      // Update rotation (add 90°)
       const newRotation = (module.rotation + degrees) % 360;
       
       updates.push({ 
@@ -761,9 +929,7 @@ export function Canvas() {
       });
     });
     
-    // Apply updates
     if (updates.length > 0) {
-      // Apply position updates
       const positionUpdates = updates.map(u => ({ 
         instanceId: u.instanceId, 
         x: u.x, 
@@ -771,7 +937,6 @@ export function Canvas() {
       }));
       updateModulesBatch(positionUpdates);
       
-      // Apply rotation updates directly to modules
       const state = useMachineStore.getState();
       const updatedModules = state.modules.map(m => {
         const update = updates.find(u => u.instanceId === m.instanceId);
@@ -782,7 +947,6 @@ export function Canvas() {
       });
       useMachineStore.setState({ modules: updatedModules });
       
-      // Update spatial index after rotation
       setTimeout(() => {
         const updatedModules = useMachineStore.getState().modules;
         if (spatialIndexRef.current) {
@@ -796,27 +960,22 @@ export function Canvas() {
   
   // Handle selection scale - scales selected modules by factor around selection center
   const handleSelectionScale = useCallback((newScale: number) => {
-    // Determine which modules to scale
     const targetIds = selectedModuleIds.length > 0 
       ? selectedModuleIds 
       : (selectedModuleId ? [selectedModuleId] : []);
     
     if (targetIds.length === 0) return;
     
-    // Clamp scale to valid range [0.25, 4.0]
     const scaleFactor = Math.max(0.25, Math.min(4.0, newScale));
     
-    // Get the current modules
     const currentModules = useMachineStore.getState().modules;
     const targetModules = currentModules.filter(m => targetIds.includes(m.instanceId));
     
     if (targetModules.length === 0) return;
     
-    // Calculate the center of the selection
     const center = calculateGroupCenter(targetModules, targetIds);
     if (!center) return;
     
-    // Calculate new positions and scales for each module
     const updates: Array<{ instanceId: string; x: number; y: number; scale: number }> = [];
     
     targetModules.forEach(module => {
@@ -824,17 +983,13 @@ export function Canvas() {
       const moduleCenterX = module.x + size.width / 2;
       const moduleCenterY = module.y + size.height / 2;
       
-      // Scale position relative to center
       const dx = moduleCenterX - center.x;
       const dy = moduleCenterY - center.y;
       const newModuleCenterX = center.x + dx * scaleFactor;
       const newModuleCenterY = center.y + dy * scaleFactor;
       
-      // Calculate new position (top-left corner)
       const newX = newModuleCenterX - size.width / 2;
       const newY = newModuleCenterY - size.height / 2;
-      
-      // Calculate new scale
       const newScaleValue = Math.max(0.25, Math.min(4.0, module.scale * scaleFactor));
       
       updates.push({ 
@@ -845,9 +1000,7 @@ export function Canvas() {
       });
     });
     
-    // Apply updates
     if (updates.length > 0) {
-      // Apply position updates
       const positionUpdates = updates.map(u => ({ 
         instanceId: u.instanceId, 
         x: u.x, 
@@ -855,7 +1008,6 @@ export function Canvas() {
       }));
       updateModulesBatch(positionUpdates);
       
-      // Apply scale updates directly to modules
       const state = useMachineStore.getState();
       const updatedModules = state.modules.map(m => {
         const update = updates.find(u => u.instanceId === m.instanceId);
@@ -866,7 +1018,6 @@ export function Canvas() {
       });
       useMachineStore.setState({ modules: updatedModules });
       
-      // Update spatial index after scale
       setTimeout(() => {
         const updatedModules = useMachineStore.getState().modules;
         if (spatialIndexRef.current) {
@@ -1041,13 +1192,11 @@ export function Canvas() {
           {/* Modules layer - Using visible modules only (AC8 viewport culling) */}
           <g id="modules-layer">
             {visibleModules.map((module) => {
-              // Check visibility property
               const isVisible = (module as any).isVisible !== false;
               if (!isVisible) return null;
               
               const moduleIdx = getModuleIndex(module.instanceId);
               
-              // Cache module render for performance
               memoizer.getCached(
                 module.instanceId,
                 module.rotation,
@@ -1145,7 +1294,7 @@ export function Canvas() {
         </div>
       )}
       
-      {/* D8 Integration: AC8: Zoom indicator with viewport culling info and performance mode (Round 82) */}
+      {/* D8 Integration: AC8: Zoom indicator with viewport culling info and performance mode */}
       <div 
         className="absolute bottom-4 left-4 px-3 py-1 rounded bg-[#121826] border border-[#1e2a42] text-xs text-[#9ca3af]" 
         role="status" 
