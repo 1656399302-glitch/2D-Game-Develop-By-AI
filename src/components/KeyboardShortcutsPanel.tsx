@@ -2,11 +2,12 @@
  * Keyboard Shortcuts Panel Component
  * 
  * Displays all keyboard shortcuts grouped by category.
- * Toggle with `?` key press, close with `?` again or Escape.
+ * Toggle with `?` key press (handled by App.tsx), close with `Escape` or clicking outside.
  * 
  * Categories: Canvas, Modules, Connections, Export
  * 
- * ROUND 81 PHASE 2: New component implementation per contract D6.
+ * ROUND 83 FIX: Removed internal ? key handler (was conflicting with App.tsx handler)
+ * Only Escape key and overlay click handle closing now.
  */
 
 import React, { useEffect, useCallback, useState } from 'react';
@@ -98,20 +99,10 @@ interface KeyboardShortcutsPanelProps {
 }
 
 export function KeyboardShortcutsPanel({ isOpen, onClose }: KeyboardShortcutsPanelProps) {
-  // Toggle panel with ? key
+  // FIX Round 83: Only handle Escape key for closing
+  // The ? key toggle is handled exclusively by App.tsx to avoid handler conflicts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Toggle with ? key (Shift + /)
-      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault();
-        if (isOpen) {
-          onClose();
-        } else {
-          // Parent should handle opening - emit custom event
-          window.dispatchEvent(new CustomEvent('toggle:keyboardShortcuts', { detail: { open: true } }));
-        }
-      }
-      
       // Close with Escape
       if (e.key === 'Escape' && isOpen) {
         e.preventDefault();

@@ -1,9 +1,12 @@
 /**
  * Keyboard Shortcuts Panel Tests
  * 
- * Tests keyboard panel toggle with `?` key.
+ * Tests keyboard panel close with Escape key and overlay click.
+ * Note: The `?` key toggle is handled by App.tsx, not by this component.
+ * This is a fix for the round 83 regression bug where conflicting handlers
+ * caused inverted toggle behavior.
  * 
- * ROUND 81 PHASE 2: Test file per contract.
+ * ROUND 83 FIX: Updated tests to reflect component no longer handles ? key.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -101,7 +104,11 @@ describe('KeyboardShortcutsPanel Component', () => {
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
-    it('should dispatch custom event for ? key press', () => {
+    // ROUND 83 FIX: This test was removed because the component no longer handles
+    // the ? key. The ? key toggle is handled exclusively by App.tsx to prevent
+    // conflicting handler behavior (which caused the inverted toggle bug).
+    // The previous test checked for a custom event dispatch that caused the bug.
+    it('should NOT dispatch custom event for ? key press (handled by App.tsx)', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
       
       render(
@@ -110,11 +117,12 @@ describe('KeyboardShortcutsPanel Component', () => {
 
       fireEvent.keyDown(window, { key: '?', shiftKey: true });
 
-      expect(dispatchEventSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'toggle:keyboardShortcuts',
-        })
+      // The component should NOT dispatch any custom events for ? key
+      // because App.tsx handles the ? key toggle exclusively
+      const customEventCalls = dispatchEventSpy.mock.calls.filter(
+        call => call[0]?.type === 'toggle:keyboardShortcuts'
       );
+      expect(customEventCalls.length).toBe(0);
 
       dispatchEventSpy.mockRestore();
     });
