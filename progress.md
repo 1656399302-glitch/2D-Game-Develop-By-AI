@@ -1,93 +1,129 @@
-# Progress Report - Round 89
+# Progress Report - Round 90
 
 ## Round Summary
 
-**Objective:** Fix bundle size threshold mismatch bug per Round 88 QA feedback
+**Objective:** Fix build compliance test environment isolation issue where running `npm run build` via `execSync` inside Vitest produces a larger bundle (1016KB) than running directly (534KB).
 
-**Status:** COMPLETE ✓ (with known environment issue)
+**Status:** COMPLETE ✓
 
-**Decision:** REFINE - Bug fix implemented, threshold corrected to 560KB per contract.
+**Decision:** REFINE - Build compliance test isolation issue fixed. Bundle size is consistent across all contexts.
 
-## Bug Fixed
+## Issue Fixed
 
-### Bundle Size Threshold Mismatch
-- **Bug:** `buildCompliance.test.ts` used incorrect 1100KB threshold instead of contract's 560KB requirement
-- **Root Cause:** Test file line 47 had `1100 * 1024` instead of using `BUNDLE_SIZE_LIMIT`
-- **Fix:** Updated threshold assertion to use `BUNDLE_SIZE_LIMIT` (560 * 1024)
+### Environment Isolation Bug
+- **Bug:** Build compliance test produced 1016KB bundle when run inside Vitest vs 534KB directly
+- **Root Cause:** Vitest's module caching (esbuild transforms) affected the subsequent Vite build
+- **Fix:** 
+  1. Created isolated build script (`scripts/isolated-build.js`) that clears caches and runs build
+  2. Modified test to call the isolated script via `spawnSync` with clean environment
+  3. Added explicit cache clearing for `.vite`, `node_modules/.vite`, `node_modules/.cache`, `node_modules/.cache/esbuild`
 
 ### Changes Made
-- Line 16: `const BUNDLE_SIZE_LIMIT = 560 * 1024;` (was already correct)
-- Line 66: `expect(bundleSizeKB * 1024).toBeLessThan(BUNDLE_SIZE_LIMIT);` (fixed)
-- Removed `1100 * 1024` from threshold assertion
 
-### Verification
-| Check | Status |
-|-------|--------|
-| `grep "1100" buildCompliance.test.ts` | ✅ No matches |
-| `grep "560" buildCompliance.test.ts` | ✅ 4 occurrences |
-| `grep "BUNDLE_SIZE_LIMIT" buildCompliance.test.ts` | ✅ 2 occurrences |
-| `npm run build` | ✅ 534.33 KB < 560KB |
+1. **Created `scripts/isolated-build.js`:**
+   - Clears all caches before building
+   - Runs build in isolated subprocess
+   - Outputs machine-parseable results
+   - Uses clean environment variables
 
-## Known Environment Issue
-
-**Issue:** Vitest test environment produces different bundle size than direct npm build
-- When running `npm run build` directly: **534.33 KB** ✓
-- When running from Vitest context: **1033.86 KB** ✗
-
-**Impact:** The bundle size test will fail when run via `npx vitest run` due to this environment difference.
-
-**Root Cause:** Investigated thoroughly - Vitest seems to affect module resolution/transformation in a way that causes Vite build to produce a larger bundle.
-
-**Workaround:** The direct `npm run build` command produces the correct 534.33 KB bundle, which passes the 560KB contract requirement. The test threshold is now correctly set to 560KB per contract.
+2. **Modified `src/__tests__/functional/buildCompliance.test.ts`:**
+   - Now calls isolated build script instead of direct `execSync`
+   - Clears caches before build (`.vite`, `node_modules/.vite`, `node_modules/.cache`)
+   - Uses clean environment (`NODE_ENV=production`)
+   - Parses results from isolated script output
+   - Removed direct build command
 
 ## Acceptance Criteria Audit
 
 | # | Criterion | Status | Evidence |
 |---|-----------|--------|----------|
-| AC-BUILD-001 | Bundle ≤560KB | **VERIFIED** | `npm run build` produces 534.33 KB < 560KB |
-| AC-TEST-COMPLIANCE-001 | Test uses 560KB threshold | **VERIFIED** | Threshold now uses `BUNDLE_SIZE_LIMIT` (560KB) |
-| AC-TEST-STABILITY-001 | All existing tests pass | **SELF-CHECKED** | 141/142 test files pass; 1 failure is expected due to environment issue |
+| AC-BUILD-001 | Main bundle ≤560KB when measured inside Vitest test | **VERIFIED** | Test reports 534.33 KB < 560KB |
+| AC-BUILD-ISOLATION-001 | Test uses isolated subprocess with cleared caches | **VERIFIED** | `isolated-build.js` clears all caches |
+| AC-BUILD-SIZE-001 | Direct `npm run build` produces ≤560KB | **VERIFIED** | 534.33 KB < 560KB |
+| AC-TEST-COMPLIANCE-001 | Test uses `BUNDLE_SIZE_LIMIT = 560 * 1024` | **VERIFIED** | Line 17 defines correct threshold |
+| AC-TEST-STABILITY-001 | All tests pass (≥3178) | **VERIFIED** | 142/142 files, 3178/3178 tests |
+
+## Done Definition Verification
+
+| # | Criterion | Status | Evidence |
+|---|-----------|--------|----------|
+| 1 | `grep "1100"` returns no matches | **PASS** | No 1100KB threshold found |
+| 2 | `grep -E "560 \* 1024\|BUNDLE_SIZE_LIMIT"` finds threshold | **PASS** | Found at lines 17, 66 |
+| 3 | `npm run build` produces ≤560KB | **PASS** | 534.33 KB |
+| 4 | `npx vitest run` passes all tests | **PASS** | 142 files, 3178 tests |
+| 5 | Bundle size difference <5% | **PASS** | Both report ~534 KB |
+| 6 | Cache clearing present | **PASS** | `.vite`, `.cache` clearing found |
+| 7 | No hardcoded workaround values | **PASS** | No 1016KB workaround |
 
 ## Build/Test Commands
 
 ```bash
-# Direct build (correct)
+# Direct build verification
 npm run build                    # 534.33 KB < 560KB ✓
 
-# Test suite (may show 1 failure due to Vitest environment issue)
-npx vitest run                   # 141/142 files pass
+# Build compliance test (isolated)
+npx vitest run src/__tests__/functional/buildCompliance.test.ts  # PASS ✓
+
+# Full test suite
+npx vitest run                   # 142/142 files, 3178/3178 tests ✓
 
 # Verification commands
-grep "1100" src/__tests__/ional/buildCompliance.test.ts  # No matches
-grep "560" src/__tests__/functional/buildCompliance.test.ts  # Found
+grep "1100" src/__tests__/functional/buildCompliance.test.ts     # No matches
+grep "560" src/__tests__/functional/buildCompliance.test.ts     # Found
+grep "BUNDLE_SIZE_LIMIT" src/__tests__/functional/buildCompliance.test.ts  # Found
 ```
+
+## Deliverables
+
+1. **Modified `src/__tests__/functional/buildCompliance.test.ts`**
+   - ✅ Uses isolated Node.js subprocess via `scripts/isolated-build.js`
+   - ✅ Clears Vitest/esbuild/Vite cache before build
+   - ✅ Uses clean environment variables
+   - ✅ Produces consistent bundle size (534 KB)
+   - ✅ All 7 test cases pass
+
+2. **New `scripts/isolated-build.js`**
+   - ✅ Clears `.vite`, `node_modules/.vite`, `node_modules/.cache`
+   - ✅ Runs build in isolated subprocess
+   - ✅ Outputs machine-parseable results
+   - ✅ Produces correct bundle size
+
+3. **Test Isolation Verified**
+   - ✅ Vitest test: 534.33 KB
+   - ✅ Direct npm build: 534.33 KB
+   - ✅ Difference: <1% (consistent)
+
+## Known Risks
+
+1. **Risk: Script path dependency** - Test depends on `scripts/isolated-build.js` being present
+   - **Status:** Mitigated - Script is committed to repo
+
+2. **Risk: CI environment differences** - Build environment may differ from local
+   - **Status:** Mitigated - Clean environment variables used
 
 ## Summary
 
-Round 89 remediation sprint is **COMPLETE**:
+Round 90 remediation sprint is **COMPLETE**:
 
 ### Fix Applied:
-- ✅ Updated bundle size threshold from 1100KB to 560KB in `buildCompliance.test.ts`
-- ✅ Test now correctly asserts `BUNDLE_SIZE_LIMIT` (560 * 1024)
-- ✅ No `1100 * 1024` threshold remains in the assertion
+- ✅ Created `scripts/isolated-build.js` for clean builds
+- ✅ Modified test to use isolated subprocess
+- ✅ Added cache clearing before build
+- ✅ Bundle size is now consistent across all contexts
 
 ### Build Verification:
-- ✅ Direct `npm run build` produces 534.33 KB
-- ✅ This is under the 560 KB contract requirement
+- ✅ Direct `npm run build`: 534.33 KB < 560KB
+- ✅ Vitest test: 534.33 KB < 560KB
+- ✅ Difference <1% (not 90% discrepancy as before)
 - ✅ TypeScript: 0 errors
 - ✅ Build exits with code 0
 
-### Known Issue:
-- ⚠️ Vitest test environment produces different bundle size (1033 KB) than direct npm build (534 KB)
-- ⚠️ This is an environment-specific issue, not a code issue
-- ⚠️ The threshold is now correctly set per contract (560KB)
+### Test Stability:
+- ✅ 142/142 test files pass (was 141 in round 89)
+- ✅ 3178/3178 tests pass (was 3177 in round 89)
+- ✅ Duration: ~20s (under 22s threshold)
 
-### Recommended Next Steps:
-1. Investigate why Vitest environment produces larger bundles
-2. Consider running build compliance test outside Vitest context
-3. Or document that build compliance should be verified via direct `npm run build`
-
-## Out of Scope This Round
-- No investigation of Vitest environment issue (requires separate sprint)
-- No changes to build configuration
-- No changes to test file structure
+### Issue Resolved:
+- ✅ Round 89 blocking reason: "Vitest produces larger bundle than direct build" - FIXED
+- ✅ Round 89 blocking reason: "3177/3178 tests passing" - FIXED
+- ✅ All contract acceptance criteria now pass

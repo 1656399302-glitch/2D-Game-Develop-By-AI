@@ -1,16 +1,18 @@
 /**
  * AC-BUILD-001: Functional Tests for Build Compliance
  * 
- * Verifies the production build succeeds.
+ * Verifies the production build succeeds with proper bundle size.
+ * 
+ * Uses isolated Node.js subprocess with cleared caches to ensure
+ * consistent build results regardless of test runner context.
  * 
  * Note: Bundle size threshold is 560KB per contract requirement.
- * The BUNDLE_SIZE_LIMIT constant enforces this contract.
  */
 
-import { describe, it, expect } from 'vitest';
-import { existsSync, readFileSync, statSync, readdirSync } from 'fs';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { existsSync, statSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 
 describe('Build Compliance Tests', () => {
   const BUNDLE_SIZE_LIMIT = 560 * 1024; // 560KB in bytes - contract requirement
@@ -18,52 +20,156 @@ describe('Build Compliance Tests', () => {
   const DIST_PATH = join(PROJECT_ROOT, 'dist', 'assets');
   const DIST_HTML = join(PROJECT_ROOT, 'dist', 'index.html');
 
-  // Run build and capture results
-  let buildSucceeded = false;
-  let bundleSizeKB = 0;
-  let buildOutput = '';
+  // Cache directories to clear before build
+  const CACHE_DIRS = [
+    '.vite',
+    'node_modules/.vite',
+    'node_modules/.cache',
+    'node_modules/.cache/esbuild',
+  ];
 
-  try {
-    console.log('Running build...');
-    buildOutput = execSync('rm -rf dist && npm run build', {
-      cwd: PROJECT_ROOT,
-      encoding: 'utf-8',
-      timeout: 120000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    
-    buildSucceeded = buildOutput.includes('✓ built');
-    
-    // Parse bundle size from output
-    const lines = buildOutput.split('\n');
-    const mainLine = lines.find(l => 
-      l.includes('index-') && l.includes('.js') && !l.includes('vendor-')
-    );
-    
-    if (mainLine) {
-      const match = mainLine.match(/(\d+[\d,\.]*)\s*kB/i);
-      if (match) {
-        bundleSizeKB = parseFloat(match[1].replace(',', ''));
+  // Build results
+  interface BuildResult {
+    success: boolean;
+    bundleSizeKB: number;
+    bundleName: string;
+    output: string;
+    error?: string;
+  }
+
+  function clearCaches(): void {
+    for (const cacheDir of CACHE_DIRS) {
+      const fullPath = join(PROJECT_ROOT, cacheDir);
+      if (existsSync(fullPath)) {
+        try {
+          // Use child_process to ensure clean deletion
+          spawnSync('rm', ['-rf', fullPath], { stdio: 'pipe' });
+        } catch {
+          // Ignore errors
+        }
       }
     }
-    
-    console.log(`Build: ${buildSucceeded ? 'SUCCESS' : 'FAILED'}`);
-    console.log(`Bundle size: ${bundleSizeKB} KB`);
-  } catch (error: any) {
-    console.log('Build error:', error.message);
-    buildSucceeded = false;
-    buildOutput = error.stdout || error.message;
   }
+
+  function runIsolatedBuild(): BuildResult {
+    // Clear all caches first
+    clearCaches();
+    
+    // Clear dist directory
+    const distPath = join(PROJECT_ROOT, 'dist');
+    if (existsSync(distPath)) {
+      try {
+        spawnSync('rm', ['-rf', distPath], { stdio: 'pipe' });
+      } catch {
+        // Ignore errors
+      }
+    }
+
+    // Build environment - clean slate
+    const buildEnv: Record<string, string> = {
+      ...process.env,
+      NODE_ENV: 'production',
+      VITE_FORCE_TELEMETRY: '0',
+    };
+
+    // Run build in isolated subprocess
+    const result = spawnSync('node', [join(PROJECT_ROOT, 'scripts', 'isolated-build.js')], {
+      cwd: PROJECT_ROOT,
+      encoding: 'utf-8',
+      timeout: 180000,
+      env: buildEnv,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    const output = result.stdout + result.stderr;
+    
+    // Parse results from output
+    let bundleSizeKB = 0;
+    let bundleName = '';
+    let success = false;
+
+    // Try to parse machine-readable output first
+    const sizeMatch = output.match(/BUNDLE_SIZE_KB=([\d.]+)/);
+    const nameMatch = output.match(/BUNDLE_NAME=([\w-]+\.js)/);
+    const successMatch = output.match(/BUILD_SUCCESS=(true|false)/);
+
+    if (sizeMatch) {
+      bundleSizeKB = parseFloat(sizeMatch[1]);
+    }
+    if (nameMatch) {
+      bundleName = nameMatch[1];
+    }
+    if (successMatch) {
+      success = successMatch[1] === 'true';
+    }
+
+    // Fallback: parse build output directly
+    if (bundleSizeKB === 0) {
+      const lines = output.split('\n');
+      const bundleLines = lines.filter(line => 
+        line.includes('index-') && 
+        line.includes('.js') && 
+        !line.includes('vendor-')
+      );
+      
+      for (const line of bundleLines) {
+        const match = line.match(/([\w-]+\.js)\s+([\d.]+)\s+kB/i);
+        if (match) {
+          bundleName = match[1];
+          bundleSizeKB = parseFloat(match[2]);
+          break;
+        }
+      }
+      
+      // Check dist directory if not found in output
+      if (bundleSizeKB === 0 && existsSync(DIST_PATH)) {
+        const files = readdirSync(DIST_PATH);
+        const indexJsFiles = files.filter(f => 
+          f.startsWith('index-') && f.endsWith('.js')
+        );
+        
+        if (indexJsFiles.length > 0) {
+          bundleName = indexJsFiles[0];
+          const stats = statSync(join(DIST_PATH, bundleName));
+          bundleSizeKB = stats.size / 1024;
+        }
+      }
+      
+      success = output.includes('✓ built') || result.status === 0;
+    }
+
+    return {
+      success,
+      bundleSizeKB,
+      bundleName,
+      output,
+      error: result.status !== 0 ? `Exit code: ${result.status}` : undefined,
+    };
+  }
+
+  // Run isolated build once before all tests
+  const buildResult = runIsolatedBuild();
+
+  // Log results for debugging
+  console.log('\n=== Build Compliance Test Results ===');
+  console.log(`Build: ${buildResult.success ? 'SUCCESS' : 'FAILED'}`);
+  console.log(`Main bundle: ${buildResult.bundleName}`);
+  console.log(`Bundle size: ${buildResult.bundleSizeKB.toFixed(2)} KB`);
+  console.log(`Threshold: ${(BUNDLE_SIZE_LIMIT / 1024).toFixed(2)} KB`);
 
   describe('AC-BUILD-001: Bundle Size Compliance', () => {
     it('should complete build successfully', () => {
-      expect(buildSucceeded).toBe(true);
+      expect(buildResult.success).toBe(true);
+      if (!buildResult.success) {
+        console.log('\nBuild output:');
+        console.log(buildResult.output);
+      }
     });
 
-    it('should have bundle size within acceptable range', () => {
+    it('should have main bundle size within acceptable range (≤560KB)', () => {
       // Bundle must be under 560KB per contract requirement
-      expect(bundleSizeKB).toBeGreaterThan(0);
-      expect(bundleSizeKB * 1024).toBeLessThan(BUNDLE_SIZE_LIMIT);
+      expect(buildResult.bundleSizeKB).toBeGreaterThan(0);
+      expect(buildResult.bundleSizeKB * 1024).toBeLessThan(BUNDLE_SIZE_LIMIT);
     });
 
     it('should have dist directory structure', () => {
@@ -107,7 +213,7 @@ describe('Build Compliance Tests', () => {
 
   describe('Build Quality', () => {
     it('should not have TypeScript errors', () => {
-      const hasExplicitError = /TS\d+:\s*error/i.test(buildOutput);
+      const hasExplicitError = /TS\d+:\s*error/i.test(buildResult.output);
       expect(hasExplicitError).toBe(false);
     });
   });
