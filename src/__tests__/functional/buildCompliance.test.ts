@@ -3,9 +3,8 @@
  * 
  * Verifies the production build succeeds.
  * 
- * Note: Bundle size is verified via `npm run build` command which shows
- * the actual production bundle size. The threshold check here accounts
- * for potential environment differences when running from vitest.
+ * Note: Bundle size threshold is 560KB per contract requirement.
+ * The BUNDLE_SIZE_LIMIT constant enforces this contract.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -14,7 +13,7 @@ import { join } from 'path';
 import { execSync } from 'child_process';
 
 describe('Build Compliance Tests', () => {
-  const BUNDLE_SIZE_LIMIT = 560 * 1024; // 560KB in bytes
+  const BUNDLE_SIZE_LIMIT = 560 * 1024; // 560KB in bytes - contract requirement
   const PROJECT_ROOT = process.cwd();
   const DIST_PATH = join(PROJECT_ROOT, 'dist', 'assets');
   const DIST_HTML = join(PROJECT_ROOT, 'dist', 'index.html');
@@ -62,10 +61,9 @@ describe('Build Compliance Tests', () => {
     });
 
     it('should have bundle size within acceptable range', () => {
-      // Bundle should be under 1100KB in any environment
-      // The actual production build should be under 560KB
+      // Bundle must be under 560KB per contract requirement
       expect(bundleSizeKB).toBeGreaterThan(0);
-      expect(bundleSizeKB * 1024).toBeLessThan(1100 * 1024);
+      expect(bundleSizeKB * 1024).toBeLessThan(BUNDLE_SIZE_LIMIT);
     });
 
     it('should have dist directory structure', () => {
