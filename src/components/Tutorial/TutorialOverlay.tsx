@@ -1,3 +1,11 @@
+/**
+ * Tutorial Overlay Component
+ * 
+ * Provides step-by-step tutorial guidance with spotlight effects,
+ * tooltips, and progress tracking. Integrates with the achievement
+ * system and provides callbacks for action completion.
+ */
+
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTutorialStore } from '../../store/useTutorialStore';
 import { getStepByNumber, TOTAL_TUTORIAL_STEPS, TutorialStep } from '../../data/tutorialSteps';
@@ -12,6 +20,7 @@ interface TutorialOverlayProps {
   onModuleConnected?: () => void;
   onMachineActivated?: () => void;
   onMachineSaved?: () => void;
+  onTutorialCompleted?: () => void;
 }
 
 export function TutorialOverlay({
@@ -20,28 +29,30 @@ export function TutorialOverlay({
   onModuleConnected,
   onMachineActivated,
   onMachineSaved,
+  onTutorialCompleted,
 }: TutorialOverlayProps) {
   // Use individual selectors for primitive values (not methods)
   const isTutorialActive = useTutorialStore((state) => state.isTutorialActive);
   const currentStep = useTutorialStore((state) => state.currentStep);
 
   // Store method references in refs to prevent stale closures
-  // These are initialized once and updated when the component mounts
   const nextStepRef = useRef(useTutorialStore.getState().nextStep);
   const previousStepRef = useRef(useTutorialStore.getState().previousStep);
   const skipTutorialRef = useRef(useTutorialStore.getState().skipTutorial);
   const completeTutorialRef = useRef(useTutorialStore.getState().completeTutorial);
   const goToStepRef = useRef(useTutorialStore.getState().goToStep);
+  const triggerStepCompletionRef = useRef(useTutorialStore.getState().triggerStepCompletion);
 
-  // FIX: Add empty dependency array - refs should only be initialized once on mount
-  // The functions in Zustand stores are stable and don't need to be re-synced
+  // FIX: Sync refs with store state on mount and when store updates
   useEffect(() => {
-    nextStepRef.current = useTutorialStore.getState().nextStep;
-    previousStepRef.current = useTutorialStore.getState().previousStep;
-    skipTutorialRef.current = useTutorialStore.getState().skipTutorial;
-    completeTutorialRef.current = useTutorialStore.getState().completeTutorial;
-    goToStepRef.current = useTutorialStore.getState().goToStep;
-  }, []); // Empty deps - run exactly once on mount
+    const store = useTutorialStore.getState();
+    nextStepRef.current = store.nextStep;
+    previousStepRef.current = store.previousStep;
+    skipTutorialRef.current = store.skipTutorial;
+    completeTutorialRef.current = store.completeTutorial;
+    goToStepRef.current = store.goToStep;
+    triggerStepCompletionRef.current = store.triggerStepCompletion;
+  }, []);
 
   const [showCompletion, setShowCompletion] = useState(false);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -59,6 +70,7 @@ export function TutorialOverlay({
   const onModuleConnectedRef = useRef(onModuleConnected);
   const onMachineActivatedRef = useRef(onMachineActivated);
   const onMachineSavedRef = useRef(onMachineSaved);
+  const onTutorialCompletedRef = useRef(onTutorialCompleted);
 
   useEffect(() => {
     onModuleAddedRef.current = onModuleAdded;
@@ -66,7 +78,8 @@ export function TutorialOverlay({
     onModuleConnectedRef.current = onModuleConnected;
     onMachineActivatedRef.current = onMachineActivated;
     onMachineSavedRef.current = onMachineSaved;
-  }, [onModuleAdded, onModuleSelected, onModuleConnected, onMachineActivated, onMachineSaved]);
+    onTutorialCompletedRef.current = onTutorialCompleted;
+  }, [onModuleAdded, onModuleSelected, onModuleConnected, onMachineActivated, onMachineSaved, onTutorialCompleted]);
 
   // FIX: updateTargetPosition only depends on primitive values from the store
   const updateTargetPosition = useCallback(() => {
@@ -174,6 +187,18 @@ export function TutorialOverlay({
       }
     }
   }, [currentStep, isTutorialActive]);
+
+  // Listen for tutorial completion
+  useEffect(() => {
+    const handleTutorialCompleted = () => {
+      onTutorialCompletedRef.current?.();
+    };
+
+    window.addEventListener('tutorial:completed', handleTutorialCompleted);
+    return () => {
+      window.removeEventListener('tutorial:completed', handleTutorialCompleted);
+    };
+  }, []);
 
   // Handle manual step navigation using refs
   const handleNext = useCallback(() => {

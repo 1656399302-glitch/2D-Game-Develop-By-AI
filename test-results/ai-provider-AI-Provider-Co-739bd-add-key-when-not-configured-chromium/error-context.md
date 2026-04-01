@@ -1,0 +1,369 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - link "跳转到画布" [ref=e3] [cursor=pointer]:
+    - /url: "#main-canvas"
+  - link "跳转到模块面板" [ref=e4] [cursor=pointer]:
+    - /url: "#module-panel"
+  - link "跳转到工具栏" [ref=e5] [cursor=pointer]:
+    - /url: "#main-toolbar"
+  - status [ref=e6]
+  - alert [ref=e7]
+  - generic [ref=e8]:
+    - banner [ref=e9]:
+      - generic [ref=e10]:
+        - heading "⚙ ARCANE MACHINE CODEX ⚙" [level=1] [ref=e11]
+        - generic [ref=e12]:
+          - button "编辑器" [pressed] [ref=e13] [cursor=pointer]
+          - button "图鉴" [ref=e14] [cursor=pointer]
+      - generic [ref=e15]:
+        - button "打开派系面板" [ref=e16] [cursor=pointer]:
+          - generic [ref=e17]: ⚔️
+          - generic [ref=e18]: 派系
+        - button "打开科技树" [ref=e19] [cursor=pointer]:
+          - generic [ref=e20]: 🌳
+          - generic [ref=e21]: 科技
+        - button "打开成就面板" [ref=e22] [cursor=pointer]:
+          - generic [ref=e23]: 🏆
+          - generic [ref=e24]: 成就
+        - button "交易所" [ref=e26] [cursor=pointer]:
+          - generic [ref=e27]: ⚖
+          - generic [ref=e28]: 交易所
+        - button "打开配方图鉴" [ref=e29] [cursor=pointer]:
+          - generic [ref=e30]: 📜
+          - generic [ref=e31]: 配方
+        - button "打开AI助手" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]: 🤖
+          - generic [ref=e34]: AI命名
+        - button "打开帮助" [ref=e35] [cursor=pointer]: ❓ 帮助
+        - button "▶ 激活机器" [disabled] [ref=e36]
+        - button "保存到图鉴" [disabled] [ref=e37]: 📖 保存图鉴
+        - button "导出机器" [disabled] [ref=e38]: 📤 导出
+        - button "🏆 Challenges 0/20" [ref=e39] [cursor=pointer]:
+          - generic [ref=e40]: 🏆
+          - generic [ref=e41]: Challenges
+          - generic [ref=e42]: 0/20
+    - toolbar "编辑器工具栏" [ref=e43]:
+      - status [ref=e44]:
+        - generic [ref=e45]: "模块: 0"
+        - generic [ref=e46]: "|"
+        - generic [ref=e47]: "连接: 0"
+      - generic [ref=e49]:
+        - button "随机锻造" [ref=e50] [cursor=pointer]:
+          - generic [ref=e51]: 🎲
+          - generic [ref=e52]: 随机生成
+        - button "配方" [ref=e53] [cursor=pointer]:
+          - generic [ref=e54]: 📜
+          - generic [ref=e55]: 配方
+        - button "模板库" [ref=e56] [cursor=pointer]:
+          - generic [ref=e57]: 📋
+          - generic [ref=e58]: 模板
+        - button "保存模板" [disabled] [ref=e59]:
+          - generic [ref=e60]: 💾
+          - generic [ref=e61]: 保存
+        - button "自动布局" [disabled] [ref=e64]:
+          - img [ref=e65]
+          - generic [ref=e70]: 布局
+          - img [ref=e71]
+        - group "测试模式" [ref=e74]:
+          - button "测试故障模式" [ref=e75] [cursor=pointer]: ⚠ 测试故障
+          - button "测试过载" [ref=e76] [cursor=pointer]: ⚡ 测试过载
+      - generic [ref=e77]:
+        - button "图鉴统计" [ref=e78] [cursor=pointer]:
+          - generic [ref=e79]: 📊
+          - generic [ref=e80]: 收藏统计
+          - generic [ref=e81]: "0"
+        - button "社区图鉴" [ref=e82] [cursor=pointer]:
+          - generic [ref=e83]: 🌐
+          - generic [ref=e84]: 社区
+          - generic [ref=e85]: "8"
+        - button "机器统计" [ref=e86] [cursor=pointer]:
+          - img [ref=e87]
+          - generic [ref=e90]: 统计
+        - group "缩放控制" [ref=e92]:
+          - button "缩小" [ref=e93] [cursor=pointer]:
+            - img [ref=e94]
+          - generic "当前缩放 100%" [ref=e96]: 100%
+          - button "放大" [ref=e97] [cursor=pointer]:
+            - img [ref=e98]
+          - button "重置缩放" [ref=e101] [cursor=pointer]:
+            - img [ref=e102]
+          - button "适应全部" [ref=e105] [cursor=pointer]:
+            - img [ref=e106]
+        - button "复制模块" [disabled] [ref=e109]:
+          - img [ref=e110]
+        - button "撤销" [disabled] [ref=e113]:
+          - img [ref=e114]
+        - button "重做" [disabled] [ref=e117]:
+          - img [ref=e118]
+        - generic "历史记录 1 / 1" [ref=e121]: 1/1
+        - button "清空全部" [disabled] [ref=e123]
+    - generic [ref=e124]:
+      - region "模块面板" [ref=e125]:
+        - generic [ref=e126]:
+          - heading "模块面板" [level=2] [ref=e127]
+          - paragraph [ref=e128]: 拖拽或点击添加
+        - generic [ref=e129]:
+          - button "随机锻造 - 生成随机机器" [ref=e130] [cursor=pointer]:
+            - generic [ref=e131]: 🎲
+            - generic [ref=e132]: 随机锻造
+          - paragraph [ref=e133]: 创建2-6个随机模块与连接
+        - listbox "可用模块" [ref=e134]:
+          - generic [ref=e135]:
+            - option "核心熔炉" [ref=e136]:
+              - generic [ref=e137]:
+                - img [ref=e139]
+                - generic [ref=e143]:
+                  - heading "核心熔炉" [level=3] [ref=e145]
+                  - paragraph [ref=e146]: 机器的心脏。生成并放大奥术能量。
+                  - generic [ref=e148]: 核心
+            - option "能量管道" [ref=e149]:
+              - generic [ref=e150]:
+                - img [ref=e152]
+                - generic [ref=e154]:
+                  - heading "能量管道" [level=3] [ref=e156]
+                  - paragraph [ref=e157]: 在模块之间传输能量。连接的关键组件。
+                  - generic [ref=e159]: 管道
+            - option "齿轮组件" [ref=e160]:
+              - generic [ref=e161]:
+                - img [ref=e163]
+                - generic [ref=e168]:
+                  - heading "齿轮组件" [level=3] [ref=e170]
+                  - paragraph [ref=e171]: 机械组件，提供稳定性和均衡能量。
+                  - generic [ref=e173]: 齿轮
+            - option "符文节点" [ref=e174]:
+              - generic [ref=e175]:
+                - img [ref=e177]
+                - generic [ref=e182]:
+                  - heading "符文节点" [level=3] [ref=e184]
+                  - paragraph [ref=e185]: 引导奥术力量。增强能量吞吐量。
+                  - generic [ref=e187]: 符文
+            - option "护盾外壳" [ref=e188]:
+              - generic [ref=e189]:
+                - img [ref=e191]
+                - generic [ref=e194]:
+                  - heading "护盾外壳" [level=3] [ref=e196]
+                  - paragraph [ref=e197]: 防护屏障模块。提高系统稳定性。
+                  - generic [ref=e199]: 护盾
+            - option "触发开关" [ref=e200]:
+              - generic [ref=e201]:
+                - img [ref=e203]
+                - generic [ref=e208]:
+                  - heading "触发开关" [level=3] [ref=e210]
+                  - paragraph [ref=e211]: 激活机制。控制能量释放时机。
+                  - generic [ref=e213]: 触发
+            - option "输出阵列" [ref=e214]:
+              - generic [ref=e215]:
+                - img [ref=e217]
+                - generic [ref=e224]:
+                  - heading "输出阵列" [level=3] [ref=e226]
+                  - paragraph [ref=e227]: 能量回路的最终终端。投射奥术光束和共振。
+                  - generic [ref=e229]: 输出
+            - option "增幅水晶" [ref=e230]:
+              - generic [ref=e231]:
+                - img [ref=e233]
+                - generic [ref=e240]:
+                  - heading "增幅水晶" [level=3] [ref=e242]
+                  - paragraph [ref=e243]: 棱镜能量增幅器，1个输入2个输出。分裂并放大奥术力量。
+                  - generic [ref=e245]: 符文
+            - option "稳定核心" [ref=e246]:
+              - generic [ref=e247]:
+                - img [ref=e249]
+                - generic [ref=e260]:
+                  - heading "稳定核心" [level=3] [ref=e262]
+                  - paragraph [ref=e263]: 谐波稳定矩阵，2个输入1个输出。平衡能量波动。
+                  - generic [ref=e265]: 核心
+            - option "虚空虹吸" [ref=e266]:
+              - generic [ref=e267]:
+                - img [ref=e269]
+                - generic [ref=e279]:
+                  - heading "虚空虹吸" [level=3] [ref=e281]
+                  - paragraph [ref=e282]: 吸收虚空能量，1个输入2个输出。以漩涡模式向内吸收能量。
+                  - generic [ref=e284]: 核心
+            - option "相位调制器" [ref=e285]:
+              - generic [ref=e286]:
+                - img [ref=e288]
+                - generic [ref=e298]:
+                  - heading "相位调制器" [level=3] [ref=e300]
+                  - paragraph [ref=e301]: 相位偏移矩阵，2输入2输出。以闪电弧引导雷电能量。
+                  - generic [ref=e303]: 符文
+            - option "共振腔" [ref=e304]:
+              - generic [ref=e305]:
+                - img [ref=e307]
+                - generic [ref=e317]:
+                  - heading "共振腔" [level=3] [ref=e319]
+                  - paragraph [ref=e320]: 谐波振荡室，具有同心能量环。放大共振效果。
+                  - generic [ref=e322]: 共振
+            - option "火焰水晶" [ref=e323]:
+              - generic [ref=e324]:
+                - img [ref=e326]
+                - generic [ref=e331]:
+                  - heading "火焰水晶" [level=3] [ref=e333]
+                  - paragraph [ref=e334]: 不稳定火元素水晶，具有闪烁火焰图案。引导强烈热能。
+                  - generic [ref=e336]: 元素
+            - option "引雷导体" [ref=e337]:
+              - generic [ref=e338]:
+                - img [ref=e340]
+                - generic [ref=e346]:
+                  - heading "引雷导体" [level=3] [ref=e348]
+                  - paragraph [ref=e349]: 高电压能量导体，带有闪电弧。以六边形矩阵引导雷电。
+                  - generic [ref=e351]: 元素
+            - option "虚空奥术齿轮 (已锁定)" [disabled] [ref=e352]:
+              - generic [ref=e353]:
+                - img [ref=e356]
+                - generic [ref=e359]:
+                  - generic [ref=e360]:
+                    - heading "虚空奥术齿轮" [level=3] [ref=e361]
+                    - generic [ref=e362]: 宗师解锁
+                  - paragraph [ref=e363]: 需要宗师等级解锁
+                  - generic [ref=e365]: void 派系
+            - option "烈焰燃烧核心 (已锁定)" [disabled] [ref=e366]:
+              - generic [ref=e367]:
+                - img [ref=e370]
+                - generic [ref=e373]:
+                  - generic [ref=e374]:
+                    - heading "烈焰燃烧核心" [level=3] [ref=e375]
+                    - generic [ref=e376]: 宗师解锁
+                  - paragraph [ref=e377]: 需要宗师等级解锁
+                  - generic [ref=e379]: inferno 派系
+            - option "雷霆闪电管道 (已锁定)" [disabled] [ref=e380]:
+              - generic [ref=e381]:
+                - img [ref=e384]
+                - generic [ref=e387]:
+                  - generic [ref=e388]:
+                    - heading "雷霆闪电管道" [level=3] [ref=e389]
+                    - generic [ref=e390]: 宗师解锁
+                  - paragraph [ref=e391]: 需要宗师等级解锁
+                  - generic [ref=e393]: storm 派系
+            - option "星辉谐波水晶 (已锁定)" [disabled] [ref=e394]:
+              - generic [ref=e395]:
+                - img [ref=e398]
+                - generic [ref=e401]:
+                  - generic [ref=e402]:
+                    - heading "星辉谐波水晶" [level=3] [ref=e403]
+                    - generic [ref=e404]: 宗师解锁
+                  - paragraph [ref=e405]: 需要宗师等级解锁
+                  - generic [ref=e407]: stellar 派系
+            - generic [ref=e408]:
+              - button "高级模块" [expanded] [ref=e409] [cursor=pointer]:
+                - generic [ref=e410]: 高级模块
+                - img [ref=e412]
+              - group "高级模块" [ref=e414]:
+                - option "时空扭曲器" [ref=e415]:
+                  - generic [ref=e416]:
+                    - img [ref=e418]
+                    - generic [ref=e425]:
+                      - heading "时空扭曲器" [level=3] [ref=e427]
+                      - paragraph [ref=e428]: 时间操控模块，具有旋转环和时间扭曲效果。1输入1输出。
+                      - generic [ref=e430]: 高级
+                - option "奥术矩阵网格" [ref=e431]:
+                  - generic [ref=e432]:
+                    - img [ref=e434]
+                    - generic [ref=e441]:
+                      - heading "奥术矩阵网格" [level=3] [ref=e443]
+                      - paragraph [ref=e444]: 几何网格模块，节点交叉处发光。1输入2输出。
+                      - generic [ref=e446]: 高级
+                - option "以太灌注室" [ref=e447]:
+                  - generic [ref=e448]:
+                    - img [ref=e450]
+                    - generic [ref=e460]:
+                      - heading "以太灌注室" [level=3] [ref=e462]
+                      - paragraph [ref=e463]: 圆柱形腔室，带有旋转以太效果。2输入1输出。
+                      - generic [ref=e465]: 高级
+        - paragraph [ref=e467]: 共 21 种模块类型
+      - generic [ref=e468]:
+        - application "Machine Editor Canvas" [ref=e469]:
+          - img [ref=e470]
+          - button "📑 图层" [ref=e473] [cursor=pointer]
+          - status [ref=e474]: "Zoom: 100%📐"
+          - generic:
+            - generic:
+              - generic:
+                - img
+              - paragraph: 开始构建你的魔法机器
+              - generic:
+                - paragraph: 从左侧面板拖拽模块到画布开始
+                - paragraph: 点击模块类型添加模块
+                - paragraph: 按 Ctrl+D 复制选中的模块
+                - paragraph: 按 R 旋转, F 翻转
+                - paragraph: 在端口之间拖拽来连接
+                - paragraph: 按 Ctrl+G 创建组
+                - paragraph: 按 Ctrl+Shift+G 取消分组
+              - generic:
+                - paragraph: "快捷键: Ctrl+D 复制 | R 旋转 | F 翻转 | Delete 删除 | Shift+拖动 框选 | Ctrl+G 分组"
+        - generic [ref=e475]:
+          - heading "PROPERTIES" [level=2] [ref=e477]
+          - generic [ref=e478]:
+            - generic [ref=e479]:
+              - heading "Machine Overview" [level=3] [ref=e480]
+              - generic [ref=e481]:
+                - generic [ref=e482]:
+                  - generic [ref=e483]:
+                    - generic [ref=e484]: Name
+                    - generic [ref=e485]: Common
+                  - paragraph [ref=e486]: Unnamed Machine
+                - generic [ref=e487]:
+                  - generic [ref=e489]:
+                    - generic [ref=e490]: Stability
+                    - generic [ref=e491]: 50%
+                  - generic [ref=e495]:
+                    - generic [ref=e496]: Power
+                    - generic [ref=e497]: 10%
+                  - generic [ref=e501]:
+                    - generic [ref=e502]: Energy
+                    - generic [ref=e503]: 5%
+                  - generic [ref=e507]:
+                    - generic [ref=e508]: Failure
+                    - generic [ref=e509]: 50%
+                - generic [ref=e512]:
+                  - text: Tags
+                  - generic [ref=e514]: stable
+                - generic [ref=e515]:
+                  - text: Description
+                  - paragraph [ref=e516]: An empty blueprint awaiting form.
+            - generic [ref=e517]:
+              - heading "Canvas Controls" [level=3] [ref=e518]
+              - generic [ref=e519]:
+                - 'button "Grid: ON" [ref=e520] [cursor=pointer]'
+                - button "Reset View" [ref=e521] [cursor=pointer]
+                - button "Clear Canvas" [ref=e522] [cursor=pointer]
+              - generic [ref=e523]:
+                - paragraph [ref=e524]: "Keyboard Shortcuts:"
+                - generic [ref=e525]:
+                  - generic [ref=e526]:
+                    - generic [ref=e527]: R
+                    - generic [ref=e528]: Rotate 90°
+                  - generic [ref=e529]:
+                    - generic [ref=e530]: F
+                    - generic [ref=e531]: Flip Horizontal
+                  - generic [ref=e532]:
+                    - generic [ref=e533]: Del
+                    - generic [ref=e534]: Delete
+                  - generic [ref=e535]:
+                    - generic [ref=e536]: Esc
+                    - generic [ref=e537]: Deselect
+                  - generic [ref=e538]:
+                    - generic [ref=e539]: Ctrl+D
+                    - generic [ref=e540]: Duplicate
+                  - generic [ref=e541]:
+                    - generic [ref=e542]: Ctrl+Z/Y
+                    - generic [ref=e543]: Undo/Redo
+                  - generic [ref=e544]:
+                    - generic [ref=e545]: +/-
+                    - generic [ref=e546]: Zoom
+                  - generic [ref=e547]:
+                    - generic [ref=e548]: "0"
+                    - generic [ref=e549]: Reset Zoom
+                  - generic [ref=e550]:
+                    - generic [ref=e551]: Shift+0
+                    - generic [ref=e552]: Fit All
+                  - generic [ref=e553]:
+                    - generic [ref=e554]: Ctrl+R
+                    - generic [ref=e555]: 随机锻造
+          - paragraph [ref=e557]: "ID: MC-0000"
+    - contentinfo [ref=e558]:
+      - generic [ref=e559]: "模块: 0 | 连接: 0"
+      - generic [ref=e560]: 方向键移动 | R旋转 | F翻转 | Delete删除 | Ctrl+Z/Y撤销/重做
+      - generic [ref=e561]: "网格: 开启"
+```

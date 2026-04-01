@@ -871,7 +871,7 @@ export function Canvas() {
       ref={containerRef}
       className="flex-1 relative overflow-hidden bg-[#050810]"
       style={{ cursor: isPanning ? 'grabbing' : isDragging ? 'grabbing' : isBoxSelecting ? 'crosshair' : 'default' }}
-      role="application"
+      role="application" data-tutorial="canvas" data-tutorial-action="canvas"
       aria-label="Machine Editor Canvas"
     >
       {/* Alignment Toolbar */}

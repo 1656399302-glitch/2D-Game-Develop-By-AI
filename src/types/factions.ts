@@ -177,6 +177,11 @@ export function generateTechTreeNodes(factionCounts: Record<FactionId, number>):
   return nodes;
 }
 
+// Extended stats for achievement checking - includes tutorial completion
+export interface ExtendedUserStats extends UserStats {
+  tutorialCompleted?: boolean;
+}
+
 // Achievement definitions
 export interface Achievement {
   id: string;
@@ -184,7 +189,7 @@ export interface Achievement {
   nameCn: string;
   description: string;
   icon: string;
-  condition: (stats: UserStats) => boolean;
+  condition: (stats: ExtendedUserStats) => boolean;
   faction?: FactionId; // Associated faction for badge display
 }
 

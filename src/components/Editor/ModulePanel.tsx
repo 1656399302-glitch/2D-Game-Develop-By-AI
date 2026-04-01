@@ -269,7 +269,7 @@ export function ModulePanel() {
     setHoveredModule(null);
   };
 
-  const renderModuleItem = (module: ModuleInfo, locked: boolean, factionLocked: boolean = false) => {
+  const renderModuleItem = (module: ModuleInfo, locked: boolean, factionLocked: boolean = false, index?: number) => {
     const recipe = getRecipeForModule(module.type);
     const rarityStyle = recipe ? RARITY_COLORS[recipe.rarity] : null;
     const factionColor = getFactionColor(module.factionId);
@@ -300,6 +300,7 @@ export function ModulePanel() {
         aria-selected={false}
         aria-disabled={!isAccessible}
         aria-label={`${module.name}${!isAccessible ? ' (已锁定)' : ''}`}
+        data-tutorial-action={index !== undefined ? `module-item-${index}` : undefined}
         className={`
           module-item arcane-card group relative transition-all duration-200
           ${!isAccessible
@@ -435,6 +436,8 @@ export function ModulePanel() {
       className="module-panel w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden"
       role="region"
       aria-label="模块面板"
+      data-tutorial="module-panel"
+      data-tutorial-action="module-panel"
     >
       <div className="p-4 border-b border-[#1e2a42]">
         <h2 className="text-sm font-semibold text-[#00d4ff] tracking-wider">
@@ -446,6 +449,7 @@ export function ModulePanel() {
       <div className="p-3 border-b border-[#1e2a42] bg-gradient-to-r from-[#1a1a2e] to-[#121826]">
         <button
           onClick={handleRandomForge}
+          data-tutorial-action="module-random-forge"
           className="w-full px-4 py-3 rounded-lg font-bold text-sm 
                      bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] 
                      text-white 
@@ -467,19 +471,24 @@ export function ModulePanel() {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2" role="listbox" aria-label="可用模块">
+      <div 
+        className="flex-1 overflow-y-auto p-2" 
+        role="listbox" 
+        aria-label="可用模块"
+        data-tutorial-action="module-list"
+      >
         <div className="space-y-2">
           {/* Base modules */}
-          {BASE_MODULES.map((module) => {
+          {BASE_MODULES.map((module, index) => {
             const locked = checkIsModuleUnlocked(module.type);
-            return renderModuleItem(module, locked);
+            return renderModuleItem(module, locked, false, index);
           })}
 
           {/* Faction variant modules - gated by Grandmaster rank */}
-          {FACTION_VARIANT_MODULES.map((module) => {
+          {FACTION_VARIANT_MODULES.map((module, index) => {
             const locked = checkIsModuleUnlocked(module.type);
             const factionLocked = module.factionId ? !checkVariantUnlocked(module.factionId) : false;
-            return renderModuleItem(module, locked, factionLocked);
+            return renderModuleItem(module, locked, factionLocked, BASE_MODULES.length + index);
           })}
 
           {/* Round 64: Advanced modules - collapsible section */}
@@ -510,8 +519,8 @@ export function ModulePanel() {
               role="group"
               aria-label="高级模块"
             >
-              {ADVANCED_MODULES.map((module) => {
-                return renderModuleItem(module, false, false);
+              {ADVANCED_MODULES.map((module, index) => {
+                return renderModuleItem(module, false, false, BASE_MODULES.length + FACTION_VARIANT_MODULES.length + index);
               })}
             </div>
           </div>

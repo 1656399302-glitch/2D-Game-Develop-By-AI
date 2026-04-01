@@ -232,6 +232,7 @@ export function Toolbar({
         className="flex items-center gap-4 px-4 py-2 bg-[#121826] border-b border-[#1e2a42]"
         role="toolbar"
         aria-label="编辑器工具栏"
+        data-tutorial-action="toolbar"
       >
         {/* Left side - stats */}
         <div className="flex items-center gap-2" role="status" aria-live="polite">
@@ -250,6 +251,7 @@ export function Toolbar({
             {/* Random Generator Button - Opens the Random Generator Modal */}
             <button
               onClick={handleOpenRandomGenerator}
+              data-tutorial-action="toolbar-random-forge"
               className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#00d4ff]/20 text-[#00d4ff] hover:bg-[#00d4ff]/30 border border-[#00d4ff]/40 transition-colors"
               title="随机锻造 - 生成随机机器"
               aria-label="随机锻造"
@@ -261,6 +263,7 @@ export function Toolbar({
             {/* Recipe Button - Opens the Recipe Browser */}
             <button
               onClick={handleOpenRecipeBrowser}
+              data-tutorial-action="toolbar-recipe"
               className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#a855f7]/20 text-[#a855f7] hover:bg-[#a855f7]/30 border border-[#a855f7]/40 transition-colors"
               title="配方图鉴 - 查看所有模块配方"
               aria-label="配方"
@@ -272,6 +275,7 @@ export function Toolbar({
             {/* Templates Button - Opens the Template Library */}
             <button
               onClick={handleOpenTemplateLibrary}
+              data-tutorial-action="toolbar-template"
               className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#f59e0b]/20 text-[#f59e0b] hover:bg-[#f59e0b]/30 border border-[#f59e0b]/40 transition-colors"
               title="模板库 - 浏览和管理保存的模板"
               aria-label="模板库"
@@ -288,6 +292,7 @@ export function Toolbar({
             {/* Save Template Button - Opens the Save Template Modal */}
             <button
               onClick={handleOpenSaveTemplate}
+              data-tutorial-action="toolbar-save"
               disabled={modulesCount === 0}
               className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#f59e0b]/10 text-[#f59e0b] hover:bg-[#f59e0b]/20 border border-[#f59e0b]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               title="保存模板 - 将当前机器保存为模板"
@@ -304,6 +309,7 @@ export function Toolbar({
               <button
                 onClick={() => setShowLayoutMenu(!showLayoutMenu)}
                 disabled={modulesCount === 0}
+                data-tutorial-action="toolbar-layout"
                 className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#1e2a42] text-[#9ca3af] hover:text-white hover:bg-[#2d3a4f] disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#2d3a4f]"
                 title="自动布局"
                 aria-label="自动布局"
@@ -368,6 +374,7 @@ export function Toolbar({
             <div className="flex items-center gap-2" role="group" aria-label="测试模式">
               <button
                 onClick={activateFailureMode}
+                data-tutorial-action="toolbar-test-failure"
                 className="px-3 py-1 text-xs rounded bg-[#7f1d1d] text-[#fca5a5] hover:bg-[#991b1b] hover:text-[#fecaca] border border-[#ef4444]/50 transition-colors"
                 title="测试故障模式"
                 aria-label="测试故障模式"
@@ -377,6 +384,7 @@ export function Toolbar({
 
               <button
                 onClick={activateOverloadMode}
+                data-tutorial-action="toolbar-test-overload"
                 className="px-3 py-1 text-xs rounded bg-[#78350f] text-[#fdba74] hover:bg-[#92400e] hover:text-[#fed7aa] border border-[#f97316]/50 transition-colors"
                 title="测试过载模式"
                 aria-label="测试过载"
@@ -392,6 +400,7 @@ export function Toolbar({
           {/* Collection Stats Button - NEW (Round 65) */}
           <button
             data-testid="collection-stats-button"
+            data-tutorial-action="toolbar-collection-stats"
             onClick={handleOpenCollectionStats}
             className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#f59e0b]/10 text-[#f59e0b] hover:bg-[#f59e0b]/20 border border-[#f59e0b]/30 transition-colors"
             title="图鉴统计 - 查看收藏统计"
@@ -407,6 +416,7 @@ export function Toolbar({
           {/* Community Gallery Button */}
           <button
             onClick={handleOpenGallery}
+            data-tutorial-action="toolbar-community"
             className="flex items-center gap-1.5 px-3 py-1 text-xs rounded bg-[#7c3aed]/20 text-[#a78bfa] hover:bg-[#7c3aed]/30 border border-[#7c3aed]/40 transition-colors"
             title="社区图鉴 - 浏览社区分享的机器"
             aria-label="社区图鉴"
@@ -421,6 +431,7 @@ export function Toolbar({
           {/* Statistics Button */}
           <button
             data-testid="stats-button"
+            data-tutorial-action="toolbar-stats"
             onClick={toggleStatsPanel}
             className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded border transition-colors ${
               isStatsPanelOpen
@@ -444,6 +455,7 @@ export function Toolbar({
           <div className="flex items-center gap-1 mr-1" role="group" aria-label="缩放控制">
             <button
               onClick={zoomOut}
+              data-tutorial-action="toolbar-zoom-out"
               className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
               title="缩小 (-) (快捷键: -)"
               aria-label="缩小"
@@ -460,6 +472,7 @@ export function Toolbar({
 
             <button
               onClick={zoomIn}
+              data-tutorial-action="toolbar-zoom-in"
               className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
               title="放大 (+) (快捷键: +)"
               aria-label="放大"
@@ -472,6 +485,7 @@ export function Toolbar({
 
             <button
               onClick={resetViewport}
+              data-tutorial-action="toolbar-zoom-reset"
               className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
               title="重置缩放 (0) (快捷键: 0)"
               aria-label="重置缩放"
@@ -484,6 +498,7 @@ export function Toolbar({
 
             <button
               onClick={zoomToFit}
+              data-tutorial-action="toolbar-zoom-fit"
               className="p-1.5 rounded hover:bg-[#1e2a42] transition-colors text-[#9ca3af] hover:text-white"
               title="适应全部 (Shift+0) (快捷键: Shift+0)"
               aria-label="适应全部"
@@ -499,6 +514,7 @@ export function Toolbar({
           {/* Duplicate button with keyboard shortcut hint */}
           <button
             onClick={handleDuplicate}
+            data-tutorial-action="toolbar-duplicate"
             disabled={!selectedModuleId}
             className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
             title="复制模块 (Ctrl+D) (Del)"
@@ -513,6 +529,7 @@ export function Toolbar({
           {/* Undo button with keyboard shortcut hint */}
           <button
             onClick={undo}
+            data-tutorial-action="toolbar-undo"
             disabled={!canUndo}
             className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
             title="撤销 (Ctrl+Z)"
@@ -527,6 +544,7 @@ export function Toolbar({
           {/* Redo button with keyboard shortcut hint */}
           <button
             onClick={redo}
+            data-tutorial-action="toolbar-redo"
             disabled={!canRedo}
             className="p-1.5 rounded hover:bg-[#1e2a42] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-[#9ca3af] hover:text-white"
             title="重做 (Ctrl+Shift+Z / Ctrl+Y)"
@@ -547,6 +565,7 @@ export function Toolbar({
           {/* Clear button */}
           <button
             onClick={clearCanvas}
+            data-tutorial-action="toolbar-clear"
             disabled={modulesCount === 0}
             className="px-2 py-1 text-xs rounded bg-[#1e2a42] text-[#9ca3af] hover:text-[#ef4444] hover:bg-[#7f1d1d]/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             title="清空全部"
