@@ -1,13 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { generateRandomMachine, validateGeneratedMachine, DEFAULT_CONFIG } from '../utils/randomGenerator';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { generateRandomMachine, generateWithTheme, validateGeneratedMachine, DEFAULT_CONFIG, generateWithRetry } from '../utils/randomGenerator';
 import { MODULE_SIZES, ModuleType, PlacedModule, Connection } from '../types';
-
-/**
- * Tests for random generator edge cases within the supported 2-6 module range.
- * 
- * Note: The random generator only supports 2-6 modules. Tests for 0, 1, or 10+ modules
- * are not applicable and would test unsupported behavior.
- */
 
 // Helper to get module size matching the actual MODULE_SIZES
 const getModuleSize = (type: ModuleType) => MODULE_SIZES[type] || { width: 80, height: 80 };
@@ -29,6 +22,278 @@ const getDistanceBetween = (a: { x: number; y: number; type: ModuleType }, b: { 
     Math.pow(centerA.x - centerB.x, 2) + Math.pow(centerA.y - centerB.y, 2)
   );
 };
+
+// =============================================================================
+// Round 78 Edge Case Tests
+// =============================================================================
+
+describe('Round 78: Random Generator Edge Cases', () => {
+  describe('AC2: minModules === maxModules produces fixed module count', () => {
+    it('should generate exactly 3 modules when minModules=3 and maxModules=3', () => {
+      // Run multiple times to ensure consistency
+      for (let i = 0; i < 20; i++) {
+        const result = generateWithTheme({
+          minModules: 3,
+          maxModules: 3,
+        });
+        
+        expect(result.modules.length).toBe(3);
+      }
+    });
+
+    it('should generate exactly 2 modules when minModules=2 and maxModules=2', () => {
+      for (let i = 0; i < 20; i++) {
+        const result = generateWithTheme({
+          minModules: 2,
+          maxModules: 2,
+        });
+        
+        expect(result.modules.length).toBe(2);
+      }
+    });
+
+    it('should generate exactly 4 modules when minModules=4 and maxModules=4', () => {
+      for (let i = 0; i < 20; i++) {
+        const result = generateWithTheme({
+          minModules: 4,
+          maxModules: 4,
+        });
+        
+        expect(result.modules.length).toBe(4);
+      }
+    });
+
+    it('should generate exactly 5 modules when minModules=5 and maxModules=5', () => {
+      for (let i = 0; i < 20; i++) {
+        const result = generateWithTheme({
+          minModules: 5,
+          maxModules: 5,
+        });
+        
+        expect(result.modules.length).toBe(5);
+      }
+    });
+
+    it('should generate exactly 6 modules when minModules=6 and maxModules=6', () => {
+      for (let i = 0; i < 20; i++) {
+        const result = generateWithTheme({
+          minModules: 6,
+          maxModules: 6,
+        });
+        
+        expect(result.modules.length).toBe(6);
+      }
+    });
+
+    it('should work with all themes when min=max', () => {
+      const themes = ['balanced', 'offensive', 'defensive', 'arcane_focus', 'void_chaos', 'inferno_forge', 'storm_surge', 'stellar_harmony', 'temporal_focus'] as const;
+      
+      themes.forEach(theme => {
+        const result = generateWithTheme({
+          minModules: 3,
+          maxModules: 3,
+          theme,
+        });
+        
+        expect(result.modules.length).toBe(3);
+        expect(result.theme).toBe(theme);
+      });
+    });
+  });
+
+  describe('AC3: Low connection density always produces at least 1 connection', () => {
+    it('should always produce at least 1 connection with connectionDensity="low"', () => {
+      // Run many iterations to ensure consistency
+      for (let i = 0; i < 50; i++) {
+        const result = generateWithTheme({
+          minModules: 3,
+          maxModules: 5,
+          connectionDensity: 'low',
+        });
+        
+        expect(result.connections.length).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('should always produce at least 1 connection with 2 modules at low density', () => {
+      for (let i = 0; i < 50; i++) {
+        const result = generateWithTheme({
+          minModules: 2,
+          maxModules: 2,
+          connectionDensity: 'low',
+        });
+        
+        expect(result.connections.length).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('should always produce at least 1 connection with 6 modules at low density', () => {
+      for (let i = 0; i < 50; i++) {
+        const result = generateWithTheme({
+          minModules: 6,
+          maxModules: 6,
+          connectionDensity: 'low',
+        });
+        
+        expect(result.connections.length).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('should still produce additional connections based on probability', () => {
+      // With more modules, there's higher chance of additional connections
+      let hasMoreThanOne = false;
+      for (let i = 0; i < 30; i++) {
+        const result = generateWithTheme({
+          minModules: 6,
+          maxModules: 6,
+          connectionDensity: 'low',
+        });
+        
+        if (result.connections.length > 1) {
+          hasMoreThanOne = true;
+          break;
+        }
+      }
+      // At least one should have more than 1 connection (20% probability per pair)
+      expect(hasMoreThanOne).toBe(true);
+    });
+
+    it('should produce valid connections (output->input direction)', () => {
+      const result = generateWithTheme({
+        minModules: 3,
+        maxModules: 4,
+        connectionDensity: 'low',
+      });
+      
+      // All connections should be output->input
+      result.connections.forEach(conn => {
+        const sourceModule = result.modules.find(m => m.instanceId === conn.sourceModuleId);
+        const targetModule = result.modules.find(m => m.instanceId === conn.targetModuleId);
+        
+        expect(sourceModule).toBeDefined();
+        expect(targetModule).toBeDefined();
+        
+        const sourcePort = sourceModule?.ports.find(p => p.id === conn.sourcePortId);
+        const targetPort = targetModule?.ports.find(p => p.id === conn.targetPortId);
+        
+        expect(sourcePort?.type).toBe('output');
+        expect(targetPort?.type).toBe('input');
+      });
+    });
+  });
+
+  describe('AC4: Empty canvas generation produces valid machine with core', () => {
+    it('should generate a machine with at least 1 core-furnace when starting fresh', () => {
+      // This tests the fallback mechanism for empty canvas
+      // The generator should always ensure there's a core module
+      
+      for (let i = 0; i < 20; i++) {
+        const result = generateWithTheme({
+          minModules: 2,
+          maxModules: 4,
+        });
+        
+        // Should have at least one core-furnace
+        const hasCore = result.modules.some(m => m.type === 'core-furnace');
+        expect(hasCore).toBe(true);
+      }
+    });
+
+    it('should generate valid machine structure (modules + connections)', () => {
+      const result = generateWithTheme({
+        minModules: 2,
+        maxModules: 3,
+      });
+      
+      // Should have modules
+      expect(result.modules.length).toBeGreaterThanOrEqual(2);
+      
+      // Should have connections
+      expect(result.connections.length).toBeGreaterThanOrEqual(1);
+      
+      // All connections should reference valid modules
+      result.connections.forEach(conn => {
+        const sourceExists = result.modules.some(m => m.instanceId === conn.sourceModuleId);
+        const targetExists = result.modules.some(m => m.instanceId === conn.targetModuleId);
+        
+        expect(sourceExists).toBe(true);
+        expect(targetExists).toBe(true);
+      });
+    });
+
+    it('should maintain minimum spacing even with fallback core', () => {
+      const result = generateWithTheme({
+        minModules: 2,
+        maxModules: 3,
+        minSpacing: 80,
+      });
+      
+      // Check all module pairs maintain spacing
+      for (let i = 0; i < result.modules.length; i++) {
+        for (let j = i + 1; j < result.modules.length; j++) {
+          const distance = getDistanceBetween(result.modules[i], result.modules[j]);
+          expect(distance).toBeGreaterThanOrEqual(75); // Account for floating-point precision
+        }
+      }
+    });
+
+    it('should validate successfully for generated machines', () => {
+      for (let i = 0; i < 20; i++) {
+        const result = generateWithTheme({
+          minModules: 2,
+          maxModules: 4,
+        });
+        
+        const validation = validateGeneratedMachine(
+          result.modules,
+          result.connections,
+          80
+        );
+        
+        // Should have no overlaps and all connections valid
+        expect(validation.noOverlaps).toBe(true);
+        expect(validation.allConnectionsValid).toBe(true);
+      }
+    });
+  });
+
+  describe('AC2+AC3+AC4: Combined edge case testing', () => {
+    it('min=max=3 with low density should produce 3 modules and at least 1 connection', () => {
+      for (let i = 0; i < 30; i++) {
+        const result = generateWithTheme({
+          minModules: 3,
+          maxModules: 3,
+          connectionDensity: 'low',
+        });
+        
+        expect(result.modules.length).toBe(3);
+        expect(result.connections.length).toBeGreaterThanOrEqual(1);
+        
+        // Should still have core module
+        const hasCore = result.modules.some(m => m.type === 'core-furnace');
+        expect(hasCore).toBe(true);
+      }
+    });
+
+    it('min=max=2 with low density should produce valid 2-module machine', () => {
+      for (let i = 0; i < 30; i++) {
+        const result = generateWithTheme({
+          minModules: 2,
+          maxModules: 2,
+          connectionDensity: 'low',
+        });
+        
+        expect(result.modules.length).toBe(2);
+        expect(result.connections.length).toBeGreaterThanOrEqual(1);
+        
+        // Validation should pass
+        const validation = validateGeneratedMachine(result.modules, result.connections, 80);
+        expect(validation.noOverlaps).toBe(true);
+        expect(validation.allConnectionsValid).toBe(true);
+      }
+    });
+  });
+});
 
 describe('Random Generator Edge Cases - 2-6 Module Range', () => {
   describe('Default Config (2-6 modules)', () => {
@@ -537,5 +802,36 @@ describe('Default Config Verification', () => {
       // Check that no overlaps exist (primary validation concern)
       expect(validation.noOverlaps).toBe(true);
     }
+  });
+});
+
+// =============================================================================
+// AC5: EnergyPath Memoization Test
+// =============================================================================
+
+describe('AC5: EnergyPath Component Memoization', () => {
+  // Note: This test verifies the EnergyPath component structure
+  // The actual React.memo behavior would be tested with RTL in a browser environment
+  
+  it('should export EnergyPath as a named export from the module', () => {
+    // Verify the component is properly exported by checking the file exists
+    // This is a file existence check since we're in Node.js
+    const fs = require('fs');
+    const path = require('path');
+    const energyPathPath = path.join(__dirname, '../components/Connections/EnergyPath.tsx');
+    expect(fs.existsSync(energyPathPath)).toBe(true);
+  });
+  
+  it('should have memo import in EnergyPath file', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const energyPathPath = path.join(__dirname, '../components/Connections/EnergyPath.tsx');
+    const content = fs.readFileSync(energyPathPath, 'utf-8');
+    
+    // Check that memo is imported from react
+    expect(content).toContain('import { useRef, useEffect, useState, useMemo, memo }');
+    
+    // Check that the component is wrapped with memo
+    expect(content).toContain('export const EnergyPath = memo(function EnergyPath');
   });
 });

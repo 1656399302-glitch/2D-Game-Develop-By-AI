@@ -1,5 +1,5 @@
 /**
- * Unit tests for Export Poster Presets (AC1-AC6)
+ * Unit tests for Export Poster Presets (AC1-AC6 + Round 78 AC1)
  * 
  * AC1: Export modal displays 8 format options (5 existing + 3 new social presets)
  * AC2: Twitter/X preset: 16:9 aspect ratio, 1200×675px
@@ -9,7 +9,9 @@
  * AC5: Watermark in exported poster
  * AC6: Animated corner decorations
  * 
- * Tests also cover negative assertions as required by operator inbox.
+ * Round 78 AC1: Export enhanced poster with custom background color
+ * - 5 color options: dark, faction, cyan-gradient, purple-gradient, gold-gradient
+ * - Exported SVG reflects the selected background color
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -20,7 +22,7 @@ import {
   downloadFile,
   sanitizeFilename 
 } from '../utils/exportUtils';
-import { GeneratedAttributes, SocialPlatform, PLATFORM_PRESETS } from '../types';
+import { GeneratedAttributes, SocialPlatform, PLATFORM_PRESETS, PosterBackgroundColor, POSTER_BACKGROUND_COLORS } from '../types';
 
 // Mock modules and connections for testing
 const mockModules = [
@@ -179,13 +181,9 @@ describe('Export Poster Presets - Platform Configurations', () => {
 describe('AC5: Watermark Support', () => {
   describe('exportEnhancedPoster with watermark', () => {
     it('should include username when provided', () => {
-      const svg = exportEnhancedPoster(
-        mockModules, 
-        mockConnections, 
-        mockAttributes, 
-        'default',
-        { username: 'ArcaneMaster' }
-      );
+      const svg = exportEnhancedPoster(mockModules, mockConnections, mockAttributes, 'default', {
+        username: 'ArcaneMaster'
+      });
       
       // Check for username in SVG
       expect(svg).toContain('@ArcaneMaster');
@@ -625,5 +623,230 @@ describe('sanitizeFilename', () => {
 
   it('should trim leading and trailing hyphens', () => {
     expect(sanitizeFilename('-test-file-')).toBe('test-file');
+  });
+});
+
+// =============================================================================
+// Round 78: Custom Background Color Tests
+// =============================================================================
+
+describe('Round 78: Custom Background Color for Enhanced Poster', () => {
+  describe('AC1: PosterBackgroundColor type and presets exist', () => {
+    it('should have all 5 background color presets defined', () => {
+      const expectedPresets: PosterBackgroundColor[] = ['dark', 'faction', 'cyan-gradient', 'purple-gradient', 'gold-gradient'];
+      
+      expectedPresets.forEach(preset => {
+        expect(POSTER_BACKGROUND_COLORS).toHaveProperty(preset);
+      });
+    });
+
+    it('should have correct gradient colors for dark preset', () => {
+      const darkPreset = POSTER_BACKGROUND_COLORS['dark'];
+      expect(darkPreset.start).toBe('#0a0e17');
+      expect(darkPreset.end).toBe('#1a1a2e');
+    });
+
+    it('should have correct gradient colors for cyan-gradient preset', () => {
+      const cyanPreset = POSTER_BACKGROUND_COLORS['cyan-gradient'];
+      expect(cyanPreset.start).toBe('#0a1a2e');
+      expect(cyanPreset.end).toBe('#1a2a4e');
+    });
+
+    it('should have correct gradient colors for purple-gradient preset', () => {
+      const purplePreset = POSTER_BACKGROUND_COLORS['purple-gradient'];
+      expect(purplePreset.start).toBe('#1a0a2e');
+      expect(purplePreset.end).toBe('#2a1a4e');
+    });
+
+    it('should have correct gradient colors for gold-gradient preset', () => {
+      const goldPreset = POSTER_BACKGROUND_COLORS['gold-gradient'];
+      expect(goldPreset.start).toBe('#1a1505');
+      expect(goldPreset.end).toBe('#2e2510');
+    });
+  });
+
+  describe('AC1: exportEnhancedPoster applies background color', () => {
+    it('should apply dark background when backgroundColor is "dark"', () => {
+      const svg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'dark' }
+      );
+      
+      // Check for dark gradient colors in SVG
+      expect(svg).toContain('#0a0e17');
+      expect(svg).toContain('#1a1a2e');
+      expect(svg).toContain('linearGradient id="enhancedBg"');
+    });
+
+    it('should apply cyan gradient when backgroundColor is "cyan-gradient"', () => {
+      const svg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'cyan-gradient' }
+      );
+      
+      // Check for cyan gradient colors in SVG
+      expect(svg).toContain('#0a1a2e');
+      expect(svg).toContain('#1a2a4e');
+    });
+
+    it('should apply purple gradient when backgroundColor is "purple-gradient"', () => {
+      const svg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'purple-gradient' }
+      );
+      
+      // Check for purple gradient colors in SVG
+      expect(svg).toContain('#1a0a2e');
+      expect(svg).toContain('#2a1a4e');
+    });
+
+    it('should apply gold gradient when backgroundColor is "gold-gradient"', () => {
+      const svg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'gold-gradient' }
+      );
+      
+      // Check for gold gradient colors in SVG
+      expect(svg).toContain('#1a1505');
+      expect(svg).toContain('#2e2510');
+    });
+
+    it('should apply faction color when backgroundColor is "faction" with factionColor', () => {
+      const svg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'faction', factionColor: '#a855f7' }
+      );
+      
+      // Check for faction gradient in SVG - should have darkened faction color
+      expect(svg).toContain('linearGradient id="enhancedBg"');
+      // The faction color #a855f7 when darkened by 30% becomes approximately #763bad
+      expect(svg).toContain('#763bad');
+    });
+
+    it('should use tag-based gradient when backgroundColor is not specified', () => {
+      const svg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        {} // No backgroundColor specified
+      );
+      
+      // Should still have gradient defined
+      expect(svg).toContain('linearGradient id="enhancedBg"');
+      // Should have arcane default (since tags include 'arcane')
+      expect(svg).toContain('#0a0f1e'); // Arcane start color
+    });
+  });
+
+  describe('AC1: Background color works with all aspect ratios', () => {
+    const ratios: ('default' | 'square' | 'portrait' | 'landscape')[] = ['default', 'square', 'portrait', 'landscape'];
+    
+    ratios.forEach(ratio => {
+      it(`should apply background color correctly for ${ratio} aspect ratio`, () => {
+        const svg = exportEnhancedPoster(
+          mockModules,
+          mockConnections,
+          mockAttributes,
+          ratio,
+          { backgroundColor: 'cyan-gradient' }
+        );
+        
+        // Should contain gradient definition
+        expect(svg).toContain('linearGradient id="enhancedBg"');
+        expect(svg).toContain('#0a1a2e');
+        expect(svg).toContain('#1a2a4e');
+      });
+    });
+  });
+
+  describe('AC1: Background color works with watermark', () => {
+    it('should combine background color and watermark correctly', () => {
+      const svg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'gold-gradient', username: 'TestUser' }
+      );
+      
+      // Check for both gradient and watermark
+      expect(svg).toContain('#1a1505');
+      expect(svg).toContain('#2e2510');
+      expect(svg).toContain('@TestUser');
+      expect(svg).toContain('text-anchor="end"');
+    });
+  });
+
+  describe('AC1: Different background colors produce different SVG content', () => {
+    it('should produce different gradient start colors for each background', () => {
+      const darkSvg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'dark' }
+      );
+      
+      const cyanSvg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'cyan-gradient' }
+      );
+      
+      const purpleSvg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'purple-gradient' }
+      );
+      
+      const goldSvg = exportEnhancedPoster(
+        mockModules,
+        mockConnections,
+        mockAttributes,
+        'default',
+        { backgroundColor: 'gold-gradient' }
+      );
+      
+      // Each SVG should contain its unique start color
+      // Extract gradient start colors from each SVG
+      const darkStartMatch = darkSvg.match(/linearGradient id="enhancedBg"[^>]*>[\s\S]*?stop-color:([^"]+)/);
+      const cyanStartMatch = cyanSvg.match(/linearGradient id="enhancedBg"[^>]*>[\s\S]*?stop-color:([^"]+)/);
+      const purpleStartMatch = purpleSvg.match(/linearGradient id="enhancedBg"[^>]*>[\s\S]*?stop-color:([^"]+)/);
+      const goldStartMatch = goldSvg.match(/linearGradient id="enhancedBg"[^>]*>[\s\S]*?stop-color:([^"]+)/);
+      
+      // Verify all gradients are different
+      const darkStart = darkStartMatch?.[1] || '';
+      const cyanStart = cyanStartMatch?.[1] || '';
+      const purpleStart = purpleStartMatch?.[1] || '';
+      const goldStart = goldStartMatch?.[1] || '';
+      
+      expect(darkStart).toBe('#0a0e17');
+      expect(cyanStart).toBe('#0a1a2e');
+      expect(purpleStart).toBe('#1a0a2e');
+      expect(goldStart).toBe('#1a1505');
+      
+      // All should be different
+      expect(new Set([darkStart, cyanStart, purpleStart, goldStart]).size).toBe(4);
+    });
   });
 });

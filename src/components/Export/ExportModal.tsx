@@ -14,7 +14,7 @@ import { generateAttributes } from '../../utils/attributeGenerator';
 import { calculateFaction } from '../../utils/factionCalculator';
 import { EnhancedShareCard } from './EnhancedShareCard';
 import { FACTIONS } from '../../types/factions';
-import { ExportResolution, ExportAspectRatio, SocialPlatform, RESOLUTION_DIMS, ASPECT_RATIO_DIMS, PLATFORM_PRESETS } from '../../types';
+import { ExportResolution, ExportAspectRatio, SocialPlatform, RESOLUTION_DIMS, ASPECT_RATIO_DIMS, PLATFORM_PRESETS, PosterBackgroundColor, POSTER_BACKGROUND_PRESETS } from '../../types';
 
 interface ExportModalProps {
   onClose: () => void;
@@ -45,6 +45,9 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   
   // AC2/AC3/AC3b: Social platform selection
   const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatform | null>(null);
+  
+  // Round 78: Background color selector for enhanced poster
+  const [backgroundColor, setBackgroundColor] = useState<PosterBackgroundColor>('dark');
   
   // Calculate faction and attributes for EnhancedShareCard
   const dominantFaction = calculateFaction(modules);
@@ -103,8 +106,11 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
           break;
           
         case 'enhanced-poster':
+          // Round 78: Pass background color option to export
           const enhancedContent = exportEnhancedPoster(modules, connections, attributes, aspectRatio, {
             username: includeWatermark ? username : undefined,
+            backgroundColor: backgroundColor,
+            factionColor: faction.color,
           });
           downloadFile(enhancedContent, `${sanitizedName}-${aspectRatio}-enhanced-poster.svg`, 'image/svg+xml');
           break;
@@ -138,7 +144,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
       setIsExporting(false);
       alert('Export failed. Please try again.');
     }
-  }, [format, exportName, modules, connections, attributes, onClose, resolution, transparentBackground, aspectRatio, selectedPlatform, username, includeWatermark]);
+  }, [format, exportName, modules, connections, attributes, onClose, resolution, transparentBackground, aspectRatio, selectedPlatform, username, includeWatermark, backgroundColor, faction]);
   
   const handleFactionCardExportSVG = useCallback(() => {
     const factionCardContent = exportFactionCard(modules, connections, attributes, faction);
@@ -402,6 +408,54 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
             </div>
           )}
           
+          {/* Round 78: Background Color Selector - For enhanced poster */}
+          {format === 'enhanced-poster' && (
+            <div>
+              <label className="block text-sm font-medium text-[#9ca3af] mb-2">
+                背景颜色 (Background Color) - 5 options
+              </label>
+              <div className="grid grid-cols-5 gap-2">
+                {POSTER_BACKGROUND_PRESETS.map((preset) => {
+                  const isSelected = backgroundColor === preset.id;
+                  const borderColor = preset.id === 'faction' ? faction.color : undefined;
+                  return (
+                    <button
+                      key={preset.id}
+                      role="button"
+                      aria-label={preset.nameCn}
+                      aria-pressed={isSelected}
+                      onClick={() => setBackgroundColor(preset.id)}
+                      className={`p-2 rounded-lg border transition-all text-center ${
+                        isSelected
+                          ? 'border-[#00d4ff] bg-[#00d4ff]/10'
+                          : 'border-[#1e2a42] hover:border-[#00d4ff]/50'
+                      }`}
+                      style={isSelected && borderColor ? { borderColor } : {}}
+                      title={preset.description}
+                    >
+                      {/* Color preview swatch */}
+                      <div
+                        className="w-full h-8 rounded-md mb-1"
+                        style={{
+                          background: preset.id === 'faction'
+                            ? `linear-gradient(135deg, ${faction.color}40, #1a1a2e)`
+                            : `linear-gradient(135deg, ${preset.gradient.start}, ${preset.gradient.end})`,
+                          border: `1px solid ${isSelected ? '#00d4ff' : '#2d3a56'}`,
+                        }}
+                      />
+                      <div className={`text-xs font-medium ${isSelected ? 'text-[#00d4ff]' : 'text-white'}`}>
+                        {preset.nameCn}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-xs text-[#4a5568]">
+                选择导出海报的背景颜色主题
+              </p>
+            </div>
+          )}
+          
           {/* AC4: Username/Watermark Input - For poster, enhanced-poster, and social formats */}
           {(format === 'poster' || format === 'enhanced-poster' || format === 'social') && (
             <div className="space-y-2">
@@ -484,7 +538,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
               <p>Poster export creates a styled share card with machine preview, stats, and decorative border at {aspectRatio} aspect ratio.</p>
             )}
             {format === 'enhanced-poster' && (
-              <p>Enhanced poster includes decorative corners, ornate name styling, attribute icons, and faction emblem at {aspectRatio} aspect ratio.</p>
+              <p>Enhanced poster includes decorative corners, ornate name styling, attribute icons, and faction emblem at {aspectRatio} aspect ratio. Now with custom background colors!</p>
             )}
             {format === 'faction-card' && (
               <p>Faction Card export creates a branded share card with faction-colored border and theming based on your machine's dominant faction.</p>

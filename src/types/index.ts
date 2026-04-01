@@ -221,6 +221,81 @@ export const PLATFORM_PRESETS: Record<SocialPlatform, PlatformPreset> = {
   },
 };
 
+// Poster Background Color Presets (Round 78)
+export type PosterBackgroundColor = 'dark' | 'faction' | 'cyan-gradient' | 'purple-gradient' | 'gold-gradient';
+
+export interface PosterBackgroundPreset {
+  id: PosterBackgroundColor;
+  name: string;
+  nameCn: string;
+  description: string;
+  gradient: {
+    start: string;
+    end: string;
+  };
+}
+
+export const POSTER_BACKGROUND_PRESETS: PosterBackgroundPreset[] = [
+  {
+    id: 'dark',
+    name: 'Dark Default',
+    nameCn: '深色默认',
+    description: 'Classic dark gradient background',
+    gradient: {
+      start: '#0a0e17',
+      end: '#1a1a2e',
+    },
+  },
+  {
+    id: 'faction',
+    name: 'Faction Theme',
+    nameCn: '派系主题',
+    description: 'Match your machine\'s dominant faction',
+    gradient: {
+      start: '#0a0e17', // Will be overridden by faction color
+      end: '#1a1a2e',
+    },
+  },
+  {
+    id: 'cyan-gradient',
+    name: 'Cyan Energy',
+    nameCn: '青色能量',
+    description: 'Cyan energy flow gradient',
+    gradient: {
+      start: '#0a1a2e',
+      end: '#1a2a4e',
+    },
+  },
+  {
+    id: 'purple-gradient',
+    name: 'Arcane Purple',
+    nameCn: '奥术紫',
+    description: 'Deep arcane purple gradient',
+    gradient: {
+      start: '#1a0a2e',
+      end: '#2a1a4e',
+    },
+  },
+  {
+    id: 'gold-gradient',
+    name: 'Golden Luxe',
+    nameCn: '金色奢华',
+    description: 'Elegant gold and amber gradient',
+    gradient: {
+      start: '#1a1505',
+      end: '#2e2510',
+    },
+  },
+];
+
+export const POSTER_BACKGROUND_COLORS: Record<PosterBackgroundColor, { start: string; end: string }> = {
+  'dark': { start: '#0a0e17', end: '#1a1a2e' },
+  'faction': { start: '#0a0e17', end: '#1a1a2e' }, // Dynamic based on faction
+  'cyan-gradient': { start: '#0a1a2e', end: '#1a2a4e' },
+  'purple-gradient': { start: '#1a0a2e', end: '#2a1a4e' },
+  'gold-gradient': { start: '#1a1505', end: '#2e2510' },
+};
+
 export interface ExportOptions {
   format: 'svg' | 'png' | 'poster';
   width?: number;
@@ -243,6 +318,7 @@ export interface EnhancedExportOptions extends ExportOptions {
   platform?: SocialPlatform;
   username?: string;
   includeWatermark?: boolean;
+  backgroundColor?: PosterBackgroundColor;
 }
 
 // Duplicate Detection Types (Round 65)

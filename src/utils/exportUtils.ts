@@ -1,4 +1,4 @@
-import { PlacedModule, Connection, GeneratedAttributes, ExportResolution, ExportAspectRatio, ASPECT_RATIO_DIMS, RESOLUTION_DIMS, SocialPlatform, PLATFORM_PRESETS } from '../types';
+import { PlacedModule, Connection, GeneratedAttributes, ExportResolution, ExportAspectRatio, ASPECT_RATIO_DIMS, RESOLUTION_DIMS, SocialPlatform, PLATFORM_PRESETS, PosterBackgroundColor, POSTER_BACKGROUND_COLORS } from '../types';
 import { FactionConfig } from '../types/factions';
 
 export function exportToSVG(
@@ -382,15 +382,59 @@ export function exportPoster(
 }
 
 /**
- * Enhanced poster export with watermark support (AC5)
- * Options include username for watermark display
+ * Get background gradient colors for poster export
+ * Round 78: Support for custom background colors
+ */
+function getPosterBackgroundGradient(
+  backgroundColor: PosterBackgroundColor,
+  factionColor?: string
+): { start: string; end: string } {
+  const bgColors = POSTER_BACKGROUND_COLORS[backgroundColor];
+  
+  // For faction theme, override start color with faction color
+  if (backgroundColor === 'faction' && factionColor) {
+    // Darken the faction color for background
+    const darkenedFaction = darkenColor(factionColor, 0.3);
+    return {
+      start: darkenedFaction,
+      end: '#1a1a2e',
+    };
+  }
+  
+  return bgColors;
+}
+
+/**
+ * Darken a hex color by a percentage
+ */
+function darkenColor(hex: string, amount: number): string {
+  // Remove # if present
+  const cleanHex = hex.replace('#', '');
+  
+  // Parse RGB
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  
+  // Darken each channel
+  const newR = Math.round(r * (1 - amount));
+  const newG = Math.round(g * (1 - amount));
+  const newB = Math.round(b * (1 - amount));
+  
+  // Convert back to hex
+  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+}
+
+/**
+ * Enhanced poster export with watermark support (AC5) and custom background color (Round 78)
+ * Options include username for watermark display and backgroundColor for gradient selection
  */
 export function exportEnhancedPoster(
   modules: PlacedModule[],
   connections: Connection[],
   attributes: GeneratedAttributes,
   aspectRatio: ExportAspectRatio = 'default',
-  options: { username?: string } = {}
+  options: { username?: string; backgroundColor?: PosterBackgroundColor; factionColor?: string } = {}
 ): string {
   const bounds = calculateBounds(modules);
   const dims = ASPECT_RATIO_DIMS[aspectRatio];
@@ -412,7 +456,10 @@ export function exportEnhancedPoster(
   const offsetY = previewY + (previewHeight - scaledHeight) / 2 - bounds.minY * machineScale;
   
   const dominantTag = getDominantTag(attributes.tags);
-  const bgGradient = getTagGradient(dominantTag);
+  // Round 78: Use custom background color or fall back to tag-based gradient
+  const bgGradient = options.backgroundColor 
+    ? getPosterBackgroundGradient(options.backgroundColor, options.factionColor)
+    : getTagGradient(dominantTag);
   
   // AC5: Watermark rendering
   const watermarkSection = options.username ? `
@@ -456,7 +503,7 @@ export function exportEnhancedPoster(
     </filter>
   </defs>
   
-  <!-- Background -->
+  <!-- Background with custom color -->
   <rect width="100%" height="100%" fill="url(#enhancedBg)"/>
   
   <!-- AC6: Animated decorative corner ornaments with SVG stroke-dasharray animation -->
@@ -778,7 +825,7 @@ export function exportSocialPoster(
   </g>
   
   <!-- Tags -->
-  <g transform="translate(${isLandscape ? 400 : (isSquare ? 300 : 250)}, ${previewY + previewHeight + 25})">
+  <g transform="translate("${isLandscape ? 400 : (isSquare ? 300 : 250)}", ${previewY + previewHeight + 25})">
     <text x="0" y="0" fill="#9ca3af" font-size="12" letter-spacing="1">◆ TAGS</text>
     <line x1="0" y1="8" x2="100" y2="8" stroke="${accentColor}" stroke-width="0.5"/>
     ${attributes.tags.slice(0, 4).map((tag, idx) => `

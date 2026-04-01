@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useMemo, memo } from 'react';
 import { gsap } from 'gsap';
 import { Connection, MachineState } from '../../types';
 import { getPulseWaveCount, getPulseWaveDuration } from '../../utils/activationChoreographer';
@@ -17,7 +17,17 @@ interface PulseWave {
   delay: number;
 }
 
-export function EnergyPath({ connection, isSelected, isActive, machineState, onClick }: EnergyPathProps) {
+/**
+ * AC5: EnergyPath component memoized to prevent unnecessary re-renders
+ * Only re-renders when connection data or selection/active state changes
+ */
+export const EnergyPath = memo(function EnergyPath({ 
+  connection, 
+  isSelected, 
+  isActive, 
+  machineState, 
+  onClick 
+}: EnergyPathProps) {
   const pathRef = useRef<SVGPathElement>(null);
   const glowRef = useRef<SVGPathElement>(null);
   const particleRef = useRef<SVGCircleElement>(null);
@@ -39,7 +49,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
     isRunning: false,
   });
   
-  // Calculate path length for wave count
+  // AC5: Memoize path length calculation to prevent unnecessary recalculation
   const pathLength = useMemo(() => {
     if (!pathRef.current) return 200;
     try {
@@ -47,27 +57,27 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
     } catch {
       return 200;
     }
-  }, []);
+  }, [connection.pathData]);
   
   // Get wave count based on path length
-  const waveCount = getPulseWaveCount(pathLength);
-  const waveDuration = getPulseWaveDuration(pathLength);
+  const waveCount = useMemo(() => getPulseWaveCount(pathLength), [pathLength]);
+  const waveDuration = useMemo(() => getPulseWaveDuration(pathLength), [pathLength]);
   
-  // Determine path color based on state
-  const getPathColor = () => {
+  // AC5: Memoize path colors to prevent re-renders when parent state changes
+  const pathColor = useMemo(() => {
     if (machineState === 'failure') return '#ff3355';
     if (machineState === 'overload') return '#ff6b35';
     return isSelected ? '#ffd700' : '#00d4ff';
-  };
+  }, [machineState, isSelected]);
   
-  const getGlowColor = () => {
+  const glowColor = useMemo(() => {
     if (machineState === 'failure') return '#ff3355';
     if (machineState === 'overload') return '#ff6b35';
     return '#00ffcc';
-  };
+  }, [machineState]);
   
+  // Initialize pulse waves
   useEffect(() => {
-    // Initialize pulse waves based on path length
     const waves: PulseWave[] = [];
     for (let i = 0; i < waveCount; i++) {
       waves.push({
@@ -289,7 +299,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         ref={secondaryGlowRef}
         d={connection.pathData}
         fill="none"
-        stroke={getGlowColor()}
+        stroke={glowColor}
         strokeWidth="12"
         opacity="0.1"
         strokeLinecap="round"
@@ -300,7 +310,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         ref={glowRef}
         d={connection.pathData}
         fill="none"
-        stroke={getGlowColor()}
+        stroke={glowColor}
         strokeWidth="8"
         opacity="0.2"
         strokeLinecap="round"
@@ -311,7 +321,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
         ref={pathRef}
         d={connection.pathData}
         fill="none"
-        stroke={getPathColor()}
+        stroke={pathColor}
         strokeWidth={isSelected ? 4 : 3}
         strokeLinecap="round"
         className="transition-all duration-200"
@@ -321,7 +331,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
       <path
         d={connection.pathData}
         fill="none"
-        stroke={getGlowColor()}
+        stroke={glowColor}
         strokeWidth="2"
         strokeDasharray="8,12"
         strokeLinecap="round"
@@ -364,7 +374,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
             cx={startPoint.x}
             cy={startPoint.y}
             r="5"
-            fill={getGlowColor()}
+            fill={glowColor}
             opacity="0"
             filter="url(#glow)"
           />
@@ -375,13 +385,13 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
       <circle
         ref={particleRef}
         r="4"
-        fill={getGlowColor()}
+        fill={glowColor}
         opacity="0"
       >
         {isActive && !useRAF && (
           <animate
             attributeName="fill"
-            values={`${getGlowColor()};${getPathColor()};${getGlowColor()}`}
+            values={`${glowColor};${pathColor};${glowColor}`}
             dur="0.8s"
             repeatCount="indefinite"
           />
@@ -389,7 +399,7 @@ export function EnergyPath({ connection, isSelected, isActive, machineState, onC
       </circle>
     </g>
   );
-}
+});
 
 // Helper function to get start point of path
 function getPathStartPoint(pathData: string): { x: number; y: number } {

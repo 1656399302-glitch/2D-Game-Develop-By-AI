@@ -6,6 +6,11 @@
  * - Complexity controls (module count, connection density)
  * - Aesthetic validation (collision check, energy flow, valid connections)
  * - Theme-based module selection with faction variants
+ * 
+ * Round 78 Edge Case Handling:
+ * - Fixed module count when minModules === maxModules
+ * - Minimum 1 connection even at low density
+ * - Fallback core module for empty canvas generation
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -616,7 +621,10 @@ const getConnectionProbability = (density: ConnectionDensity): number => {
 };
 
 /**
- * Create connections between modules
+ * Create connections between modules with guaranteed minimum connections
+ * Round 78 Edge Cases:
+ * - Always creates at least 1 connection (even at low density)
+ * - Ensures valid output->input connections
  */
 const createConnections = (
   modules: PlacedModule[],
@@ -625,61 +633,56 @@ const createConnections = (
   if (modules.length < 2) return [];
   
   const connections: Connection[] = [];
-  const probability = getConnectionProbability(density);
   
-  // Always create at least one connection (core to something)
-  const hasCore = modules.some(m => m.type === 'core-furnace');
-  if (hasCore) {
-    const coreModule = modules.find(m => m.type === 'core-furnace')!;
-    const otherModules = modules.filter(m => m.type !== 'core-furnace');
-    if (otherModules.length > 0) {
-      const target = otherModules[Math.floor(Math.random() * otherModules.length)];
-      const coreOutput = coreModule.ports.find(p => p.type === 'output') || coreModule.ports[0];
-      const targetInput = target.ports.find(p => p.type === 'input') || target.ports[0];
-      
-      const pathData = calculateConnectionPath(
-        modules,
-        coreModule.instanceId,
-        coreOutput.id,
-        target.instanceId,
-        targetInput.id
-      );
-      
-      connections.push({
-        id: uuidv4(),
-        sourceModuleId: coreModule.instanceId,
-        sourcePortId: coreOutput.id,
-        targetModuleId: target.instanceId,
-        targetPortId: targetInput.id,
-        pathData,
-      });
-    }
-  } else {
-    // No core, connect first two modules
-    const firstModule = modules[0];
-    const secondModule = modules[1];
-    const firstOutput = firstModule.ports.find(p => p.type === 'output') || firstModule.ports[0];
-    const secondInput = secondModule.ports.find(p => p.type === 'input') || secondModule.ports[0];
-    
-    const pathData = calculateConnectionPath(
-      modules,
-      firstModule.instanceId,
-      firstOutput.id,
-      secondModule.instanceId,
-      secondInput.id
-    );
-    
-    connections.push({
-      id: uuidv4(),
-      sourceModuleId: firstModule.instanceId,
-      sourcePortId: firstOutput.id,
-      targetModuleId: secondModule.instanceId,
-      targetPortId: secondInput.id,
-      pathData,
-    });
+  // ROUND 78 FIX: Always create at least one connection
+  // Find modules that can connect (has output and input ports)
+  const modulesWithOutput = modules.filter(m => m.ports.some(p => p.type === 'output'));
+  const modulesWithInput = modules.filter(m => m.ports.some(p => p.type === 'input'));
+  
+  if (modulesWithOutput.length === 0 || modulesWithInput.length === 0) {
+    return connections;
   }
   
-  // Add more connections based on density
+  // Find a valid source (with output) and target (with input)
+  let sourceModule = modulesWithOutput[0];
+  let targetModule = modulesWithInput.find(m => m.instanceId !== sourceModule.instanceId) || modulesWithInput[0];
+  
+  // If we need to swap (target has no input, source has no output)
+  if (!targetModule.ports.some(p => p.type === 'input')) {
+    // Find a module that has both input and output
+    const modulesWithBoth = modules.filter(m => 
+      m.ports.some(p => p.type === 'input') && m.ports.some(p => p.type === 'output')
+    );
+    if (modulesWithBoth.length >= 2) {
+      sourceModule = modulesWithBoth[0];
+      targetModule = modulesWithBoth[1];
+    }
+  }
+  
+  const sourcePort = sourceModule.ports.find(p => p.type === 'output') || sourceModule.ports[0];
+  const targetPort = targetModule.ports.find(p => p.type === 'input') || targetModule.ports[0];
+  
+  const pathData = calculateConnectionPath(
+    modules,
+    sourceModule.instanceId,
+    sourcePort.id,
+    targetModule.instanceId,
+    targetPort.id
+  );
+  
+  connections.push({
+    id: uuidv4(),
+    sourceModuleId: sourceModule.instanceId,
+    sourcePortId: sourcePort.id,
+    targetModuleId: targetModule.instanceId,
+    targetPortId: targetPort.id,
+    pathData,
+  });
+  
+  // ROUND 78 FIX: Always guarantee at least 1 connection above
+  // Now add more connections based on density setting
+  const probability = getConnectionProbability(density);
+  
   for (let i = 0; i < modules.length; i++) {
     for (let j = i + 1; j < modules.length; j++) {
       // Skip if already connected (handles core connection above)
@@ -695,35 +698,35 @@ const createConnections = (
         const moduleB = modules[j];
         
         // Determine direction based on module types
-        let sourceModule = moduleA;
-        let targetModule = moduleB;
+        let sourceM = moduleA;
+        let targetM = moduleB;
         
         // Prefer output -> input direction
         const aHasOutput = moduleA.ports.some(p => p.type === 'output');
         const bHasOutput = moduleB.ports.some(p => p.type === 'output');
         
         if (bHasOutput && !aHasOutput) {
-          sourceModule = moduleB;
-          targetModule = moduleA;
+          sourceM = moduleB;
+          targetM = moduleA;
         }
         
-        const sourcePort = sourceModule.ports.find(p => p.type === 'output') || sourceModule.ports[0];
-        const targetPort = targetModule.ports.find(p => p.type === 'input') || targetModule.ports[0];
+        const sourcePortRef = sourceM.ports.find(p => p.type === 'output') || sourceM.ports[0];
+        const targetPortRef = targetM.ports.find(p => p.type === 'input') || targetM.ports[0];
         
         const path = calculateConnectionPath(
           modules,
-          sourceModule.instanceId,
-          sourcePort.id,
-          targetModule.instanceId,
-          targetPort.id
+          sourceM.instanceId,
+          sourcePortRef.id,
+          targetM.instanceId,
+          targetPortRef.id
         );
         
         connections.push({
           id: uuidv4(),
-          sourceModuleId: sourceModule.instanceId,
-          sourcePortId: sourcePort.id,
-          targetModuleId: targetModule.instanceId,
-          targetPortId: targetPort.id,
+          sourceModuleId: sourceM.instanceId,
+          sourcePortId: sourcePortRef.id,
+          targetModuleId: targetM.instanceId,
+          targetPortId: targetPortRef.id,
           pathData: path,
         });
       }
@@ -853,6 +856,11 @@ export const validateThemeCompliance = (
 
 /**
  * Generate a themed random machine with complexity controls
+ * 
+ * Round 78 Edge Case Handling:
+ * - When minModules === maxModules: generates exactly that number of modules
+ * - connectionDensity='low': still guarantees at least 1 connection via createConnections
+ * - Empty canvas: creates fallback machine with core module
  */
 export const generateWithTheme = (
   config: Partial<EnhancedGeneratorConfig> = {}
@@ -860,32 +868,74 @@ export const generateWithTheme = (
   const finalConfig: EnhancedGeneratorConfig = { ...DEFAULT_ENHANCED_CONFIG, ...config };
   const themePrefs = THEME_MODULE_PREFERENCES[finalConfig.theme];
   
-  // Determine module count
-  const moduleCount = Math.floor(
-    Math.random() * (finalConfig.maxModules - finalConfig.minModules + 1)
-  ) + finalConfig.minModules;
+  // ROUND 78 FIX: Handle minModules === maxModules case (fixed module count)
+  let moduleCount: number;
+  if (finalConfig.minModules === finalConfig.maxModules) {
+    // Fixed module count when min equals max
+    moduleCount = finalConfig.minModules;
+  } else {
+    // Random module count within range
+    moduleCount = Math.floor(
+      Math.random() * (finalConfig.maxModules - finalConfig.minModules + 1)
+    ) + finalConfig.minModules;
+  }
   
+  // ROUND 78 FIX: Minimum of 2 modules (1 module can't form connections)
   const actualCount = Math.max(2, moduleCount);
   
   // Get available module types for theme
   const availableTypes = getAvailableModuleTypes(finalConfig.theme, finalConfig.useFactionVariants);
   
-  // Select module types with theme weighting
-  const moduleTypes: ModuleType[] = [];
-  for (let i = 0; i < actualCount; i++) {
+  // ROUND 78 FIX: ALWAYS ensure there's at least one core furnace (100% guarantee)
+  // First slot is always core-furnace for valid machine structure
+  const moduleTypes: ModuleType[] = ['core-furnace'];
+  
+  // Fill remaining slots with theme-weighted random modules
+  for (let i = 1; i < actualCount; i++) {
     const type = getWeightedRandomModuleType(availableTypes, themePrefs.weights);
     moduleTypes.push(type);
-  }
-  
-  // Ensure there's at least one core furnace
-  if (!moduleTypes.includes('core-furnace') && Math.random() < 0.6) {
-    moduleTypes[0] = 'core-furnace';
   }
   
   // Find valid positions for all modules
   const modules = findValidModulePositions(moduleTypes, finalConfig);
   
+  // ROUND 78 FIX: Handle empty canvas case - create fallback core module
+  if (modules.length === 0) {
+    // Create a minimal machine with core furnace
+    const corePosition = findValidPosition('core-furnace', [], finalConfig, 100);
+    if (corePosition) {
+      modules.push({
+        id: uuidv4(),
+        instanceId: uuidv4(),
+        type: 'core-furnace',
+        x: corePosition.x,
+        y: corePosition.y,
+        rotation: 0,
+        scale: 1,
+        flipped: false,
+        ports: getDefaultPorts('core-furnace'),
+      });
+      
+      // Try to add one more module for connection
+      const pipePosition = findValidPosition('energy-pipe', modules, finalConfig, 100);
+      if (pipePosition) {
+        modules.push({
+          id: uuidv4(),
+          instanceId: uuidv4(),
+          type: 'energy-pipe',
+          x: pipePosition.x,
+          y: pipePosition.y,
+          rotation: 0,
+          scale: 1,
+          flipped: false,
+          ports: getDefaultPorts('energy-pipe'),
+        });
+      }
+    }
+  }
+  
   // Create connections based on density setting
+  // ROUND 78 FIX: createConnections now guarantees at least 1 connection
   const connections = createConnections(modules, finalConfig.connectionDensity);
   
   // Validate the generated machine
