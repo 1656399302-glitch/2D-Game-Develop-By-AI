@@ -598,7 +598,7 @@ function AppContent() {
         )}
         
         <RecipeBrowser isOpen={showRecipeBrowser} onClose={() => setShowRecipeBrowser(false)} />
-        {showLoadPrompt && <LoadPromptModal />}
+        {showLoadPrompt && <LoadPromptModal onDismiss={() => setShowLoadPrompt(false)} />}
         
         {/* RandomGeneratorModal — Round 57: integrated to fix Round 56 critical integration failure */}
         {showRandomGenerator && (

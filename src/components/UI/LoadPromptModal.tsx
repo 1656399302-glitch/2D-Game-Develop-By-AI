@@ -1,8 +1,22 @@
 import { useMachineStore } from '../../store/useMachineStore';
 
-export const LoadPromptModal = () => {
+export interface LoadPromptModalProps {
+  onDismiss: () => void;
+}
+
+export const LoadPromptModal = ({ onDismiss }: LoadPromptModalProps) => {
   const restoreSavedState = useMachineStore((state) => state.restoreSavedState);
   const startFresh = useMachineStore((state) => state.startFresh);
+
+  const handleRestore = () => {
+    restoreSavedState();
+    onDismiss();
+  };
+
+  const handleStartFresh = () => {
+    startFresh();
+    onDismiss();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -32,10 +46,10 @@ export const LoadPromptModal = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">
-            Welcome Back, Artificer
+            欢迎回来，工匠
           </h2>
           <p className="text-[#9ca3af] text-sm">
-            A previous machine session has been detected. Would you like to resume your work?
+            检测到之前的机器会话。是否要恢复您的工作？
           </p>
         </div>
         
@@ -48,8 +62,8 @@ export const LoadPromptModal = () => {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-white text-sm font-medium">Saved Machine Session</p>
-              <p className="text-[#4a5568] text-xs">Auto-saved from your last session</p>
+              <p className="text-white text-sm font-medium">已保存的机器会话</p>
+              <p className="text-[#4a5568] text-xs">上次会话自动保存的内容</p>
             </div>
           </div>
         </div>
@@ -57,35 +71,37 @@ export const LoadPromptModal = () => {
         {/* Action buttons */}
         <div className="space-y-3">
           <button
-            onClick={restoreSavedState}
+            onClick={handleRestore}
             className="w-full py-3 px-4 bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white font-semibold rounded-lg hover:opacity-90 transition-all shadow-lg shadow-[#7c3aed]/30 group"
           >
             <span className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Resume Previous Work
+              恢复之前的工作
             </span>
           </button>
           
           <button
-            onClick={startFresh}
+            onClick={handleStartFresh}
             className="w-full py-3 px-4 bg-[#121826] text-[#9ca3af] font-medium rounded-lg border border-[#2a3550] hover:bg-[#1a2030] hover:text-white hover:border-[#3a4560] transition-all"
           >
             <span className="flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Start Fresh
+              开启新存档
             </span>
           </button>
         </div>
         
         {/* Footer note */}
         <p className="text-center text-[#4a5568] text-xs mt-6">
-          Your work is automatically saved every 500ms
+          您的作品每500毫秒自动保存一次
         </p>
       </div>
     </div>
   );
 };
+
+export default LoadPromptModal;
