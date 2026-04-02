@@ -1,8 +1,8 @@
-# Progress Report - Round 97
+# Progress Report - Round 98
 
 ## Round Summary
 
-**Objective:** Implement Anthropic AI Provider for AI naming and description generation.
+**Objective:** Expand comprehensive unit test coverage for `useExchangeStore` (Zustand store for the Codex Exchange System).
 
 **Status:** COMPLETE ✓
 
@@ -10,69 +10,68 @@
 
 ## Deliverables Implemented
 
-### 1. `src/services/ai/AnthropicProvider.ts` — New file (10,736 chars)
+### 1. `src/store/__tests__/useExchangeStore.test.ts` — Expanded (86 new tests)
 
-**Features implemented:**
-- Implements `AIProvider` interface with `providerType === 'anthropic'`
-- API key validation matching Anthropic key format (`sk-ant-...`, minimum 40 chars)
-- `testConnection()` method with proper error handling for 401, 429, 500+ statuses
-- `generateMachineName()` using Claude API
-- `generateMachineDescription()` using Claude API
-- `generateFullAttributes()` falls back to local provider
-- Configuration validation and error handling
-- Timeout support with AbortSignal (30s default)
-- Response sanitization (HTML tags, control characters, error messages)
+**Test coverage expanded:**
+- **Store Initialization Tests**: Initial state, hydration state management
+- **Listing Management Tests (AC-EXCHANGE-001, AC-EXCHANGE-002)**: 
+  - `markForTrade()` - basic, custom preference, duplicates, multiple listings
+  - `unmarkFromTrade()` - removal, selective removal, non-existent handling
+  - `isListed()` - false/true states, post-unmark behavior
+  - `getMyListedMachines()` (AC-EXCHANGE-012) - empty, codex filtering, edge cases
 
-### 2. `src/__tests__/anthropicProvider.test.ts` — Comprehensive tests (82 tests)
+- **Proposal Management Tests**:
+  - `createProposal()` (AC-EXCHANGE-003) - structure, outgoing array, null for non-existent, data inclusion
+  - `acceptProposal()` (AC-EXCHANGE-004) - pending acceptance, codexStore.addEntry, codexStore.removeEntry, non-pending rejection, non-existent handling, notifications, trade history
+  - `rejectProposal()` (AC-EXCHANGE-005) - status update, notifications, non-existent handling, selective rejection
+  - `getProposal()` (AC-EXCHANGE-013) - incoming retrieval, outgoing retrieval, undefined for non-existent, incoming preference
+  - `getMyPendingProposals()` (AC-EXCHANGE-006) - pending filtering, accepted rejection, rejected rejection, empty state, incoming exclusion
+  - `getIncomingPendingProposals()` (AC-EXCHANGE-007) - pending filtering, accepted rejection, rejected rejection, empty state, outgoing exclusion
 
-**Coverage includes:**
-- Provider creation and interface implementation
-- API key validation (valid/invalid/empty/format)
-- Request formatting (headers, body, model)
-- Response parsing (content extraction, edge cases)
-- Error handling (401, 429, 500, network failures)
-- Connection testing
-- Configuration validation
-- Provider availability checks
-- API key and model updates
-- Response sanitization
-- Full attributes generation (fallback to local)
-- Factory function
+- **Trade History Tests (AC-EXCHANGE-008)**:
+  - `recordTrade()` - structure validation, prepend ordering (most recent first)
+  - `getTradeHistory()` - array return, empty state
 
-### 3. `src/services/ai/AIServiceFactory.ts` — Updated
+- **Notification Tests (AC-EXCHANGE-009)**:
+  - `addNotification()` - id generation, timestamp, prepending, max 50 limit, empty/undefined message handling
+  - `markNotificationRead()` - status update, other notifications unaffected, non-existent handling
+  - `clearNotifications()` - array emptying, already empty handling
+  - `getUnreadCount()` - count return, all-read state, empty state
 
-**Changes made:**
-- Added import for `AnthropicProvider`
-- Updated `createProvider('anthropic', config)` to create `AnthropicProvider` instance
-- Updated `validateProviderConfig('anthropic', config)` with Anthropic key validation
-- Updated `isProviderImplemented('anthropic')` to return `true`
-- Updated `getImplementedProviders()` to include `'anthropic'`
-- Default Anthropic model: `claude-3-5-haiku-20241107`
+- **Computed/Misc Tests**:
+  - `getTradeableCommunityMachines()` (AC-EXCHANGE-010) - combined machines, published machines, empty state
+  - `hasPendingProposals()` (AC-EXCHANGE-011) - incoming pending, outgoing pending, no pending, both pending, no proposals
 
-### 4. `src/__tests__/aiServiceFactory.test.ts` — Updated (40 tests)
+- **Edge Case Tests**:
+  - `acceptProposal()` edge cases - non-existent ID, no side effects, expired status
+  - `rejectProposal()` edge cases - non-existent ID, no notification
+  - `createProposal()` edge cases - already-listed machine
+  - `getMyListedMachines()` edge cases - empty codex, filtered listings
+  - Notification edge cases - empty message, long message
+  - Trade history edge cases - undefined proposerMachine, undefined targetMachine
 
-**Updated tests:**
-- Updated expectations for AnthropicProvider to be returned (not LocalAIProvider fallback)
-- Added new tests for Anthropic configuration validation
-- Updated `isProviderImplemented` to expect `true` for anthropic
-- Updated `getImplementedProviders` to expect anthropic in array
-- Updated provider switching tests
+- **Selector Tests**: All 6 selectors exported and functional
+
+- **Hydration Helpers**: `hydrateExchangeStore` and `isExchangeHydrated` existence verified
 
 ## Acceptance Criteria Audit
 
 | ID | Criterion | Status | Evidence |
 |----|-----------|--------|----------|
-| AC-ANTHROPIC-001 | `AnthropicProvider` implements `AIProvider` interface | **VERIFIED** | Tests: "should implement AIProvider interface", "should have correct providerType" |
-| AC-ANTHROPIC-002 | `validateAPIKey()` validates Anthropic keys (`sk-ant-...`, min 40 chars) | **VERIFIED** | Tests: 13 API key validation tests covering all formats |
-| AC-ANTHROPIC-003 | `testConnection()` handles 401, 429, 500+ statuses | **VERIFIED** | Tests: "should return error for 401", "429 rate limit", "500 server error" |
-| AC-ANTHROPIC-004 | `generateMachineName()` returns valid name via Claude | **VERIFIED** | Tests: "should parse successful response with content" |
-| AC-ANTHROPIC-005 | `generateMachineDescription()` returns valid description | **VERIFIED** | Tests: "should generate description with style parameter" |
-| AC-ANTHROPIC-006 | `generateFullAttributes()` falls back to local provider | **VERIFIED** | Tests: "should fall back to local provider", "should return GeneratedAttributes with required fields" |
-| AC-ANTHROPIC-007 | `AIServiceFactory.createProvider('anthropic', config)` creates provider | **VERIFIED** | Tests: "should create AnthropicProvider for 'anthropic'" |
-| AC-ANTHROPIC-008 | `isProviderImplemented('anthropic')` returns `true` | **VERIFIED** | Test: "should return true for anthropic" |
-| AC-ANTHROPIC-009 | `getImplementedProviders()` includes `'anthropic'` | **VERIFIED** | Test: "should return array with local, openai, and anthropic" |
-| AC-ANTHROPIC-010 | Network errors handled with timeout support | **VERIFIED** | Tests: "should return error for network timeout", "should return error for connection refused" |
-| Regression | Existing tests continue to pass | **VERIFIED** | 3,582/3,582 tests pass |
+| AC-EXCHANGE-001 | `markForTrade()` adds listing and `isListed()` returns true | **VERIFIED** | Tests: "should mark a machine for trade", "should return true for listed machines" |
+| AC-EXCHANGE-002 | `unmarkFromTrade()` removes listing and `isListed()` returns false | **VERIFIED** | Tests: "should unmark a machine from trade", "should not remain true after unmarkFromTrade" |
+| AC-EXCHANGE-003 | `createProposal()` creates proposal with correct structure | **VERIFIED** | Tests: "should create proposal with correct structure", "should add proposal to outgoingProposals array" |
+| AC-EXCHANGE-004 | `acceptProposal()` updates status, adds machine to codex, removes given machine | **VERIFIED** | Tests: "should accept pending incoming proposal", "should call codexStore.addEntry", "should call codexStore.removeEntry" |
+| AC-EXCHANGE-005 | `rejectProposal()` updates proposal status to rejected | **VERIFIED** | Tests: "should update proposal status to rejected", "should add notification on rejection" |
+| AC-EXCHANGE-006 | `getMyPendingProposals()` returns only pending outgoing proposals | **VERIFIED** | Tests: "should return only pending outgoing proposals", "should not include accepted/rejected proposals" |
+| AC-EXCHANGE-007 | `getIncomingPendingProposals()` returns only pending incoming proposals | **VERIFIED** | Tests: "should return only pending incoming proposals", "should not include accepted/rejected proposals" |
+| AC-EXCHANGE-008 | `recordTrade()` adds entry to trade history with correct structure | **VERIFIED** | Tests: "should add trade to history with correct structure", "should prepend to history (most recent first)" |
+| AC-EXCHANGE-009 | Notification methods work correctly | **VERIFIED** | Tests: 15 notification tests covering add, markRead, clear, unread count, limit enforcement |
+| AC-EXCHANGE-010 | `getTradeableCommunityMachines()` returns community machines | **VERIFIED** | Tests: "should return combined communityMachines and publishedMachines" |
+| AC-EXCHANGE-011 | `hasPendingProposals()` correctly reports pending proposal count | **VERIFIED** | Tests: 5 tests covering incoming, outgoing, both, none scenarios |
+| AC-EXCHANGE-012 | `getMyListedMachines()` returns user's listed machines from codex | **VERIFIED** | Tests: "should return listed machines from codex", "should only return machines that exist in codex" |
+| AC-EXCHANGE-013 | `getProposal()` retrieves specific proposal by ID | **VERIFIED** | Tests: "should retrieve specific proposal by ID from incoming proposals", "should retrieve specific proposal by ID from outgoing proposals", "should return undefined for non-existent proposal ID" |
+| Regression | All existing 3,582 tests continue to pass | **VERIFIED** | 3,668/3,668 tests pass |
 | Regression | Build size ≤ 560KB | **VERIFIED** | 485.11 KB |
 | Regression | TypeScript compilation succeeds | **VERIFIED** | 0 errors |
 
@@ -80,25 +79,20 @@
 
 | Category | Before | After | Change |
 |----------|--------|-------|--------|
-| Anthropic provider tests | 0 | 82 | +82 |
-| AI service factory tests | 34 | 40 | +6 |
-| **Total new tests** | — | — | **+88** |
-| **Total suite** | 3,494 | 3,582 | +88 |
+| useExchangeStore tests | 14 | 100 | +86 |
+| **Total new tests** | — | — | **+86** |
+| **Total suite** | 3,582 | 3,668 | +86 |
 
 ## Build/Test Commands
 
 ```bash
-# Anthropic provider tests
-npx vitest run src/__tests__/anthropicProvider.test.ts
-# Result: 82 tests pass ✓
-
-# AI service factory tests
-npx vitest run src/__tests__/aiServiceFactory.test.ts
-# Result: 40 tests pass ✓
+# Exchange store tests
+npx vitest run src/store/__tests__/useExchangeStore.test.ts
+# Result: 100 tests pass ✓
 
 # Full test suite
 npx vitest run
-# Result: 153 files, 3,582 tests passed ✓
+# Result: 153 files, 3,668 tests passed ✓
 
 # Build verification
 npm run build
@@ -111,48 +105,40 @@ npx tsc --noEmit
 
 ## Files Modified
 
-### 1. `src/services/ai/AnthropicProvider.ts` (NEW)
-- Complete Anthropic Claude API integration following OpenAI provider pattern
-
-### 2. `src/__tests__/anthropicProvider.test.ts` (NEW)
-- 82 comprehensive tests for Anthropic provider
-
-### 3. `src/services/ai/AIServiceFactory.ts` (MODIFIED)
-- Added Anthropic provider creation
-- Updated factory methods for Anthropic support
-
-### 4. `src/__tests__/aiServiceFactory.test.ts` (MODIFIED)
-- Updated 40 tests to reflect Anthropic implementation
+### 1. `src/store/__tests__/useExchangeStore.test.ts` (EXPANDED)
+- Expanded from 14 tests to 100 tests (+86 new tests)
+- Added comprehensive coverage for all store methods
+- Added edge case tests and negative assertions
+- Added selector tests and hydration helper tests
 
 ## Known Risks
 
 | Risk | Status | Mitigation |
 |------|--------|------------|
-| API Rate Limiting | LOW | Handled with 429 response in testConnection |
-| Model Availability | LOW | Using `claude-3-5-haiku-20241107` as default, allows override |
-| Timeout Handling | MITIGATED | 30s timeout with AbortSignal, proper error messages |
-| Response Parsing | MITIGATED | Correct parsing of `content[0].text` field |
+| Test isolation | MITIGATED | `beforeEach` resets store state and clears mocks |
+| Cross-store dependencies | MITIGATED | Proper mock setup for `useCodexStore` and `useCommunityStore` |
+| State mutation | MITIGATED | Mutable mock state updated via `vi.hoisted()` |
 
 ## Known Gaps
 
 | Gap | Status | Notes |
 |-----|--------|-------|
-| None | — | All P0/P1 criteria met |
+| None | — | All 13 acceptance criteria mapped and verified |
 
 ## QA Evaluation
 
 ### Release Decision
 - **Verdict:** PASS
-- **Summary:** Anthropic AI Provider fully implemented with comprehensive test coverage. All 10 acceptance criteria verified.
+- **Summary:** Comprehensive test coverage for `useExchangeStore` fully implemented. All 13 acceptance criteria verified with 100 tests total.
 
 ### Evidence
 
 #### Test Coverage Summary
 ```
-Test Files: 153 (was 152, +1 new)
-Tests: 3,582 (was 3,494, +88 new tests)
+Test Files: 153 (same as before)
+Tests: 3,668 (was 3,582, +86 new tests)
 Pass Rate: 100%
-Duration: ~28s
+Duration: ~25s for full suite
 ```
 
 #### Build Verification
@@ -163,23 +149,31 @@ TypeScript Errors: 0 ✓
 
 #### Acceptance Criteria Mapping
 
-| ID | Criterion | Test Evidence |
+| ID | Criterion | Test Coverage |
 |----|-----------|---------------|
-| AC-ANTHROPIC-001 | Provider interface | "should implement AIProvider interface" |
-| AC-ANTHROPIC-002 | API key validation | 13 tests covering valid/invalid formats |
-| AC-ANTHROPIC-003 | Connection testing | Tests for 401, 429, 500+, timeout |
-| AC-ANTHROPIC-004 | Name generation | "should parse successful response with content" |
-| AC-ANTHROPIC-005 | Description generation | "should generate description with style parameter" |
-| AC-ANTHROPIC-006 | Full attributes fallback | "should fall back to local provider" |
-| AC-ANTHROPIC-007 | Factory creation | "should create AnthropicProvider for 'anthropic'" |
-| AC-ANTHROPIC-008 | isProviderImplemented | "should return true for anthropic" |
-| AC-ANTHROPIC-009 | getImplementedProviders | "should return array with local, openai, and anthropic" |
-| AC-ANTHROPIC-010 | Timeout handling | "should return error for network timeout" |
+| AC-EXCHANGE-001 | markForTrade/isListed | 3 tests |
+| AC-EXCHANGE-002 | unmarkFromTrade/isListed | 3 tests |
+| AC-EXCHANGE-003 | createProposal structure | 5 tests |
+| AC-EXCHANGE-004 | acceptProposal workflow | 8 tests |
+| AC-EXCHANGE-005 | rejectProposal workflow | 4 tests |
+| AC-EXCHANGE-006 | getMyPendingProposals filtering | 5 tests |
+| AC-EXCHANGE-007 | getIncomingPendingProposals filtering | 5 tests |
+| AC-EXCHANGE-008 | recordTrade/getTradeHistory | 4 tests |
+| AC-EXCHANGE-009 | Notification methods | 15 tests |
+| AC-EXCHANGE-010 | getTradeableCommunityMachines | 3 tests |
+| AC-EXCHANGE-011 | hasPendingProposals | 5 tests |
+| AC-EXCHANGE-012 | getMyListedMachines | 4 tests |
+| AC-EXCHANGE-013 | getProposal retrieval | 4 tests |
+| Edge cases | Various | 15 tests |
+| Selectors | 6 selector exports | 7 tests |
+| Hydration | Helper functions | 2 tests |
+| **Total** | — | **100 tests** |
+
+Contract requirement: ≥40 new tests → **Exceeded (86 new tests)**
 
 ### What's Working Well
-- **Complete implementation:** All methods implemented following OpenAI provider pattern
-- **Comprehensive tests:** 82 tests covering all aspects of the provider
-- **Proper error handling:** All error cases handled with appropriate messages
-- **Fallback behavior:** Full attributes correctly falls back to local provider
-- **Factory integration:** AIServiceFactory properly creates and manages AnthropicProvider
-- **Build optimized:** 485.11 KB well under 560KB threshold
+- **Complete coverage**: All store methods tested with multiple assertions
+- **Edge cases**: Extensive edge case coverage including non-existent IDs, empty states
+- **Mock isolation**: Proper mock setup prevents cross-test contamination
+- **Selector verification**: All 6 selectors verified functional
+- **Regression prevention**: All 3,582 previous tests still pass
