@@ -5,6 +5,8 @@
  * Also handles research system for tech tree progression.
  * Includes tech bonus system for machine attribute enhancements.
  * Persists to localStorage for user progress.
+ * 
+ * ROUND 102: Recipe System Integration - completeResearch now calls recipe store
  */
 
 import { create } from 'zustand';
@@ -99,7 +101,7 @@ interface FactionReputationState {
   /**
    * Get tech bonus for a module type and stat
    * Returns the bonus percentage for the module's faction's highest completed tier
-   * Higher tiers REPLACE lower tiers (don't stack)
+   * Higher tiers REPLACE lower tiers (they don't stack)
    */
   getTechBonus: (moduleType: string, statType: BonusStatType) => number;
   
@@ -267,7 +269,8 @@ export const useFactionReputationStore = create<FactionReputationState>()(
 
       /**
        * Complete a research and unlock the tech
-       * Calls unlockTechTreeNode on the faction store
+       * ROUND 102: Recipe System Integration - also triggers recipe unlock checks
+       * Calls unlockTechTreeNode on the faction store and checkTechLevelUnlocks on the recipe store
        */
       completeResearch: (techId: string, factionId: string) => {
         const state = get();
@@ -297,6 +300,18 @@ export const useFactionReputationStore = create<FactionReputationState>()(
         
         // Unlock the tech tree node in faction store
         useFactionStore.getState().unlockTechTreeNode(techId);
+        
+        // ROUND 102: Recipe System Integration
+        // Check if this research completion unlocks any recipes
+        // Use setTimeout to ensure the state is updated first
+        setTimeout(() => {
+          // Dynamic import to avoid circular dependency at module load time
+          import('./useRecipeStore').then(({ useRecipeStore }) => {
+            useRecipeStore.getState().checkTechLevelUnlocks();
+          }).catch((err) => {
+            console.warn('[FactionReputationStore] Failed to import recipe store:', err);
+          });
+        }, 0);
       },
 
       /**
@@ -417,7 +432,7 @@ export const useFactionReputationStore = create<FactionReputationState>()(
       /**
        * Get tech bonus for a module type and stat
        * Returns the bonus percentage for the module's faction's highest completed tier
-       * Higher tiers REPLACE lower tiers (don't stack)
+       * Higher tiers REPLACE lower tiers (they don't stack)
        */
       getTechBonus: (moduleType: string, statType: BonusStatType): number => {
         const faction = getFactionForModule(moduleType);
@@ -625,7 +640,7 @@ export const useFactionReputationStore = create<FactionReputationState>()(
       name: 'arcane-machine-reputation-store',
       
       /** Version for future migrations */
-      version: 3, // Incremented to handle completedResearch reset
+      version: 4, // ROUND 102: Incremented version for recipe system integration
       
       /** Partialize to only persist specific fields */
       partialize: (state) => ({

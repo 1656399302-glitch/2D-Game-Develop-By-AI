@@ -15,6 +15,7 @@ interface CodexStore {
   getEntry: (id: string) => CodexEntry | undefined;
   getEntriesByRarity: (rarity: Rarity) => CodexEntry[];
   getEntryCount: () => number;
+  checkRecipeUnlocks: () => void;
 }
 
 export const useCodexStore = create<CodexStore>()(
@@ -38,6 +39,12 @@ export const useCodexStore = create<CodexStore>()(
           entries: [...state.entries, entry],
         }));
 
+        // ROUND 102: Recipe System Integration
+        // Check if machine creation unlocks any recipes
+        setTimeout(() => {
+          get().checkRecipeUnlocks();
+        }, 0);
+
         return entry;
       },
 
@@ -58,6 +65,21 @@ export const useCodexStore = create<CodexStore>()(
       getEntryCount: () => {
         return get().entries.length;
       },
+
+      /**
+       * ROUND 102: Recipe System Integration
+       * Check if machine creation count unlocks any recipes
+       * Called after a machine is saved to the codex
+       */
+      checkRecipeUnlocks: () => {
+        // Dynamic import to avoid circular dependency at module load time
+        import('./useRecipeStore').then(({ useRecipeStore }) => {
+          const currentCount = get().entries.length;
+          useRecipeStore.getState().checkMachinesCreatedUnlock(currentCount);
+        }).catch((err) => {
+          console.warn('[CodexStore] Failed to import recipe store:', err);
+        });
+      },
     }),
     {
       name: 'arcane-codex-storage',
@@ -76,3 +98,17 @@ export const hydrateCodexStore = () => {
 export const isCodexHydrated = () => {
   return useCodexStore.persist.hasHydrated();
 };
+
+/**
+ * Hook to get codex entries count
+ */
+export function useCodexEntryCount() {
+  return useCodexStore((state) => state.entries.length);
+}
+
+/**
+ * Hook to get all codex entries
+ */
+export function useCodexEntries() {
+  return useCodexStore((state) => state.entries);
+}

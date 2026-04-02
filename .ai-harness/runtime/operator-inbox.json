@@ -26,6 +26,19 @@
       "processed_round": 85,
       "result": "Injected into contract phase of round 85",
       "metadata": {}
+    },
+    {
+      "id": "operator-item-1775113667868",
+      "content": "\u68c0\u67e5\u4e00\u4e0b\u5b58\u6863\u5f39\u7a97\uff0c\u6211\u4e0d\u7ba1\u662f\u9009\u62e9Save\u8fd8\u662f\u5f00\u542f\u65b0\u5b58\u6863\uff0c\u90fd\u4f1a\u88ab\u5361\u4f4f",
+      "scope": "next_round",
+      "mode": "must_fix",
+      "status": "pending",
+      "created_at": 1775113667.868481,
+      "processed_at": null,
+      "processed_phase": null,
+      "processed_round": null,
+      "result": "",
+      "metadata": {}
     }
   ]
 }
