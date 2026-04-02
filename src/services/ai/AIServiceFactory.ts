@@ -9,6 +9,7 @@ import { AIProvider } from './AIProvider';
 import { LocalAIProvider } from './LocalAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import { AnthropicProvider } from './AnthropicProvider';
+import { GeminiProvider } from './providers/GeminiProvider';
 import { AIProviderConfig, ConfigValidationResult } from './types';
 
 /**
@@ -59,16 +60,10 @@ export function createProvider(
       return new AnthropicProvider(config);
 
     case 'gemini':
-      // Future: Implement actual Gemini provider here
-      // For now, fall back to local provider with warning
-      console.warn(
-        `[AIServiceFactory] Provider '${type}' not yet implemented. ` +
-        'Falling back to local provider. AI integration coming soon.'
-      );
-      return new LocalAIProvider({
-        type: 'local',
-        ...config,
-      });
+      // Create Gemini provider with config
+      // If API key is invalid or missing, it will still create the provider
+      // but isAvailable() will return false
+      return new GeminiProvider(config);
 
     default:
       throw new AIProviderFactoryError(
@@ -161,7 +156,7 @@ export function validateProviderConfig(
       };
 
     case 'gemini':
-      // Gemini requires API key (not yet implemented)
+      // Gemini requires API key
       if (!config?.apiKey) {
         return {
           isValid: false,
@@ -170,9 +165,25 @@ export function validateProviderConfig(
         };
       }
 
+      // Validate API key format
+      const geminiValidation = GeminiProvider.validateAPIKey(config.apiKey);
+      if (!geminiValidation.isValid) {
+        return {
+          isValid: false,
+          error: geminiValidation.error,
+          warnings: ['Local provider will be used as fallback'],
+        };
+      }
+
+      // Check for warnings about incomplete configuration
+      const geminiWarnings: string[] = [];
+      if (!config.model) {
+        geminiWarnings.push(`Provider '${type}' is using default model (gemini-pro). Consider specifying a model.`);
+      }
+
       return {
         isValid: true,
-        warnings: [`Provider '${type}' is not yet implemented. Using local provider.`],
+        warnings: geminiWarnings,
       };
 
     default:
@@ -277,7 +288,7 @@ export function createProviderFromConfig(config: AIProviderConfig): AIProvider {
  * @returns True if provider is fully implemented
  */
 export function isProviderImplemented(type: ProviderType): boolean {
-  return type === 'local' || type === 'openai' || type === 'anthropic';
+  return type === 'local' || type === 'openai' || type === 'anthropic' || type === 'gemini';
 }
 
 /**
@@ -286,7 +297,7 @@ export function isProviderImplemented(type: ProviderType): boolean {
  * @returns Array of implemented provider type identifiers
  */
 export function getImplementedProviders(): ProviderType[] {
-  return ['local', 'openai', 'anthropic'];
+  return ['local', 'openai', 'anthropic', 'gemini'];
 }
 
 /**

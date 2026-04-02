@@ -18,6 +18,7 @@ import {
 import { LocalAIProvider } from '../services/ai/LocalAIProvider';
 import { OpenAIProvider } from '../services/ai/OpenAIProvider';
 import { AnthropicProvider } from '../services/ai/AnthropicProvider';
+import { GeminiProvider } from '../services/ai/providers/GeminiProvider';
 import { AIProvider } from '../services/ai/AIProvider';
 
 describe('AIServiceFactory', () => {
@@ -59,10 +60,19 @@ describe('AIServiceFactory', () => {
       expect(provider.isAvailable()).toBe(false); // No API key = not available
     });
 
-    it('should create LocalAIProvider as fallback for "gemini" without config (AC3)', () => {
+    it('should create GeminiProvider for "gemini" (AC-104-001)', () => {
+      const provider = createProvider('gemini', {
+        apiKey: 'AIza_test_123456789012345678901234567890',
+      });
+      expect(provider).toBeInstanceOf(GeminiProvider);
+      expect(provider.providerType).toBe('gemini');
+    });
+
+    it('should create GeminiProvider for "gemini" without config (creates provider but not available)', () => {
       const provider = createProvider('gemini', {});
-      expect(provider).toBeInstanceOf(LocalAIProvider);
-      expect(provider.providerType).toBe('local');
+      expect(provider).toBeInstanceOf(GeminiProvider);
+      expect(provider.providerType).toBe('gemini');
+      expect(provider.isAvailable()).toBe(false); // No API key = not available
     });
 
     it('should handle unknown provider types gracefully', () => {
@@ -129,9 +139,15 @@ describe('AIServiceFactory', () => {
       expect(result.isValid).toBe(false);
     });
 
-    it('should validate gemini with apiKey', () => {
-      const result = validateProviderConfig('gemini', { apiKey: 'test-key' });
+    it('should validate gemini with apiKey (AC-104-001)', () => {
+      const result = validateProviderConfig('gemini', { apiKey: 'AIza_test_123456789012345678901234567890' });
       expect(result.isValid).toBe(true);
+    });
+
+    it('should invalidate gemini with short key', () => {
+      const result = validateProviderConfig('gemini', { apiKey: 'short' });
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('30 characters');
     });
 
     it('should invalidate unknown provider types', () => {
@@ -160,7 +176,7 @@ describe('AIServiceFactory', () => {
       expect(config.model).toBe('claude-3-5-haiku-20241107');
     });
 
-    it('should return gemini config with default model', () => {
+    it('should return gemini config with default model (AC-104-001)', () => {
       const config = getDefaultProviderConfig('gemini');
       expect(config.type).toBe('gemini');
       expect(config.model).toBe('gemini-pro');
@@ -194,6 +210,15 @@ describe('AIServiceFactory', () => {
       expect(provider).toBeInstanceOf(AnthropicProvider);
     });
 
+    it('should create GeminiProvider from valid gemini config (AC-104-001)', () => {
+      const config = {
+        type: 'gemini' as const,
+        apiKey: 'AIza_test_123456789012345678901234567890',
+      };
+      const provider = createProviderFromConfig(config);
+      expect(provider).toBeInstanceOf(GeminiProvider);
+    });
+
     it('should create local fallback from invalid openai config', () => {
       const config = {
         type: 'openai' as const,
@@ -207,6 +232,14 @@ describe('AIServiceFactory', () => {
       // Without API key, the config is invalid, so it falls back to LocalAIProvider
       const config = {
         type: 'anthropic' as const,
+      };
+      const provider = createProviderFromConfig(config);
+      expect(provider).toBeInstanceOf(LocalAIProvider);
+    });
+
+    it('should create LocalAIProvider fallback from invalid gemini config (no API key)', () => {
+      const config = {
+        type: 'gemini' as const,
       };
       const provider = createProviderFromConfig(config);
       expect(provider).toBeInstanceOf(LocalAIProvider);
@@ -243,18 +276,19 @@ describe('AIServiceFactory', () => {
       expect(isProviderImplemented('anthropic')).toBe(true);
     });
 
-    it('should return false for gemini', () => {
-      expect(isProviderImplemented('gemini')).toBe(false);
+    it('should return true for gemini (AC-104-001)', () => {
+      expect(isProviderImplemented('gemini')).toBe(true);
     });
   });
 
   describe('getImplementedProviders', () => {
-    it('should return array with local, openai, and anthropic (AC-ANTHROPIC-009)', () => {
+    it('should return array with local, openai, anthropic, and gemini', () => {
       const providers = getImplementedProviders();
       expect(providers).toContain('local');
       expect(providers).toContain('openai');
       expect(providers).toContain('anthropic');
-      expect(providers).toHaveLength(3);
+      expect(providers).toContain('gemini');
+      expect(providers).toHaveLength(4);
     });
   });
 
@@ -297,9 +331,9 @@ describe('AIServiceFactory', () => {
       provider = createProvider('anthropic', { apiKey: 'sk-ant-test-1234567890123456789012345678' });
       expect(provider.providerType).toBe('anthropic');
 
-      // Switch to gemini (falls back to local - not implemented)
-      provider = createProvider('gemini', { apiKey: 'test' });
-      expect(provider.providerType).toBe('local');
+      // Switch to gemini (now implemented)
+      provider = createProvider('gemini', { apiKey: 'AIza_test_123456789012345678901234567890' });
+      expect(provider.providerType).toBe('gemini');
     });
 
     it('should create correct provider types on multiple creates', () => {
@@ -307,7 +341,7 @@ describe('AIServiceFactory', () => {
         createProvider('local'),
         createProvider('openai', { apiKey: 'sk-valid-api-key-for-testing-1234567890' }),
         createProvider('anthropic', { apiKey: 'sk-ant-test-1234567890123456789012345678' }),
-        createProvider('gemini'),
+        createProvider('gemini', { apiKey: 'AIza_test_123456789012345678901234567890' }),
       ];
 
       // First should be LocalAIProvider
@@ -319,8 +353,8 @@ describe('AIServiceFactory', () => {
       // Third should be AnthropicProvider
       expect(providers[2]).toBeInstanceOf(AnthropicProvider);
       
-      // Fourth should fallback to LocalAIProvider (gemini not implemented)
-      expect(providers[3]).toBeInstanceOf(LocalAIProvider);
+      // Fourth should be GeminiProvider (now implemented)
+      expect(providers[3]).toBeInstanceOf(GeminiProvider);
     });
   });
 });
