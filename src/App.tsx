@@ -3,7 +3,7 @@ import { Canvas } from './components/Editor/Canvas';
 import { ModulePanel } from './components/Editor/ModulePanel';
 import { PropertiesPanel } from './components/Editor/PropertiesPanel';
 import { Toolbar } from './components/Editor/Toolbar';
-import { ExportModal } from './components/Export/ExportModal';
+import { ExportDialog } from './components/Export/ExportDialog';
 import { ActivationOverlay } from './components/Preview/ActivationOverlay';
 import { ConnectionErrorFeedback } from './components/UI/ConnectionErrorFeedback';
 import { RandomForgeToast } from './components/UI/RandomForgeToast';
@@ -120,8 +120,7 @@ function AppContent() {
   const loadMachine = useMachineStore((state) => state.loadMachine);
   const setMachineState = useMachineStore((state) => state.setMachineState);
   const setShowActivation = useMachineStore((state) => state.setShowActivation);
-  const setShowExportModal = useMachineStore((state) => state.setShowExportModal);
-  const setShowCodexModal = useMachineStore((state) => state.setShowCodexModal);
+    const setShowCodexModal = useMachineStore((state) => state.setShowCodexModal);
   const markStateAsLoaded = useMachineStore((state) => state.markStateAsLoaded);
   
   // FIX: Store markStateAsLoaded in ref to avoid dependency array issues
@@ -133,7 +132,6 @@ function AppContent() {
   // Community store - FIX: Use selectors
   const isGalleryOpen = useCommunityStore((state) => state.isGalleryOpen);
   const isPublishModalOpen = useCommunityStore((state) => state.isPublishModalOpen);
-  const openPublishModal = useCommunityStore((state) => state.openPublishModal);
   
   // Machine stats store for statistics dashboard - FIX: Use selectors
   const isStatsPanelOpen = useMachineStatsStore((state) => state.isPanelOpen);
@@ -379,16 +377,6 @@ function AppContent() {
     setViewMode('editor');
   }, [loadMachine]);
   
-  const handlePublishToGallery = useCallback(() => {
-    if (modules.length === 0) {
-      alert('请至少添加一个模块再分享到社区。');
-      return;
-    }
-    
-    const attributes = generateAttributes(modules, connections);
-    const faction = calculateFaction(modules);
-    openPublishModal(modules, connections, attributes, faction || 'stellar');
-  }, [modules, connections, openPublishModal]);
 
   // Desktop layout
   if (!viewport.isMobile) {
@@ -573,7 +561,7 @@ function AppContent() {
         )}
         
         {/* Modals */}
-        {showExport && <ExportModal onClose={() => { setShowExport(false); setShowExportModal(false); }} onPublishToGallery={handlePublishToGallery} />}
+        {showExport && <ExportDialog onClose={() => setShowExport(false)} />}
         
         {showCodex && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
