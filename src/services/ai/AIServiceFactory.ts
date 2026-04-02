@@ -8,6 +8,7 @@
 import { AIProvider } from './AIProvider';
 import { LocalAIProvider } from './LocalAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';
+import { AnthropicProvider } from './AnthropicProvider';
 import { AIProviderConfig, ConfigValidationResult } from './types';
 
 /**
@@ -52,8 +53,13 @@ export function createProvider(
       return new OpenAIProvider(config);
 
     case 'anthropic':
+      // Create Anthropic provider with config
+      // If API key is invalid or missing, it will still create the provider
+      // but isAvailable() will return false
+      return new AnthropicProvider(config);
+
     case 'gemini':
-      // Future: Implement actual AI providers here
+      // Future: Implement actual Gemini provider here
       // For now, fall back to local provider with warning
       console.warn(
         `[AIServiceFactory] Provider '${type}' not yet implemented. ` +
@@ -103,11 +109,11 @@ export function validateProviderConfig(
       }
 
       // Validate API key format
-      const validation = OpenAIProvider.validateAPIKey(config.apiKey);
-      if (!validation.isValid) {
+      const openaiValidation = OpenAIProvider.validateAPIKey(config.apiKey);
+      if (!openaiValidation.isValid) {
         return {
           isValid: false,
-          error: validation.error,
+          error: openaiValidation.error,
           warnings: ['Local provider will be used as fallback'],
         };
       }
@@ -124,8 +130,38 @@ export function validateProviderConfig(
       };
 
     case 'anthropic':
+      // Anthropic requires API key
+      if (!config?.apiKey) {
+        return {
+          isValid: false,
+          error: `Provider '${type}' requires an API key.`,
+          warnings: ['Local provider will be used as fallback'],
+        };
+      }
+
+      // Validate API key format
+      const anthropicValidation = AnthropicProvider.validateAPIKey(config.apiKey);
+      if (!anthropicValidation.isValid) {
+        return {
+          isValid: false,
+          error: anthropicValidation.error,
+          warnings: ['Local provider will be used as fallback'],
+        };
+      }
+
+      // Check for warnings about incomplete configuration
+      const anthropicWarnings: string[] = [];
+      if (!config.model) {
+        anthropicWarnings.push(`Provider '${type}' is using default model (claude-3-5-haiku-20241107). Consider specifying a model.`);
+      }
+
+      return {
+        isValid: true,
+        warnings: anthropicWarnings,
+      };
+
     case 'gemini':
-      // These require API keys (not yet implemented)
+      // Gemini requires API key (not yet implemented)
       if (!config?.apiKey) {
         return {
           isValid: false,
@@ -178,7 +214,7 @@ export function getDefaultProviderConfig(type: ProviderType): AIProviderConfig {
       return {
         ...baseConfig,
         type: 'anthropic',
-        model: 'claude-3-sonnet-20240229',
+        model: 'claude-3-5-haiku-20241107',
       } as AIProviderConfig;
 
     case 'gemini':
@@ -241,7 +277,7 @@ export function createProviderFromConfig(config: AIProviderConfig): AIProvider {
  * @returns True if provider is fully implemented
  */
 export function isProviderImplemented(type: ProviderType): boolean {
-  return type === 'local' || type === 'openai';
+  return type === 'local' || type === 'openai' || type === 'anthropic';
 }
 
 /**
@@ -250,7 +286,7 @@ export function isProviderImplemented(type: ProviderType): boolean {
  * @returns Array of implemented provider type identifiers
  */
 export function getImplementedProviders(): ProviderType[] {
-  return ['local', 'openai'];
+  return ['local', 'openai', 'anthropic'];
 }
 
 /**
@@ -261,3 +297,13 @@ export function getImplementedProviders(): ProviderType[] {
 export function getAvailableProviders(): ProviderType[] {
   return ['local', 'openai', 'anthropic', 'gemini'];
 }
+
+export default {
+  createProvider,
+  validateProviderConfig,
+  getDefaultProviderConfig,
+  createProviderFromConfig,
+  isProviderImplemented,
+  getImplementedProviders,
+  getAvailableProviders,
+};

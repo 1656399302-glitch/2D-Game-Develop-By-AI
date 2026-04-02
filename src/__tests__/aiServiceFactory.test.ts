@@ -17,6 +17,7 @@ import {
 } from '../services/ai/AIServiceFactory';
 import { LocalAIProvider } from '../services/ai/LocalAIProvider';
 import { OpenAIProvider } from '../services/ai/OpenAIProvider';
+import { AnthropicProvider } from '../services/ai/AnthropicProvider';
 import { AIProvider } from '../services/ai/AIProvider';
 
 describe('AIServiceFactory', () => {
@@ -43,10 +44,19 @@ describe('AIServiceFactory', () => {
       expect(provider.isAvailable()).toBe(false); // No API key = not available
     });
 
-    it('should create LocalAIProvider as fallback for "anthropic" without config (AC3)', () => {
+    it('should create AnthropicProvider for "anthropic" (AC-ANTHROPIC-007)', () => {
+      const provider = createProvider('anthropic', {
+        apiKey: 'sk-ant-test-1234567890123456789012345678',
+      });
+      expect(provider).toBeInstanceOf(AnthropicProvider);
+      expect(provider.providerType).toBe('anthropic');
+    });
+
+    it('should create AnthropicProvider for "anthropic" without config (creates provider but not available)', () => {
       const provider = createProvider('anthropic', {});
-      expect(provider).toBeInstanceOf(LocalAIProvider);
-      expect(provider.providerType).toBe('local');
+      expect(provider).toBeInstanceOf(AnthropicProvider);
+      expect(provider.providerType).toBe('anthropic');
+      expect(provider.isAvailable()).toBe(false); // No API key = not available
     });
 
     it('should create LocalAIProvider as fallback for "gemini" without config (AC3)', () => {
@@ -91,9 +101,27 @@ describe('AIServiceFactory', () => {
       expect(result.warnings).toContainEqual(expect.stringContaining('model'));
     });
 
-    it('should validate anthropic with apiKey', () => {
-      const result = validateProviderConfig('anthropic', { apiKey: 'test-key' });
+    it('should validate anthropic with properly formatted apiKey (AC-ANTHROPIC-002)', () => {
+      const result = validateProviderConfig('anthropic', { apiKey: 'sk-ant-test-1234567890123456789012345678' });
       expect(result.isValid).toBe(true);
+    });
+
+    it('should invalidate anthropic without apiKey', () => {
+      const result = validateProviderConfig('anthropic', {});
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('API key');
+    });
+
+    it('should invalidate anthropic with invalid key format', () => {
+      const result = validateProviderConfig('anthropic', { apiKey: 'invalid-key' });
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain("'sk-ant-'");
+    });
+
+    it('should warn about missing model for anthropic', () => {
+      const result = validateProviderConfig('anthropic', { apiKey: 'sk-ant-test-1234567890123456789012345678' });
+      expect(result.isValid).toBe(true);
+      expect(result.warnings).toContainEqual(expect.stringContaining('model'));
     });
 
     it('should invalidate gemini without apiKey', () => {
@@ -126,10 +154,10 @@ describe('AIServiceFactory', () => {
       expect(config.model).toBe('gpt-3.5-turbo');
     });
 
-    it('should return anthropic config with default model', () => {
+    it('should return anthropic config with default model (AC-ANTHROPIC-007)', () => {
       const config = getDefaultProviderConfig('anthropic');
       expect(config.type).toBe('anthropic');
-      expect(config.model).toBe('claude-3-sonnet-20240229');
+      expect(config.model).toBe('claude-3-5-haiku-20241107');
     });
 
     it('should return gemini config with default model', () => {
@@ -157,10 +185,28 @@ describe('AIServiceFactory', () => {
       expect(provider).toBeInstanceOf(OpenAIProvider);
     });
 
+    it('should create AnthropicProvider from valid anthropic config (AC-ANTHROPIC-007)', () => {
+      const config = {
+        type: 'anthropic' as const,
+        apiKey: 'sk-ant-test-1234567890123456789012345678',
+      };
+      const provider = createProviderFromConfig(config);
+      expect(provider).toBeInstanceOf(AnthropicProvider);
+    });
+
     it('should create local fallback from invalid openai config', () => {
       const config = {
         type: 'openai' as const,
         // Missing apiKey
+      };
+      const provider = createProviderFromConfig(config);
+      expect(provider).toBeInstanceOf(LocalAIProvider);
+    });
+
+    it('should create LocalAIProvider fallback from invalid anthropic config (no API key)', () => {
+      // Without API key, the config is invalid, so it falls back to LocalAIProvider
+      const config = {
+        type: 'anthropic' as const,
       };
       const provider = createProviderFromConfig(config);
       expect(provider).toBeInstanceOf(LocalAIProvider);
@@ -193,8 +239,8 @@ describe('AIServiceFactory', () => {
       expect(isProviderImplemented('openai')).toBe(true);
     });
 
-    it('should return false for anthropic', () => {
-      expect(isProviderImplemented('anthropic')).toBe(false);
+    it('should return true for anthropic (AC-ANTHROPIC-008)', () => {
+      expect(isProviderImplemented('anthropic')).toBe(true);
     });
 
     it('should return false for gemini', () => {
@@ -203,11 +249,12 @@ describe('AIServiceFactory', () => {
   });
 
   describe('getImplementedProviders', () => {
-    it('should return array with local and openai', () => {
+    it('should return array with local, openai, and anthropic (AC-ANTHROPIC-009)', () => {
       const providers = getImplementedProviders();
       expect(providers).toContain('local');
       expect(providers).toContain('openai');
-      expect(providers).toHaveLength(2);
+      expect(providers).toContain('anthropic');
+      expect(providers).toHaveLength(3);
     });
   });
 
@@ -246,8 +293,12 @@ describe('AIServiceFactory', () => {
       provider = createProvider('openai', { apiKey: 'sk-valid-api-key-for-testing-1234567890' });
       expect(provider.providerType).toBe('openai');
 
-      // Switch to anthropic (falls back to local - not implemented)
-      provider = createProvider('anthropic', { apiKey: 'test' });
+      // Switch to anthropic
+      provider = createProvider('anthropic', { apiKey: 'sk-ant-test-1234567890123456789012345678' });
+      expect(provider.providerType).toBe('anthropic');
+
+      // Switch to gemini (falls back to local - not implemented)
+      provider = createProvider('gemini', { apiKey: 'test' });
       expect(provider.providerType).toBe('local');
     });
 
@@ -255,18 +306,20 @@ describe('AIServiceFactory', () => {
       const providers = [
         createProvider('local'),
         createProvider('openai', { apiKey: 'sk-valid-api-key-for-testing-1234567890' }),
-        createProvider('local'),
-        createProvider('anthropic'),
+        createProvider('anthropic', { apiKey: 'sk-ant-test-1234567890123456789012345678' }),
+        createProvider('gemini'),
       ];
 
-      // First and third should be LocalAIProvider
+      // First should be LocalAIProvider
       expect(providers[0]).toBeInstanceOf(LocalAIProvider);
-      expect(providers[2]).toBeInstanceOf(LocalAIProvider);
       
       // Second should be OpenAIProvider
       expect(providers[1]).toBeInstanceOf(OpenAIProvider);
       
-      // Fourth should fallback to LocalAIProvider (anthropic not implemented)
+      // Third should be AnthropicProvider
+      expect(providers[2]).toBeInstanceOf(AnthropicProvider);
+      
+      // Fourth should fallback to LocalAIProvider (gemini not implemented)
       expect(providers[3]).toBeInstanceOf(LocalAIProvider);
     });
   });
