@@ -1,27 +1,31 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { getRarityColor, calculateShakeOffset } from '../../utils/activationChoreographer';
+import { 
+  calculateVignetteOpacity, 
+  calculateShakeIntensity, 
+  calculateShakeDuration,
+  getVignetteColor,
+  getFactionGlowRGB,
+  calculateDominantFaction,
+  calculateGlowRadius,
+  calculateGlowIntensity,
+} from '../../utils/activation/effects';
 import { Rarity } from '../../types';
 import { AmbientDustEmitter } from '../Particles';
 
 interface ActivationOverlayProps {
   onComplete: () => void;
+  /** Power output for visual intensity scaling (0-100) */
+  powerOutput?: number;
+  /** Module types for faction detection */
+  moduleTypes?: string[];
 }
 
 type Phase = 'idle' | 'charging' | 'activating' | 'online' | 'failure' | 'overload' | 'shutdown';
 
-// Shake intensity constants
-const FAILURE_SHAKE_INTENSITY = 8;
-const OVERLOAD_SHAKE_INTENSITY = 8;
-const NORMAL_SHAKE_INTENSITY = 4;
-const CHARGING_SHAKE_INTENSITY = 2;
-
 // Flicker interval
 const FLICKER_INTERVAL = 50;
-
-// Overload/failure vignette
-const VIGNETTE_TARGET_OPACITY = 0.4;
-const VIGNETTE_ANIMATION_DURATION = 200;
 
 // Flash effect
 const FLASH_DURATION = 100;
@@ -35,7 +39,7 @@ const PARTICLE_DURATION = 1000;
 const GLITCH_INTERVAL = 30;
 const NOISE_OPACITY = 0.05;
 
-export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
+export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = [] }: ActivationOverlayProps) {
   const [phase, setPhase] = useState<Phase>('charging');
   const [progress, setProgress] = useState(0);
   const [currentModuleIndex, setCurrentModuleIndex] = useState(-1);
@@ -49,6 +53,10 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   // Enhanced glitch/noise state
   const [showGlitch, setShowGlitch] = useState(false);
   const [noiseOffset, setNoiseOffset] = useState({ x: 0, y: 0 });
+  
+  // Glow effects state
+  const [glowRadius, setGlowRadius] = useState(1);
+  const [glowIntensity, setGlowIntensity] = useState(0.5);
   
   // Module burst effects - track which modules should show bursts
   const [, setActiveBursts] = useState<Set<string>>(new Set());
@@ -72,6 +80,28 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   
   const rarity: Rarity = generatedAttributes?.rarity || 'common';
   const rarityColor = getRarityColor(rarity);
+  
+  // Calculate dominant faction from module types
+  const dominantFaction = useMemo(() => {
+    const types = moduleTypes.length > 0 ? moduleTypes : modules.map(m => m.type);
+    return calculateDominantFaction(types);
+  }, [moduleTypes, modules]);
+  
+  // Get faction RGB for glow effects
+  const factionRGB = useMemo(() => getFactionGlowRGB(dominantFaction), [dominantFaction]);
+  
+  // Calculate faction-colored glow color
+  const factionGlowColor = useMemo(() => {
+    return `rgba(${factionRGB.r}, ${factionRGB.g}, ${factionRGB.b}, ${glowIntensity})`;
+  }, [factionRGB, glowIntensity]);
+  
+  // Update glow calculations based on power output
+  useEffect(() => {
+    const radius = calculateGlowRadius(powerOutput);
+    const intensity = calculateGlowIntensity(powerOutput);
+    setGlowRadius(radius);
+    setGlowIntensity(intensity);
+  }, [powerOutput]);
   
   // FIX: Sync all refs when store actions change
   useEffect(() => {
@@ -165,16 +195,18 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     triggerModuleBurstRef.current = triggerModuleBurst;
   }, [triggerModuleBurst]);
   
-  // Viewport shake effect
+  // Viewport shake effect - enhanced with effects utility
   const startShake = useCallback((intensity: number) => {
     if (shakeAnimationRef.current) {
       cancelAnimationFrame(shakeAnimationRef.current);
     }
     
     const startTime = performance.now();
+    const duration = calculateShakeDuration(machineState);
+    
     const shake = () => {
       const elapsed = Date.now() - startTime;
-      const offset = calculateShakeOffset(elapsed / 1000, intensity, 10000);
+      const offset = calculateShakeOffset(elapsed / 1000, intensity, duration / 1000);
       
       setViewportOffset({ x: offset.x, y: offset.y });
       
@@ -186,7 +218,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     };
     
     shake();
-  }, []);
+  }, [machineState]);
   
   // Store startShake in ref
   const startShakeRef = useRef(startShake);
@@ -236,9 +268,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     if (machineState === 'failure') {
       setPhase('failure');
       setProgress(100);
-      setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
       stopAmbientParticlesRef.current();
       endActivationZoomRef.current();
+      
+      // Calculate vignette using effects utility
+      const newVignetteOpacity = calculateVignetteOpacity('failure', powerOutput);
+      setVignetteOpacity(newVignetteOpacity);
       
       // Flicker effect
       flickerIntervalRef.current = setInterval(() => {
@@ -255,8 +290,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         setTimeout(() => setShowGlitch(false), GLITCH_INTERVAL);
       }, GLITCH_INTERVAL * 2);
       
-      // Start shake
-      startShakeRef.current(FAILURE_SHAKE_INTENSITY);
+      // Start shake using effects utility intensity
+      const shakeIntensity = calculateShakeIntensity('failure', powerOutput);
+      startShakeRef.current(shakeIntensity);
       
       return () => {
         if (flickerIntervalRef.current) {
@@ -269,9 +305,12 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     } else if (machineState === 'overload') {
       setPhase('overload');
       setProgress(100);
-      setVignetteOpacity(VIGNETTE_TARGET_OPACITY);
       stopAmbientParticlesRef.current();
       endActivationZoomRef.current();
+      
+      // Calculate vignette using effects utility
+      const newVignetteOpacity = calculateVignetteOpacity('overload', powerOutput);
+      setVignetteOpacity(newVignetteOpacity);
       
       // Faster flicker for overload
       flickerIntervalRef.current = setInterval(() => {
@@ -290,8 +329,9 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         }
       }, GLITCH_INTERVAL * 3);
       
-      // Start shake
-      startShakeRef.current(OVERLOAD_SHAKE_INTENSITY);
+      // Start shake using effects utility intensity
+      const shakeIntensity = calculateShakeIntensity('overload', powerOutput);
+      startShakeRef.current(shakeIntensity);
       
       return () => {
         if (flickerIntervalRef.current) {
@@ -302,7 +342,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         }
       };
     }
-  }, [machineState]); // Only depends on machineState, not on callbacks
+  }, [machineState, powerOutput]); // Only depends on machineState and powerOutput, not on callbacks
   
   // Main activation sequence - FIX: Use refs instead of direct function calls
   useEffect(() => {
@@ -312,7 +352,10 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     
     setMachineStateRef.current('charging');
     setShowAmbientParticles(true);
-    startShakeRef.current(CHARGING_SHAKE_INTENSITY);
+    
+    // Calculate shake intensity using effects utility
+    const shakeIntensity = calculateShakeIntensity('charging', powerOutput);
+    startShakeRef.current(shakeIntensity);
     
     // Start activation zoom to focus on machine
     startActivationZoomRef.current();
@@ -332,12 +375,20 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         const progressPercent = Math.min(elapsed / chargingDuration, 1);
         setProgress(progressPercent * 30);
         
+        // Update vignette during charging using effects utility
+        const vignetteValue = calculateVignetteOpacity('charging', powerOutput);
+        setVignetteOpacity(vignetteValue);
+        
         if (progressPercent >= 1) {
           triggerFlashRef.current();
           setPhase('activating');
           setMachineStateRef.current('active');
           startTime = Date.now();
-          startShakeRef.current(NORMAL_SHAKE_INTENSITY);
+          
+          // Calculate shake intensity for active state
+          const activeShakeIntensity = calculateShakeIntensity('active', powerOutput);
+          startShakeRef.current(activeShakeIntensity);
+          
           setActivationModuleIndexRef.current(0);
           
           // Trigger burst for first module (or trigger-switch if exists)
@@ -371,6 +422,10 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         const progressPercent = Math.min(elapsed / activatingDuration, 1);
         setProgress(30 + progressPercent * 50);
         
+        // Update vignette during active using effects utility
+        const vignetteValue = calculateVignetteOpacity('active', powerOutput);
+        setVignetteOpacity(vignetteValue);
+        
         if (currentModules.length > 0) {
           const moduleProgress = (elapsed / activatingDuration) * currentModules.length;
           const newIndex = Math.min(Math.floor(moduleProgress), currentModules.length - 1);
@@ -398,6 +453,10 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         const progressPercent = Math.min(elapsed / onlineDuration, 1);
         setProgress(80 + progressPercent * 20);
         
+        // Update vignette during online
+        const vignetteValue = calculateVignetteOpacity('shutdown', powerOutput);
+        setVignetteOpacity(vignetteValue);
+        
         if (progressPercent >= 1) {
           setProgress(100);
           setTimeout(() => {
@@ -421,7 +480,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [phase, progress, machineState]); // Only depends on primitives, not on store actions
+  }, [phase, progress, machineState, powerOutput]); // Only depends on primitives, not on store actions
   
   const categorizeModulesForActivation = (mods: typeof modules) => {
     const cores: typeof modules = [];
@@ -521,26 +580,32 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
   };
   
   const getProgressGradient = () => {
+    // Use faction color when available
+    const primaryColor = dominantFaction ? `rgb(${factionRGB.r}, ${factionRGB.g}, ${factionRGB.b})` : rarityColor;
+    
     switch (phase) {
       case 'failure':
         return 'linear-gradient(to right, #ff3355, #ff6b35)';
       case 'overload':
         return 'linear-gradient(to right, #ff6b35, #ffd700)';
       case 'online':
-        return `linear-gradient(to right, ${rarityColor}, #00ffcc)`;
+        return `linear-gradient(to right, ${primaryColor}, #00ffcc)`;
       default:
-        return `linear-gradient(to right, ${rarityColor}, #00d4ff)`;
+        return `linear-gradient(to right, ${primaryColor}, #00d4ff)`;
     }
   };
   
   const getCardShadow = () => {
+    // Enhanced glow with faction color when available
+    const glowColor = dominantFaction ? factionGlowColor : rarityColor;
+    
     if (phase === 'failure') {
       return '0 0 30px rgba(255, 51, 85, 0.3)';
     }
     if (phase === 'overload') {
       return '0 0 30px rgba(255, 107, 53, 0.3)';
     }
-    return `0 0 30px ${rarityColor}30`;
+    return `0 0 ${30 * glowRadius}px ${glowColor}`;
   };
   
   return (
@@ -604,7 +669,7 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
           width={typeof window !== 'undefined' ? window.innerWidth : 800}
           height={typeof window !== 'undefined' ? window.innerHeight : 600}
           density={3}
-          color={rarityColor}
+          color={dominantFaction ? `rgb(${factionRGB.r}, ${factionRGB.g}, ${factionRGB.b})` : rarityColor}
           active={showAmbientParticles && phase !== 'failure' && phase !== 'overload'}
         />
       )}
@@ -635,18 +700,18 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         />
       ))}
       
-      {/* Failure/Overload vignette */}
-      {phase === 'failure' || phase === 'overload' ? (
+      {/* Vignette overlay - enhanced with effects utility */}
+      {phase !== 'idle' && (
         <div
           className="fixed inset-0 pointer-events-none"
           style={{
-            background: `radial-gradient(ellipse at center, transparent 30%, rgba(255, 51, 85, ${vignetteOpacity}) 100%)`,
-            transition: `opacity ${VIGNETTE_ANIMATION_DURATION}ms ease-out`,
+            background: `radial-gradient(ellipse at center, transparent ${50 - vignetteOpacity * 30}%, ${getVignetteColor(machineState as any)} ${vignetteOpacity})`,
+            transition: `opacity ${200}ms ease-out`,
           }}
         />
-      ) : null}
+      )}
       
-      {/* Main card */}
+      {/* Main card with enhanced glow */}
       <div 
         className="relative w-96 bg-[#121826] border-2 rounded-xl p-6 shadow-2xl"
         style={{
@@ -699,8 +764,8 @@ export function ActivationOverlay({ onComplete }: ActivationOverlayProps) {
         {/* Phase indicators */}
         {phase !== 'failure' && phase !== 'overload' && (
           <div className="flex justify-between text-xs">
-            <div className="flex items-center gap-1" style={{ color: progress >= 0 ? rarityColor : '#4a5568' }}>
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: progress >= 0 ? rarityColor : '#4a5568' }} />
+            <div className="flex items-center gap-1" style={{ color: progress >= 0 ? (dominantFaction ? `rgb(${factionRGB.r}, ${factionRGB.g}, ${factionRGB.b})` : rarityColor) : '#4a5568' }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: progress >= 0 ? (dominantFaction ? `rgb(${factionRGB.r}, ${factionRGB.g}, ${factionRGB.b})` : rarityColor) : '#4a5568' }} />
               Charging
             </div>
             <div className="flex items-center gap-1" style={{ color: progress >= 30 ? '#00ffcc' : '#4a5568' }}>
