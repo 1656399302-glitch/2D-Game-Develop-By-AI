@@ -59,4 +59,4 @@ export type TradeFactionFilter = 'all' | FactionId;
 export type TradeRarityFilter = 'all' | Rarity;
 
 // Exchange panel tab
-export type ExchangeTab = 'my-listings' | 'browse-trades' | 'trade-history';
+export type ExchangeTab = 'my-listings' | 'incoming-offers' | 'browse-trades' | 'trade-history';

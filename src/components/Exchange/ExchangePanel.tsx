@@ -1,15 +1,16 @@
 /**
  * Exchange Panel Component
  * 
- * Main modal for the Codex Exchange System with three tabs:
+ * Main modal for the Codex Exchange System with four tabs:
  * - My Listings: Machines marked as available for trade
+ * - Incoming Offers: Proposals received from AI traders (demo)
  * - Browse Trades: Community machines available for trade
  * - Trade History: Completed trades
  * 
- * ROUND 80: Extended to 6 factions per contract specification.
+ * ROUND 120: Added Incoming Offers tab for simulated proposals from AI traders.
  */
 
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, lazy, Suspense, useEffect } from 'react';
 import { useExchangeStore } from '../../store/useExchangeStore';
 import { useCodexStore } from '../../store/useCodexStore';
 import { useCommunityStore } from '../../store/useCommunityStore';
@@ -25,6 +26,141 @@ const LazyTradeProposalModal = lazy(() =>
 
 interface ExchangePanelProps {
   onClose: () => void;
+}
+
+// Countdown timer hook for proposals
+function useCountdown(createdAt: number, durationMs: number = 60000) {
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const elapsed = Date.now() - createdAt;
+      const remaining = Math.max(0, durationMs - elapsed);
+      setTimeLeft(remaining);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [createdAt, durationMs]);
+
+  return timeLeft;
+}
+
+// Countdown display component
+function CountdownDisplay({ createdAt, durationMs }: { createdAt: number; durationMs?: number }) {
+  const timeLeft = useCountdown(createdAt, durationMs);
+  const seconds = Math.ceil(timeLeft / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  if (timeLeft <= 0) {
+    return <span className="text-xs text-[#ef4444]">已过期</span>;
+  }
+
+  return (
+    <span className="text-xs text-[#fbbf24]">
+      {minutes}:{remainingSeconds.toString().padStart(2, '0')}
+    </span>
+  );
+}
+
+// Incoming proposal card component
+function IncomingProposalCard({
+  proposal,
+  onAccept,
+  onReject,
+}: {
+  proposal: {
+    id: string;
+    proposerMachine: { attributes: { name: string; rarity: Rarity } };
+    targetMachine: CommunityMachine;
+    createdAt: number;
+  };
+  onAccept: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  const getRarityColor = (rarity: Rarity): string => {
+    const colors: Record<Rarity, string> = {
+      common: 'bg-gray-600/30 text-gray-300 border-gray-500/40',
+      uncommon: 'bg-green-600/30 text-green-300 border-green-500/40',
+      rare: 'bg-blue-600/30 text-blue-300 border-blue-500/40',
+      epic: 'bg-purple-600/30 text-purple-300 border-purple-500/40',
+      legendary: 'bg-amber-600/30 text-amber-300 border-amber-500/40',
+    };
+    return colors[rarity];
+  };
+
+  const getFactionIcon = (faction: FactionId): string => {
+    const icons: Record<FactionId, string> = {
+      void: '🌑',
+      inferno: '🔥',
+      storm: '⚡',
+      stellar: '✨',
+      arcane: '🔮',
+      chaos: '💀',
+    };
+    return icons[faction] || '⚙';
+  };
+
+  return (
+    <div className="bg-[#0a0e17]/50 rounded-xl p-4 border border-[#7c3aed]/40 hover:border-[#7c3aed]/60 transition-colors">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🤖</span>
+          <div>
+            <div className="text-sm font-medium text-white">
+              {proposal.proposerMachine.attributes.name}
+            </div>
+            <div className={`mt-1 px-2 py-0.5 rounded text-xs inline-block border ${getRarityColor(proposal.proposerMachine.attributes.rarity)}`}>
+              {proposal.proposerMachine.attributes.rarity}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <CountdownDisplay createdAt={proposal.createdAt} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex-1 text-center">
+          <div className="text-xs text-[#6b7280] mb-1">对方提供</div>
+          <div className={`px-2 py-1 rounded border ${getRarityColor(proposal.proposerMachine.attributes.rarity)}`}>
+            <span className="text-xs">{proposal.proposerMachine.attributes.name}</span>
+          </div>
+        </div>
+        <div className="text-[#7c3aed] text-xl">⇄</div>
+        <div className="flex-1 text-center">
+          <div className="text-xs text-[#6b7280] mb-1">交换</div>
+          <div className={`px-2 py-1 rounded border ${getRarityColor(proposal.targetMachine.attributes.rarity)}`}>
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-xs">{getFactionIcon(proposal.targetMachine.dominantFaction)}</span>
+              <span className="text-xs">{proposal.targetMachine.attributes.name}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="text-xs text-[#6b7280] mb-3 text-center">
+        来自社区机器: {proposal.targetMachine.attributes.codexId}
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => onAccept(proposal.id)}
+          className="flex-1 px-3 py-2 rounded-lg bg-[#22c55e]/20 text-[#22c55e] hover:bg-[#22c55e]/30 border border-[#22c55e]/40 transition-colors text-sm font-medium"
+        >
+          接受
+        </button>
+        <button
+          onClick={() => onReject(proposal.id)}
+          className="flex-1 px-3 py-2 rounded-lg bg-[#ef4444]/20 text-[#ef4444] hover:bg-[#ef4444]/30 border border-[#ef4444]/40 transition-colors text-sm font-medium"
+        >
+          拒绝
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export function ExchangePanel({ onClose }: ExchangePanelProps) {
@@ -50,6 +186,11 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
   const getMyListedMachines = useExchangeStore((state) => state.getMyListedMachines);
   const tradeHistory = useExchangeStore((state) => state.tradeHistory);
   const outgoingProposals = useExchangeStore((state) => state.outgoingProposals);
+  const incomingProposals = useExchangeStore((state) => state.incomingProposals);
+  const getIncomingPendingProposals = useExchangeStore((state) => state.getIncomingPendingProposals);
+  const acceptIncomingProposal = useExchangeStore((state) => state.acceptIncomingProposal);
+  const rejectIncomingProposal = useExchangeStore((state) => state.rejectIncomingProposal);
+  const simulateIncomingProposal = useExchangeStore((state) => state.simulateIncomingProposal);
 
   // Codex store
   const codexEntries = useCodexStore((state) => state.entries);
@@ -63,6 +204,10 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
 
   // Get pending proposals count
   const pendingOutgoingCount = outgoingProposals.filter((p) => p.status === 'pending').length;
+  const pendingIncomingCount = getIncomingPendingProposals().length;
+
+  // Get filtered incoming proposals
+  const pendingIncomingProposals = useMemo(() => getIncomingPendingProposals(), [incomingProposals]);
 
   // Filter community machines for trade
   const filteredCommunityMachines = useMemo(() => {
@@ -97,6 +242,21 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
   const handleOfferTrade = (machine: CommunityMachine) => {
     setTargetMachine(machine);
     setShowProposalModal(true);
+  };
+
+  // Handle accepting incoming proposal
+  const handleAcceptIncoming = (proposalId: string) => {
+    acceptIncomingProposal(proposalId);
+  };
+
+  // Handle rejecting incoming proposal
+  const handleRejectIncoming = (proposalId: string) => {
+    rejectIncomingProposal(proposalId);
+  };
+
+  // Handle simulating incoming proposal (demo button)
+  const handleSimulateProposal = () => {
+    simulateIncomingProposal();
   };
 
   // Rarity badge color
@@ -173,6 +333,25 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
               </span>
             )}
             {activeTab === 'my-listings' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7c3aed]" />
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('incoming-offers')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative ${
+              activeTab === 'incoming-offers'
+                ? 'text-[#a78bfa] bg-[#7c3aed]/10'
+                : 'text-[#9ca3af] hover:text-white hover:bg-[#1e2a42]/50'
+            }`}
+          >
+            收到的报价
+            {pendingIncomingCount > 0 && (
+              <span className="ml-2 px-2 py-0.5 rounded-full bg-[#22c55e]/30 text-xs animate-pulse">
+                {pendingIncomingCount}
+              </span>
+            )}
+            {activeTab === 'incoming-offers' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7c3aed]" />
             )}
           </button>
@@ -324,6 +503,92 @@ export function ExchangePanel({ onClose }: ExchangePanelProps) {
                             </div>
                             <span className="px-3 py-1 rounded-full bg-[#fbbf24]/20 text-[#fbbf24] text-xs">
                               等待中
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Incoming Offers Tab */}
+          {activeTab === 'incoming-offers' && (
+            <div className="space-y-6">
+              {/* Demo Controls */}
+              <div className="bg-[#0a0e17]/50 rounded-xl p-4 border border-[#1e2a42]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-[#a78bfa] mb-1">AI 交易员演示</h3>
+                    <p className="text-xs text-[#6b7280]">
+                      模拟 AI 交易员发送的交易报价（用于演示）
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleSimulateProposal}
+                    className="px-4 py-2 rounded-lg bg-[#7c3aed] text-white hover:bg-[#6d28d9] transition-colors text-sm font-medium"
+                  >
+                    模拟报价
+                  </button>
+                </div>
+              </div>
+
+              {/* Incoming Proposals */}
+              <div>
+                <h3 className="text-sm font-medium text-[#9ca3af] mb-3">
+                  待处理的报价 ({pendingIncomingProposals.length})
+                </h3>
+                {pendingIncomingProposals.length === 0 ? (
+                  <div className="text-center py-12 text-[#6b7280]">
+                    <span className="text-4xl mb-3 block">📥</span>
+                    <p>暂无收到的交易报价</p>
+                    <p className="text-xs mt-2">点击上方按钮模拟 AI 交易员的报价</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {pendingIncomingProposals.map((proposal) => (
+                      <IncomingProposalCard
+                        key={proposal.id}
+                        proposal={proposal}
+                        onAccept={handleAcceptIncoming}
+                        onReject={handleRejectIncoming}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Accepted/Rejected History */}
+              {incomingProposals.filter((p) => p.status !== 'pending').length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-[#9ca3af] mb-3">
+                    已处理的报价
+                  </h3>
+                  <div className="space-y-2">
+                    {incomingProposals
+                      .filter((p) => p.status !== 'pending')
+                      .map((proposal) => (
+                        <div
+                          key={proposal.id}
+                          className={`bg-[#0a0e17]/30 rounded-lg p-3 border ${
+                            proposal.status === 'accepted'
+                              ? 'border-[#22c55e]/30'
+                              : 'border-[#ef4444]/30'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-[#9ca3af]">
+                              {proposal.targetMachine.attributes.name}
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs ${
+                                proposal.status === 'accepted'
+                                  ? 'bg-[#22c55e]/20 text-[#22c55e]'
+                                  : 'bg-[#ef4444]/20 text-[#ef4444]'
+                              }`}
+                            >
+                              {proposal.status === 'accepted' ? '已接受' : '已拒绝'}
                             </span>
                           </div>
                         </div>

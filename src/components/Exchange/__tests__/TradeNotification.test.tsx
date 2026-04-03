@@ -4,7 +4,7 @@
  * Comprehensive test coverage for TradeNotification component.
  * Tests cover: no notifications state, incoming notification display,
  * quick accept/reject buttons, notification dismissal, auto-mark-as-read,
- * multiple notification handling.
+ * multiple notification handling, and AC-120-004 notification integration.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -646,6 +646,200 @@ describe('TradeNotification', () => {
       render(<TradeNotification onOpenExchange={mockOnOpenExchange} />);
 
       expect(screen.getByText('❌')).toBeTruthy();
+    });
+  });
+
+  // =========================================================================
+  // AC-120-004: Notification Integration
+  // =========================================================================
+  describe('Notification Integration (AC-120-004)', () => {
+    it('should show notification for incoming proposal with "交易报价" in message', () => {
+      (useExchangeStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          notifications: [
+            {
+              id: 'notif-incoming',
+              proposalId: 'proposal-1',
+              message: '机械大师 Alpha 想要交换 Void Resonator', // Contains "交换" similar to "交易报价"
+              type: 'incoming' as const,
+              read: false,
+              createdAt: Date.now(),
+            },
+          ],
+          markNotificationRead: mockMarkNotificationRead,
+          acceptProposal: mockAcceptProposal,
+          rejectProposal: mockRejectProposal,
+        };
+
+        if (selector) {
+          return selector(state);
+        }
+        return state;
+      });
+
+      render(<TradeNotification onOpenExchange={mockOnOpenExchange} />);
+
+      // Should show the incoming notification
+      expect(screen.getByText(/机械大师 Alpha/)).toBeTruthy();
+      expect(screen.getByText('收到新交易请求')).toBeTruthy();
+    });
+
+    it('should show notification for accepted proposal with "成功" in message', () => {
+      (useExchangeStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          notifications: [
+            {
+              id: 'notif-accepted',
+              proposalId: 'proposal-1',
+              message: '交易成功! 你获得了 Void Resonator', // Contains "成功"
+              type: 'accepted' as const,
+              read: false,
+              createdAt: Date.now(),
+            },
+          ],
+          markNotificationRead: mockMarkNotificationRead,
+          acceptProposal: mockAcceptProposal,
+          rejectProposal: mockRejectProposal,
+        };
+
+        if (selector) {
+          return selector(state);
+        }
+        return state;
+      });
+
+      render(<TradeNotification onOpenExchange={mockOnOpenExchange} />);
+
+      // Should show the accepted notification
+      expect(screen.getByText('交易已接受')).toBeTruthy();
+      expect(screen.getByText('✅')).toBeTruthy();
+    });
+
+    it('should show notification for rejected proposal with "拒绝" in message', () => {
+      (useExchangeStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          notifications: [
+            {
+              id: 'notif-rejected',
+              proposalId: 'proposal-1',
+              message: 'Void Resonator 的交易请求已拒绝', // Contains "拒绝"
+              type: 'rejected' as const,
+              read: false,
+              createdAt: Date.now(),
+            },
+          ],
+          markNotificationRead: mockMarkNotificationRead,
+          acceptProposal: mockAcceptProposal,
+          rejectProposal: mockRejectProposal,
+        };
+
+        if (selector) {
+          return selector(state);
+        }
+        return state;
+      });
+
+      render(<TradeNotification onOpenExchange={mockOnOpenExchange} />);
+
+      // Should show the rejected notification
+      expect(screen.getByText('交易被拒绝')).toBeTruthy();
+      expect(screen.getByText('❌')).toBeTruthy();
+    });
+
+    it('should show different colors for different notification types', () => {
+      // Incoming notification - purple gradient
+      (useExchangeStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          notifications: [
+            {
+              id: 'notif-incoming',
+              proposalId: 'proposal-1',
+              message: 'Incoming trade request',
+              type: 'incoming' as const,
+              read: false,
+              createdAt: Date.now(),
+            },
+          ],
+          markNotificationRead: mockMarkNotificationRead,
+          acceptProposal: mockAcceptProposal,
+          rejectProposal: mockRejectProposal,
+        };
+
+        if (selector) {
+          return selector(state);
+        }
+        return state;
+      });
+
+      const { container } = render(<TradeNotification onOpenExchange={mockOnOpenExchange} />);
+
+      // Should have gradient class for incoming (purple)
+      expect(container.innerHTML).toContain('from-[#7c3aed]');
+    });
+
+    it('should show quick actions for incoming proposal notifications', () => {
+      (useExchangeStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          notifications: [
+            {
+              id: 'notif-incoming',
+              proposalId: 'proposal-1',
+              message: 'AI Trader wants to trade',
+              type: 'incoming' as const,
+              read: false,
+              createdAt: Date.now(),
+            },
+          ],
+          markNotificationRead: mockMarkNotificationRead,
+          acceptProposal: mockAcceptProposal,
+          rejectProposal: mockRejectProposal,
+        };
+
+        if (selector) {
+          return selector(state);
+        }
+        return state;
+      });
+
+      render(<TradeNotification onOpenExchange={mockOnOpenExchange} />);
+
+      // Should show accept button
+      expect(screen.getByRole('button', { name: '接受' })).toBeTruthy();
+      // Should show reject button
+      expect(screen.getByRole('button', { name: '拒绝' })).toBeTruthy();
+    });
+
+    it('should show "查看详情" instead of quick actions for accepted/rejected', () => {
+      (useExchangeStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          notifications: [
+            {
+              id: 'notif-accepted',
+              proposalId: 'proposal-1',
+              message: 'Trade accepted',
+              type: 'accepted' as const,
+              read: false,
+              createdAt: Date.now(),
+            },
+          ],
+          markNotificationRead: mockMarkNotificationRead,
+          acceptProposal: mockAcceptProposal,
+          rejectProposal: mockRejectProposal,
+        };
+
+        if (selector) {
+          return selector(state);
+        }
+        return state;
+      });
+
+      render(<TradeNotification onOpenExchange={mockOnOpenExchange} />);
+
+      // Should NOT show accept/reject buttons
+      expect(screen.queryByRole('button', { name: '接受' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '拒绝' })).toBeNull();
+      // Should show view exchange button instead
+      expect(screen.getByText('查看交易所')).toBeTruthy();
     });
   });
 });

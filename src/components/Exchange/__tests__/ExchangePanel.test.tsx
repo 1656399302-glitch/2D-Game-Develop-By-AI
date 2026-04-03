@@ -3,7 +3,8 @@
  * 
  * Comprehensive test coverage for ExchangePanel component.
  * Tests cover: tab navigation, listings tab operations, browse trades tab
- * with filters, trade history, empty states, and close functionality.
+ * with filters, trade history, empty states, close functionality,
+ * and incoming offers tab (ROUND 120).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -158,6 +159,38 @@ describe('ExchangePanel', () => {
   const mockUnmarkFromTrade = vi.fn();
   const mockIsListed = vi.fn((id: string) => id === 'codex-1');
   const mockGetMyListedMachines = vi.fn(() => [mockCodexEntries[0]]);
+  const mockSimulateIncomingProposal = vi.fn();
+  const mockAcceptIncomingProposal = vi.fn();
+  const mockRejectIncomingProposal = vi.fn();
+
+  // Mock incoming proposals
+  const mockIncomingProposals = [
+    {
+      id: 'incoming-1',
+      proposerMachineId: 'ai-1',
+      proposerMachine: {
+        id: 'ai-1',
+        codexId: 'AI-001',
+        name: 'AI Trader Alpha 的机器',
+        rarity: 'rare' as const,
+        modules: [],
+        connections: [],
+        attributes: {
+          name: 'AI Trader Alpha 的机器',
+          rarity: 'rare' as const,
+          stats: { stability: 70, powerOutput: 65, energyCost: 35, failureRate: 25 },
+          tags: ['ai'],
+          description: 'AI trader machine',
+          codexId: 'AI-001',
+        },
+        createdAt: Date.now(),
+      },
+      targetMachineId: 'community-1',
+      targetMachine: mockCommunityMachines[0],
+      status: 'pending' as const,
+      createdAt: Date.now(),
+    },
+  ];
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -172,6 +205,11 @@ describe('ExchangePanel', () => {
         getMyListedMachines: mockGetMyListedMachines,
         tradeHistory: mockTradeHistory,
         outgoingProposals: [],
+        incomingProposals: mockIncomingProposals,
+        getIncomingPendingProposals: vi.fn(() => mockIncomingProposals.filter(p => p.status === 'pending')),
+        acceptIncomingProposal: mockAcceptIncomingProposal,
+        rejectIncomingProposal: mockRejectIncomingProposal,
+        simulateIncomingProposal: mockSimulateIncomingProposal,
       };
 
       if (selector) {
@@ -214,10 +252,11 @@ describe('ExchangePanel', () => {
   // AC-EXCHANGE-UI-019: Tab Navigation
   // =========================================================================
   describe('Tab Navigation (AC-EXCHANGE-UI-019)', () => {
-    it('should show three tabs: 我的挂牌, 浏览交易, 交易历史', () => {
+    it('should show four tabs: 我的挂牌, 收到的报价, 浏览交易, 交易历史', () => {
       render(<ExchangePanel onClose={mockOnClose} />);
 
       expect(screen.getByText('我的挂牌')).toBeTruthy();
+      expect(screen.getByText('收到的报价')).toBeTruthy();
       expect(screen.getByText('浏览交易')).toBeTruthy();
       expect(screen.getByText('交易历史')).toBeTruthy();
     });
@@ -227,6 +266,15 @@ describe('ExchangePanel', () => {
 
       const myListingsTab = screen.getByText('我的挂牌').closest('button');
       expect(myListingsTab?.className).toContain('text-[#a78bfa]'); // Active state
+    });
+
+    it('should switch to 收到的报价 tab when clicked', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      const incomingTab = screen.getByText('收到的报价').closest('button');
+      expect(incomingTab?.className).toContain('text-[#a78bfa]');
     });
 
     it('should switch to 浏览交易 tab when clicked', () => {
@@ -254,6 +302,153 @@ describe('ExchangePanel', () => {
       const myListingsTab = screen.getByText('我的挂牌').closest('button');
       // The underline is a child div element
       expect(myListingsTab?.innerHTML).toContain('bg-[#7c3aed]');
+    });
+  });
+
+  // =========================================================================
+  // Incoming Offers Tab Tests (AC-120-003)
+  // =========================================================================
+  describe('Incoming Offers Tab (AC-120-003)', () => {
+    it('should show incoming offers section when tab is active', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      // Should show the section title
+      expect(screen.getByText(/待处理的报价/)).toBeTruthy();
+    });
+
+    it('should show badge with count on incoming offers tab', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      // Badge should show 1 (from mockIncomingProposals)
+      expect(screen.getByText('收到的报价').closest('button')?.innerHTML).toContain('1');
+    });
+
+    it('should show AI trader demo section', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      // Should show demo section
+      expect(screen.getByText('AI 交易员演示')).toBeTruthy();
+      expect(screen.getByText('模拟报价')).toBeTruthy();
+    });
+
+    it('should show simulate proposal button', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      const simulateButton = screen.getByRole('button', { name: '模拟报价' });
+      expect(simulateButton).toBeTruthy();
+    });
+
+    it('should call simulateIncomingProposal when simulate button is clicked', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      const simulateButton = screen.getByRole('button', { name: '模拟报价' });
+      fireEvent.click(simulateButton);
+
+      expect(mockSimulateIncomingProposal).toHaveBeenCalled();
+    });
+
+    it('should show accept and reject buttons for each incoming proposal', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      // Should show accept button (接受)
+      expect(screen.getByRole('button', { name: '接受' })).toBeTruthy();
+      // Should show reject button (拒绝)
+      expect(screen.getByRole('button', { name: '拒绝' })).toBeTruthy();
+    });
+
+    it('should call acceptIncomingProposal when accept button is clicked', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      const acceptButton = screen.getByRole('button', { name: '接受' });
+      fireEvent.click(acceptButton);
+
+      expect(mockAcceptIncomingProposal).toHaveBeenCalled();
+    });
+
+    it('should call rejectIncomingProposal when reject button is clicked', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      const rejectButton = screen.getByRole('button', { name: '拒绝' });
+      fireEvent.click(rejectButton);
+
+      expect(mockRejectIncomingProposal).toHaveBeenCalled();
+    });
+
+    it('should show empty state when no incoming proposals', () => {
+      // Override mock to return empty incoming proposals
+      (useExchangeStore as unknown as ReturnType<typeof vi.fn>).mockImplementation((selector) => {
+        const state = {
+          listings: [],
+          markForTrade: mockMarkForTrade,
+          unmarkFromTrade: mockUnmarkFromTrade,
+          isListed: mockIsListed,
+          getMyListedMachines: mockGetMyListedMachines,
+          tradeHistory: [],
+          outgoingProposals: [],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
+        };
+
+        if (selector) {
+          return selector(state);
+        }
+        return state;
+      });
+
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      expect(screen.getByText('暂无收到的交易报价')).toBeTruthy();
+    });
+
+    it('should show countdown timer for proposals', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      // Should show countdown (minutes:seconds format)
+      const countdown = screen.getByText(/\d+:\d{2}/);
+      expect(countdown).toBeTruthy();
+    });
+
+    it('should show proposer machine name and rarity', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      // Should show AI trader machine name
+      expect(screen.getAllByText(/AI Trader Alpha 的机器/).length).toBeGreaterThan(0);
+      // Should show rarity badge
+      expect(screen.getByText('rare')).toBeTruthy();
+    });
+
+    it('should show target machine info with faction icon', () => {
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('收到的报价'));
+
+      // Should show target machine name
+      expect(screen.getByText('Void Resonator')).toBeTruthy();
+      // Should show faction icon (🌑 for void)
+      expect(screen.getByText('🌑')).toBeTruthy();
     });
   });
 
@@ -466,6 +661,11 @@ describe('ExchangePanel', () => {
           getMyListedMachines: () => [],
           tradeHistory: [],
           outgoingProposals: [],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
         };
 
         if (selector) {
@@ -543,6 +743,11 @@ describe('ExchangePanel', () => {
           getMyListedMachines: () => [],
           tradeHistory: [],
           outgoingProposals: [],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
         };
 
         if (selector) {
@@ -588,6 +793,11 @@ describe('ExchangePanel', () => {
           getMyListedMachines: () => [],
           tradeHistory: [],
           outgoingProposals: [],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
         };
 
         if (selector) {
@@ -662,6 +872,11 @@ describe('ExchangePanel', () => {
               createdAt: Date.now(),
             },
           ],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
         };
 
         if (selector) {
@@ -696,6 +911,11 @@ describe('ExchangePanel', () => {
               createdAt: Date.now(),
             },
           ],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
         };
 
         if (selector) {
@@ -771,6 +991,11 @@ describe('ExchangePanel', () => {
           getMyListedMachines: () => [],
           tradeHistory: [],
           outgoingProposals: [],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
         };
 
         if (selector) {
@@ -826,6 +1051,11 @@ describe('ExchangePanel', () => {
           getMyListedMachines: () => [mockCodexEntries[0]],
           tradeHistory: [],
           outgoingProposals: [],
+          incomingProposals: [],
+          getIncomingPendingProposals: vi.fn(() => []),
+          acceptIncomingProposal: mockAcceptIncomingProposal,
+          rejectIncomingProposal: mockRejectIncomingProposal,
+          simulateIncomingProposal: mockSimulateIncomingProposal,
         };
 
         if (selector) {
@@ -845,6 +1075,30 @@ describe('ExchangePanel', () => {
       render(<ExchangePanel onClose={mockOnClose} />);
 
       expect(screen.getByText(/交易所是本地模拟功能/)).toBeTruthy();
+    });
+  });
+
+  // =========================================================================
+  // AC-120-005: Trade History After Exchange
+  // =========================================================================
+  describe('Trade History After Incoming Proposal Acceptance (AC-120-005)', () => {
+    it('should show completed trade in history after acceptance', async () => {
+      // This test verifies the integration between accepting incoming proposals
+      // and seeing the result in trade history
+      
+      // The actual acceptance is tested in exchangeStore.test.ts
+      // Here we verify the panel displays the result correctly
+      
+      render(<ExchangePanel onClose={mockOnClose} />);
+
+      // Switch to history tab - should show existing trade
+      fireEvent.click(screen.getByText('交易历史'));
+
+      // Should show completed trade from mock data
+      expect(screen.getByText('Test Machine 1')).toBeTruthy(); // Given machine
+      expect(screen.getByText('Void Resonator')).toBeTruthy(); // Received machine
+      expect(screen.getByText('给出的')).toBeTruthy();
+      expect(screen.getByText('获得的')).toBeTruthy();
     });
   });
 });

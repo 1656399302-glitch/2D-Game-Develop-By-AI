@@ -21,6 +21,18 @@ import { useCommunityStore } from './useCommunityStore';
 // Data persists across browser restarts (unlike sessionStorage which clears on close)
 const EXCHANGE_STORAGE_KEY = 'arcane-exchange-storage';
 
+// AI Trader names for simulated proposals
+const AI_TRADER_NAMES = [
+  '机械大师 Alpha',
+  '虚空行者 Beta', 
+  '星火术士 Gamma',
+  '雷霆使者 Delta',
+  '奥术炼金师 Epsilon',
+  '混沌锻造者 Zeta',
+  '元素领主 Eta',
+  '星辰法师 Theta',
+];
+
 interface ExchangeStore {
   // Trade listings - codex machines marked as available for trade
   listings: TradeListing[];
@@ -54,6 +66,11 @@ interface ExchangeStore {
   getProposal: (proposalId: string) => TradeProposal | undefined;
   getMyPendingProposals: () => TradeProposal[];
   getIncomingPendingProposals: () => TradeProposal[];
+
+  // Simulated incoming proposals (for demo/testing)
+  simulateIncomingProposal: () => TradeProposal | null;
+  acceptIncomingProposal: (proposalId: string) => boolean;
+  rejectIncomingProposal: (proposalId: string) => void;
 
   // Trade history actions
   recordTrade: (proposal: TradeProposal) => void;
@@ -154,7 +171,7 @@ export const useExchangeStore = create<ExchangeStore>()(
         return proposal;
       },
 
-      // Accept a trade proposal
+      // Accept a trade proposal (from incoming proposals)
       acceptProposal: (proposalId: string) => {
         const proposal = get().incomingProposals.find((p) => p.id === proposalId);
         if (!proposal || proposal.status !== 'pending') return false;
@@ -234,6 +251,72 @@ export const useExchangeStore = create<ExchangeStore>()(
       // Get incoming pending proposals
       getIncomingPendingProposals: () => {
         return get().incomingProposals.filter((p) => p.status === 'pending');
+      },
+
+      // Simulate an incoming proposal from an AI trader (for demo/testing)
+      simulateIncomingProposal: () => {
+        const communityMachines = get().getTradeableCommunityMachines();
+        if (communityMachines.length === 0) return null;
+
+        // Select a random community machine
+        const targetMachine = communityMachines[Math.floor(Math.random() * communityMachines.length)];
+
+        // Select a random AI trader name
+        const traderName = AI_TRADER_NAMES[Math.floor(Math.random() * AI_TRADER_NAMES.length)];
+
+        // Create a simulated CodexEntry for the AI trader's machine
+        const simulatedProposerMachine: CodexEntry = {
+          id: `ai-${uuidv4()}`,
+          codexId: `AI-${Date.now()}`,
+          name: `${traderName} 的机器`,
+          rarity: targetMachine.attributes.rarity,
+          modules: [],
+          connections: [],
+          attributes: {
+            name: `${traderName} 的机器`,
+            rarity: targetMachine.attributes.rarity,
+            stats: targetMachine.attributes.stats,
+            tags: targetMachine.attributes.tags,
+            description: `来自 ${traderName} 的交易请求`,
+            codexId: `AI-${Date.now()}`,
+          },
+          createdAt: Date.now(),
+        };
+
+        const proposal: TradeProposal = {
+          id: uuidv4(),
+          proposerMachineId: simulatedProposerMachine.id,
+          proposerMachine: simulatedProposerMachine,
+          targetMachineId: targetMachine.id,
+          targetMachine,
+          status: 'pending',
+          createdAt: Date.now(),
+        };
+
+        // Add proposal to incoming proposals
+        set((state) => ({
+          incomingProposals: [proposal, ...state.incomingProposals],
+        }));
+
+        // Add notification
+        get().addNotification({
+          proposalId: proposal.id,
+          message: `${traderName} 想要交换 ${targetMachine.attributes.name}`,
+          type: 'incoming',
+          read: false,
+        });
+
+        return proposal;
+      },
+
+      // Accept an incoming proposal (alias for acceptProposal with clear naming)
+      acceptIncomingProposal: (proposalId: string) => {
+        return get().acceptProposal(proposalId);
+      },
+
+      // Reject an incoming proposal (alias for rejectProposal with clear naming)
+      rejectIncomingProposal: (proposalId: string) => {
+        get().rejectProposal(proposalId);
       },
 
       // Record a completed trade
