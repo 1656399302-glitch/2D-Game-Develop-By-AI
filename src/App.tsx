@@ -5,15 +5,10 @@ import { PropertiesPanel } from './components/Editor/PropertiesPanel';
 import { Toolbar } from './components/Editor/Toolbar';
 import { ExportModal } from './components/Export/ExportModal';
 import { ActivationOverlay } from './components/Preview/ActivationOverlay';
-import { CircuitValidationOverlay } from './components/Editor/CircuitValidationOverlay';
-import { ConnectionErrorFeedback } from './components/UI/ConnectionErrorFeedback';
-import { RandomForgeToast } from './components/UI/RandomForgeToast';
 import { LoadPromptModal } from './components/UI/LoadPromptModal';
 import { ChallengeButton } from './components/Challenges/ChallengeButton';
 import { WelcomeModal, useWelcomeModal } from './components/Tutorial/WelcomeModal';
-import { TutorialOverlay } from './components/Tutorial/TutorialOverlay';
 import { RecipeBrowser } from './components/Recipes/RecipeBrowser';
-import { RecipeToastManager } from './components/Recipes/RecipeDiscoveryToast';
 import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
 import { useTutorialStore } from './store/useTutorialStore';
@@ -29,17 +24,12 @@ import { useStoreHydration } from './hooks/useStoreHydration';
 import { generateAttributes } from './utils/attributeGenerator';
 import { hasSavedState } from './utils/localStorage';
 import { calculateFaction } from './utils/factionCalculator';
-import { EnhancedStatsDashboard } from './components/Stats/EnhancedStatsDashboard';
-import { AchievementList } from './components/Achievements/AchievementList';
 import { AchievementToastContainer, AchievementToastProvider, useAchievementToastQueueContext } from './components/Achievements/AchievementToast';
 import { getAchievementById } from './data/achievements';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AccessibilityLayer, MobileCanvasLayout, useViewportSize } from './components/Accessibility';
 import { MobileTouchEnhancer } from './components/Accessibility/MobileTouchEnhancer';
-import { CommunityGallery } from './components/Community/CommunityGallery';
-import { PublishModal } from './components/Community/PublishModal';
 import { ExchangeButton } from './components/Exchange/ExchangeButton';
-import { TradeNotification } from './components/Exchange/TradeNotification';
 import { PlacedModule, Connection } from './types';
 import { RandomGeneratorModal } from './components/Editor/RandomGeneratorModal';
 
@@ -49,10 +39,8 @@ import { QuickActionsToolbar } from './components/QuickActionsToolbar';
 // D6 Integration: Import KeyboardShortcutsPanel and useKeyboardShortcutsPanel hook (Round 82)
 import { KeyboardShortcutsPanel, useKeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
 
-// Round 113 Integration: Import validation components
+// Round 113 Integration: Import validation components - kept eager for header use
 import { ValidationStatusBar } from './components/Editor/ValidationStatusBar';
-import { QuickFixActions } from './components/Editor/QuickFixActions';
-import { CanvasValidationOverlay } from './components/Editor/CanvasValidationOverlay';
 import { getActivationGate } from './utils/validationIntegration';
 import { useActivationGate } from './hooks/useCircuitValidation';
 
@@ -74,6 +62,29 @@ const LazyAIAssistantSlideIn = lazy(() =>
   }))
 );
 
+// NEW: Lazy-loaded non-critical components for bundle optimization
+const LazyAchievementList = lazy(() => import('./components/Achievements/AchievementList'));
+const LazyEnhancedStatsDashboard = lazy(() => import('./components/Stats/EnhancedStatsDashboard'));
+const LazyCommunityGallery = lazy(() => import('./components/Community/CommunityGallery'));
+const LazyPublishModal = lazy(() => import('./components/Community/PublishModal'));
+const LazyCircuitValidationOverlay = lazy(() => import('./components/Editor/CircuitValidationOverlay'));
+const LazyQuickFixActions = lazy(() => import('./components/Editor/QuickFixActions'));
+const LazyCanvasValidationOverlay = lazy(() => import('./components/Editor/CanvasValidationOverlay'));
+const LazyTutorialOverlay = lazy(() => import('./components/Tutorial/TutorialOverlay'));
+const LazyConnectionErrorFeedback = lazy(() => import('./components/UI/ConnectionErrorFeedback'));
+const LazyRandomForgeToast = lazy(() => 
+  import('./components/UI/RandomForgeToast').then((module) => ({
+    default: module.RandomForgeToast as unknown as React.ComponentType<object>
+  }))
+);
+const LazyRecipeToastManager = lazy(() => 
+  import('./components/Recipes/RecipeDiscoveryToast').then((module) => ({
+    default: module.RecipeToastManager as unknown as React.ComponentType<{onRecipeDiscovered?: (recipe: any) => void}>
+  }))
+);
+const LazyTradeNotification = lazy(() => import('./components/Exchange/TradeNotification'));
+
+const LazyRecipeBook = lazy(() => import('./components/RecipeBook/RecipeBook'));
 type ViewMode = 'editor' | 'codex';
 
 /**
@@ -108,6 +119,7 @@ function AppContent() {
   const [showExchange, setShowExchange] = useState(false);
   const [showRandomGenerator, setShowRandomGenerator] = useState(false);
   
+  const [showRecipeBook, setShowRecipeBook] = useState(false);
   // Template system state - Round 67
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -553,6 +565,15 @@ function AppContent() {
               </button>
               
               <button
+                onClick={() => setShowRecipeBook(true)}
+                className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#f59e0b] hover:text-white border border-[#1e2a42] hover:border-[#f59e0b]/30 transition-colors flex items-center gap-2"
+                aria-label="打开配方书"
+              >
+                <span>📖</span>
+                <span>图鉴</span>
+              </button>
+              
+              <button
                 onClick={() => setShowAIAssistant(true)}
                 className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#ec4899] hover:text-white border border-[#1e2a42] hover:border-[#ec4899]/30 transition-colors flex items-center gap-2"
                 aria-label="打开AI助手"
@@ -569,7 +590,7 @@ function AppContent() {
                 ❓ 帮助
               </button>
               
-              {/* Round 113: Validation Status Bar in header */}
+              {/* Round 113: Validation Status Bar in header - kept eager for header placement */}
               <ValidationStatusBar />
               
               <button
@@ -619,8 +640,10 @@ function AppContent() {
                 {/* Round 113: Canvas with validation click handler */}
                 <div className="relative flex-1">
                   <Canvas onModuleValidationClick={handleModuleValidationClick} />
-                  {/* Round 113: Canvas Validation Overlay */}
-                  <CanvasValidationOverlay />
+                  {/* Round 113: Canvas Validation Overlay - lazy loaded */}
+                  <Suspense fallback={null}>
+                    <LazyCanvasValidationOverlay />
+                  </Suspense>
                 </div>
                 <PropertiesPanel />
               </div>
@@ -659,13 +682,15 @@ function AppContent() {
           </div>
         )}
         
-        {/* Round 113: Quick Fix Actions Menu */}
-        <QuickFixActions
-          moduleId={quickFixModuleId}
-          position={quickFixPosition}
-          visible={!!quickFixModuleId}
-          onClose={() => setQuickFixModuleId(null)}
-        />
+        {/* Round 113: Quick Fix Actions Menu - lazy loaded */}
+        <Suspense fallback={null}>
+          <LazyQuickFixActions
+            moduleId={quickFixModuleId}
+            position={quickFixPosition}
+            visible={!!quickFixModuleId}
+            onClose={() => setQuickFixModuleId(null)}
+          />
+        </Suspense>
         
         {/* Modals */}
         {showExport && <ExportModal onClose={() => setShowExport(false)} />}
@@ -690,8 +715,10 @@ function AppContent() {
         
         {showActivation && <ActivationOverlay onComplete={handleActivationComplete} />}
         
-        {/* Round 112: Circuit Validation Overlay */}
-        <CircuitValidationOverlay />
+        {/* Round 112: Circuit Validation Overlay - lazy loaded */}
+        <Suspense fallback={null}>
+          <LazyCircuitValidationOverlay />
+        </Suspense>
         
         {showChallenges && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -708,6 +735,13 @@ function AppContent() {
         )}
         
         <RecipeBrowser isOpen={showRecipeBrowser} onClose={() => setShowRecipeBrowser(false)} />
+        
+        {/* RecipeBook Modal - lazy loaded */}
+        {showRecipeBook && (
+          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+            <LazyRecipeBook onClose={() => setShowRecipeBook(false)} />
+          </Suspense>
+        )}
         
         {/* FIX Round 106: LoadPromptModal only shows when appropriate */}
         {/* Condition: showLoadPrompt AND welcomeModalWasShown is false */}
@@ -816,32 +850,51 @@ function AppContent() {
           </Suspense>
         )}
         
-        {/* Machine Statistics Dashboard - Enhanced version with 5 tabs (Round 44 integration) */}
-        {isStatsPanelOpen && <EnhancedStatsDashboard onClose={closeStatsPanel} />}
+        {/* Machine Statistics Dashboard - Enhanced version with 5 tabs (Round 44 integration) - lazy loaded */}
+        {isStatsPanelOpen && (
+          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+            <LazyEnhancedStatsDashboard onClose={closeStatsPanel} />
+          </Suspense>
+        )}
         
-        {showAchievements && <AchievementList onClose={() => setShowAchievements(false)} />}
+        {/* Achievement List - lazy loaded */}
+        {showAchievements && (
+          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+            <LazyAchievementList onClose={() => setShowAchievements(false)} />
+          </Suspense>
+        )}
         
         {/* AI Assistant Slide-in Panel - FIX: Use AIAssistantSlideIn wrapper for close functionality */}
         <Suspense fallback={<LazyLoadingFallback height="100%" />}>
           <LazyAIAssistantSlideIn isOpen={showAIAssistant} onClose={() => setShowAIAssistant(false)} />
         </Suspense>
         
-        {/* Toast Notifications */}
-        <ConnectionErrorFeedback />
-        <RandomForgeToast />
+        {/* Toast Notifications - lazy loaded */}
+        <Suspense fallback={null}>
+          <LazyConnectionErrorFeedback />
+        </Suspense>
+        <LazyRandomForgeToast />
         {/* FIX Round 77: AchievementToastContainer is now inside AchievementToastProvider (see App wrapper) 
             and uses useAchievementToastQueueContext to share queue state with App.tsx */}
         <AchievementToastContainer options={{ maxVisible: 3, staggerDelay: 3000 }} />
-        <RecipeToastManager />
+        <LazyRecipeToastManager />
         
-        {/* Trade Notification */}
-        <TradeNotification onOpenExchange={() => setShowExchange(true)} />
+        {/* Trade Notification - lazy loaded */}
+        <LazyTradeNotification onOpenExchange={() => setShowExchange(true)} />
         
-        {/* Community Gallery Modal */}
-        {isGalleryOpen && <CommunityGallery />}
+        {/* Community Gallery Modal - lazy loaded */}
+        {isGalleryOpen && (
+          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+            <LazyCommunityGallery />
+          </Suspense>
+        )}
         
-        {/* Publish to Gallery Modal */}
-        {isPublishModalOpen && <PublishModal />}
+        {/* Publish to Gallery Modal - lazy loaded */}
+        {isPublishModalOpen && (
+          <Suspense fallback={<LazyLoadingFallback height="400px" />}>
+            <LazyPublishModal />
+          </Suspense>
+        )}
         
         {/* FIX Round 106: WelcomeModal coordination with LoadPromptModal
             WelcomeModal is shown when user hasn't seen it before.
@@ -853,13 +906,16 @@ function AppContent() {
           />
         )}
         
-        <TutorialOverlay
-          onModuleAdded={() => {}}
-          onModuleSelected={() => {}}
-          onModuleConnected={() => {}}
-          onMachineActivated={() => {}}
-          onMachineSaved={() => {}}
-        />
+        {/* Tutorial Overlay - lazy loaded */}
+        <Suspense fallback={null}>
+          <LazyTutorialOverlay
+            onModuleAdded={() => {}}
+            onModuleSelected={() => {}}
+            onModuleConnected={() => {}}
+            onMachineActivated={() => {}}
+            onMachineSaved={() => {}}
+          />
+        </Suspense>
       </div>
     );
   }
