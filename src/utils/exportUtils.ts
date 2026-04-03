@@ -1,6 +1,20 @@
 import { PlacedModule, Connection, GeneratedAttributes, ExportResolution, ExportAspectRatio, ASPECT_RATIO_DIMS, RESOLUTION_DIMS, SocialPlatform, PLATFORM_PRESETS, PosterBackgroundColor, POSTER_BACKGROUND_COLORS } from '../types';
 import { FactionConfig } from '../types/factions';
 
+// Re-export from unified module for backward compatibility
+export {
+  generateCodexCardSVG,
+  generateCodexCardPNG,
+  exportAsCodexCard,
+  downloadCodexCard,
+  validateDimensions,
+  clampDimensions,
+  getDefaultDimensionsForFormat,
+  FORMAT_PRESETS,
+  POSTER_WIDTH,
+  POSTER_HEIGHT,
+} from './unifiedExportUtils';
+
 export function exportToSVG(
   modules: PlacedModule[],
   connections: Connection[],

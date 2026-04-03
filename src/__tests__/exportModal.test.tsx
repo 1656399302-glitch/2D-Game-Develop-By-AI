@@ -42,7 +42,54 @@ vi.mock('../store/useMachineStore', () => ({
   })),
 }));
 
-// Mock the utils
+// Mock the utils - Round 115: Updated to return specific error messages
+vi.mock('../utils/exportUtils', () => ({
+  exportToSVG: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
+  exportToPNG: vi.fn(() => Promise.resolve(new Blob(['fake-png'], { type: 'image/png' }))),
+  exportPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
+  exportEnhancedPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
+  exportSocialPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
+  exportFactionCard: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
+  downloadFile: vi.fn(),
+  getResolutionDimensions: vi.fn((_modules, resolution) => {
+    const scaleMap: Record<string, number> = { '1x': 1, '2x': 2, '4x': 4 };
+    const scale = scaleMap[resolution] || 1;
+    return { width: Math.round(400 * scale), height: Math.round(300 * scale) };
+  }),
+  // Round 115: Mock function that returns specific error messages
+  validateDimensions: vi.fn((width: number, height: number) => {
+    if (!width || isNaN(width)) {
+      return { isValid: false, errorMessage: 'Width is required' };
+    }
+    if (!height || isNaN(height)) {
+      return { isValid: false, errorMessage: 'Height is required' };
+    }
+    if (width < 400) {
+      return { isValid: false, errorMessage: 'Width must be at least 400px' };
+    }
+    if (width > 2000) {
+      return { isValid: false, errorMessage: 'Width must be at most 2000px' };
+    }
+    if (height < 400) {
+      return { isValid: false, errorMessage: 'Height must be at least 400px' };
+    }
+    if (height > 2000) {
+      return { isValid: false, errorMessage: 'Height must be at most 2000px' };
+    }
+    return { isValid: true };
+  }),
+  getDefaultDimensionsForFormat: vi.fn((format: string) => {
+    const presets: Record<string, { width: number; height: number }> = {
+      poster: { width: 800, height: 1000 },
+      twitter: { width: 1200, height: 675 },
+      instagram: { width: 1080, height: 1080 },
+      discord: { width: 600, height: 400 },
+    };
+    return presets[format] || { width: 800, height: 1000 };
+  }),
+}));
+
+// Mock the attribute generator
 vi.mock('../utils/attributeGenerator', () => ({
   generateAttributes: vi.fn(() => ({
     name: 'Test Machine',
@@ -59,23 +106,9 @@ vi.mock('../utils/attributeGenerator', () => ({
   })),
 }));
 
+// Mock the faction calculator
 vi.mock('../utils/factionCalculator', () => ({
   calculateFaction: vi.fn(() => 'stellar'),
-}));
-
-vi.mock('../utils/exportUtils', () => ({
-  exportToSVG: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
-  exportToPNG: vi.fn(() => Promise.resolve(new Blob(['fake-png'], { type: 'image/png' }))),
-  exportPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
-  exportEnhancedPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
-  exportSocialPoster: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
-  exportFactionCard: vi.fn(() => '<?xml version="1.0" encoding="UTF-8"?><svg></svg>'),
-  downloadFile: vi.fn(),
-  getResolutionDimensions: vi.fn((_modules, resolution) => {
-    const scaleMap: Record<string, number> = { '1x': 1, '2x': 2, '4x': 4 };
-    const scale = scaleMap[resolution] || 1;
-    return { width: Math.round(400 * scale), height: Math.round(300 * scale) };
-  }),
 }));
 
 // Mock the FACTIONS
@@ -176,13 +209,14 @@ describe('ExportModal', () => {
       expect(dimensionText.textContent).toMatch(/1[56]\d{2}/);
     });
 
-    it('updates dimension when aspect ratio changes (default: 600×800)', () => {
+    it('shows custom dimensions for poster format (800×1000)', () => {
       render(<ExportModal onClose={mockOnClose} />);
       
       fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
       
+      // Custom dimensions (800x1000) are shown for poster format
       const dimensionText = screen.getByTestId('dimension-indicator');
-      expect(dimensionText.textContent).toMatch(/600.*800|800.*600/);
+      expect(dimensionText.textContent).toMatch(/800.*1000/);
     });
 
     it('updates dimension when aspect ratio changes to square (600×600)', () => {
@@ -293,6 +327,112 @@ describe('ExportModal', () => {
       
       const usernameInput = screen.getByTestId('username-input');
       expect(usernameInput).toBeTruthy();
+    });
+  });
+
+  describe('Round 115: Custom Dimensions', () => {
+    it('shows custom dimension inputs for poster format', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      // Check for width and height inputs
+      const widthInput = screen.getByRole('spinbutton', { name: /Custom width/i });
+      const heightInput = screen.getByRole('spinbutton', { name: /Custom height/i });
+      
+      expect(widthInput).toBeTruthy();
+      expect(heightInput).toBeTruthy();
+    });
+
+    it('shows error for width below 400px', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      const widthInput = screen.getByRole('spinbutton', { name: /Custom width/i });
+      fireEvent.change(widthInput, { target: { value: '350' } });
+      
+      expect(screen.getByText(/Width must be at least 400px/i)).toBeTruthy();
+    });
+
+    it('shows error for width above 2000px', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      const widthInput = screen.getByRole('spinbutton', { name: /Custom width/i });
+      fireEvent.change(widthInput, { target: { value: '2001' } });
+      
+      expect(screen.getByText(/Width must be at most 2000px/i)).toBeTruthy();
+    });
+
+    it('shows error for height below 400px', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      const heightInput = screen.getByRole('spinbutton', { name: /Custom height/i });
+      fireEvent.change(heightInput, { target: { value: '350' } });
+      
+      expect(screen.getByText(/Height must be at least 400px/i)).toBeTruthy();
+    });
+
+    it('shows error for height above 2000px', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      const heightInput = screen.getByRole('spinbutton', { name: /Custom height/i });
+      fireEvent.change(heightInput, { target: { value: '2001' } });
+      
+      expect(screen.getByText(/Height must be at most 2000px/i)).toBeTruthy();
+    });
+
+    it('accepts valid dimensions 1000x1200', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      const widthInput = screen.getByRole('spinbutton', { name: /Custom width/i });
+      const heightInput = screen.getByRole('spinbutton', { name: /Custom height/i });
+      
+      fireEvent.change(widthInput, { target: { value: '1000' } });
+      fireEvent.change(heightInput, { target: { value: '1200' } });
+      
+      // No error should appear
+      expect(screen.queryByText(/must be at least/i)).toBeNull();
+      expect(screen.queryByText(/must be at most/i)).toBeNull();
+    });
+
+    it('updates preview when custom dimensions change', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      const widthInput = screen.getByRole('spinbutton', { name: /Custom width/i });
+      fireEvent.change(widthInput, { target: { value: '1000' } });
+      
+      // The dimension indicator should update
+      const dimensionText = screen.getByTestId('dimension-indicator');
+      expect(dimensionText.textContent).toMatch(/1000/);
+    });
+
+    it('resets dimensions when switching to Twitter format', () => {
+      render(<ExportModal onClose={mockOnClose} />);
+      
+      // First select poster format
+      fireEvent.click(screen.getByRole('tab', { name: /poster/i }));
+      
+      // Change custom dimensions
+      const widthInput = screen.getByRole('spinbutton', { name: /Custom width/i });
+      fireEvent.change(widthInput, { target: { value: '1500' } });
+      
+      // Then switch to Twitter
+      fireEvent.click(screen.getByRole('tab', { name: /twitter/i }));
+      
+      // Dimension indicator should show Twitter dimensions (1200×675)
+      const dimensionText = screen.getByTestId('dimension-indicator');
+      expect(dimensionText.textContent).toMatch(/1200.*675/);
     });
   });
 });

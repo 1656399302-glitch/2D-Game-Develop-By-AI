@@ -8,7 +8,9 @@ import {
   exportFactionCard, 
   exportSocialPoster,
   downloadFile, 
-  getResolutionDimensions 
+  getResolutionDimensions,
+  validateDimensions,
+  getDefaultDimensionsForFormat,
 } from '../../utils/exportUtils';
 import { generateAttributes } from '../../utils/attributeGenerator';
 import { calculateFaction } from '../../utils/factionCalculator';
@@ -23,6 +25,17 @@ interface ExportModalProps {
 
 type ExportFormat = 'svg' | 'png' | 'poster' | 'enhanced-poster' | 'faction-card' | 'social';
 
+// Custom dimension type
+interface CustomDimensions {
+  width: number;
+  height: number;
+}
+
+// Error toast state
+interface ErrorToast {
+  visible: boolean;
+  message: string;
+}
 
 export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   const modules = useMachineStore((state) => state.modules);
@@ -49,6 +62,17 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   // Round 78: Background color selector for enhanced poster
   const [backgroundColor, setBackgroundColor] = useState<PosterBackgroundColor>('dark');
   
+  // Round 115: Custom dimension inputs for poster formats
+  const [customDimensions, setCustomDimensions] = useState<CustomDimensions>({
+    width: 800,
+    height: 1000,
+  });
+  const [widthError, setWidthError] = useState<string | null>(null);
+  const [heightError, setHeightError] = useState<string | null>(null);
+  
+  // Round 115: Error toast state
+  const [errorToast, setErrorToast] = useState<ErrorToast>({ visible: false, message: '' });
+  
   // Calculate faction and attributes for EnhancedShareCard
   const dominantFaction = calculateFaction(modules);
   const factionId = dominantFaction || 'stellar'; // Default to stellar if no faction modules
@@ -57,6 +81,14 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
   
   // Get expected output dimensions for current settings - used in AC5
   const getExpectedDimensions = useCallback(() => {
+    // Use custom dimensions if valid
+    if (format === 'poster' || format === 'enhanced-poster' || format === 'social') {
+      const dims = validateDimensions(customDimensions.width, customDimensions.height);
+      if (dims.isValid) {
+        return { width: customDimensions.width, height: customDimensions.height };
+      }
+    }
+    
     if (format === 'png') {
       return getResolutionDimensions(modules, resolution);
     }
@@ -68,20 +100,88 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
       return { width: preset.width, height: preset.height };
     }
     return { width: 800, height: 600 };
-  }, [format, resolution, aspectRatio, modules, selectedPlatform]);
+  }, [format, resolution, aspectRatio, modules, selectedPlatform, customDimensions]);
   
   const expectedDims = getExpectedDimensions();
   
-  // Handle social platform selection - AC2/AC3/AC3b
+  // Handle custom dimension input change with validation
+  const handleDimensionChange = useCallback((
+    field: 'width' | 'height',
+    value: string
+  ) => {
+    const numValue = parseInt(value, 10);
+    const newValue = isNaN(numValue) ? 0 : numValue;
+    
+    // Update the dimension and validate using the new value
+    setCustomDimensions(prev => {
+      const newWidth = field === 'width' ? newValue : prev.width;
+      const newHeight = field === 'height' ? newValue : prev.height;
+      
+      // Set error state based on validation
+      if (field === 'width') {
+        const validation = validateDimensions(newValue, prev.height);
+        setWidthError(validation.isValid ? null : validation.errorMessage || null);
+      } else {
+        const validation = validateDimensions(prev.width, newValue);
+        setHeightError(validation.isValid ? null : validation.errorMessage || null);
+      }
+      
+      return {
+        width: newWidth,
+        height: newHeight,
+      };
+    });
+  }, []);
+  
+  // Handle format change - reset dimensions for social format
   const handlePlatformSelect = useCallback((platform: SocialPlatform) => {
     setFormat('social');
     setSelectedPlatform(platform);
+    // Round 115: Reset dimensions when switching to social format
+    const defaults = getDefaultDimensionsForFormat(platform);
+    setCustomDimensions(defaults);
+    setWidthError(null);
+    setHeightError(null);
+  }, []);
+  
+  // Handle aspect ratio change for poster formats
+  const handleAspectRatioChange = useCallback((newRatio: ExportAspectRatio) => {
+    setAspectRatio(newRatio);
+    // Round 115: Reset dimensions when switching aspect ratios
+    const dims = ASPECT_RATIO_DIMS[newRatio];
+    setCustomDimensions({ width: dims.width, height: dims.height });
+    setWidthError(null);
+    setHeightError(null);
+  }, []);
+  
+  // Show error toast
+  const showError = useCallback((message: string) => {
+    setErrorToast({ visible: true, message });
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      setErrorToast({ visible: false, message: '' });
+    }, 5000);
+  }, []);
+  
+  // Dismiss error toast
+  const dismissError = useCallback(() => {
+    setErrorToast({ visible: false, message: '' });
   }, []);
   
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     
     try {
+      // Round 115: Validate custom dimensions before export
+      if (format === 'poster' || format === 'enhanced-poster' || format === 'social') {
+        const validation = validateDimensions(customDimensions.width, customDimensions.height);
+        if (!validation.isValid) {
+          showError(validation.errorMessage || 'Invalid dimensions. Please check your values.');
+          setIsExporting(false);
+          return;
+        }
+      }
+      
       const sanitizedName = exportName.replace(/[^a-z0-9]/gi, '-').toLowerCase().replace(/-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
       
       switch (format) {
@@ -141,10 +241,11 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
       }, 500);
     } catch (error) {
       console.error('Export failed:', error);
+      // Round 115: Show user-visible error toast instead of just alert
+      showError('Export failed. Try reducing image size or changing format.');
       setIsExporting(false);
-      alert('Export failed. Please try again.');
     }
-  }, [format, exportName, modules, connections, attributes, onClose, resolution, transparentBackground, aspectRatio, selectedPlatform, username, includeWatermark, backgroundColor, faction]);
+  }, [format, exportName, modules, connections, attributes, onClose, resolution, transparentBackground, aspectRatio, selectedPlatform, username, includeWatermark, backgroundColor, faction, customDimensions, showError]);
   
   const handleFactionCardExportSVG = useCallback(() => {
     const factionCardContent = exportFactionCard(modules, connections, attributes, faction);
@@ -223,9 +324,30 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
           </button>
         </div>
         
+        {/* Round 115: Error Toast */}
+        {errorToast.visible && (
+          <div 
+            className="mb-4 p-3 bg-red-900/50 border border-red-500/50 rounded-lg flex items-center justify-between"
+            role="alert"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-red-400">⚠</span>
+              <span className="text-sm text-red-200">{errorToast.message}</span>
+            </div>
+            <button
+              onClick={dismissError}
+              className="text-red-400 hover:text-red-300"
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        
         {/* Preview */}
         <div className="aspect-video bg-[#0a0e17] rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-          <ExportPreview format={format} platform={selectedPlatform} />
+          <ExportPreview format={format} platform={selectedPlatform} dimensions={expectedDims} />
         </div>
         
         {/* Options */}
@@ -397,7 +519,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
                       role="button"
                       aria-label={labels[ratio]}
                       aria-pressed={aspectRatio === ratio}
-                      onClick={() => setAspectRatio(ratio)}
+                      onClick={() => handleAspectRatioChange(ratio)}
                       className={`p-2 rounded-lg border transition-all text-center ${
                         aspectRatio === ratio
                           ? 'border-[#00d4ff] bg-[#00d4ff]/10 selected'
@@ -412,6 +534,79 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
                   );
                 })}
               </div>
+            </div>
+          )}
+          
+          {/* Round 115: Custom Dimensions Input - For poster and social formats */}
+          {(format === 'poster' || format === 'enhanced-poster' || format === 'social') && (
+            <div>
+              <label className="block text-sm font-medium text-[#9ca3af] mb-2">
+                自定义尺寸 (Custom Dimensions)
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Width Input */}
+                <div>
+                  <label htmlFor="custom-width" className="block text-xs text-[#6b7280] mb-1">
+                    宽度 (Width)
+                  </label>
+                  <input
+                    id="custom-width"
+                    type="number"
+                    role="spinbutton"
+                    aria-label="Custom width in pixels"
+                    aria-describedby={widthError ? 'width-error' : undefined}
+                    aria-invalid={!!widthError}
+                    value={customDimensions.width}
+                    onChange={(e) => handleDimensionChange('width', e.target.value)}
+                    min={400}
+                    max={2000}
+                    className={`w-full bg-[#0a0e17] border rounded-lg px-3 py-2 text-white placeholder-[#4a5568] focus:outline-none transition-colors ${
+                      widthError 
+                        ? 'border-red-500 focus:border-red-500' 
+                        : 'border-[#1e2a42] focus:border-[#00d4ff]'
+                    }`}
+                    placeholder="800"
+                  />
+                  {widthError && (
+                    <p id="width-error" className="mt-1 text-xs text-red-400" role="alert">
+                      {widthError}
+                    </p>
+                  )}
+                </div>
+                
+                {/* Height Input */}
+                <div>
+                  <label htmlFor="custom-height" className="block text-xs text-[#6b7280] mb-1">
+                    高度 (Height)
+                  </label>
+                  <input
+                    id="custom-height"
+                    type="number"
+                    role="spinbutton"
+                    aria-label="Custom height in pixels"
+                    aria-describedby={heightError ? 'height-error' : undefined}
+                    aria-invalid={!!heightError}
+                    value={customDimensions.height}
+                    onChange={(e) => handleDimensionChange('height', e.target.value)}
+                    min={400}
+                    max={2000}
+                    className={`w-full bg-[#0a0e17] border rounded-lg px-3 py-2 text-white placeholder-[#4a5568] focus:outline-none transition-colors ${
+                      heightError 
+                        ? 'border-red-500 focus:border-red-500' 
+                        : 'border-[#1e2a42] focus:border-[#00d4ff]'
+                    }`}
+                    placeholder="1000"
+                  />
+                  {heightError && (
+                    <p id="height-error" className="mt-1 text-xs text-red-400" role="alert">
+                      {heightError}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-[#4a5568]">
+                范围: 400-2000px (Range: 400-2000px)
+              </p>
             </div>
           )}
           
@@ -607,7 +802,7 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
           ) : (
             <button
               onClick={handleExport}
-              disabled={isExporting}
+              disabled={isExporting || !!widthError || !!heightError}
               className="flex-1 px-4 py-2 bg-[#00d4ff] hover:bg-[#00b8e6] text-black font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isExporting ? (
@@ -668,24 +863,51 @@ function FormatButton({ label, description, icon, selected, onClick, platform }:
   );
 }
 
-function ExportPreview({ format, platform }: { format: string; platform?: SocialPlatform | null }) {
+interface ExportPreviewProps {
+  format: string;
+  platform?: SocialPlatform | null;
+  dimensions?: { width: number; height: number };
+}
+
+function ExportPreview({ format, platform, dimensions }: ExportPreviewProps) {
   // AC1: Show preview for all 8 formats including new social presets
+  // AC-115-004: Preview updates to reflect custom dimensions
+  const previewDims = dimensions || { width: 100, height: 140 };
+  
+  // Calculate preview aspect ratio
+  const aspectRatio = previewDims.width / previewDims.height;
+  const maxPreviewWidth = 100;
+  const maxPreviewHeight = 140;
+  
+  let previewWidth: number;
+  let previewHeight: number;
+  
+  if (aspectRatio > 1) {
+    // Wider than tall
+    previewWidth = maxPreviewWidth;
+    previewHeight = maxPreviewWidth / aspectRatio;
+  } else {
+    // Taller than wide or square
+    previewHeight = maxPreviewHeight;
+    previewWidth = maxPreviewHeight * aspectRatio;
+  }
+  
   if (format === 'social' && platform) {
     const preset = PLATFORM_PRESETS[platform];
     const isLandscape = platform === 'twitter';
     const isSquare = platform === 'instagram';
-    const previewWidth = isSquare ? 100 : (isLandscape ? 140 : 120);
-    const previewHeight = isSquare ? 100 : (isLandscape ? 80 : 80);
+    const socialPreviewWidth = isSquare ? 100 : (isLandscape ? 140 : 120);
+    const socialPreviewHeight = isSquare ? 100 : (isLandscape ? 80 : 80);
     
     return (
-      <svg width={previewWidth} height={previewHeight} viewBox={`0 0 ${previewWidth} ${previewHeight}`}>
-        <rect x="2" y="2" width={previewWidth - 4} height={previewHeight - 4} fill="#0a0e17" stroke={preset.accentColor} strokeWidth="2" rx="4"/>
+      <svg width={socialPreviewWidth} height={socialPreviewHeight} viewBox={`0 0 ${socialPreviewWidth} ${socialPreviewHeight}`}>
+        <rect x="2" y="2" width={socialPreviewWidth - 4} height={socialPreviewHeight - 4} fill="#0a0e17" stroke={preset.accentColor} strokeWidth="2" rx="4"/>
         {/* Social preview elements */}
-        <rect x={previewWidth * 0.1} y={previewHeight * 0.1} width={previewWidth * 0.8} height={previewHeight * 0.5} fill="#121826" rx="2"/>
-        <circle cx={previewWidth * 0.3} cy={previewHeight * 0.35} r="10" fill="#1a1a2e" stroke="#00d4ff" strokeWidth="1"/>
-        <rect x={previewWidth * 0.5} y={previewHeight * 0.25} width={previewWidth * 0.35} height={previewHeight * 0.2} fill="#2d1b4e" rx="1"/>
+        <rect x={socialPreviewWidth * 0.1} y={socialPreviewHeight * 0.1} width={socialPreviewWidth * 0.8} height={socialPreviewHeight * 0.5} fill="#121826" rx="2"/>
+        <circle cx={socialPreviewWidth * 0.3} cy={socialPreviewHeight * 0.35} r="10" fill="#1a1a2e" stroke="#00d4ff" strokeWidth="1"/>
+        <rect x={socialPreviewWidth * 0.5} y={socialPreviewHeight * 0.25} width={socialPreviewWidth * 0.35} height={socialPreviewHeight * 0.2} fill="#2d1b4e" rx="1"/>
         {/* Watermark area */}
-        <text x={previewWidth * 0.9} y={previewHeight * 0.95} textAnchor="end" fontSize="6" fill="#4a5568" opacity="0.6">@{platform}</text>
+        <text x={socialPreviewWidth * 0.9} y={socialPreviewHeight * 0.95} textAnchor="end" fontSize="6" fill="#4a5568" opacity="0.6">@{platform}</text>
       </svg>
     );
   }
@@ -709,42 +931,33 @@ function ExportPreview({ format, platform }: { format: string; platform?: Social
           <path d="M32,32 L72,31" stroke="#00ffcc" strokeWidth="1.5" strokeDasharray="3,2"/>
         </svg>
       )}
-      {format === 'poster' && (
-        <svg width="100" height="140" viewBox="0 0 100 140">
-          <rect x="5" y="5" width="90" height="130" fill="#0a0e17" stroke="#00d4ff" strokeWidth="1.5" rx="4"/>
-          <rect x="10" y="10" width="80" height="80" fill="#121826" stroke="#7c3aed" strokeWidth="0.5" rx="2"/>
-          <rect x="20" y="100" width="60" height="8" fill="#1e2a42" rx="2"/>
-          <rect x="20" y="115" width="45" height="6" fill="#1e2a42" rx="1"/>
-          <rect x="20" y="125" width="55" height="6" fill="#1e2a42" rx="1"/>
-          <rect x="15" y="30" width="20" height="20" fill="#1a1a2e" stroke="#00d4ff" strokeWidth="1" rx="2"/>
-          <rect x="40" y="35" width="30" height="10" fill="#2d1b4e" stroke="#7c3aed" strokeWidth="0.5" rx="1"/>
-          <text x="50" y="50" textAnchor="middle" fontSize="6" fill="#ffd700">MACHINE</text>
-        </svg>
-      )}
-      {format === 'enhanced-poster' && (
-        <svg width="100" height="140" viewBox="0 0 100 140">
-          <rect x="5" y="5" width="90" height="130" fill="#0a0e17" stroke="#00d4ff" strokeWidth="1.5" rx="4"/>
+      {(format === 'poster' || format === 'enhanced-poster' || format === 'social') && (
+        <svg 
+          width={previewWidth} 
+          height={previewHeight} 
+          viewBox={`0 0 ${previewDims.width} ${previewDims.height}`}
+        >
+          <rect x="5" y="5" width={previewDims.width - 10} height={previewDims.height - 10} fill="#0a0e17" stroke="#00d4ff" strokeWidth="2" rx="6"/>
           {/* Decorative corners */}
-          <path d="M5,20 L5,5 L20,5" fill="none" stroke="#ffd700" strokeWidth="2"/>
-          <path d="M80,5 L95,5 L95,20" fill="none" stroke="#ffd700" strokeWidth="2"/>
-          <path d="M95,120 L95,135 L80,135" fill="none" stroke="#ffd700" strokeWidth="2"/>
-          <path d="M20,135 L5,135 L5,120" fill="none" stroke="#ffd700" strokeWidth="2"/>
-          {/* Inner border */}
-          <rect x="10" y="10" width="80" height="80" fill="#121826" stroke="#7c3aed" strokeWidth="0.5" rx="2"/>
+          <path d="M5,40 L5,5 L40,5" fill="none" stroke="#ffd700" strokeWidth="2"/>
+          <path d={`${previewDims.width - 5},5 L${previewDims.width - 40},5 L${previewDims.width - 5},40`} fill="none" stroke="#ffd700" strokeWidth="2"/>
+          <path d={`5,${previewDims.height - 5} L5,${previewDims.height - 40} L40,${previewDims.height - 5}`} fill="none" stroke="#ffd700" strokeWidth="2"/>
+          <path d={`${previewDims.width - 5},${previewDims.height - 40} L${previewDims.width - 40},${previewDims.height - 5} L${previewDims.width - 5},${previewDims.height - 5}`} fill="none" stroke="#ffd700" strokeWidth="2"/>
+          {/* Machine preview area */}
+          <rect x={previewDims.width * 0.08} y={previewDims.height * 0.15} width={previewDims.width * 0.84} height={previewDims.height * 0.45} fill="#121826" stroke="#7c3aed" strokeWidth="1" rx="4"/>
           {/* Module preview */}
-          <rect x="15" y="30" width="20" height="20" fill="#1a1a2e" stroke="#00d4ff" strokeWidth="1" rx="2"/>
-          <rect x="40" y="35" width="30" height="10" fill="#2d1b4e" stroke="#7c3aed" strokeWidth="0.5" rx="1"/>
+          <rect x={previewDims.width * 0.15} y={previewDims.height * 0.25} width={previewDims.width * 0.2} height={previewDims.height * 0.25} fill="#1a1a2e" stroke="#00d4ff" strokeWidth="1" rx="2"/>
+          <rect x={previewDims.width * 0.45} y={previewDims.height * 0.32} width={previewDims.width * 0.35} height={previewDims.height * 0.1} fill="#2d1b4e" stroke="#7c3aed" strokeWidth="0.5" rx="1"/>
           {/* Name with decorative elements */}
-          <text x="50" y="18" textAnchor="middle" fontSize="7" fill="#ffd700" fontFamily="serif">★ MACHINE NAME ★</text>
-          {/* Stats with icons */}
-          <text x="20" y="102" fontSize="5" fill="#4ade80">◆ STABILITY: 85%</text>
-          <text x="20" y="110" fontSize="5" fill="#f59e0b">⚡ POWER: 72</text>
-          <text x="20" y="118" fontSize="5" fill="#ef4444">⚠ FAILURE: 15%</text>
-          {/* Tags */}
-          <text x="20" y="128" fontSize="5" fill="#a855f7">Tags: arcane, amplifying</text>
-          {/* Faction emblem placeholder */}
-          <circle cx="75" cy="105" r="8" fill="none" stroke="#fbbf24" strokeWidth="1" strokeDasharray="2,2"/>
-          <text x="75" y="107" textAnchor="middle" fontSize="5" fill="#fbbf24">⚗</text>
+          <text x={previewDims.width / 2} y={previewDims.height * 0.08} textAnchor="middle" fontSize={previewDims.width * 0.06} fill="#ffd700" fontFamily="serif">★ MACHINE ★</text>
+          {/* Stats preview */}
+          <rect x={previewDims.width * 0.1} y={previewDims.height * 0.65} width={previewDims.width * 0.35} height={previewDims.height * 0.06} fill="#1e2a42" rx="2"/>
+          <rect x={previewDims.width * 0.1} y={previewDims.height * 0.75} width={previewDims.width * 0.3} height={previewDims.height * 0.06} fill="#1e2a42" rx="2"/>
+          <rect x={previewDims.width * 0.5} y={previewDims.height * 0.65} width={previewDims.width * 0.4} height={previewDims.height * 0.25} fill="#1e2a42" rx="2"/>
+          {/* Dimension indicator */}
+          <text x={previewDims.width / 2} y={previewDims.height * 0.95} textAnchor="middle" fontSize={previewDims.width * 0.035} fill="#4a5568">
+            {previewDims.width}×{previewDims.height}
+          </text>
         </svg>
       )}
       {format === 'faction-card' && (

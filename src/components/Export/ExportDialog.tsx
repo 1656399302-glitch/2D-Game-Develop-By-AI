@@ -1,6 +1,7 @@
 /**
- * ExportDialog Component - Round 95
+ * ExportDialog Component - Round 115
  * Enhanced dialog with format selection (PNG/SVG) and quality presets (Standard/High)
+ * Now includes improved error handling with user-visible toast messages
  */
 import React, { useState, useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
@@ -14,14 +15,33 @@ interface ExportDialogProps {
   onClose: () => void;
 }
 
+// Error toast state interface
+interface ErrorToast {
+  visible: boolean;
+  message: string;
+}
+
+interface ExportDialogState {
+  format: ExportFormat;
+  quality: ExportQuality;
+  isExporting: boolean;
+  error: ErrorToast;
+}
+
+const initialState: ExportDialogState = {
+  format: 'svg',
+  quality: 'standard',
+  isExporting: false,
+  error: { visible: false, message: '' },
+};
+
 /** AC-EXPORT-001: Export dialog opens and allows format selection */
 export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
   const modules = useMachineStore(state => state.modules);
   const connections = useMachineStore(state => state.connections);
 
-  const [format, setFormat] = useState<ExportFormat>('svg');
-  const [quality, setQuality] = useState<ExportQuality>('standard');
-  const [isExporting, setIsExporting] = useState(false);
+  const [state, setState] = useState<ExportDialogState>(initialState);
+  const { format, quality, isExporting, error } = state;
 
   // Calculate faction and attributes
   const dominantFaction = calculateFaction(modules);
@@ -29,27 +49,83 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
   const faction = FACTIONS[factionId];
   const attributes = generateAttributes(modules, connections);
 
+  // Show error toast
+  const showError = useCallback((message: string) => {
+    setState(prev => ({
+      ...prev,
+      error: { visible: true, message },
+    }));
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        error: { visible: false, message: '' },
+      }));
+    }, 5000);
+  }, []);
+
+  // Dismiss error toast
+  const dismissError = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      error: { visible: false, message: '' },
+    }));
+  }, []);
+
+  // Update format
+  const handleFormatChange = useCallback((newFormat: ExportFormat) => {
+    setState(prev => ({ ...prev, format: newFormat }));
+  }, []);
+
+  // Update quality
+  const handleQualityChange = useCallback((newQuality: ExportQuality) => {
+    setState(prev => ({ ...prev, quality: newQuality }));
+  }, []);
+
   const handleExport = useCallback(async () => {
     if (modules.length === 0) {
-      alert('Please add some modules to export.');
+      showError('Please add some modules to export.');
       return;
     }
 
-    setIsExporting(true);
+    setState(prev => ({ ...prev, isExporting: true, error: { visible: false, message: '' } }));
+
     try {
-      const result = await exportAsCodexCard(modules, connections, attributes, faction, format, quality);
+      const result = await exportAsCodexCard(
+        modules,
+        connections,
+        attributes,
+        faction,
+        format,
+        quality
+      );
+
       const ext = format === 'svg' ? 'svg' : 'png';
       const mime = format === 'svg' ? 'image/svg+xml' : 'image/png';
       const filename = `${attributes.name.replace(/\s+/g, '-').toLowerCase()}-codex-card.${ext}`;
+
       downloadCodexCard(result, filename, mime);
-      setTimeout(onClose, 500);
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+
+      // Close dialog after successful export
+      setTimeout(() => {
+        onClose();
+      }, 500);
+    } catch (err) {
+      console.error('Export failed:', err);
+      // Round 115: Show user-visible error with actionable guidance
+      const errorMessage = err instanceof Error
+        ? err.message.includes('SVG') 
+          ? 'Invalid SVG generated. Try reducing machine complexity.'
+          : err.message.includes('PNG')
+            ? 'PNG export failed. Try using SVG format instead.'
+            : 'Export failed. Please try again.'
+        : 'Export failed. Please try again.';
+      
+      showError(errorMessage);
     } finally {
-      setIsExporting(false);
+      setState(prev => ({ ...prev, isExporting: false }));
     }
-  }, [modules, connections, attributes, faction, format, quality, onClose]);
+  }, [modules, connections, attributes, faction, format, quality, onClose, showError]);
 
   return (
     <div
@@ -72,6 +148,27 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
             ✕
           </button>
         </div>
+
+        {/* Round 115: Error Toast */}
+        {error.visible && (
+          <div 
+            className="mb-4 p-3 bg-red-900/50 border border-red-500/50 rounded-lg flex items-center justify-between"
+            role="alert"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-red-400">⚠</span>
+              <span className="text-sm text-red-200">{error.message}</span>
+            </div>
+            <button
+              onClick={dismissError}
+              className="text-red-400 hover:text-red-300"
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Preview - AC-EXPORT-002: Shows all required elements */}
         {modules.length > 0 && (
@@ -101,7 +198,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
             <button
               role="radio"
               aria-checked={format === 'svg'}
-              onClick={() => setFormat('svg')}
+              onClick={() => handleFormatChange('svg')}
               className={`p-3 rounded-lg border transition-all text-center ${
                 format === 'svg'
                   ? 'border-[#00d4ff] bg-[#00d4ff]/10 text-[#00d4ff]'
@@ -116,7 +213,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
             <button
               role="radio"
               aria-checked={format === 'png'}
-              onClick={() => setFormat('png')}
+              onClick={() => handleFormatChange('png')}
               className={`p-3 rounded-lg border transition-all text-center ${
                 format === 'png'
                   ? 'border-[#00d4ff] bg-[#00d4ff]/10 text-[#00d4ff]'
@@ -141,7 +238,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
               <button
                 role="radio"
                 aria-checked={quality === 'standard'}
-                onClick={() => setQuality('standard')}
+                onClick={() => handleQualityChange('standard')}
                 className={`p-3 rounded-lg border transition-all text-center ${
                   quality === 'standard'
                     ? 'border-[#00d4ff] bg-[#00d4ff]/10 text-[#00d4ff]'
@@ -155,7 +252,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
               <button
                 role="radio"
                 aria-checked={quality === 'high'}
-                onClick={() => setQuality('high')}
+                onClick={() => handleQualityChange('high')}
                 className={`p-3 rounded-lg border transition-all text-center ${
                   quality === 'high'
                     ? 'border-[#00d4ff] bg-[#00d4ff]/10 text-[#00d4ff]'
