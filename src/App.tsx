@@ -5,6 +5,7 @@ import { PropertiesPanel } from './components/Editor/PropertiesPanel';
 import { Toolbar } from './components/Editor/Toolbar';
 import { ExportDialog } from './components/Export/ExportDialog';
 import { ActivationOverlay } from './components/Preview/ActivationOverlay';
+import { CircuitValidationOverlay } from './components/Editor/CircuitValidationOverlay';
 import { ConnectionErrorFeedback } from './components/UI/ConnectionErrorFeedback';
 import { RandomForgeToast } from './components/UI/RandomForgeToast';
 import { LoadPromptModal } from './components/UI/LoadPromptModal';
@@ -650,6 +651,9 @@ function AppContent() {
         )}
         
         {showActivation && <ActivationOverlay onComplete={handleActivationComplete} />}
+        
+        {/* Round 112: Circuit Validation Overlay */}
+        <CircuitValidationOverlay />
         
         {showChallenges && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">

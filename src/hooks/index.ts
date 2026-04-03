@@ -17,3 +17,7 @@ export type { } from './useEnergyConnections';
 
 export { useModuleAnimation, getModuleAnimationConfig, machineStateToAnimationState } from './useModuleAnimation';
 export type { AnimationState, AnimationKeyframe, AnimationPhaseConfig, ModuleAnimationConfig, ModuleAnimationState } from './useModuleAnimation';
+
+// Round 112: Advanced Circuit Validation System
+export { useCircuitValidation, useActivationGate, useValidationOverlay } from './useCircuitValidation';
+export type { UseCircuitValidationResult } from './useCircuitValidation';
