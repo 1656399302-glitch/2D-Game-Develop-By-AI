@@ -1,5 +1,11 @@
-// Particle system components
-export { ParticleEmitter, ParticleBurst } from './ParticleEmitter';
-export { EnergySparkEmitter, getParticleCountForEnergyLevel, getSpeedForEnergyLevel } from './EnergySparkEmitter';
-export { ActivationBurstEmitter, AmbientGlow, SmokeEffect } from './ActivationBurstEmitter';
-export { AmbientDustEmitter, MagicSparkle, RunePulse, GearHighlight } from './AmbientDustEmitter';
+/**
+ * Particles Components Index
+ * 
+ * Export all particle emitter components
+ */
+
+export { AmbientDustEmitter } from './AmbientDustEmitter';
+export { ActivationBurstEmitter } from './ActivationBurstEmitter';
+export { EnergySparkEmitter } from './EnergySparkEmitter';
+export { ParticleEmitter } from './ParticleEmitter';
+export { FailureParticleEmitter } from './FailureParticleEmitter';

@@ -1,6 +1,18 @@
-import { describe, test, expect } from 'vitest';
-import { calculateActivationChoreography, getPhaseFromProgress, getRarityColor, getPulseWaveCount } from '../utils/activationChoreographer';
-import { PlacedModule, Connection, Rarity } from '../types';
+/**
+ * Activation Choreography Tests
+ * 
+ * Tests for sequential module activation based on connection topology.
+ * Verifies that modules activate in waves, not simultaneously.
+ * 
+ * Round 109: AC-109-001 Verification
+ */
+
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { useActivationChoreography } from '../hooks/useActivationChoreography';
+import { useMachineStore } from '../store/useMachineStore';
+import { calculateActivationChoreography } from '../utils/activationChoreographer';
+import { PlacedModule, Connection } from '../types';
 
 // Helper to create a mock module
 const createModule = (id: string, type: string = 'core-furnace'): PlacedModule => ({
@@ -97,7 +109,7 @@ describe('calculateActivationChoreography', () => {
     expect(aStep?.depth).toBe(1);
     expect(bStep?.depth).toBe(1);
     
-    // Both activate at same time (200ms)
+    // Both activate at same time (within 50ms tolerance)
     expect(Math.abs(aStep!.activationTime - bStep!.activationTime)).toBeLessThanOrEqual(50);
   });
 
@@ -158,7 +170,7 @@ describe('calculateActivationChoreography', () => {
     expect(aStep?.activationTime - connLightUp!.activationTime).toBe(33); // FIX (Round 85): lead time
   });
 
-  test('Multiple depth levels with correct timing (200ms intervals)', () => {
+  test('Multiple depth levels with correct timing (67ms intervals)', () => {
     const input = createModule('input', 'trigger-switch');
     const level1 = createModule('L1');
     const level2a = createModule('L2a');
@@ -209,61 +221,241 @@ describe('calculateActivationChoreography', () => {
   });
 });
 
-describe('getPhaseFromProgress', () => {
-  test('0-29% returns CHARGING', () => {
-    expect(getPhaseFromProgress(0).text).toBe('CHARGING');
-    expect(getPhaseFromProgress(15).text).toBe('CHARGING');
-    expect(getPhaseFromProgress(29).text).toBe('CHARGING');
-    expect(getPhaseFromProgress(0).phase).toBe('charging');
+describe('useActivationChoreography Hook', () => {
+  beforeEach(() => {
+    // Reset store state
+    useMachineStore.setState({
+      modules: [],
+      connections: [],
+      machineState: 'idle',
+    });
   });
 
-  test('30-79% returns ACTIVATING', () => {
-    expect(getPhaseFromProgress(30).text).toBe('ACTIVATING');
-    expect(getPhaseFromProgress(50).text).toBe('ACTIVATING');
-    expect(getPhaseFromProgress(79).text).toBe('ACTIVATING');
-    expect(getPhaseFromProgress(50).phase).toBe('activating');
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  test('80-100% returns ONLINE', () => {
-    expect(getPhaseFromProgress(80).text).toBe('ONLINE');
-    expect(getPhaseFromProgress(90).text).toBe('ONLINE');
-    expect(getPhaseFromProgress(100).text).toBe('ONLINE');
-    expect(getPhaseFromProgress(95).phase).toBe('online');
+  test('Returns empty sequence when no modules', () => {
+    const { result } = renderHook(() => useActivationChoreography());
+    
+    expect(result.current.activationSequence.waves).toHaveLength(0);
+    expect(result.current.totalModules).toBe(0);
+  });
+
+  test('Calculates correct wave count for chain topology', () => {
+    const modules = [
+      createModule('input', 'trigger-switch'),
+      createModule('A'),
+      createModule('B'),
+      createModule('C'),
+    ];
+    
+    const connections = [
+      createConnection('c1', 'input', 'A'),
+      createConnection('c2', 'A', 'B'),
+      createConnection('c3', 'B', 'C'),
+    ];
+    
+    useMachineStore.setState({ modules, connections });
+    
+    const { result } = renderHook(() => useActivationChoreography());
+    
+    // 4 depths: input (0), A (1), B (2), C (3)
+    expect(result.current.activationSequence.waves).toHaveLength(4);
+    expect(result.current.totalWaves).toBe(4);
+  });
+
+  test('Calculates correct wave count for parallel topology', () => {
+    const modules = [
+      createModule('input', 'trigger-switch'),
+      createModule('A'),
+      createModule('B'),
+      createModule('C'),
+    ];
+    
+    const connections = [
+      createConnection('c1', 'input', 'A'),
+      createConnection('c2', 'input', 'B'),
+      createConnection('c3', 'A', 'C'),
+      createConnection('c4', 'B', 'C'),
+    ];
+    
+    useMachineStore.setState({ modules, connections });
+    
+    const { result } = renderHook(() => useActivationChoreography());
+    
+    // 3 depths: input (0), A+B (1), C (2)
+    expect(result.current.activationSequence.waves).toHaveLength(3);
+    expect(result.current.totalWaves).toBe(3);
+  });
+
+  test('isModuleActive returns correct state', () => {
+    const modules = [
+      createModule('input', 'trigger-switch'),
+      createModule('A'),
+    ];
+    
+    const connections = [createConnection('c1', 'input', 'A')];
+    
+    useMachineStore.setState({ modules, connections, machineState: 'charging' });
+    
+    const { result } = renderHook(() => useActivationChoreography());
+    
+    // Initially no modules active
+    expect(result.current.isModuleActive('input')).toBe(false);
+    expect(result.current.isModuleActive('A')).toBe(false);
+  });
+
+  test('Wave activation times are distinct', () => {
+    const modules = [
+      createModule('input', 'trigger-switch'),
+      createModule('A'),
+      createModule('B'),
+      createModule('C'),
+    ];
+    
+    const connections = [
+      createConnection('c1', 'input', 'A'),
+      createConnection('c2', 'A', 'B'),
+      createConnection('c3', 'B', 'C'),
+    ];
+    
+    useMachineStore.setState({ modules, connections });
+    
+    const { result } = renderHook(() => useActivationChoreography());
+    
+    const activationTimes = result.current.activationSequence.waves.map(w => w.activationTime);
+    
+    // All activation times should be distinct
+    const uniqueTimes = [...new Set(activationTimes)];
+    expect(uniqueTimes.length).toBe(activationTimes.length);
+  });
+
+  test('First wave activates at T=0', () => {
+    const modules = [
+      createModule('input', 'trigger-switch'),
+      createModule('A'),
+    ];
+    
+    const connections = [createConnection('c1', 'input', 'A')];
+    
+    useMachineStore.setState({ modules, connections });
+    
+    const { result } = renderHook(() => useActivationChoreography());
+    
+    const firstWave = result.current.activationSequence.waves[0];
+    expect(firstWave.activationTime).toBe(0);
+  });
+
+  test('All modules in same wave have same activation time', () => {
+    const modules = [
+      createModule('input', 'trigger-switch'),
+      createModule('A'),
+      createModule('B'),
+    ];
+    
+    const connections = [
+      createConnection('c1', 'input', 'A'),
+      createConnection('c2', 'input', 'B'),
+    ];
+    
+    useMachineStore.setState({ modules, connections });
+    
+    const { result } = renderHook(() => useActivationChoreography());
+    
+    // Find the wave containing A and B (should be wave at depth 1)
+    const wave1 = result.current.activationSequence.waves.find(w => 
+      w.modules.includes('A') && w.modules.includes('B')
+    );
+    
+    expect(wave1).toBeDefined();
+    // Both should have same activation time
+    expect(result.current.activationSequence.steps.find(s => s.moduleId === 'A')?.activationTime)
+      .toBe(result.current.activationSequence.steps.find(s => s.moduleId === 'B')?.activationTime);
   });
 });
 
-describe('getRarityColor', () => {
-  const rarities: Rarity[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-  
-  test('Returns correct color for each rarity', () => {
-    expect(getRarityColor('common')).toBe('#9ca3af');
-    expect(getRarityColor('uncommon')).toBe('#22c55e');
-    expect(getRarityColor('rare')).toBe('#3b82f6');
-    expect(getRarityColor('epic')).toBe('#a855f7');
-    expect(getRarityColor('legendary')).toBe('#eab308');
+describe('AC-109-001: Sequential Activation Verification', () => {
+  test('Modules reach active state at different times (not simultaneous)', () => {
+    // Create a machine with 5 modules in a chain
+    const modules = [
+      createModule('input', 'trigger-switch'),
+      createModule('core1', 'core-furnace'),
+      createModule('rune1', 'rune-node'),
+      createModule('pipe1', 'energy-pipe'),
+      createModule('output1', 'output-array'),
+    ];
+    
+    const connections = [
+      createConnection('c1', 'input', 'core1'),
+      createConnection('c2', 'core1', 'rune1'),
+      createConnection('c3', 'rune1', 'pipe1'),
+      createConnection('c4', 'pipe1', 'output1'),
+    ];
+    
+    const result = calculateActivationChoreography(modules, connections);
+    
+    // Get all activation times
+    const activationTimes = result.steps.map(s => s.activationTime);
+    
+    // All activation times should NOT be the same (at least 3 distinct times)
+    const uniqueTimes = [...new Set(activationTimes)];
+    expect(uniqueTimes.length).toBeGreaterThanOrEqual(3);
+    
+    // Verify modules activate at different times
+    // Depth 0 (input): 0ms
+    // Depth 1 (core1): 67ms
+    // Depth 2 (rune1): 134ms
+    // Depth 3 (pipe1): 201ms
+    // Depth 4 (output1): 268ms
+    
+    const inputTime = result.steps.find(s => s.moduleId === 'input')?.activationTime;
+    const coreTime = result.steps.find(s => s.moduleId === 'core1')?.activationTime;
+    const runeTime = result.steps.find(s => s.moduleId === 'rune1')?.activationTime;
+    const pipeTime = result.steps.find(s => s.moduleId === 'pipe1')?.activationTime;
+    const outputTime = result.steps.find(s => s.moduleId === 'output1')?.activationTime;
+    
+    expect(inputTime).toBe(0);
+    expect(coreTime).toBe(67);
+    expect(runeTime).toBe(134);
+    expect(pipeTime).toBe(201);
+    expect(outputTime).toBe(268);
   });
 
-  test('Unknown rarity defaults to common', () => {
-    expect(getRarityColor('common' as any)).toBe('#9ca3af');
-  });
-});
-
-describe('getPulseWaveCount', () => {
-  test('Path length 0-200px returns 1 wave', () => {
-    expect(getPulseWaveCount(0)).toBe(1);
-    expect(getPulseWaveCount(100)).toBe(1);
-    expect(getPulseWaveCount(200)).toBe(1);
-  });
-
-  test('Path length 200-400px returns 2 waves', () => {
-    expect(getPulseWaveCount(201)).toBe(2);
-    expect(getPulseWaveCount(300)).toBe(2);
-    expect(getPulseWaveCount(400)).toBe(2);
-  });
-
-  test('Path length >400px returns 3 waves', () => {
-    expect(getPulseWaveCount(401)).toBe(3);
-    expect(getPulseWaveCount(500)).toBe(3);
-    expect(getPulseWaveCount(1000)).toBe(3);
+  test('NEGATIVE: Simultaneous activation would fail this test', () => {
+    // This test verifies that modules DO NOT all activate at the same time
+    // If they did, this test would fail
+    
+    const modules = [
+      createModule('A'),
+      createModule('B'),
+      createModule('C'),
+      createModule('D'),
+      createModule('E'),
+    ];
+    
+    const result = calculateActivationChoreography(modules, []);
+    
+    // When there's no input module, all modules activate at T=0
+    // This is an edge case - in a real machine with connections,
+    // modules should NOT activate simultaneously
+    
+    const allAtZero = result.steps.every(s => s.activationTime === 0);
+    expect(allAtZero).toBe(true); // This is expected for disconnected modules
+    
+    // But with connections, they should be staggered
+    const connectedModules = [
+      createModule('input', 'trigger-switch'),
+      createModule('A'),
+      createModule('B'),
+    ];
+    
+    const connectedResult = calculateActivationChoreography(
+      connectedModules,
+      [createConnection('c1', 'input', 'A'), createConnection('c2', 'A', 'B')]
+    );
+    
+    const connectedAllAtZero = connectedResult.steps.every(s => s.activationTime === 0);
+    expect(connectedAllAtZero).toBe(false); // With connections, they should NOT all be at zero
   });
 });

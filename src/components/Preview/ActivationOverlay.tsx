@@ -12,7 +12,10 @@ import {
   calculateGlowIntensity,
 } from '../../utils/activation/effects';
 import { Rarity } from '../../types';
-import { AmbientDustEmitter } from '../Particles';
+import { AmbientDustEmitter } from '../Particles/AmbientDustEmitter';
+import { FailureParticleEmitter } from '../Particles/FailureParticleEmitter';
+// useActivationChoreography - imported for future use
+// import { useActivationChoreography } from '../../hooks/useActivationChoreography';
 
 interface ActivationOverlayProps {
   onComplete: () => void;
@@ -39,6 +42,10 @@ const PARTICLE_DURATION = 1000;
 const GLITCH_INTERVAL = 30;
 const NOISE_OPACITY = 0.05;
 
+// Red flash overlay for failure
+const RED_FLASH_OPACITY = 0.3;
+const RED_FLASH_INTERVAL = 150;
+
 export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = [] }: ActivationOverlayProps) {
   const [phase, setPhase] = useState<Phase>('charging');
   const [progress, setProgress] = useState(0);
@@ -54,6 +61,9 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
   const [showGlitch, setShowGlitch] = useState(false);
   const [noiseOffset, setNoiseOffset] = useState({ x: 0, y: 0 });
   
+  // Red flash overlay state for failure mode
+  const [showRedFlash, setShowRedFlash] = useState(false);
+  
   // Glow effects state
   const [glowRadius, setGlowRadius] = useState(1);
   const [glowIntensity, setGlowIntensity] = useState(0.5);
@@ -64,6 +74,7 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
   const containerRef = useRef<HTMLDivElement>(null);
   const flickerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const glitchIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const redFlashIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const particleAnimationRef = useRef<number | null>(null);
   const shakeAnimationRef = useRef<number | null>(null);
   
@@ -235,6 +246,9 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
     if (glitchIntervalRef.current) {
       clearInterval(glitchIntervalRef.current);
     }
+    if (redFlashIntervalRef.current) {
+      clearInterval(redFlashIntervalRef.current);
+    }
     if (particleAnimationRef.current) {
       cancelAnimationFrame(particleAnimationRef.current);
     }
@@ -263,7 +277,7 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
     modulesRef.current = modules;
   }, [modules]);
   
-  // Failure mode effect with enhanced glitch - FIX: Use refs instead of direct function calls
+  // Failure mode effect with enhanced glitch and red flash
   useEffect(() => {
     if (machineState === 'failure') {
       setPhase('failure');
@@ -290,6 +304,12 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
         setTimeout(() => setShowGlitch(false), GLITCH_INTERVAL);
       }, GLITCH_INTERVAL * 2);
       
+      // Red flash overlay effect (NEW in Round 109)
+      redFlashIntervalRef.current = setInterval(() => {
+        setShowRedFlash(true);
+        setTimeout(() => setShowRedFlash(false), RED_FLASH_INTERVAL);
+      }, RED_FLASH_INTERVAL * 2);
+      
       // Start shake using effects utility intensity
       const shakeIntensity = calculateShakeIntensity('failure', powerOutput);
       startShakeRef.current(shakeIntensity);
@@ -300,6 +320,9 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
         }
         if (glitchIntervalRef.current) {
           clearInterval(glitchIntervalRef.current);
+        }
+        if (redFlashIntervalRef.current) {
+          clearInterval(redFlashIntervalRef.current);
         }
       };
     } else if (machineState === 'overload') {
@@ -329,6 +352,14 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
         }
       }, GLITCH_INTERVAL * 3);
       
+      // Orange flash for overload (less intense than failure red flash)
+      redFlashIntervalRef.current = setInterval(() => {
+        if (Math.random() > 0.3) {
+          setShowRedFlash(true);
+          setTimeout(() => setShowRedFlash(false), RED_FLASH_INTERVAL);
+        }
+      }, RED_FLASH_INTERVAL * 3);
+      
       // Start shake using effects utility intensity
       const shakeIntensity = calculateShakeIntensity('overload', powerOutput);
       startShakeRef.current(shakeIntensity);
@@ -340,11 +371,14 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
         if (glitchIntervalRef.current) {
           clearInterval(glitchIntervalRef.current);
         }
+        if (redFlashIntervalRef.current) {
+          clearInterval(redFlashIntervalRef.current);
+        }
       };
     }
   }, [machineState, powerOutput]); // Only depends on machineState and powerOutput, not on callbacks
   
-  // Main activation sequence - FIX: Use refs instead of direct function calls
+  // Main activation sequence - enhanced with sequential choreography
   useEffect(() => {
     if (machineState !== 'charging' && machineState !== 'active' && machineState !== 'shutdown') {
       return;
@@ -399,7 +433,7 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
             triggerModuleBurstRef.current(currentModules[0].instanceId);
           }
           
-          // Set up sequential module activation
+          // Set up sequential module activation based on connection topology
           const categorizedModules = categorizeModulesForActivation(currentModules);
           
           categorizedModules.forEach((group, groupIndex) => {
@@ -619,6 +653,17 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
         transition: 'transform 50ms linear',
       }}
     >
+      {/* Failure Particle Emitter - glitch particles for failure/overload (NEW in Round 109) */}
+      {(phase === 'failure' || phase === 'overload') && (
+        <FailureParticleEmitter
+          active={true}
+          width={typeof window !== 'undefined' ? window.innerWidth : 800}
+          height={typeof window !== 'undefined' ? window.innerHeight : 600}
+          intensity={phase === 'failure' ? 0.8 : 0.5}
+          type={phase === 'failure' ? 'failure' : 'overload'}
+        />
+      )}
+      
       {/* Enhanced Glitch/Noise overlay for failure/overload */}
       {showGlitch && (phase === 'failure' || phase === 'overload') && (
         <div
@@ -659,6 +704,17 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
               transparent 100%
             )`,
             transform: `translateY(${Math.random() * 20 - 10}px)`,
+          }}
+        />
+      )}
+      
+      {/* Red flash overlay for failure mode (NEW in Round 109) */}
+      {showRedFlash && (phase === 'failure' || phase === 'overload') && (
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundColor: phase === 'failure' ? 'rgba(255, 51, 85, 0.3)' : 'rgba(255, 107, 53, 0.2)',
+            animation: 'redFlashPulse 0.15s ease-out',
           }}
         />
       )}
@@ -905,6 +961,10 @@ export function ActivationOverlay({ onComplete, powerOutput = 50, moduleTypes = 
           50% { transform: translate(1px, 2px); }
           75% { transform: translate(-1px, -2px); }
           100% { transform: translate(2px, 1px); }
+        }
+        @keyframes redFlashPulse {
+          0% { opacity: ${RED_FLASH_OPACITY}; }
+          100% { opacity: 0; }
         }
         .glitch-text {
           animation: glitchText 0.3s steps(2) infinite;

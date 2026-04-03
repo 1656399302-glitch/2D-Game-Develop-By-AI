@@ -17,9 +17,18 @@ interface PulseWave {
   delay: number;
 }
 
+// Intermittent animation for failure mode
+const INTERMITTENT_DASHARRAY = '4 20'; // Short dash, long gap
+const INTERMITTENT_DASHARRAY_ALT = '2 30'; // Even more sparse
+const INTERMITTENT_ANIMATION_DURATION = 100; // ms per frame
+
 /**
  * AC5: EnergyPath component memoized to prevent unnecessary re-renders
  * Only re-renders when connection data or selection/active state changes
+ * 
+ * Round 109 Enhancement:
+ * - Intermittent current animation during failure/overload states
+ * - Enhanced glitch effects
  */
 export const EnergyPath = memo(function EnergyPath({ 
   connection, 
@@ -34,10 +43,15 @@ export const EnergyPath = memo(function EnergyPath({
   const secondaryGlowRef = useRef<SVGPathElement>(null);
   const containerRef = useRef<SVGGElement>(null);
   const rafAnimationRef = useRef<number | null>(null);
+  const intermittentIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // AC2: Detect prefers-reduced-motion preference
   const prefersReducedMotion = usePrefersReducedMotion();
   const useRAF = shouldUseRAFAnimation(prefersReducedMotion);
+  
+  // Intermittent animation state for failure/overload
+  const [isIntermittent, setIsIntermittent] = useState(false);
+  const [intermittentDashIndex, setIntermittentDashIndex] = useState(0);
   
   // Pulse wave elements
   const [pulseWaves, setPulseWaves] = useState<PulseWave[]>([]);
@@ -87,6 +101,40 @@ export const EnergyPath = memo(function EnergyPath({
     }
     setPulseWaves(waves);
   }, [waveCount, connection.id]);
+  
+  // Handle intermittent animation for failure/overload states
+  useEffect(() => {
+    const isFailureOrOverload = machineState === 'failure' || machineState === 'overload';
+    
+    if (isFailureOrOverload && isActive) {
+      // Start intermittent animation
+      setIsIntermittent(true);
+      
+      // Cycle through different dash patterns
+      const dashPatterns = [INTERMITTENT_DASHARRAY, INTERMITTENT_DASHARRAY_ALT, '1 40'];
+      let currentIndex = 0;
+      
+      intermittentIntervalRef.current = setInterval(() => {
+        currentIndex = (currentIndex + 1) % dashPatterns.length;
+        setIntermittentDashIndex(currentIndex);
+      }, INTERMITTENT_ANIMATION_DURATION);
+      
+      return () => {
+        if (intermittentIntervalRef.current) {
+          clearInterval(intermittentIntervalRef.current);
+          intermittentIntervalRef.current = null;
+        }
+        setIsIntermittent(false);
+      };
+    } else {
+      // Stop intermittent animation
+      if (intermittentIntervalRef.current) {
+        clearInterval(intermittentIntervalRef.current);
+        intermittentIntervalRef.current = null;
+      }
+      setIsIntermittent(false);
+    }
+  }, [machineState, isActive]);
   
   // AC2: RAF-based animation fallback for prefers-reduced-motion
   useEffect(() => {
@@ -292,6 +340,12 @@ export const EnergyPath = memo(function EnergyPath({
     }
   };
   
+  // Get intermittent dash array
+  const getIntermittentDashArray = () => {
+    const dashPatterns = [INTERMITTENT_DASHARRAY, INTERMITTENT_DASHARRAY_ALT, '1 40'];
+    return dashPatterns[intermittentDashIndex];
+  };
+  
   return (
     <g ref={containerRef} onClick={onClick} style={{ cursor: 'pointer' }}>
       {/* Secondary glow layer at 50% opacity for depth */}
@@ -327,18 +381,21 @@ export const EnergyPath = memo(function EnergyPath({
         className="transition-all duration-200"
       />
       
-      {/* Animated dash layer - CSS animation with RAF fallback */}
+      {/* Animated dash layer - CSS animation with RAF fallback and intermittent mode for failure */}
       <path
         d={connection.pathData}
         fill="none"
         stroke={glowColor}
         strokeWidth="2"
-        strokeDasharray="8,12"
+        strokeDasharray={isIntermittent ? getIntermittentDashArray() : "8,12"}
         strokeLinecap="round"
         // AC2: energy-flow class handles CSS animation, RAF handles prefers-reduced-motion
         className={isActive && !useRAF ? 'energy-flow' : ''}
         style={{
           opacity: isActive ? 1 : 0.5,
+          animation: isIntermittent 
+            ? 'intermittentFlicker 0.1s steps(1) infinite' 
+            : undefined,
         }}
       />
       
@@ -397,6 +454,36 @@ export const EnergyPath = memo(function EnergyPath({
           />
         )}
       </circle>
+      
+      {/* Glitch effect for failure/overload */}
+      {isIntermittent && (
+        <path
+          d={connection.pathData}
+          fill="none"
+          stroke="#ff3355"
+          strokeWidth="1"
+          strokeDasharray="2,10"
+          opacity="0.5"
+          style={{
+            animation: 'glitchPath 0.2s steps(2) infinite',
+          }}
+        />
+      )}
+      
+      {/* CSS for intermittent animation */}
+      <style>{`
+        @keyframes intermittentFlicker {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes glitchPath {
+          0% { transform: translate(2px, 0); opacity: 0.5; }
+          25% { transform: translate(-1px, 1px); opacity: 0.3; }
+          50% { transform: translate(1px, -1px); opacity: 0.5; }
+          75% { transform: translate(-2px, 0); opacity: 0.3; }
+          100% { transform: translate(0, 0); opacity: 0.5; }
+        }
+      `}</style>
     </g>
   );
 });
