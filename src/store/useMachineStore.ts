@@ -143,7 +143,7 @@ const MAX_ZOOM = 2.0;
 const ZOOM_STEP = 0.1;
 const DUPLICATE_OFFSET = 20;
 const AUTO_SAVE_DEBOUNCE = 500; // 500ms debounce for auto-save
-const CLIPBOARD_OFFSET = 30; // Offset for pasted modules
+const CLIPBOARD_OFFSET = 20; // Offset for pasted modules
 const ACTIVATION_ZOOM_DURATION = 800; // Duration for zoom animation in ms
 const CONNECTION_ERROR_AUTO_CLEAR = 2500; // 2.5 seconds for error auto-clear
 

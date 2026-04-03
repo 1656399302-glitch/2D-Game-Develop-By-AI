@@ -185,8 +185,8 @@ describe('Keyboard Shortcuts - Store Actions', () => {
       copySelected();
       pasteModules();
       const pastedModule = useMachineStore.getState().modules[1];
-      expect(pastedModule.x).toBe(originalModule.x + 30);
-      expect(pastedModule.y).toBe(originalModule.y + 30);
+      expect(pastedModule.x).toBe(originalModule.x + 20);
+      expect(pastedModule.y).toBe(originalModule.y + 20);
     });
 
     it('should not paste when clipboard is empty', () => {

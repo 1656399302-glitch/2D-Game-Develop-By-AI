@@ -203,8 +203,8 @@ describe('AC3: Keyboard Shortcuts Work Correctly', () => {
       
       expect(useMachineStore.getState().modules.length).toBe(2);
       const pasted = useMachineStore.getState().modules[1];
-      expect(pasted.x).toBe(originalModule.x + 30);
-      expect(pasted.y).toBe(originalModule.y + 30);
+      expect(pasted.x).toBe(originalModule.x + 20);
+      expect(pasted.y).toBe(originalModule.y + 20);
     });
 
     it('should handle paste when clipboard is empty', () => {
