@@ -7,7 +7,9 @@ import { ConnectionPreview } from '../Connections/ConnectionPreview';
 import { AlignmentToolbar } from './AlignmentToolbar';
 import { EnergyPulseVisualizer } from '../Preview/EnergyPulseVisualizer';
 import { SelectionHandles } from './SelectionHandles';
+import { ModuleValidationBadge } from './ModuleValidationBadge';
 import { calculateShakeOffset } from '../../utils/activationChoreographer';
+import { useCircuitValidation } from '../../hooks/useCircuitValidation';
 import { MODULE_SIZES, PlacedModule } from '../../types';
 import {
   throttleViewportUpdates,
@@ -79,10 +81,7 @@ const viewportThrottler = throttleViewportUpdates({ minInterval: THROTTLE_INTERV
 
 /**
  * Round 92 Fix: Check if a module should be considered "potentially visible"
- * even when viewport calculation is uncertain (e.g., in headless environments)
- * 
- * Modules near the origin (0,0) are considered potentially visible
- * to ensure they render even when viewport size detection fails.
+ * even when viewport calculation is uncertain
  */
 function isModulePotentiallyVisible(
   module: PlacedModule,
@@ -92,11 +91,9 @@ function isModulePotentiallyVisible(
   
   // If viewport size is default (800x600), modules near origin should always be visible
   if (viewportSize.width === DEFAULT_CANVAS_WIDTH && viewportSize.height === DEFAULT_CANVAS_HEIGHT) {
-    // Check if module is near the origin (within safe range)
     if (Math.abs(module.x) < SAFE_MODULE_POSITION && Math.abs(module.y) < SAFE_MODULE_POSITION) {
       return true;
     }
-    // Also check if module is within the default viewport range (with buffer)
     return (
       module.x < viewportSize.width + VIEWPORT_CULLING_MARGIN &&
       module.y < viewportSize.height + VIEWPORT_CULLING_MARGIN &&
@@ -105,16 +102,27 @@ function isModulePotentiallyVisible(
     );
   }
   
-  // If viewport is valid (> 0), use normal visibility check
   if (viewportSize.width > 0 && viewportSize.height > 0) {
-    return true; // Let createVirtualizedModuleList decide
+    return true;
   }
   
-  // Zero or negative viewport - use safe defaults
   return Math.abs(module.x) < SAFE_MODULE_POSITION && Math.abs(module.y) < SAFE_MODULE_POSITION;
 }
 
-export function Canvas() {
+// ============================================================================
+// Canvas Props Interface
+// ============================================================================
+
+export interface CanvasProps {
+  /** Callback when a module validation badge is clicked */
+  onModuleValidationClick?: (moduleId: string, position: { x: number; y: number }) => void;
+}
+
+// ============================================================================
+// Canvas Component
+// ============================================================================
+
+export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,27 +132,26 @@ export function Canvas() {
   // Spatial index for O(log n) hit testing
   const spatialIndexRef = useRef<ModuleSpatialIndex | null>(null);
   
-  // D8 Integration: Canvas performance hook (Round 82)
-  // Provides rAF batching for transform updates and high performance mode detection
+  // D8 Integration: Canvas performance hook
   const { 
     batchedTransform, 
     isHighPerformance 
   } = useCanvasPerformance({ forceHighPerformance: undefined });
+  
+  // Round 113: Circuit validation state
+  const { isModuleAffected, validationResult } = useCircuitValidation();
   
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [draggingModule, setDraggingModule] = useState<string | null>(null);
   
-  // Round 92 Fix: Use robust viewport size detection with safe defaults
-  // Initialize with defaults but will be updated after mount
+  // Round 92 Fix: Robust viewport size detection
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({
     width: DEFAULT_CANVAS_WIDTH,
     height: DEFAULT_CANVAS_HEIGHT,
   });
   
-  // Round 92 Fix: Track whether we've successfully measured the container size
-  // This state triggers re-measurement if initial measurement failed
   const [measurementAttempt, setMeasurementAttempt] = useState(0);
   
   // Box selection state
@@ -210,42 +217,33 @@ export function Canvas() {
     }
   }, [modules]);
   
-  // FIX (Round 29): Use refs for stable function references to avoid dependency issues
-  // Store setActivationModuleIndex in a ref to use in effects without causing re-runs
+  // FIX (Round 29): Use refs for stable function references
   const setActivationModuleIndexRef = useRef(setActivationModuleIndex);
   useEffect(() => {
     setActivationModuleIndexRef.current = setActivationModuleIndex;
   }, [setActivationModuleIndex]);
   
-  // Store modules length in ref for use in interval callback
   const modulesLengthRef = useRef(modules.length);
   useEffect(() => {
     modulesLengthRef.current = modules.length;
   }, [modules.length]);
   
-  // Round 92 Fix: Robust viewport size detection with multiple fallback methods
-  // This effect runs whenever measurementAttempt changes (initial mount + retry)
+  // Round 92 Fix: Robust viewport size detection
   useEffect(() => {
     const updateSize = () => {
       const dims = getCanvasDimensions(containerRef, svgRef);
       
-      // Only update if we got a valid size or we're still at defaults
       const isDefault = dims.width === DEFAULT_CANVAS_WIDTH && dims.height === DEFAULT_CANVAS_HEIGHT;
       const currentIsDefault = viewportSize.width === DEFAULT_CANVAS_WIDTH && viewportSize.height === DEFAULT_CANVAS_HEIGHT;
       
-      // Update if we got a valid (non-default) size, or if we're still at defaults and should retry
       if (!isDefault || currentIsDefault) {
         setViewportSize(dims);
       }
     };
     
-    // Use requestAnimationFrame to ensure DOM is ready
-    // This is more reliable than setTimeout for initial measurements
     let rafId = requestAnimationFrame(() => {
       updateSize();
       
-      // If still at defaults after rAF, schedule another check
-      // This handles edge cases where container isn't ready yet
       const dims = getCanvasDimensions(containerRef, svgRef);
       if (dims.width === DEFAULT_CANVAS_WIDTH && dims.height === DEFAULT_CANVAS_HEIGHT) {
         setTimeout(() => {
@@ -260,23 +258,18 @@ export function Canvas() {
   }, [measurementAttempt]);
   
   // Round 92 Fix: Set up ResizeObserver with fallback
-  // This effect runs once on mount and sets up all size detection methods
   useEffect(() => {
     const updateSize = () => {
       const dims = getCanvasDimensions(containerRef, svgRef);
       setViewportSize(dims);
       
-      // If dimensions are still defaults, trigger a retry measurement
       if (dims.width === DEFAULT_CANVAS_WIDTH && dims.height === DEFAULT_CANVAS_HEIGHT) {
-        // This will cause the measurement effect above to re-run
         setMeasurementAttempt(prev => prev + 1);
       }
     };
     
-    // Set up window resize listener as backup
     window.addEventListener('resize', updateSize);
     
-    // Set up ResizeObserver
     let resizeObserver: ResizeObserver | null = null;
     
     try {
@@ -287,26 +280,21 @@ export function Canvas() {
         resizeObserver.observe(containerRef.current);
       }
     } catch (error) {
-      // ResizeObserver not supported - will rely on other methods
       console.warn('ResizeObserver not available, using fallback methods');
     }
     
-    // Round 92 Fix: Periodic fallback check for environments where ResizeObserver doesn't fire
-    // This ensures we eventually get the correct dimensions even in headless browsers
     const fallbackInterval = setInterval(() => {
       const currentDims = getCanvasDimensions(containerRef, svgRef);
       if (currentDims.width > 0 && currentDims.height > 0) {
-        // Only update if we have valid dimensions
         if (currentDims.width !== viewportSize.width || currentDims.height !== viewportSize.height) {
           setViewportSize(currentDims);
         }
         
-        // If dimensions are now valid (non-default), stop the fallback checks
         if (currentDims.width !== DEFAULT_CANVAS_WIDTH || currentDims.height !== DEFAULT_CANVAS_HEIGHT) {
           clearInterval(fallbackInterval);
         }
       }
-    }, 500); // Check every 500ms
+    }, 500);
     
     return () => {
       window.removeEventListener('resize', updateSize);
@@ -319,7 +307,7 @@ export function Canvas() {
         }
       }
     };
-  }, []); // Run once on mount
+  }, []);
   
   // Camera shake parameters based on machine state
   const shakeParams = {
@@ -380,7 +368,6 @@ export function Canvas() {
     const animate = (currentTime: number) => {
       updateActivationZoom(currentTime);
       
-      // Continue animation if still zooming
       const { activationZoom: currentZoom } = useMachineStore.getState();
       if (currentZoom.isZooming) {
         requestAnimationFrame(animate);
@@ -401,8 +388,7 @@ export function Canvas() {
     }
   }, [machineState]);
   
-  // FIX (Round 29): Track activation module index based on machine state
-  // Uses refs to avoid dependency on stable store actions that shouldn't cause re-runs
+  // FIX (Round 29): Track activation module index
   useEffect(() => {
     if (machineState !== 'active' || modulesLengthRef.current === 0) {
       if (machineState === 'idle' || machineState === 'shutdown') {
@@ -411,28 +397,24 @@ export function Canvas() {
       return;
     }
     
-    // Progressive module activation based on time
     const activationInterval = setInterval(() => {
       const currentIndex = useMachineStore.getState().activationModuleIndex;
       if (currentIndex < modulesLengthRef.current - 1) {
         setActivationModuleIndexRef.current(currentIndex + 1);
       }
-    }, 150); // Activate a new module every 150ms
+    }, 150);
     
     return () => clearInterval(activationInterval);
-  }, [machineState]); // Only depend on machineState, not setActivationModuleIndex or modules.length
+  }, [machineState]);
   
-  // AC8: Viewport culling with 50px buffer - Using robust safe bounds calculation (Round 92 fix)
+  // AC8: Viewport culling with 50px buffer
   const { visibleModules, visibleCount, totalCount } = useMemo(() => {
-    // Round 92 Fix: Use safe viewport bounds that ensure modules near origin are visible
-    // even when viewport size detection is uncertain
     const safeBounds = calculateSafeViewportBounds(
       viewport,
       viewportSize,
       VIEWPORT_CULLING_MARGIN
     );
     
-    // Round 92 Fix: If using default viewport and safe bounds, ensure near-origin modules are included
     if (safeBounds.isDefaultFallback) {
       const result = createVirtualizedModuleList(
         modules,
@@ -444,13 +426,11 @@ export function Canvas() {
       const allModules = modules;
       const visibleIds = new Set(result.visibleModules.map(m => m.instanceId));
       
-      // Check if any near-origin modules are missing from visible list
       const nearOriginModules = allModules.filter(m => 
         isModulePotentiallyVisible(m, viewportSize) && !visibleIds.has(m.instanceId)
       );
       
       if (nearOriginModules.length > 0) {
-        // Add near-origin modules to visible list
         const combinedModules = [...result.visibleModules, ...nearOriginModules];
         return {
           visibleModules: combinedModules,
@@ -466,7 +446,6 @@ export function Canvas() {
       };
     }
     
-    // Normal path for non-default viewport
     const result = createVirtualizedModuleList(
       modules,
       viewport,
@@ -508,11 +487,10 @@ export function Canvas() {
     };
   }, [isBoxSelecting, boxStart, boxEnd]);
   
-  // Find modules within box selection - using spatial index for better performance
+  // Find modules within box selection
   const modulesInBoxSelection = useMemo(() => {
     if (!isBoxSelecting || !boxSelectionRect) return new Set<string>();
     
-    // Use spatial index for O(log n) query if available
     if (spatialIndexRef.current && spatialIndexRef.current.size > 0) {
       const moduleIds = spatialIndexRef.current.getModulesInRect(
         boxSelectionRect.x,
@@ -523,7 +501,6 @@ export function Canvas() {
       return new Set(moduleIds);
     }
     
-    // Fallback to O(n) search
     const selectedIds = new Set<string>();
     modules.forEach((module) => {
       const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
@@ -543,21 +520,17 @@ export function Canvas() {
     return selectedIds;
   }, [isBoxSelecting, boxSelectionRect, modules]);
   
-  // D8 Integration: Pending connection preview coords for debouncing (Round 82)
+  // D8 Integration: Pending connection preview coords
   const pendingConnectionCoordsRef = useRef<{ x: number; y: number } | null>(null);
   
-  // D8 Integration: Debounced connection preview update for 60fps performance (Round 82)
-  // Uses 16ms debounce to batch rapid updates
+  // D8 Integration: Debounced connection preview update
   const updateConnectionPreviewDebounced = useCallback((x: number, y: number) => {
-    // Store pending coords
     pendingConnectionCoordsRef.current = { x, y };
     
-    // If already scheduled, skip
     if (connectionDebounceRef.current !== null) {
       return;
     }
     
-    // Schedule debounced update
     connectionDebounceRef.current = setTimeout(() => {
       if (pendingConnectionCoordsRef.current) {
         updateConnectionPreview(
@@ -580,8 +553,7 @@ export function Canvas() {
     return { x, y };
   }, [viewport]);
   
-  // D8 Integration: Batched viewport transform updates (Round 82)
-  // Coalesces multiple transform updates into single rAF call
+  // D8 Integration: Batched viewport transform updates
   const setBatchedViewport = useCallback((newViewport: { x: number; y: number }) => {
     batchedTransform(newViewport);
     setViewport(newViewport);
@@ -595,7 +567,6 @@ export function Canvas() {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       addModule(moduleType as any, coords.x, coords.y);
       
-      // Update spatial index after adding module
       setTimeout(() => {
         const updatedModules = useMachineStore.getState().modules;
         if (spatialIndexRef.current) {
@@ -609,16 +580,14 @@ export function Canvas() {
     e.preventDefault();
   }, []);
   
-  // Check if a module is at the given screen coordinates - Using spatial index for O(log n) hit testing
+  // Check if a module is at the given screen coordinates
   const getModuleAtPoint = useCallback((clientX: number, clientY: number): string | null => {
     const coords = getCanvasCoordinates(clientX, clientY);
     
-    // Use spatial index for O(log n) hit testing if available and has modules
     if (spatialIndexRef.current && spatialIndexRef.current.size > 0) {
       return spatialIndexRef.current.getModuleAtPoint(coords.x, coords.y);
     }
     
-    // Fallback to O(n) search for small module counts or when spatial index is empty
     for (let i = modules.length - 1; i >= 0; i--) {
       const module = modules[i];
       const size = MODULE_SIZES[module.type] || { width: 80, height: 80 };
@@ -660,7 +629,6 @@ export function Canvas() {
           setIsDragging(true);
           setDraggingModule(clickedModuleId);
           
-          // Store initial positions for all selected modules
           const positions = new Map<string, { x: number; y: number }>();
           const idsToTrack = selectedModuleIds.includes(clickedModuleId) 
             ? selectedModuleIds 
@@ -695,7 +663,6 @@ export function Canvas() {
   // Handle mouse move with throttled viewport updates
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
-      // Use throttled viewport update for better performance (AC3)
       if (viewportDebounceRef.current) {
         clearTimeout(viewportDebounceRef.current);
       }
@@ -704,7 +671,6 @@ export function Canvas() {
           x: e.clientX - dragStart.x,
           y: e.clientY - dragStart.y,
         };
-        // Request throttled update
         viewportThrottler.requestUpdate(newViewport);
         setBatchedViewport(newViewport);
       }, THROTTLE_INTERVAL_60FPS);
@@ -714,9 +680,7 @@ export function Canvas() {
     } else if (isDragging && draggingModule) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       
-      // Check if we're dragging multiple modules
       if (selectedModuleIds.includes(draggingModule) && selectedModuleIds.length > 1) {
-        // Batch update all selected modules
         const updates: Array<{ instanceId: string; x: number; y: number }> = [];
         
         dragStartRef.current?.modulePositions.forEach((startPos, id) => {
@@ -726,7 +690,6 @@ export function Canvas() {
           let newX = startPos.x + deltaX;
           let newY = startPos.y + deltaY;
           
-          // Apply smart snap-to-grid if enabled
           if (gridEnabled) {
             const snapped = getSnappedPosition(newX, newY, gridEnabled, GRID_SIZE);
             newX = snapped.x;
@@ -739,7 +702,6 @@ export function Canvas() {
         if (updates.length > 0) {
           updateModulesBatch(updates);
           
-          // Update spatial index after batch move
           setTimeout(() => {
             const updatedModules = useMachineStore.getState().modules;
             if (spatialIndexRef.current) {
@@ -748,7 +710,6 @@ export function Canvas() {
           }, 0);
         }
       } else {
-        // Single module drag with smart snap-to-grid
         let newX = coords.x;
         let newY = coords.y;
         
@@ -760,7 +721,6 @@ export function Canvas() {
         
         updateModulePosition(draggingModule, newX, newY);
         
-        // Update spatial index after single module move
         setTimeout(() => {
           const updatedModules = useMachineStore.getState().modules;
           if (spatialIndexRef.current) {
@@ -770,7 +730,6 @@ export function Canvas() {
       }
     } else if (isConnecting) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
-      // D8 Integration: Use debounced connection preview for 60fps performance (Round 82)
       updateConnectionPreviewDebounced(coords.x, coords.y);
     }
   }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setBatchedViewport, viewportThrottler, updateModulePosition, updateModulesBatch, selectedModuleIds, viewport.zoom, gridEnabled, updateConnectionPreviewDebounced]);
@@ -809,7 +768,6 @@ export function Canvas() {
       
       const newViewport = { x: newX, y: newY, zoom: newZoom };
       
-      // Use throttled update for zoom
       viewportThrottler.requestUpdate(newViewport);
       setBatchedViewport(newViewport);
     }
@@ -828,7 +786,6 @@ export function Canvas() {
     setDraggingModule(id);
     selectModule(id);
     
-    // Store initial positions
     const positions = new Map<string, { x: number; y: number }>();
     const idsToTrack = selectedModuleIds.includes(id) 
       ? selectedModuleIds 
@@ -848,7 +805,7 @@ export function Canvas() {
     };
   }, [selectModule, toggleSelection, selectedModuleIds, modules]);
   
-  // Handle selection move (for group movement via SelectionHandles)
+  // Handle selection move
   const handleSelectionMove = useCallback((deltaX: number, deltaY: number) => {
     if (selectedModuleIds.length === 0) return;
     
@@ -860,7 +817,6 @@ export function Canvas() {
         let newX = mod.x + deltaX;
         let newY = mod.y + deltaY;
         
-        // Apply smart snap-to-grid if enabled
         if (gridEnabled) {
           const snapped = getSnappedPosition(newX, newY, gridEnabled, GRID_SIZE);
           newX = snapped.x;
@@ -874,7 +830,6 @@ export function Canvas() {
     if (updates.length > 0) {
       updateModulesBatch(updates);
       
-      // Update spatial index after batch move
       setTimeout(() => {
         const updatedModules = useMachineStore.getState().modules;
         if (spatialIndexRef.current) {
@@ -884,7 +839,7 @@ export function Canvas() {
     }
   }, [selectedModuleIds, modules, gridEnabled, updateModulesBatch]);
   
-  // Handle selection rotate - rotates selected modules 90° clockwise around selection center
+  // Handle selection rotate
   const handleSelectionRotate = useCallback((_newRotation: number) => {
     const targetIds = selectedModuleIds.length > 0 
       ? selectedModuleIds 
@@ -958,7 +913,7 @@ export function Canvas() {
     }
   }, [selectedModuleIds, selectedModuleId, updateModulesBatch, saveToHistory]);
   
-  // Handle selection scale - scales selected modules by factor around selection center
+  // Handle selection scale
   const handleSelectionScale = useCallback((newScale: number) => {
     const targetIds = selectedModuleIds.length > 0 
       ? selectedModuleIds 
@@ -1029,6 +984,18 @@ export function Canvas() {
     }
   }, [selectedModuleIds, selectedModuleId, updateModulesBatch, saveToHistory]);
   
+  // Round 113: Handle validation badge click
+  const handleValidationBadgeClick = useCallback((moduleId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onModuleValidationClick) {
+      // Get screen position for menu placement
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        onModuleValidationClick(moduleId, { x: e.clientX, y: e.clientY });
+      }
+    }
+  }, [onModuleValidationClick]);
+  
   // Grid pattern
   const gridSize = 20;
   const gridOpacity = 0.3;
@@ -1049,7 +1016,7 @@ export function Canvas() {
     return instanceId === selectedModuleId || selectedModuleIds.includes(instanceId);
   }, [selectedModuleId, selectedModuleIds]);
   
-  // Check if module is activated (for activation glow effect)
+  // Check if module is activated
   const isModuleActivated = useCallback((_instanceId: string, moduleIndex: number) => {
     if (machineState === 'idle') return false;
     if (machineState === 'charging') return false;
@@ -1064,6 +1031,28 @@ export function Canvas() {
   
   // Check if activation is active
   const isActivationActive = machineState === 'charging' || machineState === 'active';
+  
+  // Round 113: Get validation state for a module
+  const getModuleValidationState = useCallback((moduleId: string) => {
+    const affected = isModuleAffected(moduleId);
+    if (!affected || !validationResult) {
+      return { hasError: false, hasWarning: false, errorCode: undefined, errorMessage: undefined };
+    }
+    
+    // Find the error affecting this module
+    const error = validationResult.errors.find(e => e.affectedModuleIds.includes(moduleId));
+    
+    if (error) {
+      return {
+        hasError: true,
+        hasWarning: false,
+        errorCode: error.code,
+        errorMessage: error.message,
+      };
+    }
+    
+    return { hasError: false, hasWarning: false, errorCode: undefined, errorMessage: undefined };
+  }, [isModuleAffected, validationResult]);
   
   return (
     <div 
@@ -1160,7 +1149,7 @@ export function Canvas() {
           transform={`translate(${viewport.x + shakeOffset.x}, ${viewport.y + shakeOffset.y}) scale(${viewport.zoom})`}
           style={{ willChange: 'transform' }}
         >
-          {/* Energy Pulse Visualizer - renders pulse waves on connections */}
+          {/* Energy Pulse Visualizer */}
           <EnergyPulseVisualizer
             connections={connections}
             modules={modules}
@@ -1170,7 +1159,7 @@ export function Canvas() {
             pulseColor="#00ffcc"
           />
           
-          {/* Connections layer - Using filtered visible connections */}
+          {/* Connections layer */}
           <g id="connections-layer">
             {visibleConnections.map((connection) => (
               <EnergyPath
@@ -1189,7 +1178,7 @@ export function Canvas() {
             )}
           </g>
           
-          {/* Modules layer - Using visible modules only (AC8 viewport culling) */}
+          {/* Modules layer */}
           <g id="modules-layer">
             {visibleModules.map((module) => {
               const isVisible = (module as any).isVisible !== false;
@@ -1204,16 +1193,47 @@ export function Canvas() {
                 isModuleSelected(module.instanceId)
               );
               
+              // Round 113: Get validation state for this module
+              const validationState = getModuleValidationState(module.instanceId);
+              
               return (
-                <ModuleRenderer
-                  key={module.instanceId}
-                  module={module}
-                  isSelected={isModuleSelected(module.instanceId)}
-                  machineState={machineState}
-                  onMouseDown={(e) => handleModuleDragStart(module.instanceId, e)}
-                  isActivated={isModuleActivated(module.instanceId, moduleIdx)}
-                  activationIntensity={isModuleActivated(module.instanceId, moduleIdx) ? 1 : 0}
-                />
+                <g key={module.instanceId}>
+                  <ModuleRenderer
+                    module={module}
+                    isSelected={isModuleSelected(module.instanceId)}
+                    machineState={machineState}
+                    onMouseDown={(e) => handleModuleDragStart(module.instanceId, e)}
+                    isActivated={isModuleActivated(module.instanceId, moduleIdx)}
+                    activationIntensity={isModuleActivated(module.instanceId, moduleIdx) ? 1 : 0}
+                  />
+                  
+                  {/* Round 113: Validation Badge */}
+                  {(validationState.hasError || validationState.hasWarning) && (
+                    <foreignObject
+                      x={module.x + (MODULE_SIZES[module.type]?.width || 80) - 20}
+                      y={module.y - 30}
+                      width="48"
+                      height="48"
+                      style={{ pointerEvents: 'none', overflow: 'visible' }}
+                    >
+                      <div 
+                        style={{ pointerEvents: 'auto' }}
+                        onClick={(e) => handleValidationBadgeClick(module.instanceId, e as unknown as React.MouseEvent)}
+                      >
+                        <ModuleValidationBadge
+                          hasError={validationState.hasError}
+                          hasWarning={validationState.hasWarning}
+                          errorCode={validationState.errorCode}
+                          errorMessage={validationState.errorMessage}
+                          pulse={validationState.errorCode === 'LOOP_DETECTED'}
+                          onClick={() => {
+                            // This will be handled by the foreignObject click
+                          }}
+                        />
+                      </div>
+                    </foreignObject>
+                  )}
+                </g>
               );
             })}
           </g>
@@ -1256,7 +1276,7 @@ export function Canvas() {
           })}
         </g>
         
-        {/* Selection Handles - for multi-selection */}
+        {/* Selection Handles */}
         <SelectionHandles
           viewport={viewport}
           onMove={handleSelectionMove}
@@ -1281,7 +1301,7 @@ export function Canvas() {
         📑 图层
       </button>
       
-      {/* Layers Panel (rendered outside SVG) */}
+      {/* Layers Panel */}
       {showLayersPanel && (
         <div className="absolute top-16 right-4 w-64 h-[calc(100%-8rem)] z-20">
           <Suspense fallback={
@@ -1294,7 +1314,7 @@ export function Canvas() {
         </div>
       )}
       
-      {/* D8 Integration: AC8: Zoom indicator with viewport culling info and performance mode */}
+      {/* D8 Integration: Zoom indicator */}
       <div 
         className="absolute bottom-4 left-4 px-3 py-1 rounded bg-[#121826] border border-[#1e2a42] text-xs text-[#9ca3af]" 
         role="status" 
@@ -1318,7 +1338,7 @@ export function Canvas() {
           </span>
         )}
         {isHighPerformance && (
-          <span className="ml-2 text-[#00d4ff]" title="High performance mode enabled (useCanvasPerformance)">
+          <span className="ml-2 text-[#00d4ff]" title="High performance mode enabled">
             ⚡
           </span>
         )}

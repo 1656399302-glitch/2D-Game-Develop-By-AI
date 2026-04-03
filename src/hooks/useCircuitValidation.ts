@@ -2,6 +2,7 @@
  * Circuit Validation Hook
  * 
  * Round 112: Advanced Circuit Validation System
+ * Round 113: Fixed activation gate to check for empty modules
  * 
  * This hook provides real-time circuit validation state management,
  * integrating with the machine store to validate on changes.
@@ -175,16 +176,36 @@ export function useCircuitValidation(): UseCircuitValidationResult {
 
 /**
  * Simplified hook for checking if activation should be blocked
+ * Round 113: Fixed to properly check for empty modules
  */
 export function useActivationGate(): {
   canActivate: boolean;
   blockReason: string | null;
   validationResult: CircuitValidationResult | null;
 } {
+  const modules = useMachineStore((state) => state.modules);
   const { validationResult, isValid, errors } = useCircuitValidation();
   
   return useMemo(() => {
-    if (isValid || !validationResult) {
+    // Round 113: Check for empty modules first
+    if (modules.length === 0) {
+      return {
+        canActivate: false,
+        blockReason: '请至少添加一个模块',
+        validationResult,
+      };
+    }
+    
+    // If validation hasn't run yet, assume not valid (wait for debounce)
+    if (!validationResult) {
+      return {
+        canActivate: false,
+        blockReason: '正在验证电路...',
+        validationResult,
+      };
+    }
+    
+    if (isValid) {
       return {
         canActivate: true,
         blockReason: null,
@@ -195,14 +216,14 @@ export function useActivationGate(): {
     // Return the first blocking error message
     const blockReason = errors.length > 0
       ? errors[0].message
-      : 'Circuit validation failed';
+      : '电路验证失败';
     
     return {
       canActivate: false,
       blockReason,
       validationResult,
     };
-  }, [isValid, errors, validationResult]);
+  }, [modules.length, isValid, errors, validationResult]);
 }
 
 /**
