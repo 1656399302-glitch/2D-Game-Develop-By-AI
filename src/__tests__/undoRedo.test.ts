@@ -302,7 +302,7 @@ describe('Undo/Redo System', () => {
       expect(useMachineStore.getState().historyIndex).toBe(historyLength - 1);
     });
 
-    it('History limit of 50 entries should be respected', () => {
+    it('History limit of 51 entries should be respected', () => {
       const store = useMachineStore.getState();
       
       // Add 60 modules rapidly
@@ -310,8 +310,8 @@ describe('Undo/Redo System', () => {
         store.addModule('core-furnace', 200 + i * 10, 200);
       }
       
-      // History should be limited to 50 entries
-      expect(useMachineStore.getState().history.length).toBeLessThanOrEqual(50);
+      // History should be limited to 51 entries (initial + 50 undoable actions)
+      expect(useMachineStore.getState().history.length).toBeLessThanOrEqual(51);
       expect(useMachineStore.getState().modules.length).toBe(60);
     });
   });

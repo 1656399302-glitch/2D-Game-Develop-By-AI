@@ -295,7 +295,7 @@ describe('AC4: Undo/Redo Performance', () => {
   });
 
   describe('History Management', () => {
-    it('should limit history to 50 entries', () => {
+    it('should limit history to 51 entries', () => {
       const store = useMachineStore.getState();
       
       // Add more than 50 modules
@@ -305,9 +305,9 @@ describe('AC4: Undo/Redo Performance', () => {
         }
       });
       
-      // History should be limited to 50 entries
+      // History should be limited to 51 entries (initial + 50 undoable actions)
       const history = useMachineStore.getState().history;
-      expect(history.length).toBeLessThanOrEqual(50);
+      expect(history.length).toBeLessThanOrEqual(51);
     });
 
     it('should saveToHistory after each meaningful action', () => {

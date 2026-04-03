@@ -16,6 +16,7 @@ import {
 import { calculateConnectionPath, updatePathsForModule } from '../utils/connectionEngine';
 import { saveCanvasState, loadCanvasState, clearCanvasState } from '../utils/localStorage';
 import { validateConnection } from '../utils/connectionValidator';
+import { useSelectionStore } from './useSelectionStore';
 
 interface MachineStore {
   // State
@@ -616,7 +617,22 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
 
   copySelected: () => {
     const { modules, connections, selectedModuleId } = get();
+    const { selectedModuleIds } = useSelectionStore.getState();
     
+    // Check multi-selection first (selectedModuleIds takes priority)
+    if (selectedModuleIds && selectedModuleIds.length > 0) {
+      const copiedModules = modules.filter(m => selectedModuleIds.includes(m.instanceId));
+      const copiedConnections = connections.filter(c => 
+        selectedModuleIds.includes(c.sourceModuleId) || selectedModuleIds.includes(c.targetModuleId)
+      );
+      set({
+        clipboardModules: copiedModules.map(m => ({ ...m, ports: [...m.ports.map(p => ({ ...p }))] })),
+        clipboardConnections: copiedConnections.map(c => ({ ...c })),
+      });
+      return;
+    }
+    
+    // Single selection fallback
     if (!selectedModuleId) {
       set({
         clipboardModules: modules.map(m => ({ ...m })),
@@ -655,6 +671,9 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       instanceId: idMapping.get(m.instanceId)!,
       x: m.x + CLIPBOARD_OFFSET,
       y: m.y + CLIPBOARD_OFFSET,
+      rotation: 0,
+      scale: 1,
+      flipped: false,
       ports: m.ports.map(p => ({
         ...p,
         id: `${m.type}-${p.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1043,7 +1062,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     const { modules, connections, history, historyIndex } = get();
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push({ modules: [...modules], connections: [...connections] });
-    if (newHistory.length > 50) {
+    if (newHistory.length > 51) {
       newHistory.shift();
     }
     set({
