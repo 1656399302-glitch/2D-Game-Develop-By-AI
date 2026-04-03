@@ -49,6 +49,13 @@ import { QuickActionsToolbar } from './components/QuickActionsToolbar';
 // D6 Integration: Import KeyboardShortcutsPanel and useKeyboardShortcutsPanel hook (Round 82)
 import { KeyboardShortcutsPanel, useKeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel';
 
+// Round 113 Integration: Import validation components
+import { ValidationStatusBar } from './components/Editor/ValidationStatusBar';
+import { QuickFixActions } from './components/Editor/QuickFixActions';
+import { CanvasValidationOverlay } from './components/Editor/CanvasValidationOverlay';
+import { getActivationGate } from './utils/validationIntegration';
+import { useActivationGate } from './hooks/useCircuitValidation';
+
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
 const LazyChallengePanel = lazy(() => import('./components/Challenge/ChallengePanel'));
@@ -104,6 +111,10 @@ function AppContent() {
   // Template system state - Round 67
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  
+  // Round 113: State for QuickFixActions menu
+  const [quickFixModuleId, setQuickFixModuleId] = useState<string | null>(null);
+  const [quickFixPosition, setQuickFixPosition] = useState<{ x: number; y: number } | null>(null);
   
   /**
    * FIX Round 106: Track welcome modal dismissal to coordinate with LoadPromptModal
@@ -360,6 +371,9 @@ function AppContent() {
     };
   }, [machinesCreated, activations, errors, factionCounts, codexEntries, earnedAchievements, addEarnedAchievement]);
   
+  // Round 113: Circuit validation hook - exposes canActivate for activation button
+  const { canActivate } = useActivationGate();
+  
   const handleSaveToCodex = useCallback(() => {
     if (modules.length === 0) {
       alert('请至少添加一个模块再保存到图鉴。');
@@ -418,15 +432,22 @@ function AppContent() {
     });
   };
   
+  // Round 113: Fixed handleActivate with validation gate check
   const handleActivate = useCallback(() => {
-    if (modules.length === 0) {
-      alert('请至少添加一个模块再激活。');
-      return;
+    const gate = getActivationGate();
+    if (!gate.canActivate) {
+      return; // Block activation - button should already be disabled
     }
     setShowActivation(true);
     setMachineState('charging');
     incrementActivations();
-  }, [modules, setMachineState, setShowActivation, incrementActivations]);
+  }, [setMachineState, setShowActivation, incrementActivations]);
+  
+  // Round 113: Handle validation badge click - show QuickFixActions menu
+  const handleModuleValidationClick = useCallback((moduleId: string, position: { x: number; y: number }) => {
+    setQuickFixModuleId(moduleId);
+    setQuickFixPosition(position);
+  }, []);
   
   const handleActivationComplete = useCallback(() => {
     setShowActivation(false);
@@ -547,9 +568,13 @@ function AppContent() {
               >
                 ❓ 帮助
               </button>
+              
+              {/* Round 113: Validation Status Bar in header */}
+              <ValidationStatusBar />
+              
               <button
                 onClick={handleActivate}
-                disabled={modules.length === 0}
+                disabled={!canActivate}
                 className="px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-[#00d4ff] to-[#00ffcc] text-[#0a0e17] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 data-tutorial="activate-button"
               >
@@ -591,7 +616,12 @@ function AppContent() {
             <>
               <ModulePanel />
               <div className="flex-1 flex">
-                <Canvas />
+                {/* Round 113: Canvas with validation click handler */}
+                <div className="relative flex-1">
+                  <Canvas onModuleValidationClick={handleModuleValidationClick} />
+                  {/* Round 113: Canvas Validation Overlay */}
+                  <CanvasValidationOverlay />
+                </div>
                 <PropertiesPanel />
               </div>
             </>
@@ -628,6 +658,14 @@ function AppContent() {
             {shortcutFeedback}
           </div>
         )}
+        
+        {/* Round 113: Quick Fix Actions Menu */}
+        <QuickFixActions
+          moduleId={quickFixModuleId}
+          position={quickFixPosition}
+          visible={!!quickFixModuleId}
+          onClose={() => setQuickFixModuleId(null)}
+        />
         
         {/* Modals */}
         {showExport && <ExportDialog onClose={() => setShowExport(false)} />}
