@@ -1002,3 +1002,12 @@
 ## Planning
 - Rationale: Planner skipped because an existing spec or explicit skip-planner request was provided.
 
+## Round 105 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 106 Contract Operator Inbox
+- Rationale: Injected queued operator instructions into the phase boundary: operator-item-1775233786990[must_fix]
+
+## Round 106 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

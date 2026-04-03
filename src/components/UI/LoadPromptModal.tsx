@@ -1,22 +1,45 @@
+import { useCallback } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 
 export interface LoadPromptModalProps {
   onDismiss: () => void;
 }
 
+/**
+ * LoadPromptModal - Fixed for Round 106
+ * 
+ * Bug Fixes:
+ * 1. AC-106-001: "恢复之前的工作" button now properly closes modal without freezing
+ * 2. AC-106-002: "开启新存档" button now properly closes modal without freezing
+ * 
+ * Root Cause: Store operations (restoreSavedState/startFresh) were synchronous
+ * and blocking, causing UI freeze during state updates.
+ * 
+ * Fix: Defer store operations to requestAnimationFrame to allow modal dismiss
+ * to complete first, preventing UI freeze.
+ */
 export const LoadPromptModal = ({ onDismiss }: LoadPromptModalProps) => {
-  const restoreSavedState = useMachineStore((state) => state.restoreSavedState);
-  const startFresh = useMachineStore((state) => state.startFresh);
-
-  const handleRestore = () => {
-    restoreSavedState();
+  const handleRestore = useCallback(() => {
+    // Defer the store operation to allow modal to dismiss first
+    // This prevents UI freeze when restoring many modules
+    requestAnimationFrame(() => {
+      useMachineStore.getState().restoreSavedState();
+    });
+    
+    // Immediately dismiss the modal - this happens before the deferred store call
     onDismiss();
-  };
+  }, [onDismiss]);
 
-  const handleStartFresh = () => {
-    startFresh();
+  const handleStartFresh = useCallback(() => {
+    // Defer the store operation to allow modal to dismiss first
+    // This prevents UI freeze during canvas clear
+    requestAnimationFrame(() => {
+      useMachineStore.getState().startFresh();
+    });
+    
+    // Immediately dismiss the modal - this happens before the deferred store call
     onDismiss();
-  };
+  }, [onDismiss]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">

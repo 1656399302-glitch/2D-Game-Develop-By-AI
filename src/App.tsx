@@ -104,6 +104,17 @@ function AppContent() {
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   
+  /**
+   * FIX Round 106: Track welcome modal dismissal to coordinate with LoadPromptModal
+   * 
+   * Problem: When WelcomeModal is dismissed, LoadPromptModal could still appear
+   * if there's saved state, causing confusing user experience.
+   * 
+   * Solution: Track when WelcomeModal is shown/dismissed, and suppress LoadPromptModal
+   * if WelcomeModal was displayed.
+   */
+  const [welcomeModalWasShown, setWelcomeModalWasShown] = useState(false);
+  
   // FIX Round 77: Use context hook instead of direct hook call
   // This ensures the same queue state is shared with AchievementToastContainer
   const { addToQueue } = useAchievementToastQueueContext();
@@ -172,23 +183,80 @@ function AppContent() {
   
   // Welcome modal hook - provides handlers but modal visibility is controlled locally
   const {
-    handleStartTutorial,
-    handleSkip,
+    handleStartTutorial: handleWelcomeStartTutorial,
+    handleSkip: handleWelcomeSkip,
   } = useWelcomeModal();
+
+  /**
+   * FIX Round 106: Coordinated handleSkip that suppresses LoadPromptModal
+   * 
+   * When WelcomeModal is dismissed (either by skip or start tutorial),
+   * we need to:
+   * 1. Mark welcome modal as having been shown (to suppress LoadPromptModal)
+   * 2. Update tutorial store
+   * 3. Restore saved state if needed (done by handleWelcomeSkip)
+   */
+  const handleSkip = useCallback(() => {
+    // Mark that welcome modal was shown and dismissed
+    // This prevents LoadPromptModal from appearing
+    setWelcomeModalWasShown(true);
+    
+    // Call the original handleWelcomeSkip which:
+    // - Sets hasSeenWelcome to true
+    // - Sets tutorialEnabled to false
+    // - Restores saved state if it exists
+    handleWelcomeSkip();
+  }, [handleWelcomeSkip]);
+
+  /**
+   * FIX Round 106: Coordinated handleStartTutorial that suppresses LoadPromptModal
+   */
+  const handleStartTutorialCallback = useCallback(() => {
+    // Mark that welcome modal was shown and dismissed
+    // This prevents LoadPromptModal from appearing
+    setWelcomeModalWasShown(true);
+    
+    // Call the original handler from the hook
+    handleWelcomeStartTutorial();
+  }, [handleWelcomeStartTutorial]);
 
   // FIX: Hydrate exchange store on mount
   useEffect(() => {
     hydrateExchangeStore();
   }, []);
 
-  // Check for saved state on mount - FIX: Use ref instead of store action in dependency
+  /**
+   * FIX Round 106: Check for saved state on mount
+   * 
+   * Only show LoadPromptModal if:
+   * 1. There's saved state
+   * 2. WelcomeModal was NOT shown (user didn't dismiss it first)
+   * 
+   * This prevents the confusing scenario where WelcomeModal is dismissed
+   * and then LoadPromptModal appears.
+   */
   useEffect(() => {
+    // If WelcomeModal was shown, suppress LoadPromptModal regardless of saved state
+    if (welcomeModalWasShown) {
+      markStateAsLoadedRef.current();
+      return;
+    }
+    
+    // Only show LoadPromptModal if there's saved state and WelcomeModal wasn't shown
     if (hasSavedState()) {
       setShowLoadPrompt(true);
     } else {
       markStateAsLoadedRef.current();
     }
-  }, []); // Empty deps - runs once on mount
+  }, [welcomeModalWasShown]); // Re-run when welcome modal dismissal state changes
+  
+  // Track when WelcomeModal is shown to coordinate with LoadPromptModal
+  useEffect(() => {
+    if (isHydrated && !hasSeenWelcome) {
+      // WelcomeModal will be shown - mark this
+      setWelcomeModalWasShown(true);
+    }
+  }, [isHydrated, hasSeenWelcome]);
   
   // Use keyboard shortcuts hook
   const { shortcutFeedback } = useKeyboardShortcuts({ enabled: viewMode === 'editor' });
@@ -598,7 +666,13 @@ function AppContent() {
         )}
         
         <RecipeBrowser isOpen={showRecipeBrowser} onClose={() => setShowRecipeBrowser(false)} />
-        {showLoadPrompt && <LoadPromptModal onDismiss={() => setShowLoadPrompt(false)} />}
+        
+        {/* FIX Round 106: LoadPromptModal only shows when appropriate */}
+        {/* Condition: showLoadPrompt AND welcomeModalWasShown is false */}
+        {/* This means LoadPromptModal only shows if user didn't see WelcomeModal first */}
+        {showLoadPrompt && !welcomeModalWasShown && (
+          <LoadPromptModal onDismiss={() => setShowLoadPrompt(false)} />
+        )}
         
         {/* RandomGeneratorModal — Round 57: integrated to fix Round 56 critical integration failure */}
         {showRandomGenerator && (
@@ -727,9 +801,15 @@ function AppContent() {
         {/* Publish to Gallery Modal */}
         {isPublishModalOpen && <PublishModal />}
         
-        {/* FIX: Always render WelcomeModal when user hasn't seen it before
-            WelcomeModal itself decides whether to show based on localStorage */}
-        {isHydrated && !hasSeenWelcome && <WelcomeModal onStartTutorial={handleStartTutorial} onSkip={handleSkip} />}
+        {/* FIX Round 106: WelcomeModal coordination with LoadPromptModal
+            WelcomeModal is shown when user hasn't seen it before.
+            When it's dismissed (skip or start tutorial), LoadPromptModal is suppressed. */}
+        {isHydrated && !hasSeenWelcome && (
+          <WelcomeModal 
+            onStartTutorial={handleStartTutorialCallback} 
+            onSkip={handleSkip} 
+          />
+        )}
         
         <TutorialOverlay
           onModuleAdded={() => {}}
