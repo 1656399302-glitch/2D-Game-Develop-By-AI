@@ -4,27 +4,24 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  cacheDir: 'node_modules/.vitest-cache',
   test: {
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-    // Performance optimization: Use parallel execution
-    maxWorkers: 4,
-    minWorkers: 2,
-    // Use atomics for better parallelization
-    useAtomics: true,
-    // isolation for test isolation (helps with flaky tests)
-    isolation: true,
-    // Pool options for better parallelization
-    pool: 'forks',
+    // Use threads pool with 10 workers - fastest overall
+    pool: 'threads',
     poolOptions: {
-      forks: {
-        singleFork: false,
-        maxForks: 4,
-        minForks: 2,
+      threads: {
+        singleThread: false,
+        maxThreads: 10,
+        minThreads: 6,
+        useAtomics: true,
       },
     },
-    // Coverage configuration (if needed)
+    // Keep isolation enabled
+    isolate: true,
+    // Coverage configuration - skip during test run
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
