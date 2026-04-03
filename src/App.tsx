@@ -3,7 +3,7 @@ import { Canvas } from './components/Editor/Canvas';
 import { ModulePanel } from './components/Editor/ModulePanel';
 import { PropertiesPanel } from './components/Editor/PropertiesPanel';
 import { Toolbar } from './components/Editor/Toolbar';
-import { ExportDialog } from './components/Export/ExportDialog';
+import { ExportModal } from './components/Export/ExportModal';
 import { ActivationOverlay } from './components/Preview/ActivationOverlay';
 import { CircuitValidationOverlay } from './components/Editor/CircuitValidationOverlay';
 import { ConnectionErrorFeedback } from './components/UI/ConnectionErrorFeedback';
@@ -668,7 +668,7 @@ function AppContent() {
         />
         
         {/* Modals */}
-        {showExport && <ExportDialog onClose={() => setShowExport(false)} />}
+        {showExport && <ExportModal onClose={() => setShowExport(false)} />}
         
         {showCodex && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
