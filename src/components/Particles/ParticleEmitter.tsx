@@ -142,6 +142,7 @@ interface ParticleBurstProps {
 
 /**
  * Particle burst effect - single burst of particles
+ * Round 117 Fix: Added animation frame cleanup on unmount to prevent memory leaks
  */
 export function ParticleBurst({
   x,
@@ -238,9 +239,11 @@ export function ParticleBurst({
     
     animationRef.current = requestAnimationFrame(animate);
     
+    // Round 117 Fix: Cleanup animation frame on unmount to prevent memory leaks
     return () => {
-      if (animationRef.current) {
+      if (animationRef.current !== null) {
         cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
       }
     };
   }, [x, y, count, color, sizeRange, duration, onComplete]);

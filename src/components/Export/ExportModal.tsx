@@ -257,7 +257,12 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
     // Convert SVG to PNG using canvas
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    
+    // Round 117 Fix: Show user-visible error when canvas context is not available
+    if (!ctx) {
+      showError('Failed to create canvas context. Faction card PNG export is not available in this browser.');
+      return;
+    }
     
     canvas.width = 800;
     canvas.height = 600;
@@ -272,14 +277,22 @@ export function ExportModal({ onClose, onPublishToGallery }: ExportModalProps) {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       
       canvas.toBlob((blob) => {
-        if (!blob) return;
+        if (!blob) {
+          showError('Failed to generate PNG blob. Please try exporting as SVG instead.');
+          return;
+        }
         downloadFile(blob, `${attributes.name.replace(/\s+/g, '-').toLowerCase()}-share-card.png`, 'image/png');
         URL.revokeObjectURL(url);
       }, 'image/png');
     };
     
+    img.onerror = () => {
+      showError('Failed to load faction card image. Please try exporting as SVG instead.');
+      URL.revokeObjectURL(url);
+    };
+    
     img.src = url;
-  }, [modules, connections, attributes, faction]);
+  }, [modules, connections, attributes, faction, showError]);
   
   const handlePublishToGallery = useCallback(() => {
     if (onPublishToGallery) {

@@ -201,6 +201,21 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   const setSelection = useSelectionStore((state) => state.setSelection);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
   
+  // Round 117 Fix: Memory leak cleanup for debounce refs
+  // Clean up pending timeouts when component unmounts
+  useEffect(() => {
+    return () => {
+      if (connectionDebounceRef.current !== null) {
+        clearTimeout(connectionDebounceRef.current);
+        connectionDebounceRef.current = null;
+      }
+      if (viewportDebounceRef.current !== null) {
+        clearTimeout(viewportDebounceRef.current);
+        viewportDebounceRef.current = null;
+      }
+    };
+  }, []);
+  
   // Initialize spatial index
   useEffect(() => {
     if (!spatialIndexRef.current) {
@@ -1062,8 +1077,10 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
       role="application" data-tutorial="canvas" data-tutorial-action="canvas"
       aria-label="Machine Editor Canvas"
     >
-      {/* Alignment Toolbar */}
-      <AlignmentToolbar visible={selectedModuleIds.length >= 2} />
+      {/* Alignment Toolbar - Round 117: Accessibility - aria-label for toolbar */}
+      <div aria-label="Module alignment and arrangement toolbar" role="toolbar">
+        <AlignmentToolbar visible={selectedModuleIds.length >= 2} />
+      </div>
       
       <svg
         ref={svgRef}
@@ -1159,8 +1176,8 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
             pulseColor="#00ffcc"
           />
           
-          {/* Connections layer */}
-          <g id="connections-layer">
+          {/* Connections layer - Round 117: Accessibility - aria-label for connection ports */}
+          <g id="connections-layer" aria-label="Energy connection ports and paths">
             {visibleConnections.map((connection) => (
               <EnergyPath
                 key={connection.id}
@@ -1178,8 +1195,8 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
             )}
           </g>
           
-          {/* Modules layer */}
-          <g id="modules-layer">
+          {/* Modules layer - Round 117: Accessibility - aria-label for modules */}
+          <g id="modules-layer" aria-label="Machine modules container">
             {visibleModules.map((module) => {
               const isVisible = (module as any).isVisible !== false;
               if (!isVisible) return null;
