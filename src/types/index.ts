@@ -64,6 +64,8 @@ export interface PlacedModule {
   scale: number;
   flipped: boolean;
   ports: Port[];
+  /** Round 127: Layer assignment for multi-layer canvas support */
+  layerId?: string;
 }
 
 export interface Connection {
@@ -250,7 +252,7 @@ export const POSTER_BACKGROUND_PRESETS: PosterBackgroundPreset[] = [
     id: 'faction',
     name: 'Faction Theme',
     nameCn: '派系主题',
-    description: 'Match your machine\'s dominant faction',
+    description: "Match your machine's dominant faction",
     gradient: {
       start: '#0a0e17', // Will be overridden by faction color
       end: '#1a1a2e',

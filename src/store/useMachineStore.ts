@@ -16,6 +16,7 @@ import {
 import { calculateConnectionPath, updatePathsForModule } from '../utils/connectionEngine';
 import { saveCanvasState, loadCanvasState, clearCanvasState, saveCircuitState, loadCircuitState, clearCircuitState } from '../utils/localStorage';
 import { PlacedCircuitNode, CircuitWire } from '../types/circuitCanvas';
+import { Layer, getLayerColor } from '../types/layers';
 import { useCircuitCanvasStore } from './useCircuitCanvasStore';
 import { validateConnection } from '../utils/connectionValidator';
 import { useSelectionStore } from './useSelectionStore';
@@ -67,7 +68,7 @@ interface MachineStore {
   showCodexModal: boolean;
 
   // Actions
-  addModule: (type: ModuleType, x: number, y: number) => void;
+  addModule: (type: ModuleType, x: number, y: number) => PlacedModule;
   removeModule: (instanceId: string) => void;
   updateModulePosition: (instanceId: string, x: number, y: number) => void;
   updateModuleRotation: (instanceId: string, rotation: number) => void;
@@ -146,7 +147,21 @@ interface MachineStore {
   saveCircuitToStore: () => void;
   loadCircuitFromStore: () => void;
   clearCircuitState: () => void;
-}
+
+  // Layer system (Round 127)
+  layers: Layer[];
+  activeLayerId: string;
+
+  // Layer actions
+  addLayer: (name?: string) => string;
+  removeLayer: (id: string) => boolean;
+  renameLayer: (id: string, name: string) => void;
+  setActiveLayer: (id: string) => void;
+  moveComponentsToLayer: (componentIds: string[], targetLayerId: string) => void;
+  getActiveLayerComponents: () => PlacedModule[];
+  getActiveLayerWires: () => Connection[];
+};
+
 
 const GRID_SIZE = 20;
 const AUTO_RETURN_DELAY = 3500; // 3.5 seconds for failure/overload modes
@@ -158,6 +173,9 @@ const AUTO_SAVE_DEBOUNCE = 500; // 500ms debounce for auto-save
 const CLIPBOARD_OFFSET = 20; // Offset for pasted modules
 const ACTIVATION_ZOOM_DURATION = 800; // Duration for zoom animation in ms
 const CONNECTION_ERROR_AUTO_CLEAR = 2500; // 2.5 seconds for error auto-clear
+
+// Round 127: Default layer ID for initial state
+const DEFAULT_LAYER_ID = uuidv4();
 
 // Debounce helper
 let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -337,15 +355,22 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   // Modal states
   showExportModal: false,
   showCodexModal: false,
+  
+  // Layer system state (Round 127) - initialized with default layer
+  layers: [{ id: DEFAULT_LAYER_ID, name: 'Layer 1', visible: true, color: getLayerColor(0), order: 0 }],
+  activeLayerId: DEFAULT_LAYER_ID,
+
 
   addModule: (type, x, y) => {
-    const { gridEnabled } = get();
+    const { gridEnabled, activeLayerId } = get();
     const { width, height } = MODULE_SIZES[type] || { width: 80, height: 80 };
     
+    // Round 127: Assign new module to the active layer
     const newModule: PlacedModule = {
       id: uuidv4(),
       instanceId: uuidv4(),
       type,
+      layerId: activeLayerId,
       x: gridEnabled ? snapToGrid(x - width / 2) : x - width / 2,
       y: gridEnabled ? snapToGrid(y - height / 2) : y - height / 2,
       rotation: 0,
@@ -373,6 +398,8 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     
     // THEN save to history (captures the new state)
     get().saveToHistory();
+    // Return the created module for E2E test access
+    return newModule;
   },
 
   removeModule: (instanceId) => {
@@ -1113,8 +1140,16 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   },
 
   loadMachine: (modules, connections) => {
+    // Round 127: Migrate modules to default layer if they lack layerId
+    const { activeLayerId } = get();
+    const migratedModules = modules.map(m => {
+      if (!m.layerId) {
+        return { ...m, layerId: activeLayerId };
+      }
+      return m;
+    });
     set({
-      modules,
+      modules: migratedModules,
       connections,
       selectedModuleId: null,
       selectedConnectionId: null,
@@ -1156,9 +1191,17 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   
   restoreSavedState: () => {
     const savedState = loadCanvasState();
+    const { activeLayerId } = get();
     if (savedState) {
+      // Round 127: Migrate modules to default layer if they lack layerId
+      const migratedModules = (savedState.modules || []).map((m: PlacedModule) => {
+        if (!m.layerId) {
+          return { ...m, layerId: activeLayerId };
+        }
+        return m;
+      });
       set({
-        modules: savedState.modules,
+        modules: migratedModules,
         connections: savedState.connections,
         viewport: savedState.viewport || { x: 0, y: 0, zoom: 1 },
         gridEnabled: savedState.gridEnabled ?? true,
@@ -1230,5 +1273,123 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     useCircuitCanvasStore.getState().clearCircuitCanvas();
     clearCircuitState();
     set({ circuitNodes: [], circuitWires: [] });
+  },
+  
+  // ============================================================
+  // LAYER MANAGEMENT (Round 127)
+  // ============================================================
+  
+  addLayer: (name?: string) => {
+    const { layers } = get();
+    const layerNumber = layers.length + 1;
+    const newLayer: Layer = {
+      id: uuidv4(),
+      name: name || `Layer ${layerNumber}`,
+      visible: true,
+      color: getLayerColor(layers.length),
+      order: layers.length,
+    };
+    
+    set((state) => ({
+      layers: [...state.layers, newLayer],
+    }));
+    
+    return newLayer.id;
+  },
+  
+  removeLayer: (id: string) => {
+    const { layers, activeLayerId, modules, connections } = get();
+    
+    // Cannot remove the last layer
+    if (layers.length <= 1) {
+      return false;
+    }
+    
+    // Find the layer to remove
+    const layerIndex = layers.findIndex(l => l.id === id);
+    if (layerIndex === -1) {
+      return false;
+    }
+    
+    // Remove the layer
+    const newLayers = layers.filter(l => l.id !== id);
+    
+    // If removing the active layer, switch to the first remaining layer
+    let newActiveId = activeLayerId;
+    if (activeLayerId === id) {
+      newActiveId = newLayers[0].id;
+    }
+    
+    // Remove modules assigned to the deleted layer
+    const remainingModuleIds = new Set(
+      modules.filter(m => m.layerId !== id).map(m => m.instanceId)
+    );
+    const newModules = modules.filter(m => remainingModuleIds.has(m.instanceId));
+    // Also remove connections where either module is now gone
+    const newConnections = connections.filter(
+      c => remainingModuleIds.has(c.sourceModuleId) && remainingModuleIds.has(c.targetModuleId)
+    );
+    
+    set({
+      layers: newLayers,
+      activeLayerId: newActiveId,
+      modules: newModules,
+      connections: newConnections,
+    });
+    
+    return true;
+  },
+  
+  renameLayer: (id: string, name: string) => {
+    set((state) => ({
+      layers: state.layers.map(l =>
+        l.id === id ? { ...l, name } : l
+      ),
+    }));
+  },
+  
+  setActiveLayer: (id: string) => {
+    const { layers } = get();
+    if (layers.some(l => l.id === id)) {
+      set({ activeLayerId: id });
+    }
+  },
+  
+  moveComponentsToLayer: (componentIds: string[], targetLayerId: string) => {
+    const { layers } = get();
+    if (!layers.some(l => l.id === targetLayerId)) {
+      return; // Invalid target layer
+    }
+    
+    set((state) => ({
+      modules: state.modules.map(m =>
+        componentIds.includes(m.instanceId)
+          ? { ...m, layerId: targetLayerId }
+          : m
+      ),
+    }));
+  },
+  
+  getActiveLayerComponents: () => {
+    const { modules, activeLayerId, layers } = get();
+    const activeLayer = layers.find(l => l.id === activeLayerId);
+    // If the active layer is hidden, return empty
+    if (!activeLayer?.visible) return [];
+    return modules.filter(m => m.layerId === activeLayerId);
+  },
+  
+  getActiveLayerWires: () => {
+    const { modules, activeLayerId, layers, connections } = get();
+    const activeLayer = layers.find(l => l.id === activeLayerId);
+    // If the active layer is hidden, return empty
+    if (!activeLayer?.visible) return [];
+    const activeModuleIds = new Set(
+      modules
+        .filter(m => m.layerId === activeLayerId)
+        .map(m => m.instanceId)
+    );
+    return connections.filter(
+      c => activeModuleIds.has(c.sourceModuleId) && activeModuleIds.has(c.targetModuleId)
+    );
   },
 }));

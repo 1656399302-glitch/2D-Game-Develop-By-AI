@@ -209,12 +209,21 @@ function getModuleIcon(type: string): string {
 
 /**
  * Layers Panel Component
- * Displays all modules with visibility toggles and z-order controls
+ * Round 127: Manages both layers (tab switching) and modules within each layer
  */
 export function LayersPanel() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [sortOrder, setSortOrder] = useState<'index' | 'name' | 'type'>('index');
+
+  // Layer state (Round 127)
+  const layers = useMachineStore((state) => state.layers);
+  const activeLayerId = useMachineStore((state) => state.activeLayerId);
+  const addLayer = useMachineStore((state) => state.addLayer);
+  const removeLayer = useMachineStore((state) => state.removeLayer);
+  const renameLayer = useMachineStore((state) => state.renameLayer);
+  const setActiveLayer = useMachineStore((state) => state.setActiveLayer);
+  const moveComponentsToLayer = useMachineStore((state) => state.moveComponentsToLayer);
 
   const modules = useMachineStore((state) => state.modules);
   const setModulesOrder = useMachineStore((state) => state.setModulesOrder);
@@ -223,9 +232,24 @@ export function LayersPanel() {
   const addToSelection = useSelectionStore((state) => state.addToSelection);
   const clearSelection = useSelectionStore((state) => state.clearSelection);
 
-  // Filter and sort modules
+  // Layer management state (Round 127)
+  const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
+  const [editingLayerName, setEditingLayerName] = useState('');
+  const [showMoveToLayer, setShowMoveToLayer] = useState(false);
+
+  // Get active layer name for header
+  const activeLayer = layers.find(l => l.id === activeLayerId);
+  const activeLayerName = activeLayer?.name || '图层';
+
+  // Get modules for display in LayersPanel
+  // Round 127: Show all modules for management. Canvas.tsx handles layer filtering.
+  const activeLayerModules = useMemo(() => {
+    return modules;
+  }, [modules]);
+
+  // Filter and sort modules on the active layer
   const filteredModules = useMemo(() => {
-    let result = [...modules];
+    let result = [...activeLayerModules];
 
     // Apply filter
     if (filterText) {
@@ -251,7 +275,60 @@ export function LayersPanel() {
     }
 
     return result;
-  }, [modules, filterText, sortOrder]);
+  }, [activeLayerModules, filterText, sortOrder]);
+
+  // Handle layer tab click
+  const handleLayerClick = useCallback((layerId: string) => {
+    if (layerId !== activeLayerId) {
+      clearSelection();
+      setActiveLayer(layerId);
+    }
+  }, [activeLayerId, setActiveLayer, clearSelection]);
+
+  // Handle layer rename
+  const handleLayerRename = useCallback((layerId: string, name: string) => {
+    renameLayer(layerId, name);
+    setEditingLayerId(null);
+  }, [renameLayer]);
+
+  // Handle layer visibility toggle
+  const handleLayerVisibilityToggle = useCallback((layerId: string) => {
+    const layer = layers.find(l => l.id === layerId);
+    if (layer) {
+      useMachineStore.setState((state) => ({
+        layers: state.layers.map((l) =>
+          l.id === layerId ? { ...l, visible: !l.visible } : l
+        ),
+      }));
+    }
+  }, [layers]);
+
+  // Handle add layer
+  const handleAddLayer = useCallback(() => {
+    const newLayerId = addLayer();
+    setActiveLayer(newLayerId);
+  }, [addLayer, setActiveLayer]);
+
+  // Handle delete layer
+  const handleDeleteLayer = useCallback((layerId: string) => {
+    if (layers.length <= 1) return; // Cannot delete the last layer
+    removeLayer(layerId);
+    // If we deleted the active layer, switch to first remaining
+    if (activeLayerId === layerId) {
+      const remainingLayers = layers.filter(l => l.id !== layerId);
+      if (remainingLayers.length > 0) {
+        setActiveLayer(remainingLayers[0].id);
+      }
+    }
+  }, [layers, activeLayerId, removeLayer, setActiveLayer]);
+
+  // Handle move selected to layer
+  const handleMoveToLayer = useCallback((targetLayerId: string) => {
+    if (selectedModuleIds.length > 0 && targetLayerId !== activeLayerId) {
+      moveComponentsToLayer(selectedModuleIds, targetLayerId);
+      setShowMoveToLayer(false);
+    }
+  }, [selectedModuleIds, activeLayerId, moveComponentsToLayer]);
 
   // Handle selection
   const handleSelect = useCallback((instanceId: string, multiSelect: boolean) => {
@@ -270,7 +347,6 @@ export function LayersPanel() {
 
     const newVisibility = (module as any).isVisible === false ? true : false;
     
-    // Store visibility state
     useMachineStore.setState((state) => ({
       modules: state.modules.map(m => 
         m.instanceId === instanceId 
@@ -340,21 +416,120 @@ export function LayersPanel() {
       className="w-64 h-full bg-[#121826] border-l border-[#1e2a42] flex flex-col"
       onKeyDown={handleKeyDown}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-[#1e2a42]">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">📑</span>
-          <h2 className="text-sm font-semibold text-white">图层</h2>
-          <span className="text-xs text-[#6b7280]">({filteredModules.length})</span>
+      {/* Header with layer tabs (Round 127) */}
+      <div className="border-b border-[#1e2a42]">
+        <div className="flex items-center justify-between p-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📑</span>
+            <h2 className="text-sm font-semibold text-white">{activeLayerName}</h2>
+            <span className="text-xs text-[#6b7280]">({filteredModules.length})</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              data-testid="layers-panel-collapse"
+              onClick={() => setIsCollapsed(true)}
+              className="w-6 h-6 rounded flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3748] transition-colors"
+              title="收起图层"
+            >
+              ◀
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
+
+        {/* Layer tabs (Round 127) */}
+        <div className="flex items-center gap-1 px-2 pb-2 overflow-x-auto">
+          {layers.map((layer) => (
+            <div
+              key={layer.id}
+              data-testid={`layer-tab-${layer.id}`}
+              className={`
+                relative flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer
+                transition-colors min-w-0
+                ${layer.id === activeLayerId
+                  ? 'bg-[#3b82f6] text-white'
+                  : 'bg-[#1a1a2e] text-[#9ca3af] hover:text-white hover:bg-[#2d3748]'
+                }
+              `}
+              style={{ maxWidth: '80px' }}
+              onClick={() => handleLayerClick(layer.id)}
+            >
+              {/* Layer color dot */}
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: layer.color }}
+                title={layer.name}
+              />
+
+              {/* Layer name (editable on double-click) */}
+              {editingLayerId === layer.id ? (
+                <input
+                  type="text"
+                  data-testid={`layer-rename-input-${layer.id}`}
+                  value={editingLayerName}
+                  onChange={(e) => setEditingLayerName(e.target.value)}
+                  onBlur={() => handleLayerRename(layer.id, editingLayerName)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLayerRename(layer.id, editingLayerName);
+                    if (e.key === 'Escape') setEditingLayerId(null);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="bg-transparent text-white text-xs w-full min-w-0 outline-none border-b border-white"
+                  autoFocus
+                />
+              ) : (
+                <span
+                  className="truncate flex-1"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    setEditingLayerId(layer.id);
+                    setEditingLayerName(layer.name);
+                  }}
+                >
+                  {layer.name}
+                </span>
+              )}
+
+              {/* Visibility toggle */}
+              <button
+                data-testid={`layer-visibility-toggle-${layer.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLayerVisibilityToggle(layer.id);
+                }}
+                className={`
+                  w-4 h-4 rounded flex items-center justify-center text-xs flex-shrink-0
+                  ${layer.visible ? 'text-[#22c55e]' : 'text-[#6b7280]'}
+                `}
+                title={layer.visible ? '隐藏图层' : '显示图层'}
+              >
+                {layer.visible ? '👁' : '👁‍🗨'}
+              </button>
+
+              {/* Delete layer (disabled for last layer) */}
+              {layers.length > 1 && (
+                <button
+                  data-testid={`layer-delete-${layer.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteLayer(layer.id);
+                  }}
+                  className="w-4 h-4 rounded flex items-center justify-center text-[#6b7280] hover:text-[#ef4444] flex-shrink-0"
+                  title="删除图层"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* Add layer button */}
           <button
-            data-testid="layers-panel-collapse"
-            onClick={() => setIsCollapsed(true)}
-            className="w-6 h-6 rounded flex items-center justify-center text-[#6b7280] hover:text-white hover:bg-[#2d3748] transition-colors"
-            title="收起图层"
+            data-testid="add-layer-button"
+            onClick={handleAddLayer}
+            className="w-6 h-6 rounded bg-[#1a1a2e] text-[#9ca3af] hover:text-white hover:bg-[#2d3748] flex items-center justify-center text-xs transition-colors flex-shrink-0"
+            title="添加图层"
           >
-            ◀
+            +
           </button>
         </div>
       </div>
@@ -406,6 +581,43 @@ export function LayersPanel() {
         </div>
       </div>
 
+      {/* Move to layer action (Round 127) */}
+      {selectedModuleIds.length > 0 && (
+        <div className="p-2 border-b border-[#1e2a42]">
+          {showMoveToLayer ? (
+            <div className="space-y-1">
+              <div className="text-xs text-[#9ca3af] mb-1">移动到图层:</div>
+              {layers.filter(l => l.id !== activeLayerId).map(layer => (
+                <button
+                  key={layer.id}
+                  data-testid={`move-to-layer-${layer.id}`}
+                  onClick={() => handleMoveToLayer(layer.id)}
+                  className="w-full px-2 py-1 rounded bg-[#1a1a2e] text-[#e2e8f0] text-xs hover:bg-[#2d3748] text-left flex items-center gap-2"
+                >
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: layer.color }} />
+                  {layer.name}
+                </button>
+              ))}
+              <button
+                data-testid="cancel-move-to-layer"
+                onClick={() => setShowMoveToLayer(false)}
+                className="w-full px-2 py-1 rounded bg-[#1a1a2e] text-[#6b7280] text-xs hover:text-white"
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <button
+              data-testid="show-move-to-layer"
+              onClick={() => setShowMoveToLayer(true)}
+              className="w-full px-2 py-1 rounded bg-[#3b82f6]/20 text-[#3b82f6] text-xs hover:bg-[#3b82f6]/30"
+            >
+              移动 {selectedModuleIds.length} 个模块到其他图层
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Layer list */}
       <div 
         data-testid="layers-list"
@@ -413,7 +625,7 @@ export function LayersPanel() {
       >
         {filteredModules.length === 0 ? (
           <div className="text-center py-8 text-[#6b7280]">
-            {modules.length === 0 ? (
+            {activeLayerModules.length === 0 ? (
               <>
                 <div className="text-2xl mb-2">📭</div>
                 <p className="text-sm">没有模块</p>
@@ -446,8 +658,8 @@ export function LayersPanel() {
       {/* Footer with stats */}
       <div className="p-2 border-t border-[#1e2a42] text-xs text-[#6b7280]">
         <div className="flex justify-between">
-          <span>模块: {modules.length}</span>
-          <span>可见: {modules.filter(m => (m as any).isVisible !== false).length}</span>
+          <span>模块: {activeLayerModules.length}</span>
+          <span>可见: {activeLayerModules.filter(m => (m as any).isVisible !== false).length}</span>
         </div>
       </div>
     </div>
