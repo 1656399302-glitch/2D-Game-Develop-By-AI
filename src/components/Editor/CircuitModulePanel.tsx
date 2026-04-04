@@ -224,16 +224,18 @@ export interface CircuitModulePanelProps {
  * Displays circuit components (gates, InputNode, OutputNode) for placement on canvas
  */
 export function CircuitModulePanel({
-  isCircuitMode = false,
+  isCircuitMode: _isCircuitModeProp = false,
   onCircuitModeChange,
 }: CircuitModulePanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   
   const addCircuitNode = useCircuitCanvasStore((state) => state.addCircuitNode);
   const setCircuitMode = useCircuitCanvasStore((state) => state.setCircuitMode);
+  // FIX Round 124: Subscribe to store's isCircuitMode to avoid stale prop issue
+  const isCircuitMode = useCircuitCanvasStore((state) => state.isCircuitMode);
   const viewport = useMachineStore((state) => state.viewport);
   
-  // Handle circuit mode toggle
+  // Handle circuit mode toggle - use store value for correct state
   const handleCircuitModeToggle = useCallback(() => {
     const newMode = !isCircuitMode;
     setCircuitMode(newMode);
@@ -246,7 +248,7 @@ export function CircuitModulePanel({
     const x = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
     const y = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
     
-    // Enable circuit mode
+    // Enable circuit mode if not already active (use store value)
     if (!isCircuitMode) {
       setCircuitMode(true);
       onCircuitModeChange?.(true);
@@ -274,7 +276,7 @@ export function CircuitModulePanel({
               : 'bg-[#1e2a42] text-[#9ca3af] border border-[#2d3a4f] hover:border-[#00d4ff]/50'
             }
           `}
-          data-circuit-mode-toggle
+          data-circuit-toggle data-circuit-mode-toggle
         >
           <span className="flex items-center gap-2">
             <span className="text-lg" aria-hidden="true">⚡</span>

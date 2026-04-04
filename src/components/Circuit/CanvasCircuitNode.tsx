@@ -26,18 +26,18 @@ import { GateType } from '../../types/circuit';
 const ANDGateShape: React.FC<{ signalColor: string; width: number; height: number; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ signalColor, width, height, onPortClick }) => (
   <svg width={width} height={height} viewBox="0 0 80 50" className="gate-shape">
     <path d="M 5 5 Q 5 5 20 5 L 45 5 Q 60 5 75 15 Q 75 30 75 40 Q 60 45 45 45 L 20 45 Q 5 45 5 40 Q 5 5 5 5 Z" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
-    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
   </svg>
 );
 
 const ORGateShape: React.FC<{ signalColor: string; width: number; height: number; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ signalColor, width, height, onPortClick }) => (
   <svg width={width} height={height} viewBox="0 0 80 50" className="gate-shape">
     <path d="M 15 5 Q 25 25 15 45 Q 35 45 55 45 L 70 45 Q 75 25 70 5 Q 55 5 35 5 Q 15 5 15 5 Z" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
-    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
   </svg>
 );
 
@@ -45,8 +45,8 @@ const NOTGateShape: React.FC<{ signalColor: string; width: number; height: numbe
   <svg width={width} height={height} viewBox="0 0 60 40" className="gate-shape">
     <path d="M 5 5 L 45 20 L 5 35 Z" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
     <circle cx="50" cy="20" r="5" fill="none" stroke={signalColor} strokeWidth="2" />
-    <circle cx="0" cy="20" r="4" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="60" cy="20" r="4" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="20" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="60" cy="20" r="4" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
   </svg>
 );
 
@@ -54,9 +54,9 @@ const NANDGateShape: React.FC<{ signalColor: string; width: number; height: numb
   <svg width={width} height={height} viewBox="0 0 80 50" className="gate-shape">
     <path d="M 5 5 Q 5 5 20 5 L 45 5 Q 60 5 75 15 Q 75 30 75 40 Q 60 45 45 45 L 20 45 Q 5 45 5 40 Q 5 5 5 5 Z" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
     <circle cx="78" cy="25" r="5" fill="none" stroke={signalColor} strokeWidth="2" />
-    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
   </svg>
 );
 
@@ -64,9 +64,9 @@ const NORGateShape: React.FC<{ signalColor: string; width: number; height: numbe
   <svg width={width} height={height} viewBox="0 0 80 50" className="gate-shape">
     <path d="M 15 5 Q 25 25 15 45 Q 35 45 55 45 L 70 45 Q 75 25 70 5 Q 55 5 35 5 Q 15 5 15 5 Z" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
     <circle cx="78" cy="25" r="5" fill="none" stroke={signalColor} strokeWidth="2" />
-    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
   </svg>
 );
 
@@ -74,9 +74,9 @@ const XORGateShape: React.FC<{ signalColor: string; width: number; height: numbe
   <svg width={width} height={height} viewBox="0 0 80 50" className="gate-shape">
     <path d="M 15 5 Q 25 25 15 45 Q 35 45 55 45 L 70 45 Q 75 25 70 5 Q 55 5 35 5 Q 15 5 15 5 Z" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
     <path d="M 10 5 Q 18 25 10 45" fill="none" stroke={signalColor} strokeWidth="2" />
-    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
   </svg>
 );
 
@@ -85,9 +85,9 @@ const XNORGateShape: React.FC<{ signalColor: string; width: number; height: numb
     <path d="M 15 5 Q 25 25 15 45 Q 35 45 55 45 L 70 45 Q 75 25 70 5 Q 55 5 35 5 Q 15 5 15 5 Z" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
     <path d="M 10 5 Q 18 25 10 45" fill="none" stroke={signalColor} strokeWidth="2" />
     <circle cx="78" cy="25" r="5" fill="none" stroke={signalColor} strokeWidth="2" />
-    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
-    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="18" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="0" cy="32" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+    <circle cx="80" cy="25" r="4" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
   </svg>
 );
 
@@ -101,7 +101,7 @@ const InputNodeCanvas: React.FC<{ node: PlacedInputNode; isSelected: boolean; cy
   const borderColor = cycleWarning ? '#ef4444' : isSelected ? SIGNAL_COLORS.SELECTED : signalColor;
   
   return (
-    <g className="circuit-node input-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="input" data-node-id={node.id} data-state={node.state ? 'HIGH' : 'LOW'}>
+    <g className="circuit-node input-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="input" data-node-id={node.id} data-state={node.state ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'}>
       {(isSelected || cycleWarning) && <rect x="-4" y="-4" width={size.width + 8} height={size.height + 8} rx="6" fill="none" stroke={borderColor} strokeWidth="2" strokeDasharray={cycleWarning ? '4 2' : 'none'} />}
       <rect x="0" y="0" width={size.width} height={size.height} rx="8" fill="rgba(15, 23, 42, 0.95)" stroke={signalColor} strokeWidth="2" />
       <circle cx={size.width / 2} cy={size.height / 2 - 4} r="12" fill={signalColor} style={{ filter: node.state ? `drop-shadow(0 0 8px ${signalColor})` : 'none' }} />
@@ -109,7 +109,7 @@ const InputNodeCanvas: React.FC<{ node: PlacedInputNode; isSelected: boolean; cy
       <text x={size.width / 2} y={size.height + 16} textAnchor="middle" fill={signalColor} fontSize="10" fontFamily="monospace">{node.label || 'IN'}</text>
       <text x={size.width / 2} y={size.height + 28} textAnchor="middle" fill={signalColor} fontSize="8" fontFamily="monospace">{node.state ? 'HIGH' : 'LOW'}</text>
       {/* Output port - InputNode only has output */}
-      <circle cx={size.width} cy={size.height / 2} r="5" fill={signalColor} className="port-output" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+      <circle cx={size.width} cy={size.height / 2} r="5" fill={signalColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
       {cycleWarning && <g transform={`translate(${size.width - 12}, -12)`}><circle r="10" fill="#ef4444" /><text x="0" y="4" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">!</text></g>}
     </g>
   );
@@ -121,7 +121,7 @@ const OutputNodeCanvas: React.FC<{ node: PlacedOutputNode; isSelected: boolean; 
   const borderColor = cycleWarning ? '#ef4444' : isSelected ? SIGNAL_COLORS.SELECTED : signalColor;
   
   return (
-    <g className="circuit-node output-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="output" data-node-id={node.id} data-signal={node.inputSignal ? 'HIGH' : 'LOW'}>
+    <g className="circuit-node output-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="output" data-node-id={node.id} data-signal={node.inputSignal ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'}>
       {(isSelected || cycleWarning) && <rect x="-4" y="-4" width={size.width + 8} height={size.height + 8} rx="6" fill="none" stroke={borderColor} strokeWidth="2" strokeDasharray={cycleWarning ? '4 2' : 'none'} />}
       <rect x="0" y="0" width={size.width} height={size.height} rx="8" fill="rgba(15, 23, 42, 0.95)" stroke={signalColor} strokeWidth="2" />
       <circle cx={size.width / 2} cy={size.height / 2} r="18" fill="none" stroke={signalColor} strokeWidth="2" opacity="0.5" />
@@ -129,7 +129,7 @@ const OutputNodeCanvas: React.FC<{ node: PlacedOutputNode; isSelected: boolean; 
       <text x={size.width / 2} y={size.height + 16} textAnchor="middle" fill={signalColor} fontSize="10" fontFamily="monospace">{node.label || 'OUT'}</text>
       <text x={size.width / 2} y={size.height + 28} textAnchor="middle" fill={signalColor} fontSize="8" fontFamily="monospace">{node.inputSignal ? 'HIGH' : 'LOW'}</text>
       {/* Input port - OutputNode only has input */}
-      <circle cx="0" cy={size.height / 2} r="5" fill={signalColor} className="port-input" data-port-index="0" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+      <circle cx="0" cy={size.height / 2} r="5" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
       {cycleWarning && <g transform="translate(12, -12)"><circle r="10" fill="#ef4444" /><text x="0" y="4" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">!</text></g>}
     </g>
   );
@@ -159,7 +159,7 @@ const GateNodeCanvas: React.FC<{ node: PlacedGateNode; isSelected: boolean; cycl
   };
   
   return (
-    <g className="circuit-node gate-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="gate" data-node-id={node.id} data-gate-type={node.gateType} data-output={node.output ? 'HIGH' : 'LOW'}>
+    <g className="circuit-node gate-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="gate" data-node-id={node.id} data-gate-type={node.gateType} data-output={node.output ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'}>
       {(isSelected || cycleWarning) && <rect x="-6" y="-6" width={size.width + 12} height={size.height + 20} rx="4" fill="none" stroke={borderColor} strokeWidth="2" strokeDasharray={cycleWarning ? '4 2' : 'none'} />}
       {renderGateShape()}
       <text x={size.width / 2} y={size.height + 16} textAnchor="middle" fill={signalColor} fontSize="12" fontFamily="monospace" fontWeight="bold">{node.gateType}</text>
@@ -197,7 +197,7 @@ export const CanvasCircuitNode: React.FC<CanvasCircuitNodeProps> = ({ node, isSe
   };
   
   return (
-    <g transform={`translate(${node.position.x}, ${node.position.y})`} onMouseDown={handleMouseDown} className={`canvas-circuit-node ${node.type}-node`}>
+    <g transform={`translate(${node.position.x}, ${node.position.y})`} onMouseDown={handleMouseDown} onClick={handleClick} className={`canvas-circuit-node ${node.type}-node`}>
       {renderNode()}
     </g>
   );

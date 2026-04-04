@@ -114,6 +114,7 @@ export const CircuitWire: React.FC<CircuitWireProps> = ({
       style={{ cursor: 'pointer' }}
       data-wire-id={wire.id}
       data-signal={wire.signal ? 'HIGH' : 'LOW'}
+      data-selected={isSelected ? 'true' : 'false'}
     >
       {/* Glow effect for HIGH signals */}
       {showGlow && <WireGlow color={signalColor} path={path} />}

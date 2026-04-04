@@ -14,7 +14,9 @@ import {
   GeneratedAttributes,
 } from '../types';
 import { calculateConnectionPath, updatePathsForModule } from '../utils/connectionEngine';
-import { saveCanvasState, loadCanvasState, clearCanvasState } from '../utils/localStorage';
+import { saveCanvasState, loadCanvasState, clearCanvasState, saveCircuitState, loadCircuitState, clearCircuitState } from '../utils/localStorage';
+import { PlacedCircuitNode, CircuitWire } from '../types/circuitCanvas';
+import { useCircuitCanvasStore } from './useCircuitCanvasStore';
 import { validateConnection } from '../utils/connectionValidator';
 import { useSelectionStore } from './useSelectionStore';
 
@@ -38,6 +40,10 @@ interface MachineStore {
   randomForgeToastVisible: boolean;
   randomForgeToastMessage: string;
   hasLoadedSavedState: boolean;
+  
+  // Circuit state (synced with useCircuitCanvasStore for persistence - AC-124-009)
+  circuitNodes: PlacedCircuitNode[];
+  circuitWires: CircuitWire[];
   
   // Activation zoom state for enhanced activation visuals
   activationZoom: {
@@ -135,6 +141,11 @@ interface MachineStore {
   restoreSavedState: () => void;
   startFresh: () => void;
   markStateAsLoaded: () => void;
+  
+  // Circuit state persistence (AC-124-009)
+  saveCircuitToStore: () => void;
+  loadCircuitFromStore: () => void;
+  clearCircuitState: () => void;
 }
 
 const GRID_SIZE = 20;
@@ -161,11 +172,19 @@ const debouncedAutoSave = (
     clearTimeout(autoSaveTimeout);
   }
   autoSaveTimeout = setTimeout(() => {
+    // Save machine state
     saveCanvasState({
       modules,
       connections,
       viewport,
       gridEnabled,
+      savedAt: Date.now(),
+    });
+    // Save circuit state separately for cross-machine persistence (AC-124-009)
+    const circuitState = useCircuitCanvasStore.getState();
+    saveCircuitState({
+      nodes: circuitState.nodes,
+      wires: circuitState.wires,
       savedAt: Date.now(),
     });
   }, AUTO_SAVE_DEBOUNCE);
@@ -293,6 +312,10 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   randomForgeToastVisible: false,
   randomForgeToastMessage: '',
   hasLoadedSavedState: false,
+  
+  // Circuit state - AC-124-009
+  circuitNodes: [],
+  circuitWires: [],
   
   // Activation zoom state
   activationZoom: {
@@ -1082,6 +1105,11 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
     
     get().saveToHistory();
     clearCanvasState();
+    // Clear circuit state in circuit canvas store (AC-124-009)
+    useCircuitCanvasStore.getState().clearCircuitCanvas();
+    clearCircuitState();
+    // Update tracked circuit state in machine store
+    set({ circuitNodes: [], circuitWires: [] });
   },
 
   loadMachine: (modules, connections) => {
@@ -1093,6 +1121,8 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       history: initialHistory,
       historyIndex: 0,
       generatedAttributes: null,
+      circuitNodes: [],
+      circuitWires: [],
     });
     
     setTimeout(() => {
@@ -1136,8 +1166,19 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
         selectedConnectionId: null,
         history: initialHistory,
         historyIndex: 0,
+        // Track circuit state in machine store (AC-124-009)
+        circuitNodes: [],
+        circuitWires: [],
         hasLoadedSavedState: true,
       });
+      // Restore circuit state from separate storage
+      const circuitState = loadCircuitState();
+      if (circuitState) {
+        useCircuitCanvasStore.setState({
+          nodes: circuitState.nodes,
+          wires: circuitState.wires,
+        });
+      }
     } else {
       set({ hasLoadedSavedState: true });
     }
@@ -1145,6 +1186,7 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
   
   startFresh: () => {
     clearCanvasState();
+    clearCircuitState();
     set({
       modules: [],
       connections: [],
@@ -1155,11 +1197,38 @@ export const useMachineStore = create<MachineStore>((set, get) => ({
       history: initialHistory,
       historyIndex: 0,
       generatedAttributes: null,
+      circuitNodes: [],
+      circuitWires: [],
       hasLoadedSavedState: true,
     });
+    // Also clear circuit canvas store
+    useCircuitCanvasStore.getState().clearCircuitCanvas();
   },
   
   markStateAsLoaded: () => {
     set({ hasLoadedSavedState: true });
+  },
+  
+  // Circuit state persistence methods (AC-124-009)
+  saveCircuitToStore: () => {
+    const circuitState = useCircuitCanvasStore.getState();
+    set({
+      circuitNodes: circuitState.nodes,
+      circuitWires: circuitState.wires,
+    });
+  },
+  
+  loadCircuitFromStore: () => {
+    const { circuitNodes, circuitWires } = get();
+    useCircuitCanvasStore.setState({
+      nodes: circuitNodes,
+      wires: circuitWires,
+    });
+  },
+  
+  clearCircuitState: () => {
+    useCircuitCanvasStore.getState().clearCircuitCanvas();
+    clearCircuitState();
+    set({ circuitNodes: [], circuitWires: [] });
   },
 }));

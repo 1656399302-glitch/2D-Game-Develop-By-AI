@@ -1107,3 +1107,15 @@
 ## Round 122 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 122 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 123 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
+## Round 123 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 124 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
