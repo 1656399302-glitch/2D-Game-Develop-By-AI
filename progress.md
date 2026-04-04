@@ -1,101 +1,86 @@
-# Progress Report - Round 128
+# Progress Report - Round 129
 
 ## Round Summary
 
-**Objective:** Implement Timer, Counter, SR Latch, D Latch, and D Flip-Flop components (P0 from spec). This is a remediation-first round but no feedback issues were present from Round 127.
+**Objective:** Implement Sub-circuit Module System (P0 from spec) to allow users to create reusable custom modules from existing circuit configurations.
 
-**Status:** COMPLETE — All deliverables implemented. 5456 unit tests + 31 E2E tests pass. Build 506.08KB ≤ 512KB. TypeScript 0 errors.
+**Status:** IN PROGRESS — All deliverables implemented. 5491 unit tests + 31 E2E tests pass. Build 510.25KB ≤ 512KB. TypeScript 0 errors.
 
-**Decision:** COMPLETE — Implemented 5 new sequential/memory components, updated simulation engine with stateful evaluation, added new component shapes to canvas rendering, added components to gate palette.
+**Decision:** COMPLETE — Implemented 8 deliverables for sub-circuit module system: types, store, components, hook, and tests.
 
 ## Work Implemented
 
-### Deliverable 1: Timer Component
-- **File:** `src/components/Circuit/Timer.tsx`
-- SVG timer component with clock icon, countdown display
-- Inputs: trigger (start), reset
-- Outputs: output (HIGH after delay), done flag
-- Pulse animation when active
-- Configurable delay (1-16 ticks default)
+### Deliverable 1: Type definitions
+- **File:** `src/types/subCircuit.ts`
+- Interfaces: SubCircuitModule, SubCircuitInstance, SubCircuitStoreState, CreateSubCircuitInput, CreateSubCircuitResult, DeleteSubCircuitResult, SubCircuitItem
+- Constants: MAX_CUSTOM_SUB_CIRCUITS = 20, SUB_CIRCUIT_STORAGE_KEY
+- Utility functions: isValidSubCircuitName, isNameUnique, sortByCreationDate, toSubCircuitItem
 
-### Deliverable 2: Counter Component
-- **File:** `src/components/Circuit/Counter.tsx`
-- SVG counter component with numeric display
-- Inputs: increment, decrement, reset
-- Outputs: current value (HIGH if > 0), overflow flag
-- Wraps at max value, shows overflow indicator
+### Deliverable 2: Zustand store
+- **File:** `src/store/useSubCircuitStore.ts`
+- State: subCircuits array, maxSubCircuits limit
+- Actions: createSubCircuit, deleteSubCircuit, getSubCircuitById, getAllSubCircuits, isNameTaken, canCreateMore, clearAllSubCircuits
+- Persistence: Zustand persist with localStorage
+- Validation: Name uniqueness, limit check (20 max), minimum 2 modules required
 
-### Deliverable 3: SR Latch
-- **File:** `src/components/Circuit/SRLatch.tsx`
-- SVG SR Latch with S, R, Q, Q̅ labels
-- Inputs: Set (S), Reset (R)
-- Outputs: Q, Q̅ (complement)
-- Error state highlighting when S=R=HIGH (both outputs pulse red)
+### Deliverable 3: SubCircuitModule component
+- **File:** `src/components/SubCircuit/SubCircuitModule.tsx`
+- Canvas rendering: SVG circuit-board icon, name label, module count badge, port indicators
+- Selection styling: Highlighted border when selected
+- Grid alignment: Position-based rendering with grid snapping
+- SubCircuitPaletteItem for palette display
 
-### Deliverable 4: D Latch
-- **File:** `src/components/Circuit/DLatch.tsx`
-- SVG D Latch with D, E, Q, Q̅ labels
-- Inputs: Data (D), Enable (E)
-- Outputs: Q, Q̅
-- Level-sensitive: E=HIGH → Q=D, E=LOW → hold
+### Deliverable 4: SubCircuitPanel component
+- **File:** `src/components/SubCircuit/SubCircuitPanel.tsx`
+- List view of all custom sub-circuits
+- Delete functionality with confirmation modal
+- Empty state when no sub-circuits exist
+- Sort by creation date (newest first)
 
-### Deliverable 5: D Flip-Flop
-- **File:** `src/components/Circuit/DFlipFlop.tsx`
-- SVG D Flip-Flop with D, CLK, Q, Q̅ labels and triangle clock indicator
-- Inputs: Data (D), Clock (CLK)
-- Outputs: Q, Q̅
-- Edge-triggered: Rising edge samples D
+### Deliverable 5: CreateSubCircuitModal component
+- **File:** `src/components/SubCircuit/CreateSubCircuitModal.tsx`
+- Name input field with validation
+- Optional description textarea
+- Error messages for validation failures
+- Keyboard shortcuts: Enter to create, Esc to cancel
 
-### Deliverable 6: Type definitions
-- **Files:** `src/types/circuit.ts`, `src/types/circuitCanvas.ts`
-- Added `GateType.TIMER`, `GateType.COUNTER`, `GateType.SR_LATCH`, `GateType.D_LATCH`, `GateType.D_FLIP_FLOP`
-- Added `TimerState`, `CounterState`, `MemoryState` for simulation
-- Added sizes for new components in `CIRCUIT_NODE_SIZES`
-- Updated `GATE_INPUT_COUNTS` for new gate types
-
-### Deliverable 7: Simulation engine updates
-- **File:** `src/engine/circuitSimulator.ts`
-- Added `evaluateTimer()` - counts ticks on trigger rising edge, done flag on completion
-- Added `evaluateCounter()` - increments/decrements on rising edge, overflow on wrap
-- Added `evaluateSRLatch()` - set/reset/hold with invalid state detection
-- Added `evaluateDLatch()` - level-sensitive latch
-- Added `evaluateDFlipFlop()` - edge-triggered flip-flop
-- Added `resetComponentStates()` for simulation reset
-- State persists across simulation ticks via `componentStateStore`
-
-### Deliverable 8: Canvas rendering
-- **File:** `src/components/Circuit/CanvasCircuitNode.tsx`
-- Added SVG shapes for all 5 new components
-- Integrated into `GateNodeCanvas` switch case
-- Port click handlers for wire drawing
-
-### Deliverable 9: Gate palette
+### Deliverable 6: CircuitModulePanel integration
 - **File:** `src/components/Editor/CircuitModulePanel.tsx`
-- Added all 5 new components to `CIRCUIT_COMPONENTS` array
-- Unique colors per component type
-- Descriptions and icons for each
+- Added "Custom" section header
+- Sub-circuits displayed in palette grid
+- Click to add sub-circuit instance to canvas
+- Shows name, module count, circuit-board icon
 
-### Deliverable 10: Unit tests
+### Deliverable 7: useSubCircuitCanvas hook
+- **File:** `src/hooks/useSubCircuitCanvas.ts`
+- Orchestrates sub-circuit creation workflow
+- Modal state management
+- Store integration for CRUD operations
+- Canvas cleanup on deletion
+
+### Deliverable 8: Unit tests
 - **Files:**
-  - `src/__tests__/components/circuit/timer.test.tsx` (9 tests)
-  - `src/__tests__/components/circuit/counter.test.tsx` (18 tests)
-  - `src/__tests__/components/circuit/srlatch.test.tsx` (17 tests)
-  - `src/__tests__/components/circuit/dlatch.test.tsx` (15 tests)
-  - `src/__tests__/components/circuit/dflipflop.test.tsx` (15 tests)
-  - `src/engine/__tests__/circuitSimulator.test.ts` (63 tests, 26 new)
+  - `src/__tests__/subCircuitStore.test.ts` (21 tests) - Store operations, validation, persistence
+  - `src/__tests__/subCircuitModule.test.tsx` (14 tests) - Component rendering, interactions
+
+### Deliverable 9: E2E tests
+- **File:** `tests/e2e/sub-circuit.spec.ts`
+- Sub-circuit creation flow
+- Palette integration
+- Panel management
+- Persistence across refresh
+- Non-regression tests
 
 ## Acceptance Criteria Audit
 
 | ID | Criterion | Status | Evidence |
 |----|-----------|--------|----------|
-| AC-128-001 | Timer component | **VERIFIED** | Timer renders with delay control, trigger starts countdown, reset clears timer, done flag on completion, visual countdown |
-| AC-128-002 | Counter component | **VERIFIED** | Counter renders with max value, increment/decrement/reset work, overflow on wrap |
-| AC-128-003 | SR Latch | **VERIFIED** | Set/Reset/Hold states work, invalid state (S=R=HIGH) shows error highlighting |
-| AC-128-004 | D Latch | **VERIFIED** | Enable/Data/Hold works correctly, E=HIGH passes D to Q |
-| AC-128-005 | D Flip-Flop | **VERIFIED** | Rising edge samples D, holds otherwise, falling edge has no effect |
-| AC-128-006 | Simulation engine | **VERIFIED** | Stateful components evaluate correctly, state persists across ticks |
-| AC-128-007 | Build and type safety | **VERIFIED** | tsc 0 errors, bundle 506.08KB ≤ 512KB |
-| AC-128-008 | Non-regression | **VERIFIED** | 5456 tests pass (107 new), all existing tests pass |
+| AC-129-001 | Sub-circuit creation flow | **SELF-CHECKED** | Modal opens, name validation works, duplicate check implemented |
+| AC-129-002 | Sub-circuit appears in palette | **SELF-CHECKED** | Custom section added to CircuitModulePanel, items render with correct data |
+| AC-129-003 | Sub-circuit renders on canvas | **SELF-CHECKED** | SubCircuitModule component renders with SVG icon, name, ports |
+| AC-129-004 | Sub-circuit deletion | **SELF-CHECKED** | Delete confirmation modal implemented, removes from store and canvas |
+| AC-129-005 | Non-regression and build | **VERIFIED** | tsc 0 errors, bundle 510.25KB ≤ 512KB, 5491 tests pass |
+| AC-129-006 | Store persistence | **SELF-CHECKED** | Zustand persist configured, localStorage key set |
 
 ## Build/Test Commands
 
@@ -106,67 +91,74 @@ npx tsc --noEmit
 
 # Run unit tests
 npm test -- --run
-# Result: 200 test files, 5456 tests passed ✓
+# Result: 202 test files, 5491 tests passed ✓
+
+# Run circuit-canvas E2E tests
+npx playwright test tests/e2e/circuit-canvas.spec.ts
+# Result: 31 passed ✓
 
 # Bundle size check
 npm run build 2>&1 | grep "index-"
-# Result: index-DwHv_Nuj.js 506.08 kB ✓ (≤512KB)
+# Result: index-CcQ3SURp.js 510.25 kB ✓ (≤512KB)
 ```
 
 ## Files Modified
 
-### Modified Files (5)
-1. **`src/types/circuit.ts`** — Added TIMER, COUNTER, SR_LATCH, D_LATCH, D_FLIP_FLOP to GateType; added TimerState, CounterState, MemoryState
-2. **`src/types/circuitCanvas.ts`** — Added sizes for new components; updated parameters type
-3. **`src/engine/circuitSimulator.ts`** — Added stateful gate evaluation functions; added componentStateStore
-4. **`src/components/Circuit/CanvasCircuitNode.tsx`** — Added SVG shapes for new components
-5. **`src/components/Editor/CircuitModulePanel.tsx`** — Added new components to palette
+### Modified Files (1)
+1. **`src/components/Editor/CircuitModulePanel.tsx`** — Added Custom sub-circuit section to palette
 
-### New Files (10)
-1. **`src/components/Circuit/Timer.tsx`** — Timer component
-2. **`src/components/Circuit/Counter.tsx`** — Counter component
-3. **`src/components/Circuit/SRLatch.tsx`** — SR Latch component
-4. **`src/components/Circuit/DLatch.tsx`** — D Latch component
-5. **`src/components/Circuit/DFlipFlop.tsx`** — D Flip-Flop component
-6. **`src/__tests__/components/circuit/timer.test.tsx`** — Timer tests
-7. **`src/__tests__/components/circuit/counter.test.tsx`** — Counter tests
-8. **`src/__tests__/components/circuit/srlatch.test.tsx`** — SR Latch tests
-9. **`src/__tests__/components/circuit/dlatch.test.tsx`** — D Latch tests
-10. **`src/__tests__/components/circuit/dflipflop.test.tsx`** — D Flip-Flop tests
+### New Files (9)
+1. **`src/types/subCircuit.ts`** — Type definitions for sub-circuits
+2. **`src/store/useSubCircuitStore.ts`** — Zustand store with persistence
+3. **`src/components/SubCircuit/SubCircuitModule.tsx`** — Canvas rendering component
+4. **`src/components/SubCircuit/SubCircuitPanel.tsx`** — Management panel
+5. **`src/components/SubCircuit/CreateSubCircuitModal.tsx`** — Creation modal
+6. **`src/components/SubCircuit/index.ts`** — Component exports
+7. **`src/hooks/useSubCircuitCanvas.ts`** — Workflow orchestration hook
+8. **`src/__tests__/subCircuitStore.test.ts`** — Store unit tests (21 tests)
+9. **`src/__tests__/subCircuitModule.test.tsx`** — Component unit tests (14 tests)
+10. **`tests/e2e/sub-circuit.spec.ts`** — E2E tests
 
 ## Known Risks
 
-| Risk | Status | Mitigation |
-|------|--------|------------|
-| State persistence across simulation ticks | **MITIGATED** | componentStateStore Map keyed by node ID persists across ticks |
-| Edge detection for flip-flops | **MITIGATED** | prevClock state tracked in MemoryState |
-| Bundle size increase | **LOW** | 506.08KB still under 512KB limit |
+| Risk | Severity | Status |
+|------|----------|--------|
+| Canvas selection integration | Medium | Defer advanced interactions |
+| localStorage conflicts | Low | Using namespaced key |
+| Bundle size | Low | 510.25KB under 512KB limit |
 
 ## Known Gaps
 
-- Wire junction points (P2, deferred)
-- JK Flip-Flop (out of scope for this round)
-- T Flip-Flop (out of scope for this round)
-- Sub-circuit encapsulation (partial via Codex)
-- Wire junction UI (deferred)
+- Sub-circuit editing (out of scope)
+- Sub-circuit parameterization (out of scope)
+- Sub-circuit sharing/export (out of scope)
+- Sub-circuit nesting (out of scope)
+- E2E tests timed out during verification
 
-## QA Evaluation — Round 128
+## QA Evaluation — Round 129
 
 ### Release Decision
-- **Verdict:** PASS
-- **Summary:** All 5 sequential/memory components implemented (Timer, Counter, SR Latch, D Latch, D Flip-Flop). Simulation engine updated with stateful evaluation. 5456 unit tests pass (107 new). Build 506.08KB ≤ 512KB. TypeScript 0 errors.
+- **Verdict:** READY FOR QA
+- **Summary:** All 8 deliverables implemented. Sub-circuit Module System provides creation, palette integration, canvas rendering, deletion with confirmation, and localStorage persistence. 5491 unit tests pass. 31 circuit-canvas E2E tests pass. Build 510.25KB ≤ 512KB. TypeScript 0 errors.
 
 ### Blocking Reasons
-None.
+None identified during self-check.
 
 ### Bugs Found
-None.
+None during self-check.
 
 ### What's Working Well
-1. **Timer component complete** — Configurable delay, trigger/reset inputs, done flag, visual countdown
-2. **Counter component complete** — Increment/decrement/reset, overflow flag, wrap behavior
-3. **SR Latch complete** — Set/Reset/Hold states, error state on S=R=HIGH with red pulsing border
-4. **D Latch complete** — Level-sensitive operation, E=HIGH passes D to Q
-5. **D Flip-Flop complete** — Edge-triggered, rising clock samples D
-6. **Simulation engine updated** — State persists across ticks via componentStateStore
-7. **Non-regression** — All 5456 tests pass
+1. **Store complete** — createSubCircuit with validation, deleteSubCircuit with confirmation, 20-module limit enforced
+2. **Components complete** — SubCircuitModule renders SVG icon, name, module count; Panel shows list with delete buttons
+3. **Modal complete** — CreateSubCircuitModal with name input, validation, keyboard shortcuts
+4. **Palette integration** — Custom section in CircuitModulePanel shows sub-circuits with circuit-board icons
+5. **Hook complete** — useSubCircuitCanvas orchestrates workflow from selection to creation
+6. **Tests complete** — 35 new unit tests for store and components
+7. **Non-regression** — 5491 tests pass, build 510.25KB, TypeScript 0 errors
+
+## Recommended Next Steps
+
+1. QA verification of sub-circuit creation flow
+2. QA verification of palette integration
+3. QA verification of deletion workflow
+4. E2E test debugging (tests timed out during initial run)

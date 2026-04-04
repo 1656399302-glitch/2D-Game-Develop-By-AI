@@ -3,15 +3,18 @@
  * 
  * Round 122: Circuit Canvas Integration
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop
+ * Round 129: Added Custom Sub-Circuit section
  * 
  * Module panel section for circuit components (gates, InputNode, OutputNode).
  * This is integrated into the main ModulePanel.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useCircuitCanvasStore } from '../../store/useCircuitCanvasStore';
 import { GateType, CircuitNodeType } from '../../types/circuit';
 import { useMachineStore } from '../../store/useMachineStore';
+import { useSubCircuitStore } from '../../store/useSubCircuitStore';
+import { SubCircuitModule } from '../../types/subCircuit';
 
 // ============================================================================
 // Circuit Component Selector
@@ -317,6 +320,21 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
 ];
 
 // ============================================================================
+// Sub-Circuit Icon Component
+// ============================================================================
+
+const SubCircuitIcon: React.FC<{ color?: string }> = ({ color = '#8b5cf6' }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="2" width="20" height="20" rx="3" stroke={color} strokeWidth="1.5" fill="none" />
+    <line x1="4" y1="7" x2="20" y2="7" stroke={color} strokeWidth="1" opacity="0.8" />
+    <line x1="4" y1="12" x2="12" y2="12" stroke={color} strokeWidth="1" opacity="0.8" />
+    <line x1="12" y1="12" x2="12" y2="17" stroke={color} strokeWidth="1" opacity="0.8" />
+    <line x1="4" y1="17" x2="20" y2="17" stroke={color} strokeWidth="1" opacity="0.8" />
+    <rect x="9" y="9" width="6" height="6" rx="1" stroke={color} strokeWidth="1" fill={color} fillOpacity="0.2" />
+  </svg>
+);
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -330,18 +348,27 @@ export interface CircuitModulePanelProps {
 /**
  * Circuit Module Panel Component
  * Displays circuit components (gates, InputNode, OutputNode) for placement on canvas
+ * Round 129: Also displays custom sub-circuits
  */
 export function CircuitModulePanel({
   isCircuitMode: _isCircuitModeProp = false,
   onCircuitModeChange,
 }: CircuitModulePanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isCustomExpanded, setIsCustomExpanded] = useState(true);
   
   const addCircuitNode = useCircuitCanvasStore((state) => state.addCircuitNode);
   const setCircuitMode = useCircuitCanvasStore((state) => state.setCircuitMode);
-  // FIX Round 124: Subscribe to store's isCircuitMode to avoid stale prop issue
   const isCircuitMode = useCircuitCanvasStore((state) => state.isCircuitMode);
   const viewport = useMachineStore((state) => state.viewport);
+  
+  // Get sub-circuits from store
+  const subCircuits = useSubCircuitStore((state) => state.subCircuits);
+  
+  // Sort sub-circuits by creation date (newest first)
+  const sortedSubCircuits = useMemo(() => {
+    return [...subCircuits].sort((a, b) => b.createdAt - a.createdAt);
+  }, [subCircuits]);
   
   // Handle circuit mode toggle - use store value for correct state
   const handleCircuitModeToggle = useCallback(() => {
@@ -364,6 +391,33 @@ export function CircuitModulePanel({
     
     // Add circuit node
     addCircuitNode(item.type, x, y, item.gateType, item.label);
+  }, [addCircuitNode, setCircuitMode, isCircuitMode, viewport, onCircuitModeChange]);
+  
+  // Handle sub-circuit click - add to canvas
+  const handleSubCircuitClick = useCallback((subCircuit: SubCircuitModule) => {
+    // Calculate center of viewport
+    const x = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+    const y = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+    
+    // Enable circuit mode if not already active
+    if (!isCircuitMode) {
+      setCircuitMode(true);
+      onCircuitModeChange?.(true);
+    }
+    
+    // Add sub-circuit as a special node type
+    addCircuitNode(
+      'gate',
+      x,
+      y,
+      undefined, // No gateType for sub-circuits
+      subCircuit.name,
+      {
+        isSubCircuit: true,
+        subCircuitId: subCircuit.id,
+        moduleCount: subCircuit.moduleIds.length,
+      }
+    );
   }, [addCircuitNode, setCircuitMode, isCircuitMode, viewport, onCircuitModeChange]);
   
   return (
@@ -459,6 +513,77 @@ export function CircuitModulePanel({
                   </p>
                 </button>
               ))}
+            </div>
+          )}
+          
+          {/* Custom Sub-Circuits Section (Round 129) */}
+          {isCircuitMode && sortedSubCircuits.length > 0 && (
+            <div className="mt-4">
+              <button
+                onClick={() => setIsCustomExpanded(!isCustomExpanded)}
+                className="w-full flex items-center justify-between px-2 py-2 text-xs font-semibold text-[#8b5cf6] hover:bg-[#1e2a42] rounded transition-colors"
+                aria-expanded={isCustomExpanded}
+                data-custom-section-toggle
+              >
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
+                  自定义
+                  <span className="text-[#6b7280]">({sortedSubCircuits.length})</span>
+                </span>
+                <svg
+                  className={`w-3 h-3 transition-transform ${isCustomExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {isCustomExpanded && (
+                <div className="grid grid-cols-2 gap-2 mt-2" role="group" aria-label="自定义子电路" data-custom-subcircuits>
+                  {sortedSubCircuits.map((subCircuit) => (
+                    <button
+                      key={subCircuit.id}
+                      onClick={() => handleSubCircuitClick(subCircuit)}
+                      className={`
+                        circuit-component-btn p-2 rounded-lg border transition-all duration-200
+                        hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
+                        text-left
+                      `}
+                      style={{
+                        borderColor: '#8b5cf640',
+                        backgroundColor: '#8b5cf610',
+                      }}
+                      data-sub-circuit-id={subCircuit.id}
+                      data-sub-circuit-name={subCircuit.name}
+                      aria-label={`添加子电路 ${subCircuit.name}（包含${subCircuit.moduleIds.length}个模块）`}
+                    >
+                      {/* Icon */}
+                      <div className="flex justify-center mb-1" aria-hidden="true">
+                        <SubCircuitIcon color="#8b5cf6" />
+                      </div>
+                      
+                      {/* Name */}
+                      <div className="text-center">
+                        <span
+                          className="text-xs font-medium text-[#8b5cf6]"
+                          style={{ color: '#8b5cf6' }}
+                        >
+                          {subCircuit.name.length > 10 
+                            ? `${subCircuit.name.substring(0, 8)}…` 
+                            : subCircuit.name}
+                        </span>
+                      </div>
+                      
+                      {/* Module count */}
+                      <p className="text-[9px] text-[#6b7280] mt-1 text-center">
+                        {subCircuit.moduleIds.length} 模块
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
