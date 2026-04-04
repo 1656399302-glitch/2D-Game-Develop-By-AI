@@ -26,6 +26,13 @@ import { getCanvasDimensions, DEFAULT_CANVAS_WIDTH, DEFAULT_CANVAS_HEIGHT, calcu
 // D8 Integration: Import useCanvasPerformance hook (Round 82)
 import { useCanvasPerformance } from '../../hooks/useCanvasPerformance';
 
+// Round 123: Import circuit canvas components for integration
+import { useCircuitCanvasStore } from '../../store/useCircuitCanvasStore';
+import { CanvasCircuitNode } from '../Circuit/CanvasCircuitNode';
+import { CircuitWire, WirePreview } from '../Circuit/CircuitWire';
+import { CIRCUIT_NODE_SIZES } from '../../types/circuitCanvas';
+import { PlacedCircuitNode, CircuitWire as CircuitWireType } from '../../types/circuitCanvas';
+
 const GRID_SIZE = 20;
 const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
 // AC8: Viewport culling with 50px buffer
@@ -129,6 +136,9 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   const connectionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStartRef = useRef<{ x: number; y: number; modulePositions: Map<string, { x: number; y: number }> } | null>(null);
   
+  // Round 123: Circuit canvas drag state ref
+  const circuitDragStartRef = useRef<{ nodeId: string; startX: number; startY: number; nodePositions: Map<string, { x: number; y: number }> } | null>(null);
+  
   // Spatial index for O(log n) hit testing
   const spatialIndexRef = useRef<ModuleSpatialIndex | null>(null);
   
@@ -140,6 +150,26 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   
   // Round 113: Circuit validation state
   const { isModuleAffected, validationResult } = useCircuitValidation();
+  
+  // Round 123: Circuit canvas state from store
+  const circuitNodes = useCircuitCanvasStore((state) => state.nodes);
+  const circuitWires = useCircuitCanvasStore((state) => state.wires);
+  const selectedCircuitNodeId = useCircuitCanvasStore((state) => state.selectedNodeId);
+  const selectedCircuitWireId = useCircuitCanvasStore((state) => state.selectedWireId);
+  const isDrawingCircuitWire = useCircuitCanvasStore((state) => state.isDrawingWire);
+  const circuitWireStart = useCircuitCanvasStore((state) => state.wireStart);
+  const circuitWirePreviewEnd = useCircuitCanvasStore((state) => state.wirePreviewEnd);
+  // cycleAffectedNodeIds available from store for future cycle warning rendering
+  const selectCircuitNode = useCircuitCanvasStore((state) => state.selectCircuitNode);
+  const selectCircuitWire = useCircuitCanvasStore((state) => state.selectCircuitWire);
+  const updateCircuitNodePosition = useCircuitCanvasStore((state) => state.updateNodePosition);
+  const removeCircuitNode = useCircuitCanvasStore((state) => state.removeCircuitNode);
+  const removeCircuitWire = useCircuitCanvasStore((state) => state.removeCircuitWire);
+  const toggleCircuitInput = useCircuitCanvasStore((state) => state.toggleCircuitInput);
+  const startCircuitWireDrawing = useCircuitCanvasStore((state) => state.startWireDrawing);
+  const updateCircuitWirePreview = useCircuitCanvasStore((state) => state.updateWirePreview);
+  const finishCircuitWireDrawing = useCircuitCanvasStore((state) => state.finishWireDrawing);
+  const cancelCircuitWireDrawing = useCircuitCanvasStore((state) => state.cancelWireDrawing);
   
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -671,9 +701,13 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
         if (isConnecting) {
           cancelConnection();
         }
+        // Round 123: Cancel circuit wire drawing if clicking on canvas background
+        if (isDrawingCircuitWire) {
+          cancelCircuitWireDrawing();
+        }
       }
     }
-  }, [viewport, getModuleAtPoint, getCanvasCoordinates, selectModule, selectConnection, isConnecting, cancelConnection, toggleSelection, clearSelection, selectedModuleIds, modules]);
+  }, [viewport, getModuleAtPoint, getCanvasCoordinates, selectModule, selectConnection, isConnecting, cancelConnection, toggleSelection, clearSelection, selectedModuleIds, modules, isDrawingCircuitWire, cancelCircuitWireDrawing]);
   
   // Handle mouse move with throttled viewport updates
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -746,8 +780,52 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
     } else if (isConnecting) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
       updateConnectionPreviewDebounced(coords.x, coords.y);
+    } else if (isDrawingCircuitWire) {
+      // Round 123: Update circuit wire preview
+      const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
+      updateCircuitWirePreview(canvasCoords.x, canvasCoords.y);
+    } else if (circuitDragStartRef.current) {
+      // Round 123: Drag circuit nodes
+      const dragInfo = circuitDragStartRef.current;
+      
+      if (selectedCircuitNodeId && selectedModuleIds.length === 0) {
+        // Single node dragging
+        const deltaX = (e.clientX - dragInfo.startX) / viewport.zoom;
+        const deltaY = (e.clientY - dragInfo.startY) / viewport.zoom;
+        
+        const startPos = dragInfo.nodePositions.get(dragInfo.nodeId);
+        if (startPos) {
+          let newX = startPos.x + deltaX;
+          let newY = startPos.y + deltaY;
+          
+          if (gridEnabled) {
+            const snapped = getSnappedPosition(newX, newY, gridEnabled, GRID_SIZE);
+            newX = snapped.x;
+            newY = snapped.y;
+          }
+          
+          updateCircuitNodePosition(dragInfo.nodeId, newX, newY);
+        }
+      } else if (circuitDragStartRef.current.nodePositions.size > 1) {
+        // Multi-node dragging
+        const deltaX = (e.clientX - dragInfo.startX) / viewport.zoom;
+        const deltaY = (e.clientY - dragInfo.startY) / viewport.zoom;
+        
+        circuitDragStartRef.current.nodePositions.forEach((startPos, nodeId) => {
+          let newX = startPos.x + deltaX;
+          let newY = startPos.y + deltaY;
+          
+          if (gridEnabled) {
+            const snapped = getSnappedPosition(newX, newY, gridEnabled, GRID_SIZE);
+            newX = snapped.x;
+            newY = snapped.y;
+          }
+          
+          updateCircuitNodePosition(nodeId, newX, newY);
+        });
+      }
     }
-  }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, dragStart, getCanvasCoordinates, setBatchedViewport, viewportThrottler, updateModulePosition, updateModulesBatch, selectedModuleIds, viewport.zoom, gridEnabled, updateConnectionPreviewDebounced]);
+  }, [isPanning, isBoxSelecting, isDragging, draggingModule, isConnecting, isDrawingCircuitWire, dragStart, getCanvasCoordinates, setBatchedViewport, viewportThrottler, updateModulePosition, updateModulesBatch, selectedModuleIds, viewport.zoom, gridEnabled, updateConnectionPreviewDebounced, updateCircuitWirePreview, selectedCircuitNodeId, updateCircuitNodePosition]);
   
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
@@ -765,6 +843,7 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
     setIsBoxSelecting(false);
     boxStartCanvasRef.current = null;
     dragStartRef.current = null;
+    circuitDragStartRef.current = null;
   }, [isDragging, isBoxSelecting, modulesInBoxSelection, setSelection, saveToHistory]);
   
   // Handle wheel for zoom with throttled updates
@@ -1011,6 +1090,130 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
     }
   }, [onModuleValidationClick]);
   
+  // Round 123: Circuit canvas mouse handlers
+  const handleCircuitNodeClick = useCallback((nodeId: string) => {
+    selectCircuitNode(nodeId);
+  }, [selectCircuitNode]);
+  
+  const handleCircuitNodeDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    
+    // If clicking on a different node, select it
+    if (nodeId !== selectedCircuitNodeId) {
+      selectCircuitNode(nodeId);
+    }
+    
+    // Build positions map for dragging
+    const positions = new Map<string, { x: number; y: number }>();
+    const nodesToDrag = selectedCircuitNodeId === nodeId && selectedCircuitNodeId !== null
+      ? circuitNodes.filter(n => n.id === selectedCircuitNodeId)
+      : circuitNodes.filter(n => n.id === nodeId);
+    
+    nodesToDrag.forEach(n => {
+      positions.set(n.id, { x: n.position.x, y: n.position.y });
+    });
+    
+    circuitDragStartRef.current = {
+      nodeId,
+      startX: e.clientX,
+      startY: e.clientY,
+      nodePositions: positions,
+    };
+  }, [selectedCircuitNodeId, circuitNodes, selectCircuitNode]);
+  
+  const handleCircuitInputToggle = useCallback((nodeId: string) => {
+    toggleCircuitInput(nodeId);
+  }, [toggleCircuitInput]);
+  
+  const handleCircuitWireClick = useCallback((wireId: string) => {
+    selectCircuitWire(wireId);
+  }, [selectCircuitWire]);
+  
+  // Round 123: Handle circuit port click for wire drawing
+  const handleCircuitPortClick = useCallback((nodeId: string, portIndex: number, isOutput: boolean) => {
+    if (isDrawingCircuitWire) {
+      // If already drawing a wire, finishing it to an input port
+      if (!isOutput) {
+        finishCircuitWireDrawing(nodeId, portIndex);
+      }
+      // If clicking on an output port while drawing, cancel and start new wire
+      if (isOutput) {
+        cancelCircuitWireDrawing();
+        startCircuitWireDrawing(nodeId, portIndex);
+      }
+    } else {
+      // Start wire drawing from the clicked port
+      startCircuitWireDrawing(nodeId, portIndex);
+    }
+  }, [isDrawingCircuitWire, finishCircuitWireDrawing, cancelCircuitWireDrawing, startCircuitWireDrawing]);
+  
+  // Round 123: Keyboard handler for circuit node deletion
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Don't interfere with text inputs
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+        
+        // Delete selected circuit node
+        if (selectedCircuitNodeId) {
+          e.preventDefault();
+          removeCircuitNode(selectedCircuitNodeId);
+          return;
+        }
+        
+        // Delete selected circuit wire
+        if (selectedCircuitWireId) {
+          e.preventDefault();
+          removeCircuitWire(selectedCircuitWireId);
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCircuitNodeId, selectedCircuitWireId, removeCircuitNode, removeCircuitWire]);
+  
+  // Round 123: Get port position for circuit wire connections
+  const getCircuitPortPosition = useCallback((nodeId: string, portIndex: number, isOutput: boolean): { x: number; y: number } | null => {
+    const node = circuitNodes.find(n => n.id === nodeId);
+    if (!node) return null;
+    
+    const size = node.size || (node.type === 'gate' 
+      ? CIRCUIT_NODE_SIZES[node.gateType!] 
+      : CIRCUIT_NODE_SIZES[node.type] || { width: 60, height: 60 });
+    
+    if (isOutput) {
+      // Output port on right side
+      return {
+        x: node.position.x + (size?.width || 60),
+        y: node.position.y + (size?.height || 60) / 2,
+      };
+    } else {
+      // Input port on left side
+      if (portIndex === 0) {
+        return {
+          x: node.position.x,
+          y: node.position.y + (size?.height || 60) / 3,
+        };
+      } else {
+        return {
+          x: node.position.x,
+          y: node.position.y + (2 * (size?.height || 60)) / 3,
+        };
+      }
+    }
+  }, [circuitNodes]);
+  
+  // Round 123: Get circuit wire start point from wireStart state
+  const getCircuitWireStartPoint = useCallback((): { x: number; y: number } | null => {
+    if (!circuitWireStart) return null;
+    return getCircuitPortPosition(circuitWireStart.nodeId, circuitWireStart.portIndex, true);
+  }, [circuitWireStart, getCircuitPortPosition]);
+  
   // Grid pattern
   const gridSize = 20;
   const gridOpacity = 0.3;
@@ -1133,13 +1336,6 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
               <feMergeNode in="SourceGraphic"/>
             </feMerge>
           </filter>
-          
-          {/* Energy gradient */}
-          <linearGradient id="energyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00ffcc" />
-            <stop offset="50%" stopColor="#00d4ff" />
-            <stop offset="100%" stopColor="#00ffcc" />
-          </linearGradient>
         </defs>
         
         {/* Background */}
@@ -1192,6 +1388,37 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
             {/* Connection preview */}
             {isConnecting && connectionPreview && (
               <ConnectionPreview />
+            )}
+          </g>
+          
+          {/* Round 123: Circuit Wires Layer */}
+          {/* Render circuit wires behind circuit nodes */}
+          <g id="circuit-wires-layer" aria-label="Circuit wire connections" data-circuit-wires-layer>
+            {circuitWires.map((wire: CircuitWireType) => {
+              const sourcePos = getCircuitPortPosition(wire.sourceNodeId, 0, true);
+              const targetPos = getCircuitPortPosition(wire.targetNodeId, wire.targetPort, false);
+              
+              if (!sourcePos || !targetPos) return null;
+              
+              return (
+                <CircuitWire
+                  key={wire.id}
+                  wire={wire}
+                  startPoint={sourcePos}
+                  endPoint={targetPos}
+                  isSelected={wire.id === selectedCircuitWireId}
+                  onClick={handleCircuitWireClick}
+                />
+              );
+            })}
+            
+            {/* Circuit Wire Preview */}
+            {isDrawingCircuitWire && circuitWirePreviewEnd && getCircuitWireStartPoint() && (
+              <WirePreview
+                startPoint={getCircuitWireStartPoint()!}
+                endPoint={circuitWirePreviewEnd}
+                isValid={true}
+              />
             )}
           </g>
           
@@ -1253,6 +1480,22 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
                 </g>
               );
             })}
+          </g>
+          
+          {/* Round 123: Circuit Nodes Layer */}
+          {/* Render circuit nodes (gates, InputNode, OutputNode) on top of regular modules */}
+          <g id="circuit-nodes-layer" aria-label="Circuit logic gate nodes" data-circuit-nodes-layer>
+            {circuitNodes.map((node: PlacedCircuitNode) => (
+              <CanvasCircuitNode
+                key={node.id}
+                node={node}
+                isSelected={node.id === selectedCircuitNodeId}
+                onClick={handleCircuitNodeClick}
+                onDragStart={handleCircuitNodeDragStart}
+                onInputToggle={handleCircuitInputToggle}
+                onPortClick={handleCircuitPortClick}
+              />
+            ))}
           </g>
           
           {/* Box selection rectangle */}
@@ -1375,8 +1618,15 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
         </div>
       )}
       
+      {/* Round 123: Circuit node count indicator */}
+      {circuitNodes.length > 0 && (
+        <div className="absolute bottom-4 right-4 px-3 py-1 rounded bg-[#064e3b] border border-[#22c55e] text-xs text-[#86efac]">
+          ⚡ {circuitNodes.length} 电路节点
+        </div>
+      )}
+      
       {/* Enhanced Empty state */}
-      {modules.length === 0 && (
+      {modules.length === 0 && circuitNodes.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center p-8 rounded-lg bg-[#121826]/80 border border-[#1e2a42] max-w-md">
             <div className="mb-4">

@@ -6,6 +6,8 @@ import { generateRandomMachine } from '../../utils/randomGenerator';
 import { generateAttributes } from '../../utils/attributeGenerator';
 import { ModuleType, ModuleCategory } from '../../types';
 import { RECIPE_DEFINITIONS, RARITY_COLORS } from '../../types/recipes';
+// Round 123: Import CircuitModulePanel for circuit canvas integration
+import { CircuitModulePanel } from './CircuitModulePanel';
 
 export interface ModuleInfo {
   type: ModuleType;
@@ -526,6 +528,10 @@ export function ModulePanel() {
           </div>
         </div>
       </div>
+
+      {/* Round 123: Circuit Module Panel - integrated at bottom of module panel */}
+      {/* This renders the circuit component selector (gates, InputNode, OutputNode) */}
+      <CircuitModulePanel />
 
       {hoveredModule && (
         <div
