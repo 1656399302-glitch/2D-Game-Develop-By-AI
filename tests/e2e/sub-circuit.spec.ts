@@ -184,6 +184,10 @@ test.describe('Sub-Circuit Module System - Round 133', () => {
       const modal = page.locator('h2:has-text("创建子电路")');
       await expect(modal).toBeVisible({ timeout: 5000 });
       
+      // Click on the modal overlay background (not the input) to unfocus any input
+      await page.locator('[data-create-subcircuit-modal]').click({ position: { x: 10, y: 10 } });
+      await page.waitForTimeout(100);
+      
       // Press Escape
       await page.keyboard.press('Escape');
       await page.waitForTimeout(300);
