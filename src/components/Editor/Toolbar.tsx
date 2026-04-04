@@ -4,6 +4,7 @@ import { useCommunityStore } from '../../store/useCommunityStore';
 import { useMachineStatsStore } from '../../store/useMachineStatsStore';
 import { useCodexStore } from '../../store/useCodexStore';
 import { useTemplateStore } from '../../store/useTemplateStore';
+import { useCircuitCanvasStore } from '../../store/useCircuitCanvasStore';
 import { CollectionStatsPanel } from '../Stats/CollectionStatsPanel';
 import { 
   autoArrange, 
@@ -42,6 +43,10 @@ const useCanRedo = () => {
   return historyIndex < historyLength - 1;
 };
 
+// Circuit store selectors
+const useCircuitNodeCount = () => useCircuitCanvasStore((state) => state.nodes.length);
+const useIsCircuitMode = () => useCircuitCanvasStore((state) => state.isCircuitMode);
+
 export function Toolbar({ 
   onOpenRecipeBrowser, 
   onOpenRandomGenerator,
@@ -58,6 +63,10 @@ export function Toolbar({
   const canUndo = useCanUndo();
   const canRedo = useCanRedo();
   
+  // Circuit mode selectors
+  const circuitNodeCount = useCircuitNodeCount();
+  const isCircuitMode = useIsCircuitMode();
+  
   // Get action functions (stable references)
   const undo = useMachineStore((state) => state.undo);
   const redo = useMachineStore((state) => state.redo);
@@ -73,6 +82,12 @@ export function Toolbar({
   const saveToHistory = useMachineStore((state) => state.saveToHistory);
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
+  
+  // Circuit store actions
+  const setCircuitMode = useCircuitCanvasStore((state) => state.setCircuitMode);
+  const runCircuitSimulation = useCircuitCanvasStore((state) => state.runCircuitSimulation);
+  const resetCircuitSimulation = useCircuitCanvasStore((state) => state.resetCircuitSimulation);
+  const clearCircuitCanvas = useCircuitCanvasStore((state) => state.clearCircuitCanvas);
   
   // Community store selectors
   const communityMachines = useCommunityStore((state) => state.communityMachines);
@@ -128,6 +143,28 @@ export function Toolbar({
   const handleCloseCollectionStats = useCallback(() => {
     setShowCollectionStats(false);
   }, []);
+
+  // Circuit mode toggle handler
+  const handleCircuitModeToggle = useCallback(() => {
+    setCircuitMode(!isCircuitMode);
+  }, [isCircuitMode, setCircuitMode]);
+
+  // Circuit simulation handlers
+  const handleCircuitRun = useCallback(() => {
+    if (!isCircuitMode) {
+      setCircuitMode(true);
+    }
+    runCircuitSimulation();
+  }, [isCircuitMode, setCircuitMode, runCircuitSimulation]);
+
+  const handleCircuitReset = useCallback(() => {
+    resetCircuitSimulation();
+  }, [resetCircuitSimulation]);
+
+  const handleCircuitClear = useCallback(() => {
+    clearCircuitCanvas();
+    setCircuitMode(false);
+  }, [clearCircuitCanvas, setCircuitMode]);
 
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
@@ -243,6 +280,15 @@ export function Toolbar({
           <span className="text-xs text-[#4a5568]">
             连接: <span className="text-[#00ffcc]">{connectionsCount}</span>
           </span>
+          {/* Circuit mode stats */}
+          {isCircuitMode && circuitNodeCount > 0 && (
+            <>
+              <span className="text-[#1e2a42]" aria-hidden="true">|</span>
+              <span className="text-xs text-[#4a5568]">
+                电路: <span className="text-[#22c55e]">{circuitNodeCount}</span>
+              </span>
+            </>
+          )}
         </div>
 
         {/* Center - Test Mode buttons, Auto-Layout, Recipe Button, and Random Generator */}
@@ -392,6 +438,62 @@ export function Toolbar({
                 ⚡ 测试过载
               </button>
             </div>
+
+            {/* Circuit Mode Toggle - Round 122 */}
+            <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
+            
+            <button
+              onClick={handleCircuitModeToggle}
+              data-tutorial-action="toolbar-circuit-mode"
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded border transition-colors ${
+                isCircuitMode
+                  ? 'bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]/50 hover:bg-[#22c55e]/30'
+                  : 'bg-[#1e2a42] text-[#9ca3af] border-[#2d3a4f] hover:text-[#22c55e] hover:border-[#22c55e]/50'
+              }`}
+              title="电路模式 - 设计逻辑电路"
+              aria-label={isCircuitMode ? '关闭电路模式' : '开启电路模式'}
+              aria-pressed={isCircuitMode}
+            >
+              <span aria-hidden="true">⚡</span>
+              <span>电路模式</span>
+            </button>
+
+            {/* Circuit Simulation Controls - shown when circuit mode is active */}
+            {isCircuitMode && (
+              <div className="flex items-center gap-1" role="group" aria-label="电路模拟控制">
+                <button
+                  onClick={handleCircuitRun}
+                  data-tutorial-action="toolbar-circuit-run"
+                  className="px-2 py-1 text-xs rounded bg-[#0ea5e9] text-white hover:bg-[#0284c7] border border-[#0ea5e9]/50 transition-colors"
+                  title="运行电路模拟 (R)"
+                  aria-label="运行电路模拟"
+                >
+                  ▶ 运行
+                </button>
+                
+                <button
+                  onClick={handleCircuitReset}
+                  data-tutorial-action="toolbar-circuit-reset"
+                  className="px-2 py-1 text-xs rounded bg-[#ef4444] text-white hover:bg-[#dc2626] border border-[#ef4444]/50 transition-colors"
+                  title="重置电路模拟 (X)"
+                  aria-label="重置电路模拟"
+                >
+                  ↺
+                </button>
+                
+                {circuitNodeCount > 0 && (
+                  <button
+                    onClick={handleCircuitClear}
+                    data-tutorial-action="toolbar-circuit-clear"
+                    className="px-2 py-1 text-xs rounded bg-[#1e2a42] text-[#9ca3af] hover:text-[#ef4444] border border-[#2d3a4f] transition-colors"
+                    title="清空电路"
+                    aria-label="清空电路"
+                  >
+                    清空
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
