@@ -162,6 +162,10 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   // Round 125: Subscribe to cycleAffectedNodeIds for cycle warning rendering
   const cycleAffectedNodeIds = useCircuitCanvasStore((state) => state.cycleAffectedNodeIds);
   const selectCircuitNode = useCircuitCanvasStore((state) => state.selectCircuitNode);
+  // Round 131: Multi-selection store functions
+  const selectCircuitNodes = useCircuitCanvasStore((state) => state.selectCircuitNodes);
+  const toggleCircuitNodeSelection = useCircuitCanvasStore((state) => state.toggleCircuitNodeSelection);
+  const selectedCircuitNodeIds = useCircuitCanvasStore((state) => state.selectedCircuitNodeIds);
   const selectCircuitWire = useCircuitCanvasStore((state) => state.selectCircuitWire);
   const updateCircuitNodePosition = useCircuitCanvasStore((state) => state.updateNodePosition);
   const removeCircuitNode = useCircuitCanvasStore((state) => state.removeCircuitNode);
@@ -1091,10 +1095,58 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
     }
   }, [onModuleValidationClick]);
   
-  // Round 123: Circuit canvas mouse handlers
-  const handleCircuitNodeClick = useCallback((nodeId: string) => {
-    selectCircuitNode(nodeId);
-  }, [selectCircuitNode]);
+  // Round 123/131: Circuit canvas mouse handlers with multi-selection support
+  const handleCircuitNodeClick = useCallback((nodeId: string, event?: React.MouseEvent) => {
+    // Round 131: Support multi-selection with modifier keys
+    if (event) {
+      const isMetaOrCtrl = event.metaKey || event.ctrlKey;
+      const isShift = event.shiftKey;
+      
+      if (isMetaOrCtrl) {
+        // Cmd/Ctrl+Click: Toggle selection
+        toggleCircuitNodeSelection(nodeId);
+      } else if (isShift) {
+        // Shift+Click: Range selection - add to existing selection
+        const state = useCircuitCanvasStore.getState();
+        const lastSelectedId = state.selectedCircuitNodeIds[state.selectedCircuitNodeIds.length - 1];
+        
+        if (lastSelectedId && lastSelectedId !== nodeId) {
+          // Find nodes between lastSelected and clicked node (simple x-position based)
+          const allNodes = state.nodes;
+          const lastNode = allNodes.find(n => n.id === lastSelectedId);
+          const clickedNode = allNodes.find(n => n.id === nodeId);
+          
+          if (lastNode && clickedNode) {
+            // Get all nodes between the two in x-position order
+            const minX = Math.min(lastNode.position.x, clickedNode.position.x);
+            const maxX = Math.max(lastNode.position.x, clickedNode.position.x);
+            
+            const nodesBetween = allNodes
+              .filter(n => n.position.x >= minX && n.position.x <= maxX && n.position.y >= Math.min(lastNode.position.y, clickedNode.position.y) && n.position.y <= Math.max(lastNode.position.y, clickedNode.position.y))
+              .map(n => n.id);
+            
+            if (nodesBetween.length > 0) {
+              selectCircuitNodes([...state.selectedCircuitNodeIds, ...nodesBetween.filter(id => !state.selectedCircuitNodeIds.includes(id))]);
+            } else {
+              // Just add the clicked node if no nodes in between
+              selectCircuitNodes([...state.selectedCircuitNodeIds, nodeId]);
+            }
+          } else {
+            selectCircuitNodes([...state.selectedCircuitNodeIds, nodeId]);
+          }
+        } else {
+          // First selection or clicking same node - just add to selection
+          selectCircuitNodes([...state.selectedCircuitNodeIds, nodeId]);
+        }
+      } else {
+        // Plain Click: Single selection (clear previous selection)
+        selectCircuitNode(nodeId);
+      }
+    } else {
+      // Backward compatibility: no event, single select
+      selectCircuitNode(nodeId);
+    }
+  }, [selectCircuitNode, selectCircuitNodes, toggleCircuitNodeSelection]);
   
   const handleCircuitNodeDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
     if (e.button !== 0) return;
@@ -1490,7 +1542,7 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
               <CanvasCircuitNode
                 key={node.id}
                 node={node}
-                isSelected={node.id === selectedCircuitNodeId}
+                isSelected={selectedCircuitNodeIds.includes(node.id)}
                 cycleWarning={cycleAffectedNodeIds.includes(node.id)}
                 onClick={handleCircuitNodeClick}
                 onDragStart={handleCircuitNodeDragStart}

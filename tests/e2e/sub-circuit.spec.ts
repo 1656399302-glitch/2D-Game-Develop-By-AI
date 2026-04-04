@@ -19,7 +19,7 @@ test.describe('Sub-Circuit Module System', () => {
   test.describe('Sub-circuit Creation Flow', () => {
     test('should enable circuit mode and display circuit toggle', async ({ page }) => {
       // Enable circuit mode by clicking the toggle
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       
       await expect(circuitToggle).toBeVisible({ timeout: 5000 });
       await circuitToggle.click();
@@ -34,7 +34,7 @@ test.describe('Sub-Circuit Module System', () => {
 
     test('should add circuit components to canvas', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
       // Add AND gate to canvas
@@ -52,7 +52,7 @@ test.describe('Sub-Circuit Module System', () => {
 
     test('should show create sub-circuit button when modules selected', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
       // Add two AND gates
@@ -73,7 +73,7 @@ test.describe('Sub-Circuit Module System', () => {
   test.describe('Sub-circuit Palette Integration', () => {
     test('should display custom section when circuit mode active', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
       // Verify the circuit module panel is visible
@@ -86,17 +86,17 @@ test.describe('Sub-Circuit Module System', () => {
 
     test('should display empty state when no sub-circuits exist', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
-      // Verify custom section shows empty state
-      const emptyState = page.locator('[data-empty-state]');
+      // Verify custom section shows empty state (use first empty state in circuit panel)
+      const emptyState = page.locator('[data-sub-circuit-panel] [data-empty-state]').first();
       await expect(emptyState).toBeVisible({ timeout: 3000 });
     });
 
     test('should display sub-circuit with correct name and count', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
       // Verify the panel shows circuit components
@@ -130,7 +130,7 @@ test.describe('Sub-Circuit Module System', () => {
   test.describe('Sub-circuit Canvas Rendering', () => {
     test('should render circuit components on canvas', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
       // Add a component
@@ -164,7 +164,7 @@ test.describe('Sub-Circuit Module System', () => {
   test.describe('Non-regression Tests', () => {
     test('should not break existing circuit components', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
       // Verify the circuit module panel is visible
@@ -181,7 +181,7 @@ test.describe('Sub-Circuit Module System', () => {
 
     test('should not break existing canvas interactions', async ({ page }) => {
       // Enable circuit mode
-      const circuitToggle = page.locator('[data-circuit-mode-toggle]');
+      const circuitToggle = page.locator('button[data-circuit-mode-toggle][data-tutorial-action="toolbar-circuit-mode"]');
       await circuitToggle.click();
       
       // Add a component

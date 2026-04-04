@@ -4,6 +4,7 @@
  * Round 122: Circuit Canvas Integration
  * Round 123: Added port click handlers for wire drawing
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop shapes
+ * Round 131: Added modifier key support for multi-selection (Shift+Click, Cmd/Ctrl+Click)
  * 
  * Renders circuit nodes (gates, InputNode, OutputNode) on the canvas
  * with signal state visualization.
@@ -14,9 +15,9 @@ import {
   PlacedInputNode,
   PlacedOutputNode,
   PlacedGateNode,
-  CanvasCircuitNodeProps,
   CIRCUIT_NODE_SIZES,
   SIGNAL_COLORS,
+  PlacedCircuitNode,
 } from '../../types/circuitCanvas';
 import { GateType } from '../../types/circuit';
 
@@ -234,7 +235,7 @@ const DFlipFlopGateShape: React.FC<{ signalColor: string; width: number; height:
 // Node Components
 // ============================================================================
 
-const InputNodeCanvas: React.FC<{ node: PlacedInputNode; isSelected: boolean; cycleWarning: boolean; onClick: () => void; onToggle: () => void; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ node, isSelected, cycleWarning, onClick, onToggle, onPortClick }) => {
+const InputNodeCanvas: React.FC<{ node: PlacedInputNode; isSelected: boolean; cycleWarning: boolean; onClick: (e: React.MouseEvent) => void; onToggle: () => void; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ node, isSelected, cycleWarning, onClick, onToggle, onPortClick }) => {
   const signalColor = node.state ? SIGNAL_COLORS.HIGH : SIGNAL_COLORS.LOW;
   const size = node.size || CIRCUIT_NODE_SIZES.input;
   const borderColor = cycleWarning ? '#ef4444' : isSelected ? SIGNAL_COLORS.SELECTED : signalColor;
@@ -254,7 +255,7 @@ const InputNodeCanvas: React.FC<{ node: PlacedInputNode; isSelected: boolean; cy
   );
 };
 
-const OutputNodeCanvas: React.FC<{ node: PlacedOutputNode; isSelected: boolean; cycleWarning: boolean; onClick: () => void; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ node, isSelected, cycleWarning, onClick, onPortClick }) => {
+const OutputNodeCanvas: React.FC<{ node: PlacedOutputNode; isSelected: boolean; cycleWarning: boolean; onClick: (e: React.MouseEvent) => void; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ node, isSelected, cycleWarning, onClick, onPortClick }) => {
   const signalColor = node.inputSignal ? SIGNAL_COLORS.HIGH : SIGNAL_COLORS.LOW;
   const size = node.size || CIRCUIT_NODE_SIZES.output;
   const borderColor = cycleWarning ? '#ef4444' : isSelected ? SIGNAL_COLORS.SELECTED : signalColor;
@@ -274,7 +275,7 @@ const OutputNodeCanvas: React.FC<{ node: PlacedOutputNode; isSelected: boolean; 
   );
 };
 
-const GateNodeCanvas: React.FC<{ node: PlacedGateNode; isSelected: boolean; cycleWarning: boolean; onClick: () => void; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ node, isSelected, cycleWarning, onClick, onPortClick }) => {
+const GateNodeCanvas: React.FC<{ node: PlacedGateNode; isSelected: boolean; cycleWarning: boolean; onClick: (e: React.MouseEvent) => void; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ node, isSelected, cycleWarning, onClick, onPortClick }) => {
   const signalColor = node.output ? SIGNAL_COLORS.HIGH : SIGNAL_COLORS.LOW;
   const size = node.size || CIRCUIT_NODE_SIZES[node.gateType!] || { width: 80, height: 50 };
   const borderColor = cycleWarning ? '#ef4444' : isSelected ? SIGNAL_COLORS.SELECTED : signalColor;
@@ -328,8 +329,29 @@ const GateNodeCanvas: React.FC<{ node: PlacedGateNode; isSelected: boolean; cycl
 // Main Component
 // ============================================================================
 
+// Round 131: Updated props to include React.MouseEvent for modifier key support
+export interface CanvasCircuitNodeProps {
+  /** Node data */
+  node: PlacedCircuitNode;
+  /** Whether node is selected */
+  isSelected?: boolean;
+  /** Viewport zoom level */
+  zoom?: number;
+  /** Whether node is affected by cycle detection */
+  cycleWarning?: boolean;
+  /** Click handler - now receives mouse event for modifier key detection */
+  onClick?: (nodeId: string, event?: React.MouseEvent) => void;
+  /** Drag start handler */
+  onDragStart?: (nodeId: string, event: React.MouseEvent) => void;
+  /** Port click handler for wire drawing */
+  onPortClick?: (nodeId: string, portIndex: number, isOutput: boolean) => void;
+  /** Input toggle handler (for input nodes) */
+  onInputToggle?: (nodeId: string) => void;
+}
+
 export const CanvasCircuitNode: React.FC<CanvasCircuitNodeProps> = ({ node, isSelected = false, cycleWarning = false, onClick, onDragStart, onInputToggle, onPortClick }) => {
-  const handleClick = useCallback(() => { onClick?.(node.id); }, [onClick, node.id]);
+  // Round 131: Pass mouse event to onClick for modifier key detection
+  const handleClick = useCallback((e: React.MouseEvent) => { onClick?.(node.id, e); }, [onClick, node.id]);
   
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Don't start drag for port clicks or toggle clicks

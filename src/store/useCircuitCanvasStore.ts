@@ -3,6 +3,7 @@
  * 
  * Round 122: Circuit Canvas Integration
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop support
+ * Round 131: Multi-selection support for sub-circuit creation
  * 
  * Zustand store for managing circuit components on the canvas.
  * Extends the circuit simulation engine with canvas-specific state.
@@ -48,6 +49,13 @@ interface CircuitCanvasStore extends CanvasCircuitState {
   selectCircuitNode: (nodeId: string | null) => void;
   updateNodePosition: (nodeId: string, x: number, y: number) => void;
   updateNodeParameters: (nodeId: string, parameters: Record<string, unknown>) => void;
+  
+  // Multi-selection operations (Round 131)
+  selectCircuitNodes: (nodeIds: string[]) => void;
+  toggleCircuitNodeSelection: (nodeId: string) => void;
+  clearCircuitNodeSelection: () => void;
+  addToCircuitSelection: (nodeIds: string[]) => void;
+  removeFromCircuitSelection: (nodeIds: string[]) => void;
   
   // Wire operations
   addCircuitWire: (sourceNodeId: string, targetNodeId: string, targetPort?: number) => CircuitWire | null;
@@ -212,6 +220,7 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   nodes: [],
   wires: [],
   selectedNodeId: null,
+  selectedCircuitNodeIds: [], // Round 131: Multi-selection support
   selectedWireId: null,
   isDrawingWire: false,
   wireStart: null,
@@ -232,6 +241,8 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
     set((state: CircuitCanvasStore) => ({
       nodes: [...state.nodes, node],
       selectedNodeId: node.id,
+      // Round 131: Also update multi-selection
+      selectedCircuitNodeIds: [node.id],
     }));
     
     return node;
@@ -245,12 +256,92 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         (w: CircuitWire) => w.sourceNodeId !== nodeId && w.targetNodeId !== nodeId
       ),
       selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+      // Round 131: Remove from multi-selection
+      selectedCircuitNodeIds: state.selectedCircuitNodeIds.filter(id => id !== nodeId),
     }));
   },
   
-  // Select circuit node
+  // Select circuit node (single selection - backward compatibility)
   selectCircuitNode: (nodeId: string | null) => {
-    set({ selectedNodeId: nodeId, selectedWireId: null });
+    set((state: CircuitCanvasStore) => ({
+      selectedNodeId: nodeId,
+      // Round 131: Update multi-selection to match single selection for compatibility
+      selectedCircuitNodeIds: nodeId ? [nodeId] : [],
+      // Clear wire selection when selecting a node (backward compatibility)
+      selectedWireId: nodeId ? null : state.selectedWireId,
+    }));
+  },
+  
+  // Round 131: Multi-selection operations
+  // Select multiple nodes at once (replaces selection)
+  selectCircuitNodes: (nodeIds: string[]) => {
+    set({
+      selectedCircuitNodeIds: nodeIds,
+      // Keep first node ID for backward compatibility with single selection
+      selectedNodeId: nodeIds.length > 0 ? nodeIds[0] : null,
+    });
+  },
+  
+  // Toggle selection of a single node (add if not selected, remove if selected)
+  toggleCircuitNodeSelection: (nodeId: string) => {
+    set((state: CircuitCanvasStore) => {
+      const isSelected = state.selectedCircuitNodeIds.includes(nodeId);
+      let newSelection: string[];
+      
+      if (isSelected) {
+        // Remove from selection
+        newSelection = state.selectedCircuitNodeIds.filter(id => id !== nodeId);
+      } else {
+        // Add to selection
+        newSelection = [...state.selectedCircuitNodeIds, nodeId];
+      }
+      
+      return {
+        selectedCircuitNodeIds: newSelection,
+        // Update single selection for backward compatibility
+        selectedNodeId: newSelection.length > 0 ? newSelection[newSelection.length - 1] : null,
+      };
+    });
+  },
+  
+  // Clear all multi-selection
+  clearCircuitNodeSelection: () => {
+    set({
+      selectedCircuitNodeIds: [],
+      selectedNodeId: null,
+    });
+  },
+  
+  // Add multiple nodes to existing selection
+  addToCircuitSelection: (nodeIds: string[]) => {
+    set((state: CircuitCanvasStore) => {
+      const existingSet = new Set(state.selectedCircuitNodeIds);
+      const newIds = nodeIds.filter(id => !existingSet.has(id));
+      
+      if (newIds.length === 0) {
+        return state; // No new nodes to add
+      }
+      
+      const newSelection = [...state.selectedCircuitNodeIds, ...newIds];
+      
+      return {
+        selectedCircuitNodeIds: newSelection,
+        selectedNodeId: newSelection.length > 0 ? newSelection[newSelection.length - 1] : null,
+      };
+    });
+  },
+  
+  // Remove multiple nodes from selection
+  removeFromCircuitSelection: (nodeIds: string[]) => {
+    set((state: CircuitCanvasStore) => {
+      const idsToRemove = new Set(nodeIds);
+      const newSelection = state.selectedCircuitNodeIds.filter(id => !idsToRemove.has(id));
+      
+      return {
+        selectedCircuitNodeIds: newSelection,
+        selectedNodeId: newSelection.length > 0 ? newSelection[newSelection.length - 1] : null,
+      };
+    });
   },
   
   // Update node position
@@ -538,6 +629,7 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
       nodes: [],
       wires: [],
       selectedNodeId: null,
+      selectedCircuitNodeIds: [], // Round 131: Clear multi-selection
       selectedWireId: null,
       isDrawingWire: false,
       wireStart: null,

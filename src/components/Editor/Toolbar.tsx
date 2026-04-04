@@ -46,11 +46,8 @@ const useCanRedo = () => {
 // Circuit store selectors
 const useCircuitNodeCount = () => useCircuitCanvasStore((state) => state.nodes.length);
 const useIsCircuitMode = () => useCircuitCanvasStore((state) => state.isCircuitMode);
-const useSelectedCircuitNodeIds = () => {
-  return useCircuitCanvasStore((state) => {
-    return state.nodes.filter((n) => n.selected).map((n) => n.id);
-  });
-};
+// Round 131 FIX: Direct read from selectedCircuitNodeIds array instead of filtering by n.selected
+const useSelectedCircuitNodeIds = () => useCircuitCanvasStore((state) => state.selectedCircuitNodeIds);
 
 export function Toolbar({ 
   onOpenRecipeBrowser, 
@@ -277,10 +274,10 @@ export function Toolbar({
     setShowLayoutMenu(false);
   }, [applyLayout]);
 
-  // Determine if Create Sub-circuit button should be visible
+  // Round 131 FIX: Determine if Create Sub-circuit button should be visible
   // Button is visible when:
   // - Circuit mode is active
-  // - At least 2 circuit nodes are selected
+  // - At least 2 circuit nodes are selected (from selectedCircuitNodeIds array)
   const canShowCreateButton = isCircuitMode && selectedCircuitNodeIds.length >= 2;
 
   return (
@@ -307,6 +304,14 @@ export function Toolbar({
               <span className="text-xs text-[#4a5568]">
                 电路: <span className="text-[#22c55e]">{circuitNodeCount}</span>
               </span>
+              {selectedCircuitNodeIds.length > 0 && (
+                <span className="text-[#1e2a42]" aria-hidden="true">|</span>
+              )}
+              {selectedCircuitNodeIds.length > 0 && (
+                <span className="text-xs text-[#4a5568]">
+                  选中: <span className="text-[#a78bfa]">{selectedCircuitNodeIds.length}</span>
+                </span>
+              )}
             </>
           )}
         </div>
@@ -464,6 +469,7 @@ export function Toolbar({
             
             <button
               onClick={handleCircuitModeToggle}
+              data-circuit-mode-toggle
               data-tutorial-action="toolbar-circuit-mode"
               className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded border transition-colors ${
                 isCircuitMode
@@ -476,9 +482,11 @@ export function Toolbar({
             >
               <span aria-hidden="true">⚡</span>
               <span>电路模式</span>
+              {isCircuitMode && <span>已开启</span>}
             </button>
 
-            {/* Create Sub-circuit Button - Round 130 */}
+            {/* Create Sub-circuit Button - Round 130/131 */}
+            {/* Round 131 FIX: Button now appears when selectedCircuitNodeIds.length >= 2 */}
             {canShowCreateButton && (
               <>
                 <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />

@@ -3,12 +3,14 @@
  * 
  * Round 122: Circuit Canvas Integration
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop types
+ * Round 131: Added React import for CanvasCircuitNodeProps onClick signature
  * 
  * Defines types for circuit components placed on the canvas,
  * extending the base circuit simulation types with canvas-specific state.
  */
 
 import { GateType, SignalState, CircuitNodeType } from './circuit';
+import React from 'react';
 
 // ============================================================================
 // Circuit Node Types for Canvas
@@ -114,8 +116,10 @@ export interface CanvasCircuitState {
   nodes: PlacedCircuitNode[];
   /** All wires between nodes */
   wires: CircuitWire[];
-  /** Selected node ID */
+  /** Selected node ID (single selection - backward compatibility) */
   selectedNodeId: string | null;
+  /** Selected circuit node IDs (multi-selection - Round 131) */
+  selectedCircuitNodeIds: string[];
   /** Selected wire ID */
   selectedWireId: string | null;
   /** Wire drawing state */
@@ -166,6 +170,7 @@ export interface CircuitCanvasEvents {
 
 /**
  * Canvas circuit node component props
+ * Round 131: Updated onClick to optionally receive React.MouseEvent for modifier key detection
  */
 export interface CanvasCircuitNodeProps {
   /** Node data */
@@ -176,8 +181,8 @@ export interface CanvasCircuitNodeProps {
   zoom?: number;
   /** Whether node is affected by cycle detection */
   cycleWarning?: boolean;
-  /** Click handler */
-  onClick?: (nodeId: string) => void;
+  /** Click handler - optionally receives mouse event for modifier key detection (Shift+Click, Cmd/Ctrl+Click) */
+  onClick?: (nodeId: string, event?: React.MouseEvent) => void;
   /** Drag start handler */
   onDragStart?: (nodeId: string, event: React.MouseEvent) => void;
   /** Port click handler for wire drawing */
