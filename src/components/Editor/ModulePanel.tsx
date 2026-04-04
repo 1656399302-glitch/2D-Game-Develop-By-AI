@@ -1,4 +1,4 @@
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, lazy, Suspense } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useRecipeStore } from '../../store/useRecipeStore';
 import { useFactionReputationStore } from '../../store/useFactionReputationStore';
@@ -6,8 +6,11 @@ import { generateRandomMachine } from '../../utils/randomGenerator';
 import { generateAttributes } from '../../utils/attributeGenerator';
 import { ModuleType, ModuleCategory } from '../../types';
 import { RECIPE_DEFINITIONS, RARITY_COLORS } from '../../types/recipes';
-// Round 123: Import CircuitModulePanel for circuit canvas integration
-import { CircuitModulePanel } from './CircuitModulePanel';
+
+// Round 133: Lazy-load CircuitModulePanel for bundle size optimization
+const CircuitModulePanel = lazy(() => import('./CircuitModulePanel').then((module) => ({
+  default: module.CircuitModulePanel as unknown as React.ComponentType<object>
+})));
 
 export interface ModuleInfo {
   type: ModuleType;
@@ -207,6 +210,18 @@ const checkIsModuleUnlocked = (type: ModuleType): boolean => {
   if (!recipe) return false;
   return useRecipeStore.getState().isUnlocked(recipe.id);
 };
+
+// Loading fallback for CircuitModulePanel
+function CircuitModulePanelFallback() {
+  return (
+    <div className="p-3 border-t border-[#1e2a42]">
+      <div className="animate-pulse space-y-2">
+        <div className="h-8 bg-[#1e2a42] rounded"></div>
+        <div className="h-6 bg-[#1e2a42] rounded w-3/4"></div>
+      </div>
+    </div>
+  );
+}
 
 export function ModulePanel() {
   const addModule = useMachineStore((state) => state.addModule);
@@ -529,9 +544,11 @@ export function ModulePanel() {
         </div>
       </div>
 
-      {/* Round 123: Circuit Module Panel - integrated at bottom of module panel */}
-      {/* This renders the circuit component selector (gates, InputNode, OutputNode) */}
-      <CircuitModulePanel />
+      {/* Round 123: Circuit Module Panel - lazy loaded for bundle optimization (Round 133) */}
+      {/* Renders the circuit component selector (gates, InputNode, OutputNode) */}
+      <Suspense fallback={<CircuitModulePanelFallback />}>
+        <CircuitModulePanel />
+      </Suspense>
 
       {hoveredModule && (
         <div

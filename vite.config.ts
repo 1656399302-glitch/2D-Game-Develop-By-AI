@@ -28,6 +28,8 @@ export default defineConfig({
           // Utility chunks
           'utils-particle': ['src/utils/ParticleSystem.ts'],
           'utils-activation': ['src/utils/activationChoreographer.ts'],
+          // Round 133: CircuitModulePanel lazy loading for bundle size optimization
+          'components-circuit-module': ['src/components/Editor/CircuitModulePanel.tsx'],
         },
       },
     },

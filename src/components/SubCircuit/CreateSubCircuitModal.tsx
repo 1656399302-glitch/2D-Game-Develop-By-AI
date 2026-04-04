@@ -3,6 +3,7 @@
  * 
  * Round 129: Sub-circuit Module System
  * Round 132: Fixed to accept selectedModuleIds and create sub-circuit
+ * Round 133: Fixed Escape key handler with global event listener
  * 
  * Modal for naming and creating sub-circuits from selected modules.
  */
@@ -75,6 +76,26 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
     }
   }, [isOpen]);
   
+  // Round 133: Global keyboard event listener for Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Don't trigger if user is typing in an input
+        if (document.activeElement?.tagName === 'INPUT' || 
+            document.activeElement?.tagName === 'TEXTAREA') {
+          return;
+        }
+        e.preventDefault();
+        onClose();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+  
   // Validate name as user types
   useEffect(() => {
     if (name && !isValidSubCircuitName(name)) {
@@ -144,15 +165,13 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
     }
   }, [name, description, selectedModuleIds, createSubCircuit, isNameTaken, canCreateMore, onCreated, onClose]);
   
-  // Handle key press
+  // Handle key press (for Enter key in input)
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleCreate();
-    } else if (e.key === 'Escape') {
-      onClose();
     }
-  }, [handleCreate, onClose]);
+  }, [handleCreate]);
   
   // Handle overlay click
   const handleOverlayClick = useCallback((e: React.MouseEvent) => {
