@@ -94,6 +94,17 @@ const LazySubCircuitPanel = lazy(() => import('./components/SubCircuit/SubCircui
   }>
 })));
 
+// Round 132: Lazy-loaded CreateSubCircuitModal for bundle optimization
+const LazyCreateSubCircuitModal = lazy(() => import('./components/SubCircuit/CreateSubCircuitModal').then((module) => ({
+  default: module.CreateSubCircuitModal as unknown as React.ComponentType<{
+    isOpen: boolean;
+    selectedModuleCount: number;
+    selectedModuleIds?: string[];
+    onCreated?: (result: any) => void;
+    onClose: () => void;
+  }>
+})));
+
 type ViewMode = 'editor' | 'codex';
 
 /**
@@ -136,6 +147,10 @@ function AppContent() {
   // Round 113: State for QuickFixActions menu
   const [quickFixModuleId, setQuickFixModuleId] = useState<string | null>(null);
   const [quickFixPosition, setQuickFixPosition] = useState<{ x: number; y: number } | null>(null);
+  
+  // Round 132: State for CreateSubCircuitModal
+  const [showCreateSubCircuitModal, setShowCreateSubCircuitModal] = useState(false);
+  const [pendingSubCircuitModuleIds, setPendingSubCircuitModuleIds] = useState<string[]>([]);
   
   /**
    * FIX Round 106: Track welcome modal dismissal to coordinate with LoadPromptModal
@@ -256,6 +271,45 @@ function AppContent() {
   // FIX: Hydrate exchange store on mount
   useEffect(() => {
     hydrateExchangeStore();
+  }, []);
+
+  /**
+   * Round 132: Listen for open-create-subcircuit-modal event from Toolbar
+   * 
+   * When the "创建子电路" button is clicked in the Toolbar (when ≥2 nodes are selected),
+   * it dispatches a custom event. This effect listens for that event and opens
+   * the CreateSubCircuitModal.
+   */
+  useEffect(() => {
+    const handleOpenCreateSubCircuitModal = (event: Event) => {
+      const customEvent = event as CustomEvent<{ selectedModuleIds: string[] }>;
+      const selectedModuleIds = customEvent.detail?.selectedModuleIds || [];
+      
+      setPendingSubCircuitModuleIds(selectedModuleIds);
+      setShowCreateSubCircuitModal(true);
+    };
+    
+    window.addEventListener('open-create-subcircuit-modal', handleOpenCreateSubCircuitModal);
+    
+    return () => {
+      window.removeEventListener('open-create-subcircuit-modal', handleOpenCreateSubCircuitModal);
+    };
+  }, []);
+  
+  /**
+   * Round 132: Handler for sub-circuit creation modal close
+   */
+  const handleCloseCreateSubCircuitModal = useCallback(() => {
+    setShowCreateSubCircuitModal(false);
+    setPendingSubCircuitModuleIds([]);
+  }, []);
+  
+  /**
+   * Round 132: Handler for sub-circuit creation success
+   */
+  const handleSubCircuitCreated = useCallback(() => {
+    // Clear the circuit node selection after successful creation
+    useCircuitCanvasStore.getState().clearCircuitNodeSelection();
   }, []);
 
   /**
@@ -826,6 +880,19 @@ function AppContent() {
           </Suspense>
         )}
         
+        {/* Round 132: CreateSubCircuitModal for sub-circuit creation - lazy loaded */}
+        {showCreateSubCircuitModal && (
+          <Suspense fallback={null}>
+            <LazyCreateSubCircuitModal
+              isOpen={showCreateSubCircuitModal}
+              selectedModuleCount={pendingSubCircuitModuleIds.length}
+              selectedModuleIds={pendingSubCircuitModuleIds}
+              onClose={handleCloseCreateSubCircuitModal}
+              onCreated={handleSubCircuitCreated}
+            />
+          </Suspense>
+        )}
+        
         {showHelp && (
           <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/80 backdrop-blur-sm">
             <div className="relative w-full max-w-lg mx-4 bg-gradient-to-br from-[#1a1a2e] via-[#121826] to-[#0a0e17] rounded-2xl border border-[#7c3aed]/40 shadow-2xl overflow-hidden">
@@ -1005,6 +1072,18 @@ function AppContent() {
         isOpen={isShortcutsPanelOpen} 
         onClose={closeShortcutsPanel} 
       />
+      {/* Round 132: CreateSubCircuitModal for mobile - lazy loaded */}
+      {showCreateSubCircuitModal && (
+        <Suspense fallback={null}>
+          <LazyCreateSubCircuitModal
+            isOpen={showCreateSubCircuitModal}
+            selectedModuleCount={pendingSubCircuitModuleIds.length}
+            selectedModuleIds={pendingSubCircuitModuleIds}
+            onClose={handleCloseCreateSubCircuitModal}
+            onCreated={handleSubCircuitCreated}
+          />
+        </Suspense>
+      )}
     </MobileTouchEnhancer>
   );
 }

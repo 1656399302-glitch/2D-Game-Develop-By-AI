@@ -2,6 +2,7 @@
  * Create Sub-Circuit Modal Component
  * 
  * Round 129: Sub-circuit Module System
+ * Round 132: Fixed to accept selectedModuleIds and create sub-circuit
  * 
  * Modal for naming and creating sub-circuits from selected modules.
  */
@@ -19,6 +20,8 @@ export interface CreateSubCircuitModalProps {
   isOpen: boolean;
   /** Number of selected modules */
   selectedModuleCount: number;
+  /** IDs of selected modules to include in the sub-circuit */
+  selectedModuleIds?: string[];
   /** Callback when sub-circuit is created */
   onCreated?: (result: CreateSubCircuitResult) => void;
   /** Callback when modal is closed */
@@ -35,6 +38,7 @@ export interface CreateSubCircuitModalProps {
 export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
   isOpen,
   selectedModuleCount,
+  selectedModuleIds = [],
   onCreated,
   onClose,
 }) => {
@@ -92,7 +96,7 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
     setDescription(e.target.value);
   }, []);
   
-  // Handle create
+  // Handle create - ROUND 132 FIX: Actually create the sub-circuit in the store
   const handleCreate = useCallback(() => {
     // Validate
     if (!name.trim()) {
@@ -115,24 +119,30 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
       return;
     }
     
-    if (selectedModuleCount < 2) {
+    if (selectedModuleIds.length < 2) {
       setError('子电路至少需要包含2个模块');
       return;
     }
     
-    // Create sub-circuit (moduleIds will be provided by the canvas hook)
+    // Create sub-circuit with selected module IDs
     setIsCreating(true);
     
-    // The actual creation is done by the hook with the module IDs
-    // This modal just collects the name
-    const result: CreateSubCircuitResult = {
-      success: true,
-      subCircuit: undefined, // Will be set by hook
-    };
+    const result = createSubCircuit({
+      name: name.trim(),
+      moduleIds: selectedModuleIds,
+      description: description.trim() || undefined,
+    });
     
-    onCreated?.(result);
-    onClose();
-  }, [name, description, selectedModuleCount, createSubCircuit, isNameTaken, canCreateMore, onCreated, onClose]);
+    if (result.success) {
+      // Notify parent of successful creation
+      onCreated?.(result);
+      onClose();
+    } else {
+      // Show error from store
+      setError(result.error || '创建子电路失败');
+      setIsCreating(false);
+    }
+  }, [name, description, selectedModuleIds, createSubCircuit, isNameTaken, canCreateMore, onCreated, onClose]);
   
   // Handle key press
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -159,7 +169,7 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
-      data-create-sub-circuit-modal
+      data-create-subcircuit-modal
     >
       <div 
         className="bg-[#1a1a2e] border border-[#8b5cf6]/30 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl"
@@ -186,7 +196,7 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
         </div>
         
         {/* Module count info */}
-        {selectedModuleCount < 2 && (
+        {selectedModuleIds.length < 2 && (
           <div className="mb-4 p-3 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/30">
             <p className="text-sm text-[#f59e0b]">
               ⚠️ 子电路至少需要 2 个模块，请先选择多个模块
@@ -271,7 +281,7 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
           </button>
           <button
             onClick={handleCreate}
-            disabled={!name.trim() || !!error || selectedModuleCount < 2 || isCreating}
+            disabled={!name.trim() || !!error || selectedModuleIds.length < 2 || isCreating}
             className="flex-1 px-4 py-2.5 rounded-lg bg-[#8b5cf6] text-white font-medium hover:bg-[#7c3aed] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             data-confirm-create
           >
