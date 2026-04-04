@@ -188,8 +188,55 @@ function XNORGateShape({ width = 80, height = 60, signalColor }: { width?: numbe
   );
 }
 
+// Placeholder shapes for sequential gates (used in standalone mode only)
+function TimerGateShape({ width = 80, height = 70, signalColor }: { width?: number; height?: number; signalColor?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="none" stroke={signalColor || '#00d4ff'} strokeWidth="2" />
+      <circle cx="25" cy="30" r="12" fill="none" stroke={signalColor || '#00d4ff'} strokeWidth="2" />
+      <text x="60" y="35" textAnchor="middle" fill={signalColor || '#00d4ff'} fontSize="14" fontFamily="monospace">...</text>
+    </svg>
+  );
+}
+
+function CounterGateShape({ width = 80, height = 70, signalColor }: { width?: number; height?: number; signalColor?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="none" stroke={signalColor || '#00d4ff'} strokeWidth="2" />
+      <text x="40" y="35" textAnchor="middle" fill={signalColor || '#00d4ff'} fontSize="18" fontFamily="monospace">0</text>
+    </svg>
+  );
+}
+
+function SRLatchGateShape({ width = 80, height = 70, signalColor }: { width?: number; height?: number; signalColor?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="none" stroke={signalColor || '#00d4ff'} strokeWidth="2" />
+      <text x="40" y="35" textAnchor="middle" fill={signalColor || '#00d4ff'} fontSize="14" fontFamily="monospace">SR</text>
+    </svg>
+  );
+}
+
+function DLatchGateShape({ width = 80, height = 70, signalColor }: { width?: number; height?: number; signalColor?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="none" stroke={signalColor || '#00d4ff'} strokeWidth="2" />
+      <text x="40" y="35" textAnchor="middle" fill={signalColor || '#00d4ff'} fontSize="14" fontFamily="monospace">D</text>
+    </svg>
+  );
+}
+
+function DFlipFlopGateShape({ width = 80, height = 70, signalColor }: { width?: number; height?: number; signalColor?: string }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="none" stroke={signalColor || '#00d4ff'} strokeWidth="2" />
+      <text x="40" y="35" textAnchor="middle" fill={signalColor || '#00d4ff'} fontSize="12" fontFamily="monospace">D-FF</text>
+    </svg>
+  );
+}
+
 // ============================================================================
-// Gate Shape Map
+// Gate Shape Map (combinational gates only)
 // ============================================================================
 
 const gateShapes: Record<GateType, React.FC<{ width?: number; height?: number; signalColor?: string }>> = {
@@ -200,6 +247,11 @@ const gateShapes: Record<GateType, React.FC<{ width?: number; height?: number; s
   NOR: NORGateShape,
   XOR: XORGateShape,
   XNOR: XNORGateShape,
+  TIMER: TimerGateShape,
+  COUNTER: CounterGateShape,
+  SR_LATCH: SRLatchGateShape,
+  D_LATCH: DLatchGateShape,
+  D_FLIP_FLOP: DFlipFlopGateShape,
 };
 
 // ============================================================================

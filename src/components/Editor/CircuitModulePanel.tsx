@@ -2,6 +2,7 @@
  * Circuit Module Panel Component
  * 
  * Round 122: Circuit Canvas Integration
+ * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop
  * 
  * Module panel section for circuit components (gates, InputNode, OutputNode).
  * This is integrated into the main ModulePanel.
@@ -27,6 +28,7 @@ interface CircuitComponentItem {
 }
 
 const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
+  // Basic I/O
   {
     id: 'input',
     type: 'input',
@@ -54,6 +56,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     ),
     color: '#fbbf24',
   },
+  // Basic gates
   {
     id: 'AND',
     type: 'gate',
@@ -205,6 +208,111 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
       </svg>
     ),
     color: '#f59e0b',
+  },
+  // Sequential/Memory elements (Round 128)
+  {
+    id: 'TIMER',
+    type: 'gate',
+    gateType: 'TIMER',
+    label: 'TIMER',
+    description: '定时器：触发后延迟N ticks输出高',
+    icon: (
+      <svg width="24" height="20" viewBox="0 0 80 70" fill="none">
+        <rect x="5" y="5" width="70" height="60" rx="6" stroke="#06b6d4" strokeWidth="2" fill="none" />
+        <circle cx="25" cy="30" r="12" stroke="#06b6d4" strokeWidth="2" fill="none" />
+        <line x1="25" y1="30" x2="25" y2="22" stroke="#06b6d4" strokeWidth="2" />
+        <line x1="25" y1="30" x2="31" y2="30" stroke="#06b6d4" strokeWidth="2" />
+        <text x="60" y="28" textAnchor="middle" fill="#06b6d4" fontSize="10" fontFamily="monospace">...</text>
+        <circle cx="2" cy="25" r="3" fill="#06b6d4" />
+        <circle cx="2" cy="45" r="3" fill="#06b6d4" />
+        <circle cx="78" cy="25" r="3" fill="#06b6d4" />
+        <circle cx="78" cy="45" r="3" fill="#06b6d4" />
+      </svg>
+    ),
+    color: '#06b6d4',
+  },
+  {
+    id: 'COUNTER',
+    type: 'gate',
+    gateType: 'COUNTER',
+    label: 'COUNTER',
+    description: '计数器：可递增/递减，支持溢出',
+    icon: (
+      <svg width="24" height="20" viewBox="0 0 80 70" fill="none">
+        <rect x="5" y="5" width="70" height="60" rx="6" stroke="#ec4899" strokeWidth="2" fill="none" />
+        <text x="40" y="30" textAnchor="middle" fill="#ec4899" fontSize="14" fontFamily="monospace">0</text>
+        <text x="40" y="50" textAnchor="middle" fill="#ec4899" fontSize="8" fontFamily="monospace">CNT</text>
+        <circle cx="2" cy="20" r="3" fill="#ec4899" />
+        <circle cx="2" cy="40" r="3" fill="#ec4899" />
+        <circle cx="2" cy="55" r="3" fill="#ec4899" />
+        <circle cx="78" cy="25" r="3" fill="#ec4899" />
+        <circle cx="78" cy="45" r="3" fill="#ec4899" />
+      </svg>
+    ),
+    color: '#ec4899',
+  },
+  {
+    id: 'SR_LATCH',
+    type: 'gate',
+    gateType: 'SR_LATCH',
+    label: 'SR LATCH',
+    description: 'SR锁存器：Set/Reset保持状态',
+    icon: (
+      <svg width="24" height="20" viewBox="0 0 80 70" fill="none">
+        <rect x="5" y="5" width="70" height="60" rx="6" stroke="#8b5cf6" strokeWidth="2" fill="none" />
+        <text x="40" y="22" textAnchor="middle" fill="#8b5cf6" fontSize="12" fontFamily="monospace">SR</text>
+        <text x="20" y="45" textAnchor="middle" fill="#8b5cf6" fontSize="10" fontFamily="monospace">Q:0</text>
+        <text x="60" y="45" textAnchor="middle" fill="#8b5cf6" fontSize="10" fontFamily="monospace">Q̅:1</text>
+        <circle cx="2" cy="20" r="3" fill="#8b5cf6" />
+        <circle cx="2" cy="40" r="3" fill="#8b5cf6" />
+        <circle cx="78" cy="25" r="3" fill="#8b5cf6" />
+        <circle cx="78" cy="45" r="3" fill="#8b5cf6" />
+      </svg>
+    ),
+    color: '#8b5cf6',
+  },
+  {
+    id: 'D_LATCH',
+    type: 'gate',
+    gateType: 'D_LATCH',
+    label: 'D LATCH',
+    description: 'D锁存器：E高时Q=D，E低时保持',
+    icon: (
+      <svg width="24" height="20" viewBox="0 0 80 70" fill="none">
+        <rect x="5" y="5" width="70" height="60" rx="6" stroke="#10b981" strokeWidth="2" fill="none" />
+        <text x="40" y="22" textAnchor="middle" fill="#10b981" fontSize="12" fontFamily="monospace">D</text>
+        <text x="40" y="35" textAnchor="middle" fill="#10b981" fontSize="8" fontFamily="monospace">E:0</text>
+        <text x="20" y="50" textAnchor="middle" fill="#10b981" fontSize="10" fontFamily="monospace">Q:0</text>
+        <text x="60" y="50" textAnchor="middle" fill="#10b981" fontSize="10" fontFamily="monospace">Q̅:1</text>
+        <circle cx="2" cy="20" r="3" fill="#10b981" />
+        <circle cx="2" cy="40" r="3" fill="#10b981" />
+        <circle cx="78" cy="25" r="3" fill="#10b981" />
+        <circle cx="78" cy="45" r="3" fill="#10b981" />
+      </svg>
+    ),
+    color: '#10b981',
+  },
+  {
+    id: 'D_FLIP_FLOP',
+    type: 'gate',
+    gateType: 'D_FLIP_FLOP',
+    label: 'D-FF',
+    description: 'D触发器：时钟上升沿采样D',
+    icon: (
+      <svg width="24" height="20" viewBox="0 0 80 70" fill="none">
+        <rect x="5" y="5" width="70" height="60" rx="6" stroke="#14b8a6" strokeWidth="2" fill="none" />
+        <text x="40" y="18" textAnchor="middle" fill="#14b8a6" fontSize="10" fontFamily="monospace">D-FF</text>
+        <polygon points="35,22 43,22 39,28" fill="#14b8a6" />
+        <text x="20" y="48" textAnchor="middle" fill="#14b8a6" fontSize="10" fontFamily="monospace">Q:0</text>
+        <text x="60" y="48" textAnchor="middle" fill="#14b8a6" fontSize="10" fontFamily="monospace">Q̅:1</text>
+        <text x="40" y="60" textAnchor="middle" fill="#14b8a6" fontSize="6" fontFamily="monospace">↑</text>
+        <circle cx="2" cy="20" r="3" fill="#14b8a6" />
+        <circle cx="2" cy="40" r="3" fill="#14b8a6" />
+        <circle cx="78" cy="25" r="3" fill="#14b8a6" />
+        <circle cx="78" cy="45" r="3" fill="#14b8a6" />
+      </svg>
+    ),
+    color: '#14b8a6',
   },
 ];
 

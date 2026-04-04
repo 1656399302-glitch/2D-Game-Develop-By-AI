@@ -2,6 +2,7 @@
  * Circuit Canvas Type Definitions
  * 
  * Round 122: Circuit Canvas Integration
+ * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop types
  * 
  * Defines types for circuit components placed on the canvas,
  * extending the base circuit simulation types with canvas-specific state.
@@ -35,6 +36,8 @@ export interface PlacedCircuitNode {
   cycleWarning?: boolean;
   /** Node dimensions */
   size?: { width: number; height: number };
+  /** Component-specific parameters */
+  parameters?: Record<string, unknown>;
 }
 
 /**
@@ -65,6 +68,8 @@ export interface PlacedGateNode extends PlacedCircuitNode {
   output: SignalState;
   /** Number of inputs required */
   inputCount: number;
+  /** Component-specific parameters */
+  parameters?: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -214,6 +219,12 @@ export const CIRCUIT_NODE_SIZES: Record<string, { width: number; height: number 
   NOR: { width: 80, height: 50 },
   XOR: { width: 80, height: 50 },
   XNOR: { width: 80, height: 50 },
+  // New sequential/memory elements (larger to fit labels)
+  TIMER: { width: 80, height: 70 },
+  COUNTER: { width: 80, height: 70 },
+  SR_LATCH: { width: 80, height: 70 },
+  D_LATCH: { width: 80, height: 70 },
+  D_FLIP_FLOP: { width: 80, height: 70 },
 };
 
 /**
@@ -223,6 +234,8 @@ export const SIGNAL_COLORS = {
   HIGH: '#22c55e',
   LOW: '#64748b',
   SELECTED: '#3b82f6',
+  ERROR: '#ef4444',
+  WARNING: '#f59e0b',
 };
 
 /**
@@ -231,4 +244,9 @@ export const SIGNAL_COLORS = {
 export const DEFAULT_NODE_LABELS: Record<string, string> = {
   input: 'IN',
   output: 'OUT',
+  TIMER: 'TIMER',
+  COUNTER: 'COUNT',
+  SR_LATCH: 'SR',
+  D_LATCH: 'D',
+  D_FLIP_FLOP: 'D-FF',
 };

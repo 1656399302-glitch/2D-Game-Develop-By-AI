@@ -2,6 +2,7 @@
  * Circuit Canvas Store
  * 
  * Round 122: Circuit Canvas Integration
+ * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop support
  * 
  * Zustand store for managing circuit components on the canvas.
  * Extends the circuit simulation engine with canvas-specific state.
@@ -25,9 +26,11 @@ import {
   GateNode,
   OutputNode,
   CircuitConnection,
+  GATE_INPUT_COUNTS,
 } from '../types/circuit';
 import {
   propagateSignals,
+  resetComponentStates,
 } from '../engine/circuitSimulator';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,10 +43,11 @@ interface CircuitCanvasStore extends CanvasCircuitState {
   setCircuitMode: (enabled: boolean) => void;
   
   // Node operations
-  addCircuitNode: (type: CircuitNodeType, x: number, y: number, gateType?: GateType, label?: string) => PlacedCircuitNode;
+  addCircuitNode: (type: CircuitNodeType, x: number, y: number, gateType?: GateType, label?: string, parameters?: Record<string, unknown>) => PlacedCircuitNode;
   removeCircuitNode: (nodeId: string) => void;
   selectCircuitNode: (nodeId: string | null) => void;
   updateNodePosition: (nodeId: string, x: number, y: number) => void;
+  updateNodeParameters: (nodeId: string, parameters: Record<string, unknown>) => void;
   
   // Wire operations
   addCircuitWire: (sourceNodeId: string, targetNodeId: string, targetPort?: number) => CircuitWire | null;
@@ -83,6 +87,14 @@ interface CircuitCanvasStore extends CanvasCircuitState {
 // ============================================================================
 
 /**
+ * Get input count for a gate type
+ */
+function getInputCount(gateType?: GateType): number {
+  if (!gateType) return 2;
+  return GATE_INPUT_COUNTS[gateType] ?? 2;
+}
+
+/**
  * Create a canvas circuit node from a simulation node
  */
 function createPlacedNode(
@@ -90,7 +102,8 @@ function createPlacedNode(
   x: number,
   y: number,
   gateType?: GateType,
-  label?: string
+  label?: string,
+  parameters?: Record<string, unknown>
 ): PlacedCircuitNode {
   const size = gateType
     ? CIRCUIT_NODE_SIZES[gateType]
@@ -105,6 +118,7 @@ function createPlacedNode(
     label: defaultLabel,
     signal: false,
     size,
+    parameters,
   };
   
   if (type === 'input') {
@@ -129,11 +143,63 @@ function createPlacedNode(
       type: 'gate',
       gateType,
       output: false,
-      inputCount: gateType === 'NOT' ? 1 : 2,
+      inputCount: getInputCount(gateType),
     } as PlacedGateNode;
   }
   
   return baseNode;
+}
+
+/**
+ * Get Y position for a port on a node
+ */
+function getPortYPosition(gateType: GateType | undefined, portIndex: number, height: number): number {
+  if (!gateType) {
+    // Default: input/output nodes have single port in center
+    return height / 2;
+  }
+  
+  // Gate-specific port positions
+  switch (gateType) {
+    case 'AND':
+    case 'OR':
+    case 'NAND':
+    case 'NOR':
+    case 'XOR':
+    case 'XNOR':
+      // Two inputs, one output
+      if (portIndex === 0) return height * 0.36;
+      if (portIndex === 1) return height * 0.64;
+      return height / 2;
+    
+    case 'NOT':
+      // One input, one output
+      return height / 2;
+    
+    case 'TIMER':
+      // Two inputs (trigger, reset), two outputs (Q, done)
+      if (portIndex === 0) return height * 0.36; // Trigger
+      if (portIndex === 1) return height * 0.64; // Reset
+      return height / 2;
+    
+    case 'COUNTER':
+      // Three inputs (+, -, R), two outputs (Q, overflow)
+      if (portIndex === 0) return height * 0.28; // +
+      if (portIndex === 1) return height * 0.57; // -
+      if (portIndex === 2) return height * 0.79; // R
+      return height / 2;
+    
+    case 'SR_LATCH':
+    case 'D_LATCH':
+    case 'D_FLIP_FLOP':
+      // Two inputs, two outputs
+      if (portIndex === 0) return height * 0.36;
+      if (portIndex === 1) return height * 0.57;
+      return height / 2;
+    
+    default:
+      return height / 2;
+  }
 }
 
 // ============================================================================
@@ -160,8 +226,8 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   },
   
   // Add circuit node
-  addCircuitNode: (type: CircuitNodeType, x: number, y: number, gateType?: GateType, label?: string) => {
-    const node = createPlacedNode(type, x, y, gateType, label);
+  addCircuitNode: (type: CircuitNodeType, x: number, y: number, gateType?: GateType, label?: string, parameters?: Record<string, unknown>) => {
+    const node = createPlacedNode(type, x, y, gateType, label, parameters);
     
     set((state: CircuitCanvasStore) => ({
       nodes: [...state.nodes, node],
@@ -196,6 +262,15 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
     }));
   },
   
+  // Update node parameters (for Timer/Counter configuration)
+  updateNodeParameters: (nodeId: string, parameters: Record<string, unknown>) => {
+    set((state: CircuitCanvasStore) => ({
+      nodes: state.nodes.map((n: PlacedCircuitNode) =>
+        n.id === nodeId ? { ...n, parameters: { ...n.parameters, ...parameters } } : n
+      ),
+    }));
+  },
+  
   // Add circuit wire
   addCircuitWire: (sourceNodeId: string, targetNodeId: string, targetPort: number = 0) => {
     let wire: CircuitWire | null = null;
@@ -221,18 +296,25 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         return state;
       }
       
-      // Calculate wire positions
-      const sourceSize = sourceNode.size || CIRCUIT_NODE_SIZES.output || { width: 60, height: 60 };
-      const targetSize = targetNode.size || CIRCUIT_NODE_SIZES.input || { width: 60, height: 60 };
+      // Calculate wire positions based on port locations
+      const sourceSize = sourceNode.size || CIRCUIT_NODE_SIZES[sourceNode.type] || { width: 60, height: 60 };
+      const targetSize = targetNode.size || CIRCUIT_NODE_SIZES[targetNode.type] || { width: 60, height: 60 };
+      
+      // Determine port y positions
+      const sourceGateType = sourceNode.type === 'gate' ? (sourceNode as PlacedGateNode).gateType : undefined;
+      const targetGateType = targetNode.type === 'gate' ? (targetNode as PlacedGateNode).gateType : undefined;
+      
+      const sourcePortY = getPortYPosition(sourceGateType, targetPort, sourceSize.height);
+      const targetPortY = getPortYPosition(targetGateType, targetPort, targetSize.height);
       
       const startPoint = {
         x: sourceNode.position.x + sourceSize.width,
-        y: sourceNode.position.y + sourceSize.height / 2,
+        y: sourceNode.position.y + sourcePortY,
       };
       
       const endPoint = {
         x: targetNode.position.x,
-        y: targetNode.position.y + targetSize.height / 2,
+        y: targetNode.position.y + targetPortY,
       };
       
       wire = {
@@ -322,7 +404,6 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         }
         return n;
       }),
-      isDirty: true,
     }));
     
     // Auto-run simulation after toggle
@@ -357,6 +438,7 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
           output: false,
           inputs: new Map(),
           label: n.label,
+          parameters: n.parameters,
         };
       }
       // output
@@ -399,7 +481,20 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
           return { ...n, signal };
         }
         if (n.type === 'gate') {
-          return { ...n, output: signal, signal };
+          // Preserve parameters for stateful gates
+          const gateNode = n as PlacedGateNode;
+          const params = { ...n.parameters };
+          
+          // For stateful gates, preserve internal state from parameters
+          if (gateNode.gateType === 'TIMER') {
+            // Timer parameters
+          } else if (gateNode.gateType === 'COUNTER') {
+            // Counter parameters
+          } else if (gateNode.gateType === 'SR_LATCH' || gateNode.gateType === 'D_LATCH' || gateNode.gateType === 'D_FLIP_FLOP') {
+            // Memory parameters
+          }
+          
+          return { ...n, output: signal, signal, parameters: params };
         }
         // output
         return { ...n, inputSignal: signal, signal };
@@ -416,6 +511,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   
   // Reset circuit simulation
   resetCircuitSimulation: () => {
+    // Reset component states
+    resetComponentStates();
+    
     set((state: CircuitCanvasStore) => {
       return {
         nodes: state.nodes.map((n: PlacedCircuitNode) => {
@@ -433,6 +531,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   
   // Clear circuit canvas
   clearCircuitCanvas: () => {
+    // Reset component states
+    resetComponentStates();
+    
     set({
       nodes: [],
       wires: [],

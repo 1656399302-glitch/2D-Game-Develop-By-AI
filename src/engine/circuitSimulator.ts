@@ -2,9 +2,11 @@
  * Circuit Simulator Engine
  * 
  * Round 121: Circuit Simulation Engine
+ * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop support
  * 
  * Implements BFS-based signal propagation through logic gates.
  * Evaluates boolean logic for AND, OR, NOT, XOR, NAND, NOR, XNOR gates.
+ * Handles stateful components (Timer, Counter, Memory) with tick-based simulation.
  */
 
 import {
@@ -17,10 +19,94 @@ import {
   GateNode,
   InputNode,
   GATE_TRUTH_TABLES,
+  TimerState,
+  CounterState,
+  MemoryState,
 } from '../types/circuit';
 
 // ============================================================================
-// Gate Evaluation Functions
+// Simulation State Storage (stateful components)
+// ============================================================================
+
+/**
+ * Global state storage for stateful components
+ * Maintained across simulation ticks
+ */
+interface ComponentStateStore {
+  timerStates: Map<string, TimerState>;
+  counterStates: Map<string, CounterState>;
+  memoryStates: Map<string, MemoryState>;
+  previousInputStates: Map<string, Map<string, SignalState>>;
+}
+
+const componentStateStore: ComponentStateStore = {
+  timerStates: new Map(),
+  counterStates: new Map(),
+  memoryStates: new Map(),
+  previousInputStates: new Map(),
+};
+
+/**
+ * Reset all component states (for simulation reset)
+ */
+export function resetComponentStates(): void {
+  componentStateStore.timerStates.clear();
+  componentStateStore.counterStates.clear();
+  componentStateStore.memoryStates.clear();
+  componentStateStore.previousInputStates.clear();
+}
+
+/**
+ * Get timer state for a component
+ */
+export function getTimerState(nodeId: string, defaultDelay: number = 5): TimerState {
+  if (!componentStateStore.timerStates.has(nodeId)) {
+    componentStateStore.timerStates.set(nodeId, {
+      tickCount: 0,
+      isActive: false,
+      done: false,
+      prevTrigger: false,
+      delay: defaultDelay,
+      output: false,
+    });
+  }
+  return componentStateStore.timerStates.get(nodeId)!;
+}
+
+/**
+ * Get counter state for a component
+ */
+export function getCounterState(nodeId: string, defaultMax: number = 8): CounterState {
+  if (!componentStateStore.counterStates.has(nodeId)) {
+    componentStateStore.counterStates.set(nodeId, {
+      count: 0,
+      maxValue: defaultMax,
+      overflow: false,
+      prevIncrement: false,
+      prevDecrement: false,
+    });
+  }
+  return componentStateStore.counterStates.get(nodeId)!;
+}
+
+/**
+ * Get memory state for a component
+ */
+export function getMemoryState(nodeId: string): MemoryState {
+  if (!componentStateStore.memoryStates.has(nodeId)) {
+    componentStateStore.memoryStates.set(nodeId, {
+      q: false,
+      qBar: true,
+      prevClock: false,
+      prevEnable: false,
+      invalidState: false,
+    });
+  }
+  return componentStateStore.memoryStates.get(nodeId)!;
+}
+
+// ============================================================================
+// Gate Evaluation Functions (Combinational)
 // ============================================================================
 
 /**
@@ -30,6 +116,13 @@ import {
  * @returns The output signal state
  */
 export function evaluateGate(gateType: GateType, inputs: SignalState[]): SignalState {
+  // Handle stateful gates separately
+  if (gateType === 'TIMER' || gateType === 'COUNTER' || 
+      gateType === 'SR_LATCH' || gateType === 'D_LATCH' || gateType === 'D_FLIP_FLOP') {
+    // These should be handled by evaluateStatefulGate
+    return false;
+  }
+
   // Find matching truth table entry
   const truthTable = GATE_TRUTH_TABLES[gateType];
   
@@ -66,6 +159,314 @@ function arraysEqual(a: SignalState[], b: SignalState[]): boolean {
 export function getDefaultInputs(gateType: GateType): SignalState[] {
   const inputCount = gateType === 'NOT' ? 1 : 2;
   return new Array(inputCount).fill(false);
+}
+
+// ============================================================================
+// Stateful Gate Evaluation
+// ============================================================================
+
+/**
+ * Evaluate Timer gate
+ * Port 0: Trigger (rising edge starts timer)
+ * Port 1: Reset (HIGH resets timer)
+ * Output: HIGH after delay ticks
+ * Done flag output: HIGH when timer completes
+ * 
+ * @param nodeId - Unique identifier for state persistence
+ * @param trigger - Trigger input signal
+ * @param reset - Reset input signal
+ * @param delay - Number of ticks before output goes HIGH
+ * @returns { output: SignalState, done: SignalState }
+ */
+export function evaluateTimer(
+  nodeId: string,
+  trigger: SignalState,
+  reset: SignalState,
+  delay: number = 5
+): { output: SignalState; done: SignalState; state: TimerState } {
+  const state = getTimerState(nodeId, delay);
+  
+  // Synchronous reset - immediately clears timer
+  if (reset) {
+    state.tickCount = 0;
+    state.isActive = false;
+    state.done = false;
+    state.prevTrigger = trigger;
+    return { output: false, done: false, state };
+  }
+  
+  // Rising edge detection on trigger
+  const risingEdge = trigger && !state.prevTrigger;
+  
+  if (risingEdge && !state.isActive) {
+    // Start timer on rising edge
+    state.isActive = true;
+    state.tickCount = 0;
+    state.done = false;
+  }
+  
+  if (state.isActive) {
+    state.tickCount++;
+    
+    if (state.tickCount >= delay) {
+      // Timer complete
+      state.output = true;
+      state.done = true;
+      state.isActive = false;
+    } else {
+      state.output = false;
+    }
+  } else {
+    state.output = false;
+  }
+  
+  state.prevTrigger = trigger;
+  
+  return { 
+    output: state.output, 
+    done: state.done, 
+    state 
+  };
+}
+
+/**
+ * Evaluate Counter gate
+ * Port 0: Increment (rising edge increments)
+ * Port 1: Decrement (rising edge decrements)
+ * Port 2: Reset (HIGH resets to 0)
+ * Output: Current count value
+ * Overflow flag: HIGH when wraps
+ * 
+ * @param nodeId - Unique identifier for state persistence
+ * @param increment - Increment input signal
+ * @param decrement - Decrement input signal
+ * @param reset - Reset input signal
+ * @param maxValue - Maximum value before wrap
+ * @returns { output: SignalState, overflow: SignalState, state: CounterState }
+ */
+export function evaluateCounter(
+  nodeId: string,
+  increment: SignalState,
+  decrement: SignalState,
+  reset: SignalState,
+  maxValue: number = 8
+): { output: SignalState; overflow: SignalState; state: CounterState } {
+  const state = getCounterState(nodeId, maxValue);
+  state.maxValue = maxValue;
+  
+  // Reset takes priority
+  if (reset) {
+    state.count = 0;
+    state.overflow = false;
+    state.prevIncrement = increment;
+    state.prevDecrement = decrement;
+    return { output: false, overflow: false, state };
+  }
+  
+  // Rising edge detection
+  const incRising = increment && !state.prevIncrement;
+  const decRising = decrement && !state.prevDecrement;
+  
+  // Only clear overflow if an operation actually happens
+  
+  if (incRising) {
+    if (state.count >= maxValue) {
+      // Wrap to 0
+      state.count = 0;
+      state.overflow = true;
+    } else {
+      state.count++;
+    }
+  }
+  
+  if (decRising) {
+    if (state.count <= 0) {
+      // Wrap to max
+      state.count = maxValue;
+      state.overflow = true;
+    } else {
+      state.count--;
+    }
+  }
+  
+  // Clear overflow only if an increment/decrement happened (but not if wrapping)
+  if ((incRising || decRising) && !state.overflow) {
+    state.overflow = false;
+  }
+  
+  state.prevIncrement = increment;
+  state.prevDecrement = decrement;
+  
+  // Output is HIGH if count > 0 (simplified - for multi-bit, would need bit extraction)
+  const output = state.count > 0;
+  
+  return { output, overflow: state.overflow, state };
+}
+
+/**
+ * Evaluate SR Latch
+ * Port 0: Set (S)
+ * Port 1: Reset (R)
+ * Output Q
+ * Output Q-bar (complement)
+ * 
+ * @param nodeId - Unique identifier for state persistence
+ * @param set - Set input signal
+ * @param reset - Reset input signal
+ * @returns { q: SignalState, qBar: SignalState, invalidState: boolean, state: MemoryState }
+ */
+export function evaluateSRLatch(
+  nodeId: string,
+  set: SignalState,
+  reset: SignalState
+): { q: SignalState; qBar: SignalState; invalidState: boolean; state: MemoryState } {
+  const state = getMemoryState(nodeId);
+  
+  // Invalid state: both S and R are HIGH
+  if (set && reset) {
+    state.q = false;
+    state.qBar = false;
+    state.invalidState = true;
+    return { q: false, qBar: false, invalidState: true, state };
+  }
+  
+  state.invalidState = false;
+  
+  // Set=HIGH, Reset=LOW → Q=HIGH
+  if (set && !reset) {
+    state.q = true;
+  }
+  // Set=LOW, Reset=HIGH → Q=LOW
+  else if (!set && reset) {
+    state.q = false;
+  }
+  // Both LOW → hold state (no change)
+  // Both HIGH is handled above (invalid)
+  
+  state.qBar = !state.q;
+  
+  return { q: state.q, qBar: state.qBar, invalidState: state.invalidState, state };
+}
+
+/**
+ * Evaluate D Latch (level-sensitive)
+ * Port 0: Data (D)
+ * Port 1: Enable (E)
+ * Output Q
+ * Output Q-bar (complement)
+ * 
+ * @param nodeId - Unique identifier for state persistence
+ * @param data - Data input signal
+ * @param enable - Enable input signal
+ * @returns { q: SignalState; qBar: SignalState; state: MemoryState }
+ */
+export function evaluateDLatch(
+  nodeId: string,
+  data: SignalState,
+  enable: SignalState
+): { q: SignalState; qBar: SignalState; state: MemoryState } {
+  const state = getMemoryState(nodeId);
+  
+  // E=HIGH → Q=D
+  if (enable) {
+    state.q = data;
+    state.prevEnable = true;
+  } else {
+    // E=LOW → hold state
+    state.prevEnable = false;
+  }
+  
+  state.qBar = !state.q;
+  
+  return { q: state.q, qBar: state.qBar, state };
+}
+
+/**
+ * Evaluate D Flip-Flop (edge-triggered)
+ * Port 0: Data (D)
+ * Port 1: Clock (CLK)
+ * Output Q
+ * Output Q-bar (complement)
+ * 
+ * @param nodeId - Unique identifier for state persistence
+ * @param data - Data input signal
+ * @param clock - Clock input signal
+ * @returns { q: SignalState; qBar: SignalState; state: MemoryState }
+ */
+export function evaluateDFlipFlop(
+  nodeId: string,
+  data: SignalState,
+  clock: SignalState
+): { q: SignalState; qBar: SignalState; state: MemoryState } {
+  const state = getMemoryState(nodeId);
+  
+  // Rising edge detection (LOW → HIGH)
+  const risingEdge = clock && !state.prevClock;
+  
+  if (risingEdge) {
+    // Sample D on rising edge
+    state.q = data;
+  }
+  
+  state.prevClock = clock;
+  state.qBar = !state.q;
+  
+  return { q: state.q, qBar: state.qBar, state };
+}
+
+/**
+ * Evaluate a stateful gate with current inputs
+ * Used by the simulation engine to handle Timer, Counter, and Memory elements
+ */
+export function evaluateStatefulGate(
+  gateType: GateType,
+  nodeId: string,
+  inputs: SignalState[],
+  parameters?: Record<string, unknown>
+): { output: SignalState; additionalOutputs?: SignalState[]; invalidState?: boolean } {
+  switch (gateType) {
+    case 'TIMER': {
+      const trigger = inputs[0] ?? false;
+      const reset = inputs[1] ?? false;
+      const delay = (parameters?.delay as number) ?? 5;
+      const result = evaluateTimer(nodeId, trigger, reset, delay);
+      return { output: result.output, additionalOutputs: [result.done] };
+    }
+    
+    case 'COUNTER': {
+      const increment = inputs[0] ?? false;
+      const decrement = inputs[1] ?? false;
+      const reset = inputs[2] ?? false;
+      const maxValue = (parameters?.maxValue as number) ?? 8;
+      const result = evaluateCounter(nodeId, increment, decrement, reset, maxValue);
+      return { output: result.output, additionalOutputs: [result.overflow] };
+    }
+    
+    case 'SR_LATCH': {
+      const set = inputs[0] ?? false;
+      const reset = inputs[1] ?? false;
+      const result = evaluateSRLatch(nodeId, set, reset);
+      return { output: result.q, additionalOutputs: [result.qBar], invalidState: result.invalidState };
+    }
+    
+    case 'D_LATCH': {
+      const data = inputs[0] ?? false;
+      const enable = inputs[1] ?? false;
+      const result = evaluateDLatch(nodeId, data, enable);
+      return { output: result.q, additionalOutputs: [result.qBar] };
+    }
+    
+    case 'D_FLIP_FLOP': {
+      const data = inputs[0] ?? false;
+      const clock = inputs[1] ?? false;
+      const result = evaluateDFlipFlop(nodeId, data, clock);
+      return { output: result.q, additionalOutputs: [result.qBar] };
+    }
+    
+    default:
+      // Should not reach here for stateful gates
+      return { output: false };
+  }
 }
 
 // ============================================================================
@@ -208,8 +609,21 @@ export function propagateSignals(
         inputs[conn.targetPort] = sourceSignal;
       }
       
-      // Evaluate gate
-      const output = evaluateGate(gateNode.gateType, inputs);
+      // Evaluate gate based on type
+      let output: SignalState;
+      
+      if (gateNode.gateType === 'TIMER' || gateNode.gateType === 'COUNTER' ||
+          gateNode.gateType === 'SR_LATCH' || gateNode.gateType === 'D_LATCH' ||
+          gateNode.gateType === 'D_FLIP_FLOP') {
+        // Stateful gates use separate evaluation
+        const params = (gateNode as GateNode & { parameters?: Record<string, unknown> }).parameters;
+        const result = evaluateStatefulGate(gateNode.gateType, gateNode.id, inputs, params);
+        output = result.output;
+      } else {
+        // Combinational gates use truth table
+        output = evaluateGate(gateNode.gateType, inputs);
+      }
+      
       nodeSignals.set(nodeId, output);
       evaluationOrder.push(nodeId);
     } else if (node.type === 'output') {
@@ -249,6 +663,13 @@ export function evaluateTruthTable(
 ): SignalState {
   if (gateType === 'NOT') {
     return evaluateGate(gateType, [inputA]);
+  }
+  if (gateType === 'TIMER' || gateType === 'COUNTER' ||
+      gateType === 'SR_LATCH' || gateType === 'D_LATCH' ||
+      gateType === 'D_FLIP_FLOP') {
+    // These require state - use stateful evaluation
+    const result = evaluateStatefulGate(gateType, `test-${gateType}`, [inputA, inputB]);
+    return result.output;
   }
   return evaluateGate(gateType, [inputA, inputB]);
 }

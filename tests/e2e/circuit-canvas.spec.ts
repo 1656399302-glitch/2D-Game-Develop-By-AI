@@ -104,7 +104,7 @@ test.describe('AC-124-001: Gate Selector Panel Visibility', () => {
     await page.waitForTimeout(500);
     
     const count = await page.locator('[data-circuit-component]').count();
-    expect(count).toBe(9);
+    expect(count).toBe(14);
   });
 
   test('should show correct gate labels for all 9 components', async ({ page }) => {
@@ -126,7 +126,7 @@ test.describe('AC-124-001: Gate Selector Panel Visibility', () => {
   test('gate buttons disappear when circuit mode is toggled off', async ({ page }) => {
     await page.locator('[data-tutorial-action="toolbar-circuit-mode"]').click();
     await page.waitForTimeout(500);
-    expect(await page.locator('[data-circuit-component]').count()).toBe(9);
+    expect(await page.locator('[data-circuit-component]').count()).toBe(14);
     
     await page.locator('[data-tutorial-action="toolbar-circuit-mode"]').click();
     await page.waitForTimeout(500);
@@ -167,11 +167,11 @@ test.describe('AC-124-002: Circuit Node Placement', () => {
     await expect(andNode).toBeVisible();
   });
 
-  test('should add all 9 gate types to canvas', async ({ page }) => {
+  test('should add all 14 circuit components to canvas', async ({ page }) => {
     await page.locator('[data-tutorial-action="toolbar-circuit-mode"]').click();
     await page.waitForTimeout(500);
     
-    const labels = ['input', 'output', 'AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR'];
+    const labels = ['input', 'output', 'AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR', 'TIMER', 'COUNTER', 'SR_LATCH', 'D_LATCH', 'D_FLIP_FLOP'];
     for (const label of labels) {
       await page.locator(`[data-circuit-component="${label}"]`).click();
       await page.waitForTimeout(200);
@@ -179,7 +179,7 @@ test.describe('AC-124-002: Circuit Node Placement', () => {
     
     await page.waitForTimeout(500);
     const nodeCount = await page.locator('.circuit-node').count();
-    expect(nodeCount).toBe(9);
+    expect(nodeCount).toBe(14);
   });
 });
 
@@ -707,7 +707,7 @@ test.describe('AC-124-006: Toolbar Circuit Mode Toggle', () => {
     
     await page.locator('[data-tutorial-action="toolbar-circuit-mode"]').click();
     await page.waitForTimeout(500);
-    expect(await page.locator('[data-circuit-component]').count()).toBe(9);
+    expect(await page.locator('[data-circuit-component]').count()).toBe(14);
   });
 
   test('circuit mode toggle button has correct aria-pressed state', async ({ page }) => {

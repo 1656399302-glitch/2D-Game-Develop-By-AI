@@ -2,6 +2,7 @@
  * Circuit Simulation Type Definitions
  * 
  * Round 121: Circuit Simulation Engine
+ * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop types
  * 
  * Defines types for logic gates, signal states, and circuit simulation.
  */
@@ -28,7 +29,7 @@ export const SignalStateLabels: Record<string, string> = {
 // ============================================================================
 
 /**
- * Supported logic gate types
+ * Supported logic gate types (including sequential/memory elements)
  */
 export type GateType = 
   | 'AND' 
@@ -37,12 +38,20 @@ export type GateType =
   | 'NAND' 
   | 'NOR' 
   | 'XOR' 
-  | 'XNOR';
+  | 'XNOR'
+  | 'TIMER'
+  | 'COUNTER'
+  | 'SR_LATCH'
+  | 'D_LATCH'
+  | 'D_FLIP_FLOP';
 
 /**
  * All supported gate types
  */
-export const ALL_GATE_TYPES: GateType[] = ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR'];
+export const ALL_GATE_TYPES: GateType[] = [
+  'AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR',
+  'TIMER', 'COUNTER', 'SR_LATCH', 'D_LATCH', 'D_FLIP_FLOP',
+];
 
 /**
  * Gate input count requirements
@@ -55,6 +64,11 @@ export const GATE_INPUT_COUNTS: Record<GateType, number> = {
   'NOR': 2,
   'XOR': 2,
   'XNOR': 2,
+  'TIMER': 2,      // trigger, reset
+  'COUNTER': 3,    // increment, decrement, reset
+  'SR_LATCH': 2,   // Set, Reset
+  'D_LATCH': 2,    // Data, Enable
+  'D_FLIP_FLOP': 2, // Data, Clock
 };
 
 // ============================================================================
@@ -104,6 +118,56 @@ export interface GateNode extends CircuitNode {
   output: SignalState;
   /** Input signals (indexed by input port index) */
   inputs: Map<number, SignalState>;
+}
+
+/**
+ * Timer state for simulation
+ */
+export interface TimerState {
+  /** Current tick count (0 to delay-1) */
+  tickCount: number;
+  /** Whether timer is active (counting down) */
+  isActive: boolean;
+  /** Whether timer has completed */
+  done: boolean;
+  /** Previous trigger state (for edge detection) */
+  prevTrigger: SignalState;
+  /** Configured delay in ticks */
+  delay: number;
+  /** Output signal */
+  output: SignalState;
+}
+
+/**
+ * Counter state for simulation
+ */
+export interface CounterState {
+  /** Current count value */
+  count: number;
+  /** Maximum value (wraps at max+1) */
+  maxValue: number;
+  /** Whether overflow occurred on last operation */
+  overflow: SignalState;
+  /** Previous increment state (for edge detection) */
+  prevIncrement: SignalState;
+  /** Previous decrement state (for edge detection) */
+  prevDecrement: SignalState;
+}
+
+/**
+ * Memory element state for simulation
+ */
+export interface MemoryState {
+  /** Current Q output */
+  q: SignalState;
+  /** Current Q-bar output */
+  qBar: SignalState;
+  /** Previous clock state (for edge detection in flip-flops) */
+  prevClock: SignalState;
+  /** Previous enable state (for level detection in latches) */
+  prevEnable: SignalState;
+  /** Whether S=R=HIGH (invalid state for SR Latch) */
+  invalidState: boolean;
 }
 
 // ============================================================================
@@ -190,9 +254,10 @@ export const TWO_INPUT_TRUTH_TABLE: TruthTable = [
 ];
 
 /**
- * Truth tables for all gate types
+ * Truth tables for all gate types (combinational gates only)
+ * Note: Timer, Counter, and Memory elements are stateful and handled separately
  */
-export const GATE_TRUTH_TABLES: Record<GateType, TruthTable> = {
+export const GATE_TRUTH_TABLES: Record<Exclude<GateType, 'TIMER' | 'COUNTER' | 'SR_LATCH' | 'D_LATCH' | 'D_FLIP_FLOP'>, TruthTable> = {
   'AND': [
     { inputs: [false, false], output: false },
     { inputs: [false, true], output: false },

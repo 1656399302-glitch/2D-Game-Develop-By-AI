@@ -3,6 +3,7 @@
  * 
  * Round 122: Circuit Canvas Integration
  * Round 123: Added port click handlers for wire drawing
+ * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop shapes
  * 
  * Renders circuit nodes (gates, InputNode, OutputNode) on the canvas
  * with signal state visualization.
@@ -92,6 +93,144 @@ const XNORGateShape: React.FC<{ signalColor: string; width: number; height: numb
 );
 
 // ============================================================================
+// Sequential/Memory Component SVG Shapes
+// ============================================================================
+
+const TimerGateShape: React.FC<{ signalColor: string; width: number; height: number; onPortClick?: (portIndex: number, isOutput: boolean) => void; done?: boolean; isActive?: boolean }> = ({ signalColor, width, height, onPortClick, done = false, isActive = false }) => {
+  const doneColor = done ? '#22c55e' : signalColor;
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70" className="gate-shape">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="rgba(15, 23, 42, 0.9)" stroke={doneColor} strokeWidth="2" />
+      <circle cx="25" cy="30" r="12" fill="none" stroke={doneColor} strokeWidth="2" />
+      <line x1="25" y1="30" x2="25" y2="22" stroke={doneColor} strokeWidth="2" />
+      <line x1="25" y1="30" x2="31" y2="30" stroke={doneColor} strokeWidth="2" />
+      <text x="60" y="28" textAnchor="middle" fill={doneColor} fontSize="14" fontFamily="monospace" fontWeight="bold">{done ? '✓' : '...'}</text>
+      <text x="40" y="55" textAnchor="middle" fill={doneColor} fontSize="8" fontFamily="monospace">TMR</text>
+      {isActive && <rect x="5" y="5" width="70" height="60" rx="6" fill="none" stroke={signalColor} strokeWidth="2" opacity="0.5"><animate attributeName="opacity" values="0.5;0;0.5" dur="1s" repeatCount="indefinite" /></rect>}
+      {/* Trigger input */}
+      <circle cx="0" cy="25" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="28" fill={signalColor} fontSize="6" fontFamily="monospace">T</text>
+      {/* Reset input */}
+      <circle cx="0" cy="45" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="48" fill={signalColor} fontSize="6" fontFamily="monospace">R</text>
+      {/* Output Q */}
+      <circle cx="80" cy="25" r="4" fill={doneColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="28" fill={doneColor} fontSize="6" fontFamily="monospace">Q</text>
+      {/* Done flag */}
+      <circle cx="80" cy="45" r="4" fill={done ? '#22c55e' : signalColor} className="port-output" data-port-index="1" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="48" fill={doneColor} fontSize="6" fontFamily="monospace">D</text>
+    </svg>
+  );
+};
+
+const CounterGateShape: React.FC<{ signalColor: string; width: number; height: number; onPortClick?: (portIndex: number, isOutput: boolean) => void; count?: number; overflow?: boolean }> = ({ signalColor, width, height, onPortClick, count = 0, overflow = false }) => {
+  const overflowColor = overflow ? '#f59e0b' : signalColor;
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70" className="gate-shape">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="rgba(15, 23, 42, 0.9)" stroke={overflowColor} strokeWidth="2" />
+      <text x="40" y="30" textAnchor="middle" fill={overflowColor} fontSize="16" fontFamily="monospace" fontWeight="bold">{count}</text>
+      <text x="40" y="50" textAnchor="middle" fill={signalColor} fontSize="8" fontFamily="monospace">CNT</text>
+      {overflow && <text x="68" y="16" textAnchor="middle" fill="#f59e0b" fontSize="8" fontFamily="monospace">!</text>}
+      {/* Increment */}
+      <circle cx="0" cy="20" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="23" fill={signalColor} fontSize="6" fontFamily="monospace">+</text>
+      {/* Decrement */}
+      <circle cx="0" cy="40" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="43" fill={signalColor} fontSize="6" fontFamily="monospace">-</text>
+      {/* Reset */}
+      <circle cx="0" cy="55" r="4" fill={signalColor} className="port-input" data-port-index="2" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(2, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="58" fill={signalColor} fontSize="6" fontFamily="monospace">R</text>
+      {/* Output Q */}
+      <circle cx="80" cy="25" r="4" fill={overflowColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="28" fill={overflowColor} fontSize="6" fontFamily="monospace">Q</text>
+      {/* Overflow */}
+      <circle cx="80" cy="45" r="4" fill={overflow ? '#f59e0b' : signalColor} className="port-output" data-port-index="1" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="48" fill={overflowColor} fontSize="6" fontFamily="monospace">OV</text>
+    </svg>
+  );
+};
+
+const SRLatchGateShape: React.FC<{ signalColor: string; width: number; height: number; onPortClick?: (portIndex: number, isOutput: boolean) => void; q?: boolean; invalidState?: boolean }> = ({ signalColor, width, height, onPortClick, q = false, invalidState = false }) => {
+  const qColor = invalidState ? '#ef4444' : q ? '#22c55e' : signalColor;
+  const borderColor = invalidState ? '#ef4444' : signalColor;
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70" className="gate-shape">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="rgba(15, 23, 42, 0.9)" stroke={borderColor} strokeWidth="2" />
+      <text x="40" y="22" textAnchor="middle" fill={borderColor} fontSize="14" fontFamily="monospace" fontWeight="bold">SR</text>
+      <text x="20" y="45" textAnchor="middle" fill={qColor} fontSize="12" fontFamily="monospace">Q:{q?'1':'0'}</text>
+      <text x="60" y="45" textAnchor="middle" fill={qColor} fontSize="12" fontFamily="monospace">Q̅:{!q?'1':'0'}</text>
+      {invalidState && <><rect x="5" y="5" width="70" height="60" rx="6" fill="none" stroke="#ef4444" strokeWidth="3" opacity="0.7"><animate attributeName="opacity" values="0.7;0.3;0.7" dur="0.5s" repeatCount="indefinite" /></rect><text x="40" y="60" textAnchor="middle" fill="#ef4444" fontSize="8" fontFamily="monospace">ERR</text></>}
+      {/* Set input */}
+      <circle cx="0" cy="20" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="23" fill={signalColor} fontSize="6" fontFamily="monospace">S</text>
+      {/* Reset input */}
+      <circle cx="0" cy="40" r="4" fill={signalColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="43" fill={signalColor} fontSize="6" fontFamily="monospace">R</text>
+      {/* Q output */}
+      <circle cx="80" cy="25" r="4" fill={qColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="28" fill={qColor} fontSize="6" fontFamily="monospace">Q</text>
+      {/* Q-bar output */}
+      <circle cx="80" cy="45" r="4" fill={qColor} className="port-output" data-port-index="1" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="48" fill={qColor} fontSize="6" fontFamily="monospace">Q̅</text>
+    </svg>
+  );
+};
+
+const DLatchGateShape: React.FC<{ signalColor: string; width: number; height: number; onPortClick?: (portIndex: number, isOutput: boolean) => void; q?: boolean; enable?: boolean }> = ({ signalColor, width, height, onPortClick, q = false, enable = false }) => {
+  const qColor = q ? '#22c55e' : signalColor;
+  const enableColor = enable ? '#22c55e' : signalColor;
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70" className="gate-shape">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
+      <text x="40" y="22" textAnchor="middle" fill={signalColor} fontSize="14" fontFamily="monospace" fontWeight="bold">D</text>
+      <text x="40" y="35" textAnchor="middle" fill={enableColor} fontSize="8" fontFamily="monospace">E:{enable?'1':'0'}</text>
+      <text x="20" y="50" textAnchor="middle" fill={qColor} fontSize="12" fontFamily="monospace">Q:{q?'1':'0'}</text>
+      <text x="60" y="50" textAnchor="middle" fill={qColor} fontSize="12" fontFamily="monospace">Q̅:{!q?'1':'0'}</text>
+      {/* Data input */}
+      <circle cx="0" cy="20" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="23" fill={signalColor} fontSize="6" fontFamily="monospace">D</text>
+      {/* Enable input */}
+      <circle cx="0" cy="40" r="4" fill={enableColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="43" fill={enableColor} fontSize="6" fontFamily="monospace">E</text>
+      {/* Q output */}
+      <circle cx="80" cy="25" r="4" fill={qColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="28" fill={qColor} fontSize="6" fontFamily="monospace">Q</text>
+      {/* Q-bar output */}
+      <circle cx="80" cy="45" r="4" fill={qColor} className="port-output" data-port-index="1" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="48" fill={qColor} fontSize="6" fontFamily="monospace">Q̅</text>
+    </svg>
+  );
+};
+
+const DFlipFlopGateShape: React.FC<{ signalColor: string; width: number; height: number; onPortClick?: (portIndex: number, isOutput: boolean) => void; q?: boolean; clock?: boolean }> = ({ signalColor, width, height, onPortClick, q = false, clock = false }) => {
+  const qColor = q ? '#22c55e' : signalColor;
+  const clockColor = clock ? '#22c55e' : signalColor;
+  return (
+    <svg width={width} height={height} viewBox="0 0 80 70" className="gate-shape">
+      <rect x="5" y="5" width="70" height="60" rx="6" fill="rgba(15, 23, 42, 0.9)" stroke={signalColor} strokeWidth="2" />
+      <text x="40" y="18" textAnchor="middle" fill={signalColor} fontSize="12" fontFamily="monospace" fontWeight="bold">D-FF</text>
+      <polygon points="35,22 43,22 39,28" fill={clockColor} />
+      <text x="55" y="27" textAnchor="middle" fill={clockColor} fontSize="7" fontFamily="monospace">CLK</text>
+      <text x="20" y="48" textAnchor="middle" fill={qColor} fontSize="12" fontFamily="monospace">Q:{q?'1':'0'}</text>
+      <text x="60" y="48" textAnchor="middle" fill={qColor} fontSize="12" fontFamily="monospace">Q̅:{!q?'1':'0'}</text>
+      <text x="40" y="60" textAnchor="middle" fill={signalColor} fontSize="6" fontFamily="monospace">↑</text>
+      {/* Data input */}
+      <circle cx="0" cy="20" r="4" fill={signalColor} className="port-input" data-port-index="0" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="23" fill={signalColor} fontSize="6" fontFamily="monospace">D</text>
+      {/* Clock input */}
+      <circle cx="0" cy="40" r="4" fill={clockColor} className="port-input" data-port-index="1" data-port-type="input" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, false); }} style={{ cursor: 'pointer' }} />
+      <text x="6" y="43" fill={clockColor} fontSize="6" fontFamily="monospace">CLK</text>
+      {/* Q output */}
+      <circle cx="80" cy="25" r="4" fill={qColor} className="port-output" data-port-index="0" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(0, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="28" fill={qColor} fontSize="6" fontFamily="monospace">Q</text>
+      {/* Q-bar output */}
+      <circle cx="80" cy="45" r="4" fill={qColor} className="port-output" data-port-index="1" data-port-type="output" onClick={(e) => { e.stopPropagation(); onPortClick?.(1, true); }} style={{ cursor: 'pointer' }} />
+      <text x="72" y="48" fill={qColor} fontSize="6" fontFamily="monospace">Q̅</text>
+    </svg>
+  );
+};
+
+// ============================================================================
 // Node Components
 // ============================================================================
 
@@ -154,6 +293,23 @@ const GateNodeCanvas: React.FC<{ node: PlacedGateNode; isSelected: boolean; cycl
       case 'NOR': return <NORGateShape {...shapeProps} />;
       case 'XOR': return <XORGateShape {...shapeProps} />;
       case 'XNOR': return <XNORGateShape {...shapeProps} />;
+      case 'TIMER': return <TimerGateShape {...shapeProps} done={node.output} isActive={false} />;
+      case 'COUNTER': {
+        const params = node.parameters as { maxValue?: number; count?: number; overflow?: boolean } | undefined;
+        return <CounterGateShape {...shapeProps} count={params?.count ?? 0} overflow={params?.overflow ?? false} />;
+      }
+      case 'SR_LATCH': {
+        const params = node.parameters as { q?: boolean; invalidState?: boolean } | undefined;
+        return <SRLatchGateShape {...shapeProps} q={params?.q ?? false} invalidState={params?.invalidState ?? false} />;
+      }
+      case 'D_LATCH': {
+        const params = node.parameters as { q?: boolean; enable?: boolean } | undefined;
+        return <DLatchGateShape {...shapeProps} q={params?.q ?? false} enable={params?.enable ?? false} />;
+      }
+      case 'D_FLIP_FLOP': {
+        const params = node.parameters as { q?: boolean; clock?: boolean } | undefined;
+        return <DFlipFlopGateShape {...shapeProps} q={params?.q ?? false} clock={params?.clock ?? false} />;
+      }
       default: return null;
     }
   };

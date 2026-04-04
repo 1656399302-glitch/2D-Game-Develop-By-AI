@@ -2,6 +2,7 @@
  * Circuit Simulator Tests
  * 
  * Round 121: Circuit Simulation Engine
+ * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop tests
  * 
  * Tests for logic gate truth tables and BFS propagation.
  */
@@ -16,6 +17,12 @@ import {
   createGateNode,
   createConnection,
   resetCounters,
+  resetComponentStates,
+  evaluateTimer,
+  evaluateCounter,
+  evaluateSRLatch,
+  evaluateDLatch,
+  evaluateDFlipFlop,
 } from '../circuitSimulator';
 import {
   GateType,
@@ -170,6 +177,7 @@ describe('evaluateGate function', () => {
 describe('buildCircuitGraph', () => {
   beforeEach(() => {
     resetCounters();
+    resetComponentStates();
   });
 
   it('creates graph with all nodes', () => {
@@ -215,12 +223,342 @@ describe('buildCircuitGraph', () => {
 });
 
 // ============================================================================
+// Timer Evaluation Tests
+// ============================================================================
+
+describe('evaluateTimer', () => {
+  beforeEach(() => {
+    resetComponentStates();
+  });
+
+  it('initial state is idle with output LOW', () => {
+    const result = evaluateTimer('timer1', false, false, 5);
+    
+    expect(result.output).toBe(false);
+    expect(result.done).toBe(false);
+    expect(result.state.tickCount).toBe(0);
+    expect(result.state.isActive).toBe(false);
+  });
+
+  it('starts counting on rising edge of trigger', () => {
+    // First call with trigger rising
+    const result1 = evaluateTimer('timer2', true, false, 5);
+    expect(result1.output).toBe(false);
+    expect(result1.done).toBe(false);
+    expect(result1.state.isActive).toBe(true);
+    expect(result1.state.tickCount).toBe(1);
+    
+    // Second tick - trigger still high, but need to simulate clock tick
+    // In real circuit, trigger would stay high and timer counts on each simulation tick
+    const result2 = evaluateTimer('timer2', true, false, 5);
+    expect(result2.state.tickCount).toBe(2);
+  });
+
+  it('completes after delay ticks', () => {
+    const delay = 3;
+    
+    // Tick 1
+    evaluateTimer('timer3', true, false, delay);
+    // Tick 2
+    evaluateTimer('timer3', true, false, delay);
+    // Tick 3 - completes
+    const result = evaluateTimer('timer3', true, false, delay);
+    
+    expect(result.output).toBe(true);
+    expect(result.done).toBe(true);
+    expect(result.state.isActive).toBe(false);
+  });
+
+  it('reset immediately clears timer', () => {
+    // Start timer
+    evaluateTimer('timer4', true, false, 5);
+    evaluateTimer('timer4', true, false, 5);
+    
+    // Reset
+    const result = evaluateTimer('timer4', false, true, 5);
+    
+    expect(result.output).toBe(false);
+    expect(result.done).toBe(false);
+    expect(result.state.tickCount).toBe(0);
+    expect(result.state.isActive).toBe(false);
+  });
+
+  it('timer continues while trigger stays high', () => {
+    // Rising edge starts timer
+    evaluateTimer('timer5', true, false, 5);
+    evaluateTimer('timer5', true, false, 5);
+    
+    // Trigger still high - timer continues (level-sensitive behavior)
+    const result = evaluateTimer('timer5', true, false, 5);
+    expect(result.state.isActive).toBe(true);
+    expect(result.state.tickCount).toBe(3);
+  });
+});
+
+// ============================================================================
+// Counter Evaluation Tests
+// ============================================================================
+
+describe('evaluateCounter', () => {
+  beforeEach(() => {
+    resetComponentStates();
+  });
+  
+  // Helper to simulate a clock pulse (HIGH then LOW)
+  const pulse = (id: string, signal: 'inc' | 'dec', max: number, count: number): number => {
+    const isInc = signal === 'inc';
+    const signalHigh = isInc ? true : false;
+    const signalLow = false;
+    
+    // Rising edge
+    const result1 = evaluateCounter(id, signalHigh, signalLow, false, max);
+    // Falling edge (to reset for next pulse)
+    const result2 = evaluateCounter(id, signalLow, signalLow, false, max);
+    
+    return result2.state.count;
+  };
+
+  it('initial state is 0 with no overflow', () => {
+    const result = evaluateCounter('counter1', false, false, false, 8);
+    
+    expect(result.output).toBe(false); // 0 is LOW
+    expect(result.overflow).toBe(false);
+    expect(result.state.count).toBe(0);
+  });
+
+  it('increments on rising edge of increment', () => {
+    // Rising edge
+    const result1 = evaluateCounter('counter2', true, false, false, 8);
+    expect(result1.state.count).toBe(1);
+    expect(result1.state.prevIncrement).toBe(true);
+    
+    // Fall to reset for next rising edge
+    evaluateCounter('counter2', false, false, false, 8);
+    
+    // Rising edge again
+    const result2 = evaluateCounter('counter2', true, false, false, 8);
+    expect(result2.state.count).toBe(2);
+  });
+
+  it('wraps to 0 on overflow', () => {
+    const max = 3;
+    
+    // 4 rising edges to wrap: 0->1->2->3->0
+    // Rising 1
+    evaluateCounter('counter3', true, false, false, max);
+    evaluateCounter('counter3', false, false, false, max);
+    // Rising 2
+    evaluateCounter('counter3', true, false, false, max);
+    evaluateCounter('counter3', false, false, false, max);
+    // Rising 3
+    evaluateCounter('counter3', true, false, false, max);
+    evaluateCounter('counter3', false, false, false, max);
+    // Rising 4 (wraps)
+    evaluateCounter('counter3', true, false, false, max);
+    evaluateCounter('counter3', false, false, false, max);
+    
+    const result = evaluateCounter('counter3', false, false, false, max);
+    expect(result.state.count).toBe(0);
+    expect(result.overflow).toBe(true);
+  });
+
+  it('decrements on rising edge of decrement', () => {
+    // Set count to 3 first (3 rising edges)
+    evaluateCounter('counter4', true, false, false, 8);
+    evaluateCounter('counter4', false, false, false, 8);
+    evaluateCounter('counter4', true, false, false, 8);
+    evaluateCounter('counter4', false, false, false, 8);
+    evaluateCounter('counter4', true, false, false, 8);
+    evaluateCounter('counter4', false, false, false, 8);
+    
+    // Decrement - falling then rising
+    evaluateCounter('counter4', false, true, false, 8);
+    const result = evaluateCounter('counter4', false, false, false, 8);
+    expect(result.state.count).toBe(2);
+  });
+
+  it('wraps to max on underflow', () => {
+    const max = 3;
+    
+    // Decrement from 0 wraps to max
+    evaluateCounter('counter5', false, true, false, max);
+    const result = evaluateCounter('counter5', false, false, false, max);
+    
+    expect(result.state.count).toBe(max);
+    expect(result.overflow).toBe(true);
+  });
+
+  it('reset sets count to 0', () => {
+    // Set count to 5
+    for (let i = 0; i < 5; i++) {
+      evaluateCounter('counter6', true, false, false, 8);
+      evaluateCounter('counter6', false, false, false, 8);
+    }
+    
+    // Reset
+    const result = evaluateCounter('counter6', false, false, true, 8);
+    
+    expect(result.state.count).toBe(0);
+    expect(result.overflow).toBe(false);
+  });
+});
+
+// ============================================================================
+// SR Latch Evaluation Tests
+// ============================================================================
+
+describe('evaluateSRLatch', () => {
+  beforeEach(() => {
+    resetComponentStates();
+  });
+
+  it('initial state is Q=LOW, Q-bar=HIGH', () => {
+    const result = evaluateSRLatch('srlatch1', false, false);
+    
+    expect(result.q).toBe(false);
+    expect(result.qBar).toBe(true);
+    expect(result.invalidState).toBe(false);
+  });
+
+  it('Set=HIGH, Reset=LOW → Q=HIGH', () => {
+    const result = evaluateSRLatch('srlatch2', true, false);
+    
+    expect(result.q).toBe(true);
+    expect(result.qBar).toBe(false);
+    expect(result.invalidState).toBe(false);
+  });
+
+  it('Set=LOW, Reset=HIGH → Q=LOW', () => {
+    const result = evaluateSRLatch('srlatch3', false, true);
+    
+    expect(result.q).toBe(false);
+    expect(result.qBar).toBe(true);
+    expect(result.invalidState).toBe(false);
+  });
+
+  it('Set=LOW, Reset=LOW → holds state', () => {
+    // Set Q=HIGH first
+    evaluateSRLatch('srlatch4', true, false);
+    
+    // Now hold
+    const result = evaluateSRLatch('srlatch4', false, false);
+    expect(result.q).toBe(true);
+    expect(result.qBar).toBe(false);
+  });
+
+  it('Set=HIGH, Reset=HIGH → invalid state', () => {
+    const result = evaluateSRLatch('srlatch5', true, true);
+    
+    expect(result.q).toBe(false);
+    expect(result.qBar).toBe(false);
+    expect(result.invalidState).toBe(true);
+  });
+});
+
+// ============================================================================
+// D Latch Evaluation Tests
+// ============================================================================
+
+describe('evaluateDLatch', () => {
+  beforeEach(() => {
+    resetComponentStates();
+  });
+
+  it('E=LOW → holds state', () => {
+    // Set Q=HIGH first
+    evaluateDLatch('dlatch1', true, true);
+    evaluateDLatch('dlatch1', true, false); // Disable
+    
+    // Now E=LOW, should hold
+    const result = evaluateDLatch('dlatch1', false, false);
+    expect(result.q).toBe(true);
+    expect(result.qBar).toBe(false);
+  });
+
+  it('E=HIGH, D=HIGH → Q=HIGH', () => {
+    const result = evaluateDLatch('dlatch2', true, true);
+    
+    expect(result.q).toBe(true);
+    expect(result.qBar).toBe(false);
+  });
+
+  it('E=HIGH, D=LOW → Q=LOW', () => {
+    const result = evaluateDLatch('dlatch3', false, true);
+    
+    expect(result.q).toBe(false);
+    expect(result.qBar).toBe(true);
+  });
+});
+
+// ============================================================================
+// D Flip-Flop Evaluation Tests
+// ============================================================================
+
+describe('evaluateDFlipFlop', () => {
+  beforeEach(() => {
+    resetComponentStates();
+  });
+
+  it('CLK=LOW → holds state', () => {
+    // Rising edge sets Q=HIGH
+    evaluateDFlipFlop('dff1', true, false); // CLK rises to HIGH
+    evaluateDFlipFlop('dff1', true, true); // CLK stays HIGH
+    
+    // CLK falls to LOW - should still hold
+    const result = evaluateDFlipFlop('dff1', false, false);
+    expect(result.q).toBe(true);
+  });
+
+  it('rising edge samples D', () => {
+    // Initial state
+    evaluateDFlipFlop('dff2', false, false); // CLK=LOW
+    
+    // Rising edge with D=HIGH
+    const result = evaluateDFlipFlop('dff2', true, true);
+    expect(result.q).toBe(true);
+  });
+
+  it('D changes while CLK=HIGH → Q unchanged', () => {
+    // Rising edge with D=HIGH
+    evaluateDFlipFlop('dff3', false, false); // CLK=LOW
+    evaluateDFlipFlop('dff3', true, true); // Rising, D=HIGH, Q sampled
+    
+    // Change D while CLK still HIGH
+    const result = evaluateDFlipFlop('dff3', false, true); // D changes, but Q should still be HIGH
+    expect(result.q).toBe(true);
+  });
+
+  it('falling edge → no change', () => {
+    // Rising edge sets Q=HIGH
+    evaluateDFlipFlop('dff4', false, false);
+    evaluateDFlipFlop('dff4', true, true);
+    
+    // Falling edge - should still hold
+    const result = evaluateDFlipFlop('dff4', false, false);
+    expect(result.q).toBe(true);
+  });
+
+  it('next rising edge samples current D', () => {
+    // Rising edge with D=HIGH
+    evaluateDFlipFlop('dff5', false, false);
+    evaluateDFlipFlop('dff5', true, true);
+    
+    // CLK goes LOW, then D changes
+    evaluateDFlipFlop('dff5', false, false);
+    evaluateDFlipFlop('dff5', false, true); // Rising edge, D=LOW
+    
+    expect(evaluateDFlipFlop('dff5', false, false).q).toBe(false);
+  });
+});
+
+// ============================================================================
 // BFS Propagation Tests
 // ============================================================================
 
 describe('propagateSignals', () => {
   beforeEach(() => {
     resetCounters();
+    resetComponentStates();
   });
 
   it('propagates through simple input -> gate -> output circuit', () => {
@@ -381,6 +719,7 @@ describe('propagateSignals', () => {
 describe('Node creation helpers', () => {
   beforeEach(() => {
     resetCounters();
+    resetComponentStates();
   });
 
   it('creates input nodes with correct structure', () => {
