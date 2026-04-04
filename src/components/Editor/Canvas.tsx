@@ -159,7 +159,8 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   const isDrawingCircuitWire = useCircuitCanvasStore((state) => state.isDrawingWire);
   const circuitWireStart = useCircuitCanvasStore((state) => state.wireStart);
   const circuitWirePreviewEnd = useCircuitCanvasStore((state) => state.wirePreviewEnd);
-  // cycleAffectedNodeIds available from store for future cycle warning rendering
+  // Round 125: Subscribe to cycleAffectedNodeIds for cycle warning rendering
+  const cycleAffectedNodeIds = useCircuitCanvasStore((state) => state.cycleAffectedNodeIds);
   const selectCircuitNode = useCircuitCanvasStore((state) => state.selectCircuitNode);
   const selectCircuitWire = useCircuitCanvasStore((state) => state.selectCircuitWire);
   const updateCircuitNodePosition = useCircuitCanvasStore((state) => state.updateNodePosition);
@@ -1490,6 +1491,7 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
                 key={node.id}
                 node={node}
                 isSelected={node.id === selectedCircuitNodeId}
+                cycleWarning={cycleAffectedNodeIds.includes(node.id)}
                 onClick={handleCircuitNodeClick}
                 onDragStart={handleCircuitNodeDragStart}
                 onInputToggle={handleCircuitInputToggle}

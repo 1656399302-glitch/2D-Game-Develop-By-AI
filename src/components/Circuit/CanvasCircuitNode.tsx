@@ -101,7 +101,7 @@ const InputNodeCanvas: React.FC<{ node: PlacedInputNode; isSelected: boolean; cy
   const borderColor = cycleWarning ? '#ef4444' : isSelected ? SIGNAL_COLORS.SELECTED : signalColor;
   
   return (
-    <g className="circuit-node input-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="input" data-node-id={node.id} data-state={node.state ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'}>
+    <g className="circuit-node input-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="input" data-node-id={node.id} data-state={node.state ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'} data-cycle-warning={cycleWarning ? 'true' : 'false'}>
       {(isSelected || cycleWarning) && <rect x="-4" y="-4" width={size.width + 8} height={size.height + 8} rx="6" fill="none" stroke={borderColor} strokeWidth="2" strokeDasharray={cycleWarning ? '4 2' : 'none'} />}
       <rect x="0" y="0" width={size.width} height={size.height} rx="8" fill="rgba(15, 23, 42, 0.95)" stroke={signalColor} strokeWidth="2" />
       <circle cx={size.width / 2} cy={size.height / 2 - 4} r="12" fill={signalColor} style={{ filter: node.state ? `drop-shadow(0 0 8px ${signalColor})` : 'none' }} />
@@ -121,7 +121,7 @@ const OutputNodeCanvas: React.FC<{ node: PlacedOutputNode; isSelected: boolean; 
   const borderColor = cycleWarning ? '#ef4444' : isSelected ? SIGNAL_COLORS.SELECTED : signalColor;
   
   return (
-    <g className="circuit-node output-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="output" data-node-id={node.id} data-signal={node.inputSignal ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'}>
+    <g className="circuit-node output-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="output" data-node-id={node.id} data-signal={node.inputSignal ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'} data-cycle-warning={cycleWarning ? 'true' : 'false'}>
       {(isSelected || cycleWarning) && <rect x="-4" y="-4" width={size.width + 8} height={size.height + 8} rx="6" fill="none" stroke={borderColor} strokeWidth="2" strokeDasharray={cycleWarning ? '4 2' : 'none'} />}
       <rect x="0" y="0" width={size.width} height={size.height} rx="8" fill="rgba(15, 23, 42, 0.95)" stroke={signalColor} strokeWidth="2" />
       <circle cx={size.width / 2} cy={size.height / 2} r="18" fill="none" stroke={signalColor} strokeWidth="2" opacity="0.5" />
@@ -159,7 +159,7 @@ const GateNodeCanvas: React.FC<{ node: PlacedGateNode; isSelected: boolean; cycl
   };
   
   return (
-    <g className="circuit-node gate-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="gate" data-node-id={node.id} data-gate-type={node.gateType} data-output={node.output ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'}>
+    <g className="circuit-node gate-node" onClick={onClick} style={{ cursor: 'pointer' }} data-node-type="gate" data-node-id={node.id} data-gate-type={node.gateType} data-output={node.output ? 'HIGH' : 'LOW'} data-selected={isSelected ? 'true' : 'false'} data-cycle-warning={cycleWarning ? 'true' : 'false'}>
       {(isSelected || cycleWarning) && <rect x="-6" y="-6" width={size.width + 12} height={size.height + 20} rx="4" fill="none" stroke={borderColor} strokeWidth="2" strokeDasharray={cycleWarning ? '4 2' : 'none'} />}
       {renderGateShape()}
       <text x={size.width / 2} y={size.height + 16} textAnchor="middle" fill={signalColor} fontSize="12" fontFamily="monospace" fontWeight="bold">{node.gateType}</text>

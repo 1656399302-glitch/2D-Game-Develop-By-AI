@@ -169,6 +169,8 @@ export interface CanvasCircuitNodeProps {
   isSelected?: boolean;
   /** Viewport zoom level */
   zoom?: number;
+  /** Whether node is affected by cycle detection */
+  cycleWarning?: boolean;
   /** Click handler */
   onClick?: (nodeId: string) => void;
   /** Drag start handler */
