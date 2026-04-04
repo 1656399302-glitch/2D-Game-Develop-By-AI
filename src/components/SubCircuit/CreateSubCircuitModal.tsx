@@ -3,7 +3,8 @@
  * 
  * Round 129: Sub-circuit Module System
  * Round 132: Fixed to accept selectedModuleIds and create sub-circuit
- * Round 133: Fixed Escape key handler with global event listener
+ * Round 133: Added global event listener for Escape key
+ * Round 134: Fixed Escape key to work when input is focused (removed early return)
  * 
  * Modal for naming and creating sub-circuits from selected modules.
  */
@@ -76,17 +77,16 @@ export const CreateSubCircuitModal: React.FC<CreateSubCircuitModalProps> = ({
     }
   }, [isOpen]);
   
-  // Round 133: Global keyboard event listener for Escape key
+  // Round 134 FIX: Global keyboard event listener for Escape key
+  // Escape now closes modal regardless of focus state
   useEffect(() => {
     if (!isOpen) return;
     
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        // Don't trigger if user is typing in an input
-        if (document.activeElement?.tagName === 'INPUT' || 
-            document.activeElement?.tagName === 'TEXTAREA') {
-          return;
-        }
+        // FIXED: Remove early return - Escape now closes modal regardless of focus
+        // Previously had: if (document.activeElement?.tagName === 'INPUT' || ...) return;
+        // This prevented Escape from closing the modal when input was focused
         e.preventDefault();
         onClose();
       }
