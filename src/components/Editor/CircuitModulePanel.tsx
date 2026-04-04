@@ -4,6 +4,7 @@
  * Round 122: Circuit Canvas Integration
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop
  * Round 129: Added Custom Sub-Circuit section
+ * Round 130: Fixed Custom section to always render (show empty state when no sub-circuits)
  * 
  * Module panel section for circuit components (gates, InputNode, OutputNode).
  * This is integrated into the main ModulePanel.
@@ -348,7 +349,7 @@ export interface CircuitModulePanelProps {
 /**
  * Circuit Module Panel Component
  * Displays circuit components (gates, InputNode, OutputNode) for placement on canvas
- * Round 129: Also displays custom sub-circuits
+ * Round 129/130: Also displays custom sub-circuits with empty state support
  */
 export function CircuitModulePanel({
   isCircuitMode: _isCircuitModeProp = false,
@@ -516,76 +517,89 @@ export function CircuitModulePanel({
             </div>
           )}
           
-          {/* Custom Sub-Circuits Section (Round 129) */}
-          {isCircuitMode && sortedSubCircuits.length > 0 && (
-            <div className="mt-4">
-              <button
-                onClick={() => setIsCustomExpanded(!isCustomExpanded)}
-                className="w-full flex items-center justify-between px-2 py-2 text-xs font-semibold text-[#8b5cf6] hover:bg-[#1e2a42] rounded transition-colors"
-                aria-expanded={isCustomExpanded}
-                data-custom-section-toggle
+          {/* Custom Sub-Circuits Section (Round 129/130) */}
+          {/* Fixed: Always render the section, show empty state when no sub-circuits */}
+          <div className="mt-4">
+            <button
+              onClick={() => setIsCustomExpanded(!isCustomExpanded)}
+              className="w-full flex items-center justify-between px-2 py-2 text-xs font-semibold text-[#8b5cf6] hover:bg-[#1e2a42] rounded transition-colors"
+              aria-expanded={isCustomExpanded}
+              data-custom-section-toggle
+            >
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
+                自定义
+                <span className="text-[#6b7280]">({sortedSubCircuits.length})</span>
+              </span>
+              <svg
+                className={`w-3 h-3 transition-transform ${isCustomExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
-                  自定义
-                  <span className="text-[#6b7280]">({sortedSubCircuits.length})</span>
-                </span>
-                <svg
-                  className={`w-3 h-3 transition-transform ${isCustomExpanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {isCustomExpanded && (
-                <div className="grid grid-cols-2 gap-2 mt-2" role="group" aria-label="自定义子电路" data-custom-subcircuits>
-                  {sortedSubCircuits.map((subCircuit) => (
-                    <button
-                      key={subCircuit.id}
-                      onClick={() => handleSubCircuitClick(subCircuit)}
-                      className={`
-                        circuit-component-btn p-2 rounded-lg border transition-all duration-200
-                        hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
-                        text-left
-                      `}
-                      style={{
-                        borderColor: '#8b5cf640',
-                        backgroundColor: '#8b5cf610',
-                      }}
-                      data-sub-circuit-id={subCircuit.id}
-                      data-sub-circuit-name={subCircuit.name}
-                      aria-label={`添加子电路 ${subCircuit.name}（包含${subCircuit.moduleIds.length}个模块）`}
-                    >
-                      {/* Icon */}
-                      <div className="flex justify-center mb-1" aria-hidden="true">
-                        <SubCircuitIcon color="#8b5cf6" />
-                      </div>
-                      
-                      {/* Name */}
-                      <div className="text-center">
-                        <span
-                          className="text-xs font-medium text-[#8b5cf6]"
-                          style={{ color: '#8b5cf6' }}
-                        >
-                          {subCircuit.name.length > 10 
-                            ? `${subCircuit.name.substring(0, 8)}…` 
-                            : subCircuit.name}
-                        </span>
-                      </div>
-                      
-                      {/* Module count */}
-                      <p className="text-[9px] text-[#6b7280] mt-1 text-center">
-                        {subCircuit.moduleIds.length} 模块
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {isCustomExpanded && (
+              <div className="mt-2" role="group" aria-label="自定义子电路" data-custom-subcircuits>
+                {sortedSubCircuits.length === 0 ? (
+                  /* Empty state - Round 130 fix */
+                  <div className="text-center py-6 px-3 bg-[#1a1a2e]/30 rounded-lg border border-[#1e2a42]/50" data-empty-state>
+                    <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-[#1e2a42] flex items-center justify-center">
+                      <SubCircuitIcon color="#6b7280" />
+                    </div>
+                    <p className="text-xs text-[#6b7280]">暂无自定义子电路</p>
+                    <p className="text-[10px] text-[#4a5568] mt-1">在画布上选择多个节点后点击"创建子电路"</p>
+                  </div>
+                ) : (
+                  /* Sub-circuits grid */
+                  <div className="grid grid-cols-2 gap-2">
+                    {sortedSubCircuits.map((subCircuit) => (
+                      <button
+                        key={subCircuit.id}
+                        onClick={() => handleSubCircuitClick(subCircuit)}
+                        className={`
+                          circuit-component-btn p-2 rounded-lg border transition-all duration-200
+                          hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
+                          text-left
+                        `}
+                        style={{
+                          borderColor: '#8b5cf640',
+                          backgroundColor: '#8b5cf610',
+                        }}
+                        data-sub-circuit-item={subCircuit.name}
+                        data-sub-circuit-id={subCircuit.id}
+                        aria-label={`添加子电路 ${subCircuit.name}（包含${subCircuit.moduleIds.length}个模块）`}
+                      >
+                        {/* Icon */}
+                        <div className="flex justify-center mb-1" aria-hidden="true">
+                          <SubCircuitIcon color="#8b5cf6" />
+                        </div>
+                        
+                        {/* Name */}
+                        <div className="text-center">
+                          <span
+                            className="text-xs font-medium text-[#8b5cf6]"
+                            style={{ color: '#8b5cf6' }}
+                          >
+                            {subCircuit.name.length > 10 
+                              ? `${subCircuit.name.substring(0, 8)}…` 
+                              : subCircuit.name}
+                          </span>
+                        </div>
+                        
+                        {/* Module count */}
+                        <p className="text-[9px] text-[#6b7280] mt-1 text-center">
+                          {subCircuit.moduleIds.length} 模块
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           
           {/* Help Text */}
           <p className="text-[10px] text-[#4a5568] text-center mt-3">

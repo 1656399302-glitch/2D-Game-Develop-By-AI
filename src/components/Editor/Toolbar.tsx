@@ -46,6 +46,11 @@ const useCanRedo = () => {
 // Circuit store selectors
 const useCircuitNodeCount = () => useCircuitCanvasStore((state) => state.nodes.length);
 const useIsCircuitMode = () => useCircuitCanvasStore((state) => state.isCircuitMode);
+const useSelectedCircuitNodeIds = () => {
+  return useCircuitCanvasStore((state) => {
+    return state.nodes.filter((n) => n.selected).map((n) => n.id);
+  });
+};
 
 export function Toolbar({ 
   onOpenRecipeBrowser, 
@@ -66,6 +71,7 @@ export function Toolbar({
   // Circuit mode selectors
   const circuitNodeCount = useCircuitNodeCount();
   const isCircuitMode = useIsCircuitMode();
+  const selectedCircuitNodeIds = useSelectedCircuitNodeIds();
   
   // Get action functions (stable references)
   const undo = useMachineStore((state) => state.undo);
@@ -166,6 +172,14 @@ export function Toolbar({
     setCircuitMode(false);
   }, [clearCircuitCanvas, setCircuitMode]);
 
+  // Create Sub-circuit button handler - dispatches custom event for App to handle
+  const handleCreateSubCircuit = useCallback(() => {
+    // Dispatch custom event that App.tsx will listen to
+    window.dispatchEvent(new CustomEvent('open-create-subcircuit-modal', {
+      detail: { selectedModuleIds: selectedCircuitNodeIds }
+    }));
+  }, [selectedCircuitNodeIds]);
+
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [activeLayout, setActiveLayout] = useState<LayoutType | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -262,6 +276,12 @@ export function Toolbar({
     applyLayout(layoutType);
     setShowLayoutMenu(false);
   }, [applyLayout]);
+
+  // Determine if Create Sub-circuit button should be visible
+  // Button is visible when:
+  // - Circuit mode is active
+  // - At least 2 circuit nodes are selected
+  const canShowCreateButton = isCircuitMode && selectedCircuitNodeIds.length >= 2;
 
   return (
     <>
@@ -457,6 +477,24 @@ export function Toolbar({
               <span aria-hidden="true">⚡</span>
               <span>电路模式</span>
             </button>
+
+            {/* Create Sub-circuit Button - Round 130 */}
+            {canShowCreateButton && (
+              <>
+                <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
+                <button
+                  onClick={handleCreateSubCircuit}
+                  data-create-subcircuit-button
+                  data-tutorial-action="toolbar-create-subcircuit"
+                  className="flex items-center gap-1.5 px-3 py-1 text-xs rounded border transition-colors bg-[#8b5cf6]/20 text-[#a78bfa] border-[#8b5cf6]/50 hover:bg-[#8b5cf6]/30 hover:text-white"
+                  title="从选中节点创建子电路"
+                  aria-label="创建子电路"
+                >
+                  <span aria-hidden="true">🔧</span>
+                  <span>创建子电路</span>
+                </button>
+              </>
+            )}
 
             {/* Circuit Simulation Controls - shown when circuit mode is active */}
             {isCircuitMode && (

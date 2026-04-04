@@ -18,6 +18,7 @@ import { useFactionStore } from './store/useFactionStore';
 import { useAchievementStore } from './store/useAchievementStore';
 import { useCommunityStore } from './store/useCommunityStore';
 import { useMachineStatsStore } from './store/useMachineStatsStore';
+import { useCircuitCanvasStore } from './store/useCircuitCanvasStore';
 import { hydrateExchangeStore } from './store/useExchangeStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStoreHydration } from './hooks/useStoreHydration';
@@ -83,8 +84,16 @@ const LazyRecipeToastManager = lazy(() =>
   }))
 );
 const LazyTradeNotification = lazy(() => import('./components/Exchange/TradeNotification'));
-
 const LazyRecipeBook = lazy(() => import('./components/RecipeBook/RecipeBook'));
+
+// Round 130: Lazy-loaded SubCircuitPanel for bundle optimization
+const LazySubCircuitPanel = lazy(() => import('./components/SubCircuit/SubCircuitPanel').then((module) => ({
+  default: module.SubCircuitPanel as unknown as React.ComponentType<{
+    onDelete?: (subCircuitId: string) => void;
+    onRemoveInstances?: (subCircuitId: string) => void;
+  }>
+})));
+
 type ViewMode = 'editor' | 'codex';
 
 /**
@@ -479,6 +488,24 @@ function AppContent() {
     setViewMode('editor');
   }, [loadMachine]);
   
+  // Round 130: Handle sub-circuit deletion - remove instances from canvas
+  const handleSubCircuitDelete = useCallback((_subCircuitId: string) => {
+    // Sub-circuit is already deleted from store by SubCircuitPanel
+    // This callback is for additional cleanup if needed
+  }, []);
+  
+  const handleSubCircuitRemoveInstances = useCallback((subCircuitId: string) => {
+    // Remove sub-circuit instances from circuit canvas
+    const nodes = useCircuitCanvasStore.getState().nodes;
+    const removeCircuitNode = useCircuitCanvasStore.getState().removeCircuitNode;
+    
+    // Find all nodes that are instances of this sub-circuit
+    nodes.forEach((node: any) => {
+      if (node.parameters?.isSubCircuit === true && node.parameters?.subCircuitId === subCircuitId) {
+        removeCircuitNode(node.id);
+      }
+    });
+  }, []);
 
   // Desktop layout
   if (!viewport.isMobile) {
@@ -590,7 +617,7 @@ function AppContent() {
                 ❓ 帮助
               </button>
               
-              {/* Round 113: Validation Status Bar in header - kept eager for header placement */}
+              {/* Round 113: Validation Status Bar in header - kept eager for header use */}
               <ValidationStatusBar />
               
               <button
@@ -635,7 +662,17 @@ function AppContent() {
         <div className="flex-1 flex overflow-hidden">
           {viewMode === 'editor' ? (
             <>
-              <ModulePanel />
+              {/* Left sidebar: ModulePanel + SubCircuitPanel */}
+              <div className="flex flex-col">
+                <ModulePanel />
+                {/* Round 130: SubCircuitPanel lazy loaded */}
+                <Suspense fallback={<LazyLoadingFallback height="150px" />}>
+                  <LazySubCircuitPanel 
+                    onDelete={handleSubCircuitDelete}
+                    onRemoveInstances={handleSubCircuitRemoveInstances}
+                  />
+                </Suspense>
+              </div>
               <div className="flex-1 flex">
                 {/* Round 113: Canvas with validation click handler */}
                 <div className="relative flex-1">
