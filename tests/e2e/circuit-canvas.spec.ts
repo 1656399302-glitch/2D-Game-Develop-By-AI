@@ -927,6 +927,7 @@ test.describe('AC-124-008: Cycle Detection Warning', () => {
     
     // At least one node should have cycle warning
     const cycleNodeCount = await page.locator('.circuit-node[data-cycle-warning="true"]').count();
+    expect(cycleNodeCount).toBeGreaterThan(0);
     // The cycle detection may or may not flag nodes depending on the algorithm
     // Verify that the attribute is present and functional
     const totalNodes = await page.locator('.circuit-node').count();

@@ -172,7 +172,7 @@ const GateNodeCanvas: React.FC<{ node: PlacedGateNode; isSelected: boolean; cycl
 // Main Component
 // ============================================================================
 
-export const CanvasCircuitNode: React.FC<CanvasCircuitNodeProps> = ({ node, isSelected = false, onClick, onDragStart, onInputToggle, onPortClick }) => {
+export const CanvasCircuitNode: React.FC<CanvasCircuitNodeProps> = ({ node, isSelected = false, cycleWarning = false, onClick, onDragStart, onInputToggle, onPortClick }) => {
   const handleClick = useCallback(() => { onClick?.(node.id); }, [onClick, node.id]);
   
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -189,9 +189,9 @@ export const CanvasCircuitNode: React.FC<CanvasCircuitNodeProps> = ({ node, isSe
   
   const renderNode = () => {
     switch (node.type) {
-      case 'input': return <InputNodeCanvas node={node as PlacedInputNode} isSelected={isSelected} cycleWarning={node.cycleWarning || false} onClick={handleClick} onToggle={handleToggle} onPortClick={handlePortClick} />;
-      case 'output': return <OutputNodeCanvas node={node as PlacedOutputNode} isSelected={isSelected} cycleWarning={node.cycleWarning || false} onClick={handleClick} onPortClick={handlePortClick} />;
-      case 'gate': return <GateNodeCanvas node={node as PlacedGateNode} isSelected={isSelected} cycleWarning={node.cycleWarning || false} onClick={handleClick} onPortClick={handlePortClick} />;
+      case 'input': return <InputNodeCanvas node={node as PlacedInputNode} isSelected={isSelected} cycleWarning={cycleWarning} onClick={handleClick} onToggle={handleToggle} onPortClick={handlePortClick} />;
+      case 'output': return <OutputNodeCanvas node={node as PlacedOutputNode} isSelected={isSelected} cycleWarning={cycleWarning} onClick={handleClick} onPortClick={handlePortClick} />;
+      case 'gate': return <GateNodeCanvas node={node as PlacedGateNode} isSelected={isSelected} cycleWarning={cycleWarning} onClick={handleClick} onPortClick={handlePortClick} />;
       default: return null;
     }
   };
