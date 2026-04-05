@@ -6,6 +6,7 @@ import { useCodexStore } from '../../store/useCodexStore';
 import { useTemplateStore } from '../../store/useTemplateStore';
 import { useCircuitCanvasStore } from '../../store/useCircuitCanvasStore';
 import { CollectionStatsPanel } from '../Stats/CollectionStatsPanel';
+import { CircuitSignalVisualizer } from '../Circuit/CircuitSignalVisualizer';
 import { 
   autoArrange, 
   autoArrangeCircular, 
@@ -69,6 +70,9 @@ export function Toolbar({
   const circuitNodeCount = useCircuitNodeCount();
   const isCircuitMode = useIsCircuitMode();
   const selectedCircuitNodeIds = useSelectedCircuitNodeIds();
+  
+  // Round 150: Timing panel visibility state
+  const [showTimingPanel, setShowTimingPanel] = useState(false);
   
   // Get action functions (stable references)
   const undo = useMachineStore((state) => state.undo);
@@ -150,6 +154,19 @@ export function Toolbar({
   // Circuit mode toggle handler
   const handleCircuitModeToggle = useCallback(() => {
     setCircuitMode(!isCircuitMode);
+    // Close timing panel when exiting circuit mode
+    if (isCircuitMode) {
+      setShowTimingPanel(false);
+    }
+  }, [isCircuitMode, setCircuitMode]);
+
+  // Round 150: Timing panel toggle handler
+  const handleTimingPanelToggle = useCallback(() => {
+    // Ensure circuit mode is on when opening timing panel
+    if (!isCircuitMode) {
+      setCircuitMode(true);
+    }
+    setShowTimingPanel((prev) => !prev);
   }, [isCircuitMode, setCircuitMode]);
 
   // Circuit simulation handlers
@@ -167,6 +184,7 @@ export function Toolbar({
   const handleCircuitClear = useCallback(() => {
     clearCircuitCanvas();
     setCircuitMode(false);
+    setShowTimingPanel(false);
   }, [clearCircuitCanvas, setCircuitMode]);
 
   // Create Sub-circuit button handler - dispatches custom event for App to handle
@@ -538,6 +556,25 @@ export function Toolbar({
                     清空
                   </button>
                 )}
+
+                {/* Round 150: Timing Diagram Toggle Button */}
+                <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
+                <button
+                  onClick={handleTimingPanelToggle}
+                  data-timing-panel-toggle
+                  data-tutorial-action="toolbar-timing-diagram"
+                  className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded border transition-colors ${
+                    showTimingPanel
+                      ? 'bg-[#0ea5e9]/30 text-[#0ea5e9] border-[#0ea5e9]/50 hover:bg-[#0ea5e9]/40'
+                      : 'bg-[#1e2a42] text-[#9ca3af] border-[#2d3a4f] hover:text-[#0ea5e9] hover:border-[#0ea5e9]/50'
+                  }`}
+                  title="波形图 - 显示信号时序图"
+                  aria-label={showTimingPanel ? '关闭波形图' : '开启波形图'}
+                  aria-pressed={showTimingPanel}
+                >
+                  <span aria-hidden="true">📊</span>
+                  <span>波形图</span>
+                </button>
               </div>
             )}
           </div>
@@ -727,6 +764,21 @@ export function Toolbar({
       {/* Collection Stats Panel - NEW (Round 65) */}
       {showCollectionStats && (
         <CollectionStatsPanel onClose={handleCloseCollectionStats} />
+      )}
+
+      {/* Round 150: Timing Diagram Panel - Rendered when timing panel is visible */}
+      {isCircuitMode && showTimingPanel && (
+        <div 
+          className="absolute bottom-4 right-4 z-50"
+          data-testid="timing-diagram-panel"
+        >
+          <CircuitSignalVisualizer
+            isEnabled={true}
+            showPanel={true}
+            autoRecord={true}
+            data-testid="circuit-signal-visualizer"
+          />
+        </div>
       )}
     </>
   );

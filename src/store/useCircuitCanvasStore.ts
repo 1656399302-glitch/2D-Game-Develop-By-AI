@@ -5,6 +5,7 @@
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop support
  * Round 131: Multi-selection support for sub-circuit creation
  * Round 144: Added Junction and Layer support
+ * Round 150: Signal Trace Integration for Timing Diagram
  * 
  * Zustand store for managing circuit components on the canvas.
  * Extends the circuit simulation engine with canvas-specific state.
@@ -39,6 +40,7 @@ import {
   resetComponentStates,
 } from '../engine/circuitSimulator';
 import { v4 as uuidv4 } from 'uuid';
+import { useSignalTraceStore } from './signalTraceStore';
 
 // ============================================================================
 // Store Interface
@@ -247,6 +249,42 @@ function generateLayerName(existingNames: string[]): string {
   }
   
   return name;
+}
+
+/**
+ * Map node IDs to readable signal names for timing diagram
+ * Round 150: Signal trace integration
+ */
+function mapSignalsToReadableNames(
+  signals: Map<string, SignalState>,
+  nodes: PlacedCircuitNode[]
+): Record<string, SignalState> {
+  const result: Record<string, SignalState> = {};
+  
+  for (const node of nodes) {
+    const signal = signals.get(node.id) ?? false;
+    
+    // Create readable names based on node type and label
+    switch (node.type) {
+      case 'input':
+        // Use label or default name
+        result[node.label || `IN-${node.id.slice(0, 4)}`] = signal;
+        break;
+      case 'gate':
+        // Use gate type as name
+        const gateNode = node as PlacedGateNode;
+        result[gateNode.gateType || node.label || 'GATE'] = signal;
+        break;
+      case 'output':
+        // Use label or default name
+        result[node.label || `OUT-${node.id.slice(0, 4)}`] = signal;
+        break;
+      default:
+        result[node.id] = signal;
+    }
+  }
+  
+  return result;
 }
 
 // ============================================================================
@@ -670,6 +708,11 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
     // Run propagation
     const result = propagateSignals(simNodes, simConnections, inputStates);
     
+    // Round 150: Record signals for timing diagram
+    // Map node signals to readable names
+    const mappedSignals = mapSignalsToReadableNames(result.finalSignals, state.nodes);
+    useSignalTraceStore.getState().recordStep(mappedSignals);
+    
     // Update node signals
     set((prevState: CircuitCanvasStore) => ({
       nodes: prevState.nodes.map((n: PlacedCircuitNode) => {
@@ -712,6 +755,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
     // Reset component states
     resetComponentStates();
     
+    // Round 150: Clear signal traces on reset
+    useSignalTraceStore.getState().clearTraces();
+    
     set((state: CircuitCanvasStore) => {
       return {
         nodes: state.nodes.map((n: PlacedCircuitNode) => {
@@ -731,6 +777,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   clearCircuitCanvas: () => {
     // Reset component states
     resetComponentStates();
+    
+    // Round 150: Clear signal traces on clear
+    useSignalTraceStore.getState().clearTraces();
     
     set({
       nodes: [],
