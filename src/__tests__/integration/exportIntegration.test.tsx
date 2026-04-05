@@ -10,17 +10,17 @@ import * as fs from 'fs';
 
 describe('ExportModal Integration Tests', () => {
   describe('App.tsx Integration Verification', () => {
-    it('should verify App.tsx uses ExportModal not ExportDialog', () => {
+    it('should verify App.tsx uses LazyExportModal not ExportDialog', () => {
       const appContent = fs.readFileSync('src/App.tsx', 'utf-8');
       
       // Verify ExportModal is imported
-      expect(appContent).toContain("import { ExportModal } from './components/Export/ExportModal'");
+      expect(appContent).toContain("LazyExportModal");
       
       // Verify ExportDialog is NOT imported
       expect(appContent).not.toContain("import { ExportDialog } from './components/Export/ExportDialog'");
       
       // Verify ExportModal is rendered
-      expect(appContent).toContain('<ExportModal onClose={() => setShowExport(false)} />');
+      expect(appContent).toContain('<LazyExportModal onClose={() => setShowExport(false)}');
       
       // Verify ExportDialog is NOT rendered
       expect(appContent).not.toContain('<ExportDialog onClose={() => setShowExport(false)} />');

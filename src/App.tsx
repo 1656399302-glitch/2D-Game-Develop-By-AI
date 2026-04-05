@@ -3,12 +3,8 @@ import { Canvas } from './components/Editor/Canvas';
 import { ModulePanel } from './components/Editor/ModulePanel';
 import { PropertiesPanel } from './components/Editor/PropertiesPanel';
 import { Toolbar } from './components/Editor/Toolbar';
-import { ExportModal } from './components/Export/ExportModal';
-import { ActivationOverlay } from './components/Preview/ActivationOverlay';
 import { LoadPromptModal } from './components/UI/LoadPromptModal';
-import { ChallengeButton } from './components/Challenges/ChallengeButton';
 import { WelcomeModal, useWelcomeModal } from './components/Tutorial/WelcomeModal';
-import { RecipeBrowser } from './components/Recipes/RecipeBrowser';
 import { useMachineStore } from './store/useMachineStore';
 import { useCodexStore } from './store/useCodexStore';
 import { useTutorialStore } from './store/useTutorialStore';
@@ -89,6 +85,11 @@ const LazyRecipeToastManager = lazy(() =>
 );
 const LazyTradeNotification = lazy(() => import('./components/Exchange/TradeNotification'));
 const LazyRecipeBook = lazy(() => import('./components/RecipeBook/RecipeBook'));
+// Round 148: Lazy-loaded components moved from eager imports for bundle optimization
+const LazyExportModal = lazy(() => import('./components/Export/ExportModal').then(m => ({ default: m.ExportModal })));
+const LazyActivationOverlay = lazy(() => import('./components/Preview/ActivationOverlay').then(m => ({ default: m.ActivationOverlay })));
+const LazyRecipeBrowser = lazy(() => import('./components/Recipes/RecipeBrowser').then(m => ({ default: m.RecipeBrowser })));
+const LazyChallengeButton = lazy(() => import('./components/Challenges/ChallengeButton').then(m => ({ default: m.ChallengeButton })));
 
 // Round 130: Lazy-loaded SubCircuitPanel for bundle optimization
 const LazySubCircuitPanel = lazy(() => import('./components/SubCircuit/SubCircuitPanel').then((module) => ({
@@ -730,7 +731,7 @@ function AppContent() {
               >
                 📤 导出
               </button>
-              <ChallengeButton onClick={() => setShowChallenges(true)} />
+              <Suspense fallback={null}><LazyChallengeButton onClick={() => setShowChallenges(true)} /></Suspense>
             </div>
           )}
         </header>
@@ -807,7 +808,7 @@ function AppContent() {
           />
         </Suspense>
         
-        {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+        {showExport && <Suspense fallback={null}><LazyExportModal onClose={() => setShowExport(false)} /></Suspense>}
         
         {showCodex && (
           <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -827,7 +828,7 @@ function AppContent() {
           </div>
         )}
         
-        {showActivation && <ActivationOverlay onComplete={handleActivationComplete} />}
+        {showActivation && <Suspense fallback={null}><LazyActivationOverlay onComplete={handleActivationComplete} /></Suspense>}
         
         <Suspense fallback={null}>
           <LazyCircuitValidationOverlay />
@@ -847,7 +848,7 @@ function AppContent() {
           </div>
         )}
         
-        <RecipeBrowser isOpen={showRecipeBrowser} onClose={() => setShowRecipeBrowser(false)} />
+        <Suspense fallback={null}><LazyRecipeBrowser isOpen={showRecipeBrowser} onClose={() => setShowRecipeBrowser(false)} /></Suspense>
         
         {showRecipeBook && (
           <Suspense fallback={<LazyLoadingFallback height="80vh" variant="modal" />}>

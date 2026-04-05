@@ -9,14 +9,14 @@ import * as fs from 'fs';
 
 describe('Export Flow Integration Tests', () => {
   describe('App.tsx Integration Verification', () => {
-    it('should verify App.tsx uses ExportModal for export functionality', () => {
+    it('should verify App.tsx uses LazyExportModal for export functionality', () => {
       const appContent = fs.readFileSync('src/App.tsx', 'utf-8');
       
       // Verify ExportModal is imported
-      expect(appContent).toContain("import { ExportModal } from './components/Export/ExportModal'");
+      expect(appContent).toContain("LazyExportModal");
       
       // Verify ExportModal is rendered in the modal section
-      expect(appContent).toContain('<ExportModal onClose={() => setShowExport(false)} />');
+      expect(appContent).toContain('<LazyExportModal onClose={() => setShowExport(false)}');
     });
 
     it('should verify ExportDialog is NOT used in App.tsx', () => {

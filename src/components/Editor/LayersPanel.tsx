@@ -4,6 +4,10 @@ import { useSelectionStore } from '../../store/useSelectionStore';
 import { PlacedModule, MODULE_SIZES } from '../../types';
 import { bringToFront, sendToBack, bringForward, sendBackward } from '../../utils/zOrderUtils';
 
+// CSS variable for panel consistency (Round 148)
+const PANEL_BORDER_RADIUS = '12px';
+
+
 /**
  * Layer item component for a single module in the layers panel
  */
@@ -414,6 +418,7 @@ export function LayersPanel() {
     <div 
       data-testid="layers-panel"
       className="w-64 h-full bg-[#121826] border-l border-[#1e2a42] flex flex-col"
+      style={{ borderRadius: PANEL_BORDER_RADIUS }}
       onKeyDown={handleKeyDown}
     >
       {/* Header with layer tabs (Round 127) */}
