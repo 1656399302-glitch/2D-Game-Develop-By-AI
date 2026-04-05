@@ -5,6 +5,7 @@
  * Displays the tech tree visualization and node details panel.
  * 
  * ROUND 136: Initial implementation
+ * ROUND 154: Added unlock source display (achievement name or "via prerequisites")
  */
 
 import React, { useState, useEffect } from 'react';
@@ -12,6 +13,7 @@ import { TechTreeCanvas } from './TechTreeCanvas';
 import { useTechTreeStore } from '../../store/useTechTreeStore';
 import { TECH_TREE_CATEGORIES } from '../../types/techTree';
 import { getNodeById } from '../../data/techTreeNodes';
+import { getAchievementDefinition } from '../../data/achievements';
 
 interface TechTreePanelProps {
   isOpen: boolean;
@@ -34,6 +36,7 @@ export const TechTreePanel: React.FC<TechTreePanelProps> = ({ isOpen, onClose })
     isUnlocked: boolean;
     unmetPrerequisites: string[];
     prereqNames: string[];
+    unlockSource: string | null; // ROUND 154: Achievement name or "via prerequisites"
   } | null>(null);
   
   // Update info panel when selected node changes
@@ -58,6 +61,20 @@ export const TechTreePanel: React.FC<TechTreePanelProps> = ({ isOpen, onClose })
       return prereq?.name || prereqId;
     });
     
+    // ROUND 154: Determine unlock source
+    let unlockSource: string | null = null;
+    if (node.achievementId) {
+      // Node has an achievement requirement
+      const achievementDef = getAchievementDefinition(node.achievementId);
+      unlockSource = achievementDef?.name || node.achievementId;
+    } else if (node.prerequisites.length === 0) {
+      // Node has no prerequisites - always available
+      unlockSource = null; // No special unlock needed
+    } else {
+      // Node unlocks via prerequisites only (no achievement required)
+      unlockSource = 'via prerequisites';
+    }
+    
     setInfoPanelContent({
       name: node.name,
       nameCn: node.nameCn,
@@ -67,6 +84,7 @@ export const TechTreePanel: React.FC<TechTreePanelProps> = ({ isOpen, onClose })
       isUnlocked: isNodeUnlocked(selectedNodeId),
       unmetPrerequisites: unmetPrereqs,
       prereqNames,
+      unlockSource,
     });
   }, [selectedNodeId, getUnmetPrerequisites, isNodeUnlocked]);
   
@@ -232,6 +250,24 @@ export const TechTreePanel: React.FC<TechTreePanelProps> = ({ isOpen, onClose })
                       {infoPanelContent.category}
                     </span>
                   </div>
+                  
+                  {/* ROUND 154: Unlock source */}
+                  {infoPanelContent.unlockSource && (
+                    <div className="mb-3 p-2 rounded-lg bg-[#1e2a42]/50 border border-[#2d3a4f]">
+                      <span className="text-xs text-[#9ca3af]">解锁方式: </span>
+                      <span 
+                        className="text-xs font-medium"
+                        style={{ 
+                          color: infoPanelContent.unlockSource === 'via prerequisites' 
+                            ? '#a78bfa' // Purple for prerequisite-only nodes
+                            : '#3b82f6' // Blue for achievement-based nodes
+                        }}
+                        data-testid="unlock-source"
+                      >
+                        {infoPanelContent.unlockSource}
+                      </span>
+                    </div>
+                  )}
                   
                   {/* Description */}
                   <p className="text-sm text-[#9ca3af] mb-4 flex-1">

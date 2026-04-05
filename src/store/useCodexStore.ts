@@ -16,6 +16,8 @@ interface CodexStore {
   getEntriesByRarity: (rarity: Rarity) => CodexEntry[];
   getEntryCount: () => number;
   checkRecipeUnlocks: () => void;
+  // ROUND 154: Added faction tier module unlock method
+  syncFactionTierUnlocks: () => void;
 }
 
 export const useCodexStore = create<CodexStore>()(
@@ -44,6 +46,12 @@ export const useCodexStore = create<CodexStore>()(
         setTimeout(() => {
           get().checkRecipeUnlocks();
         }, 0);
+        
+        // ROUND 154: Faction tier module unlocks
+        // Sync faction counts from codex and trigger module unlocks
+        setTimeout(() => {
+          get().syncFactionTierUnlocks();
+        }, 0);
 
         return entry;
       },
@@ -52,6 +60,11 @@ export const useCodexStore = create<CodexStore>()(
         set((state) => ({
           entries: state.entries.filter((e) => e.id !== id),
         }));
+        
+        // ROUND 154: Sync faction tier unlocks after removal
+        setTimeout(() => {
+          get().syncFactionTierUnlocks();
+        }, 0);
       },
 
       getEntry: (id) => {
@@ -78,6 +91,25 @@ export const useCodexStore = create<CodexStore>()(
           useRecipeStore.getState().checkMachinesCreatedUnlock(currentCount);
         }).catch((err) => {
           console.warn('[CodexStore] Failed to import recipe store:', err);
+        });
+      },
+      
+      /**
+       * ROUND 154: Faction Tier Module Unlocks
+       * Sync faction counts from codex entries and trigger module unlocks
+       * This is called when machines are added to or removed from the codex
+       */
+      syncFactionTierUnlocks: () => {
+        // Dynamic import to avoid circular dependency at module load time
+        import('./useFactionStore').then(({ useFactionStore }) => {
+          const allEntries = get().entries;
+          const newlyUnlocked = useFactionStore.getState().syncFactionCountsFromCodex(allEntries);
+          
+          if (newlyUnlocked.length > 0) {
+            console.log('[CodexStore] Faction tier modules unlocked:', newlyUnlocked);
+          }
+        }).catch((err) => {
+          console.warn('[CodexStore] Failed to import faction store:', err);
         });
       },
     }),
