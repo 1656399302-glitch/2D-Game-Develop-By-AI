@@ -1197,3 +1197,9 @@
 ## Round 138 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 138 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 139 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

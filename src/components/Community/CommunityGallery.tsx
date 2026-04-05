@@ -2,10 +2,15 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useFavoritesStore } from '../../store/useFavoritesStore';
+import { useRatingsStore, getLocalUserId, getLocalUserName } from '../../store/useRatingsStore';
 import { CommunityMachine, FactionFilter, RarityFilter, SortOption } from '../../data/communityGalleryData';
 import { FACTIONS, FactionId } from '../../types/factions';
 import { Rarity } from '../../types';
 import { FavoritesPanel } from '../Favorites/FavoritesPanel';
+import { StarRatingDisplay } from '../Ratings/StarRatingDisplay';
+import { StarRating } from '../Ratings/StarRating';
+import { SubmitReviewModal } from '../Ratings/SubmitReviewModal';
+import { ReviewList } from '../Ratings/ReviewList';
 
 // Rarity display config
 const RARITY_CONFIG: Record<Rarity, { color: string; label: string }> = {
@@ -109,19 +114,25 @@ function MachinePreview({ machine }: { machine: CommunityMachine }) {
   );
 }
 
-// Individual machine card
+// Individual machine card with ratings
 function MachineCard({
   machine,
   onLoad,
   onLike,
   onToggleFavorite,
+  onRate,
+  onViewReviews,
   isFavorite,
+  ratingStats,
 }: {
   machine: CommunityMachine;
   onLoad: (m: CommunityMachine) => void;
   onLike: (id: string) => void;
   onToggleFavorite: (id: string) => void;
+  onRate: (machineId: string) => void;
+  onViewReviews: (machineId: string) => void;
   isFavorite: boolean;
+  ratingStats: { averageRating: number; ratingCount: number };
 }) {
   const faction = FACTIONS[machine.dominantFaction];
   const rarityCfg = RARITY_CONFIG[machine.attributes.rarity];
@@ -186,6 +197,18 @@ function MachineCard({
           <span className="text-[10px] text-[#6b7280]">{formatRelativeTime(machine.publishedAt)}</span>
         </div>
 
+        {/* Star Rating Display */}
+        <div className="mb-2 pb-2 border-b border-[#1e2a42]">
+          <StarRatingDisplay
+            averageRating={ratingStats.averageRating}
+            ratingCount={ratingStats.ratingCount}
+            size="sm"
+            showCount={true}
+            interactive={true}
+            onRate={() => onRate(machine.id)}
+          />
+        </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
@@ -212,6 +235,17 @@ function MachineCard({
               <span>👁</span>
               <span>{formatCount(machine.views)}</span>
             </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewReviews(machine.id);
+              }}
+              className="flex items-center gap-1 text-[11px] text-[#6b7280] hover:text-[#7c3aed] transition-colors"
+              aria-label={`View reviews for ${machine.attributes.name}`}
+            >
+              <span>💬</span>
+              <span>Reviews</span>
+            </button>
           </div>
           <button
             onClick={(e) => {
@@ -246,9 +280,103 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   );
 }
 
+// Machine Reviews Panel (slide-in panel)
+function MachineReviewsPanel({
+  machine,
+  onClose,
+}: {
+  machine: CommunityMachine;
+  onClose: () => void;
+}) {
+  const userId = getLocalUserId();
+  const { getAverageRating, getReviews, submitReview, deleteReview } = useRatingsStore();
+  
+  const stats = getAverageRating(machine.id);
+  const reviews = getReviews(machine.id);
+  
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+
+  const handleSubmitReview = useCallback((rating: number, text: string) => {
+    const userName = getLocalUserName();
+    submitReview(machine.id, userId, userName, rating, text);
+  }, [machine.id, userId, submitReview]);
+
+  const handleDeleteReview = useCallback((reviewId: string) => {
+    deleteReview(machine.id, reviewId, userId);
+  }, [machine.id, userId, deleteReview]);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="w-full max-w-2xl max-h-[80vh] bg-[#0a0e17] border border-[#1e2a42] rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2a42] bg-[#121826]">
+            <div>
+              <h2 className="text-lg font-bold text-white">Reviews</h2>
+              <p className="text-xs text-[#6b7280] truncate max-w-xs" title={machine.attributes.name}>
+                {machine.attributes.name}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af] hover:text-white transition-colors"
+              aria-label="Close reviews"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Rating Summary */}
+          <div className="px-6 py-4 border-b border-[#1e2a42] bg-[#0f1520]">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">
+                  {stats?.averageRating.toFixed(1) || '0.0'} / 5.0
+                </div>
+                <StarRatingDisplay
+                  averageRating={stats?.averageRating || 0}
+                  ratingCount={stats?.ratingCount || 0}
+                  size="md"
+                  showCount={true}
+                />
+              </div>
+              <button
+                onClick={() => setShowSubmitModal(true)}
+                className="px-4 py-2 bg-[#7c3aed] text-white rounded-lg hover:bg-[#6d28d9] transition-colors text-sm font-medium"
+              >
+                Write a Review
+              </button>
+            </div>
+          </div>
+
+          {/* Reviews List */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <ReviewList
+              reviews={reviews}
+              currentUserId={userId}
+              onDeleteReview={handleDeleteReview}
+            />
+          </div>
+        </div>
+      </div>
+
+      <SubmitReviewModal
+        isOpen={showSubmitModal}
+        onClose={() => setShowSubmitModal(false)}
+        onSubmit={handleSubmitReview}
+        machineName={machine.attributes.name}
+      />
+    </>
+  );
+}
+
 export function CommunityGallery() {
   // Tabs state
   const [activeTab, setActiveTab] = useState<'gallery' | 'favorites'>('gallery');
+  
+  // Review panel state
+  const [selectedMachine, setSelectedMachine] = useState<CommunityMachine | null>(null);
+  const [ratingMachineId, setRatingMachineId] = useState<string | null>(null);
   
   // FIX: Use individual selectors for primitive values
   const communityMachines = useCommunityStore((s) => s.communityMachines);
@@ -257,6 +385,10 @@ export function CommunityGallery() {
   const factionFilter = useCommunityStore((s) => s.factionFilter);
   const rarityFilter = useCommunityStore((s) => s.rarityFilter);
   const sortOption = useCommunityStore((s) => s.sortOption);
+
+  // Ratings store
+  const { submitRating, getAverageRating } = useRatingsStore();
+  const userId = getLocalUserId();
 
   // FIX: Store method references in refs
   const setSearchQueryRef = useRef(useCommunityStore.getState().setSearchQuery);
@@ -358,15 +490,24 @@ export function CommunityGallery() {
     toggleFavoriteRef.current(id);
   }, []);
 
+  const handleRate = useCallback((machineId: string) => {
+    setRatingMachineId(machineId);
+  }, []);
+
+  const handleViewReviews = useCallback((machineId: string) => {
+    const allMachines = [...communityMachines, ...publishedMachines];
+    const machine = allMachines.find((m) => m.id === machineId);
+    if (machine) {
+      setSelectedMachine(machine);
+    }
+  }, [communityMachines, publishedMachines]);
+
   // FIX: Track views only once per gallery open session using a session-scoped ref
-  // This ensures views are counted once when gallery opens, not on every filter change
   const viewsTrackedRef = useRef(false);
   
   useEffect(() => {
-    // Only track views once per gallery open session
     if (!viewsTrackedRef.current) {
       viewsTrackedRef.current = true;
-      // Use a small delay to ensure filteredMachines is computed
       const timeoutId = setTimeout(() => {
         const machines = useCommunityStore.getState().getFilteredMachinesList();
         machines.forEach((m) => {
@@ -377,12 +518,63 @@ export function CommunityGallery() {
     }
   }, []);
 
-  // Reset views tracked flag when gallery closes (next open will track views again)
-  // This is handled by the component unmounting when gallery closes
-
   // Show favorites panel if that tab is active
   if (showFavorites) {
     return <FavoritesPanel onClose={() => setShowFavorites(false)} />;
+  }
+
+  // Show reviews panel if a machine is selected
+  if (selectedMachine) {
+    return (
+      <MachineReviewsPanel
+        machine={selectedMachine}
+        onClose={() => setSelectedMachine(null)}
+      />
+    );
+  }
+
+  // Rating modal for quick rating
+  if (ratingMachineId) {
+    const allMachines = [...communityMachines, ...publishedMachines];
+    const machineForRating = allMachines.find((m) => m.id === ratingMachineId);
+    
+    if (machineForRating) {
+      const stats = getAverageRating(ratingMachineId);
+      
+      return (
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#121826] border border-[#1e2a42] rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-white">Rate this Machine</h3>
+              <button
+                onClick={() => setRatingMachineId(null)}
+                className="text-[#6b7280] hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-sm text-[#9ca3af] mb-4 truncate" title={machineForRating.attributes.name}>
+              {machineForRating.attributes.name}
+            </p>
+            <div className="flex items-center justify-center mb-2">
+              <StarRating
+                value={0}
+                onChange={(value) => {
+                  submitRating(ratingMachineId, userId, value);
+                  setRatingMachineId(null);
+                }}
+                size="lg"
+              />
+            </div>
+            {stats && stats.ratingCount > 0 && (
+              <p className="text-xs text-[#6b7280] text-center">
+                Current average: {stats.averageRating.toFixed(1)} ({stats.ratingCount} ratings)
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    }
   }
 
   return (
@@ -526,7 +718,10 @@ export function CommunityGallery() {
                         onLoad={handleLoadMachine}
                         onLike={handleLike}
                         onToggleFavorite={handleToggleFavorite}
+                        onRate={handleRate}
+                        onViewReviews={handleViewReviews}
                         isFavorite={favoriteIds.includes(machine.id)}
+                        ratingStats={getAverageRating(machine.id) || { averageRating: 0, ratingCount: 0 }}
                       />
                     ))}
                   </div>
@@ -543,7 +738,7 @@ export function CommunityGallery() {
                   )}
                 </p>
                 <p className="text-xs text-[#4a5568]">
-                  Click the heart icon to add machines to favorites
+                  Click ★ to rate • Click 💬 to read reviews
                 </p>
               </div>
             </>
@@ -568,7 +763,10 @@ export function CommunityGallery() {
                       onLoad={handleLoadMachine}
                       onLike={handleLike}
                       onToggleFavorite={handleToggleFavorite}
+                      onRate={handleRate}
+                      onViewReviews={handleViewReviews}
                       isFavorite={true}
+                      ratingStats={getAverageRating(machine.id) || { averageRating: 0, ratingCount: 0 }}
                     />
                   ))}
                 </div>
