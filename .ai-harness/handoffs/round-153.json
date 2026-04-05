@@ -1,0 +1,55 @@
+{
+  "round": 153,
+  "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
+  "branch": "main",
+  "commit": "3a97ea9ed0dc3b82373dc86ef471fa01d4de60de",
+  "completed_items": [
+    "- **Status**: VERIFIED FIXED \u2014 39 new integration tests covering CreateSubCircuitModal, SubCircuitPanel, toolbar integration, and canvas behavior",
+    "| AC-153-001 | Toolbar renders \"Create Sub-circuit\" button | **VERIFIED** | Button dispatches custom event `open-create-subcircuit-modal` |",
+    "| AC-153-002 | SubCircuitPanel can be opened/closed | **VERIFIED** | Panel renders with expand/collapse behavior |",
+    "| AC-153-003 | User can create sub-circuit from selected modules | **VERIFIED** | 39 tests verify selection-to-creation flow |",
+    "| AC-153-004 | Created sub-circuits appear in CircuitModulePanel | **VERIFIED** | Panel displays custom section with sub-circuits |",
+    "| AC-153-005 | Sub-circuit modules can be placed on canvas | **VERIFIED** | Tests verify addCircuitNode with correct parameters |",
+    "| AC-153-006 | Bundle size remains \u2264512KB | **VERIFIED** | 426.02 KB < 524,288 bytes limit |",
+    "| AC-153-007 | Test count \u22656214 passing | **VERIFIED** | 6253 tests passing (increased from 6214 by 39) |",
+    "| AC-153-008 | TypeScript compilation clean | **VERIFIED** | `npx tsc --noEmit` exits with code 0 |"
+  ],
+  "incomplete_items": [],
+  "failure_reasons": [],
+  "key_files": [
+    ".ai-harness/decision-log/decisions.md",
+    ".ai-harness/handoffs/latest.json",
+    ".ai-harness/handoffs/round-152.json",
+    ".ai-harness/qa-reports/sprint-152-qa.md",
+    ".ai-harness/runtime/resume-state.json",
+    ".ai-harness/sprint-contracts/sprint-153.md",
+    "_screenshot.png",
+    "contract.md",
+    "feedback.md",
+    "node_modules/.vitest-cache/vitest/results.json",
+    "progress.md",
+    "src/__tests__/subCircuitUIIntegration.test.tsx"
+  ],
+  "run_instructions": [
+    "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
+    "python harness.py dashboard"
+  ],
+  "known_issues": [],
+  "next_priorities": [
+    "1. **AC-153-007 Test coverage**: Added 39 regression tests for sub-circuit UI integration",
+    "1. **New file `src/__tests__/subCircuitUIIntegration.test.tsx`**",
+    "2. **Production code changes** (verification that existing code is properly integrated):",
+    "1. \u2705 `src/__tests__/subCircuitUIIntegration.test.tsx` exists",
+    "2. \u2705 All 39 new tests pass",
+    "3. \u2705 `npm test -- --run` shows 6253 tests passing (\u22656214)",
+    "4. \u2705 `npm run build` shows bundle 426.02 KB (\u2264512KB)",
+    "5. \u2705 `npx tsc --noEmit` exits with code 0",
+    "6. \u2705 Test file covers AC-153-001 through AC-153-005 with verifiable assertions",
+    "7. \u2705 No existing tests were broken"
+  ],
+  "evaluator_failures": [],
+  "restore_instructions": [
+    "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",
+    "Use .ai-harness/handoffs/latest.json as the first recovery artifact."
+  ]
+}

@@ -2,6 +2,8 @@ import { useCallback, useState, useMemo, lazy, Suspense } from 'react';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useRecipeStore } from '../../store/useRecipeStore';
 import { useFactionReputationStore } from '../../store/useFactionReputationStore';
+import { useModuleStore, FACTION_MODULES, FactionModule } from '../../store/useModuleStore';
+import { FACTIONS, FactionId } from '../../types/factions';
 import { generateRandomMachine } from '../../utils/randomGenerator';
 import { generateAttributes } from '../../utils/attributeGenerator';
 import { ModuleType, ModuleCategory } from '../../types';
@@ -192,6 +194,24 @@ const FACTION_COLORS: Record<string, string> = {
   inferno: '#f97316',
   storm: '#22d3ee',
   stellar: '#fbbf24',
+  arcane: '#8b5cf6',
+  chaos: '#ef4444',
+};
+
+// Extended faction colors for faction tier modules
+const FACTION_TIER_COLORS: Record<number, { bg: string; border: string; text: string; badge: string }> = {
+  2: { // Tier 2 - Purple theme
+    bg: 'rgba(167, 139, 250, 0.1)',
+    border: 'rgba(167, 139, 250, 0.3)',
+    text: '#c4b5fd',
+    badge: 'rgba(167, 139, 250, 0.2)',
+  },
+  3: { // Tier 3 - Gold/legendary theme
+    bg: 'rgba(251, 191, 36, 0.1)',
+    border: 'rgba(251, 191, 36, 0.4)',
+    text: '#fcd34d',
+    badge: 'rgba(251, 191, 36, 0.2)',
+  },
 };
 
 // CSS variable for panel consistency (Round 146)
@@ -229,6 +249,193 @@ function CircuitModulePanelFallback() {
   );
 }
 
+// ============================================================================
+// Faction Module Section Component (Round 155)
+// ============================================================================
+
+interface FactionModuleItemProps {
+  module: FactionModule;
+  factionColor: string;
+}
+
+const FactionModuleItem: React.FC<FactionModuleItemProps> = ({ module, factionColor }) => {
+  const tierColors = FACTION_TIER_COLORS[module.tier];
+  
+  return (
+    <div
+      className="faction-module-item p-2 rounded-lg transition-all duration-200 hover:scale-[1.02]"
+      data-faction-module-item={module.id}
+      data-faction-module-item-tier={`tier-${module.tier}`}
+      style={{
+        backgroundColor: tierColors.bg,
+        border: `1px solid ${tierColors.border}`,
+      }}
+    >
+      <div className="flex items-center gap-2">
+        {/* Faction icon */}
+        <div
+          className="w-8 h-8 rounded flex items-center justify-center text-sm"
+          style={{
+            backgroundColor: `${factionColor}20`,
+            border: `1px solid ${factionColor}40`,
+          }}
+          aria-hidden="true"
+        >
+          <span style={{ fontSize: '16px' }}>{module.icon}</span>
+        </div>
+        
+        {/* Module info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xs font-medium truncate"
+              style={{ color: tierColors.text }}
+            >
+              {module.nameCn}
+            </span>
+            {/* Tier badge - visually distinguishes tier-2 from tier-3 */}
+            <span
+              className="text-[9px] px-1.5 py-0.5 rounded uppercase font-bold"
+              style={{
+                backgroundColor: tierColors.badge,
+                color: tierColors.text,
+                border: `1px solid ${tierColors.border}`,
+              }}
+              data-tier-badge
+            >
+              T{module.tier}
+            </span>
+          </div>
+          <p className="text-[10px] text-[#6b7280] mt-0.5 truncate">
+            {module.description}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface FactionModulesSectionProps {
+  unlockedModules: FactionModule[];
+}
+
+const FactionModulesSection: React.FC<FactionModulesSectionProps> = ({ unlockedModules }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+  
+  // Group modules by faction
+  const modulesByFaction = useMemo(() => {
+    const grouped: Record<FactionId, FactionModule[]> = {
+      void: [],
+      inferno: [],
+      storm: [],
+      stellar: [],
+      arcane: [],
+      chaos: [],
+    };
+    
+    for (const module of unlockedModules) {
+      if (grouped[module.factionId]) {
+        grouped[module.factionId].push(module);
+      }
+    }
+    
+    // Sort modules within each faction by tier (tier 2 first, then tier 3)
+    for (const factionId of Object.keys(grouped) as FactionId[]) {
+      grouped[factionId].sort((a, b) => a.tier - b.tier);
+    }
+    
+    return grouped;
+  }, [unlockedModules]);
+  
+  // Only show factions that have unlocked modules
+  const factionsWithModules = Object.entries(modulesByFaction)
+    .filter(([_, modules]) => modules.length > 0)
+    .map(([factionId]) => factionId as FactionId);
+  
+  // Don't render if no modules are unlocked
+  if (unlockedModules.length === 0) {
+    return null;
+  }
+  
+  return (
+    <div
+      className="mt-4 pt-4 border-t"
+      style={{ borderColor: '#1e2a42' }}
+      data-faction-modules-section
+    >
+      {/* Section Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold text-[#f59e0b] hover:bg-[#1e2a42] transition-colors rounded-lg"
+        aria-expanded={isExpanded}
+        aria-controls="faction-modules-list"
+      >
+        <span className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+          派系模块
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b]">
+            {unlockedModules.length}
+          </span>
+        </span>
+        <svg
+          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      
+      {/* Modules List */}
+      {isExpanded && (
+        <div
+          id="faction-modules-list"
+          className="space-y-3 mt-2"
+          role="group"
+          aria-label="派系模块"
+        >
+          {factionsWithModules.map((factionId) => {
+            const faction = FACTIONS[factionId];
+            const factionModules = modulesByFaction[factionId];
+            const factionColor = faction.color;
+            
+            return (
+              <div key={factionId} className="space-y-1">
+                {/* Faction header */}
+                <div className="flex items-center gap-2 px-1">
+                  <span className="text-sm">{faction.icon}</span>
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: factionColor }}
+                  >
+                    {faction.nameCn}
+                  </span>
+                </div>
+                
+                {/* Faction's modules */}
+                <div className="space-y-1 pl-2">
+                  {factionModules.map((module) => (
+                    <FactionModuleItem
+                      key={module.id}
+                      module={module}
+                      factionColor={factionColor}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// Main ModulePanel Component
+// ============================================================================
+
 export function ModulePanel() {
   const addModule = useMachineStore((state) => state.addModule);
   const loadMachine = useMachineStore((state) => state.loadMachine);
@@ -243,6 +450,12 @@ export function ModulePanel() {
       return useFactionReputationStore.getState().isVariantUnlocked(factionId);
     };
   }, []);
+
+  // Round 155: Get unlocked faction tier modules from useModuleStore
+  const unlockedModules = useModuleStore((state) => {
+    // Get all faction tier modules (those in FACTION_MODULES array)
+    return FACTION_MODULES.filter(m => state.unlockedModules.has(m.id));
+  });
 
   const [hoveredModule, setHoveredModule] = useState<ModuleInfo | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
@@ -566,6 +779,9 @@ export function ModulePanel() {
               })}
             </div>
           </div>
+          
+          {/* Round 155: Faction Modules Section - from useModuleStore */}
+          <FactionModulesSection unlockedModules={unlockedModules} />
         </div>
       </div>
 
