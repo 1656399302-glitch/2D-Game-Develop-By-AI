@@ -4,7 +4,7 @@
  * Round 121: Circuit Simulation Engine
  * Round 122: Circuit Canvas Integration
  * Round 128: Sequential Components (Timer, Counter, SR Latch, D Latch, D Flip-Flop)
- * Round 144: Circuit Palette and Wire Junction
+ * Round 144: Wire Junction (CircuitPalette retired - Track B)
  * 
  * Exports all circuit simulation components.
  */
@@ -27,6 +27,5 @@ export { SRLatch } from './SRLatch';
 export { DLatch } from './DLatch';
 export { DFlipFlop } from './DFlipFlop';
 
-// Components from Round 144 - Circuit Palette and Wire Junction
-export { CircuitPalette } from './CircuitPalette';
+// Components from Round 144 - Wire Junction
 export { WireJunction, JunctionHub } from './WireJunction';
