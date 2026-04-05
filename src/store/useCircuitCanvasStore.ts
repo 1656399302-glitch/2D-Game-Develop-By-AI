@@ -6,6 +6,7 @@
  * Round 131: Multi-selection support for sub-circuit creation
  * Round 144: Added Junction and Layer support
  * Round 150: Signal Trace Integration for Timing Diagram
+ * Round 151: Circuit Persistence System Integration
  * 
  * Zustand store for managing circuit components on the canvas.
  * Extends the circuit simulation engine with canvas-specific state.
@@ -41,6 +42,28 @@ import {
 } from '../engine/circuitSimulator';
 import { v4 as uuidv4 } from 'uuid';
 import { useSignalTraceStore } from './signalTraceStore';
+
+// Round 151: Import persistence utilities
+import {
+  saveCircuitState as persistCircuitState,
+  loadCircuitState as loadPersistedCircuitState,
+  clearCircuitState as clearPersistedCircuitState,
+  getRecentCircuits as getPersistedRecentCircuits,
+  loadCircuitStateById,
+  clearCircuitById,
+  CircuitMetadata,
+  SaveResult,
+} from './circuitPersistence';
+
+// ============================================================================
+// Auto-save Configuration
+// ============================================================================
+
+/** Debounce delay for auto-save (ms) */
+const AUTO_SAVE_DEBOUNCE = 500;
+
+/** Auto-save timeout handle */
+let autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // ============================================================================
 // Store Interface
@@ -112,6 +135,20 @@ interface CircuitCanvasStore extends CanvasCircuitState {
   getActiveLayerNodes: () => PlacedCircuitNode[];
   getActiveLayerWires: () => CircuitWire[];
   moveNodesToLayer: (nodeIds: string[], targetLayerId: string) => void;
+
+  // Round 151: Circuit Persistence Methods
+  /** Save circuit state to localStorage (auto-save on state changes) */
+  saveCircuitToStorage: (name?: string) => SaveResult;
+  /** Load circuit state from localStorage */
+  loadCircuitFromStorage: (slotIndex?: number) => boolean;
+  /** Load circuit by ID */
+  loadCircuitFromStorageById: (circuitId: string) => boolean;
+  /** Get list of recent saved circuits */
+  getRecentCircuits: () => CircuitMetadata[];
+  /** Clear specific circuit slot or all circuits */
+  clearStoredCircuit: (slotIndex?: number) => boolean;
+  /** Trigger auto-save (debounced) */
+  triggerAutoSave: () => void;
 }
 
 // ============================================================================
@@ -337,6 +374,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         : prevState.layers,
     }));
     
+    // Round 151: Trigger auto-save after adding node
+    _get().triggerAutoSave();
+    
     return node;
   },
   
@@ -363,6 +403,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
           : state.layers,
       };
     });
+    
+    // Round 151: Trigger auto-save after removing node
+    _get().triggerAutoSave();
   },
   
   // Select circuit node (single selection - backward compatibility)
@@ -455,6 +498,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         n.id === nodeId ? { ...n, position: { x, y } } : n
       ),
     }));
+    
+    // Round 151: Trigger auto-save after position update
+    _get().triggerAutoSave();
   },
   
   // Update node parameters (for Timer/Counter configuration)
@@ -464,6 +510,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         n.id === nodeId ? { ...n, parameters: { ...n.parameters, ...parameters } } : n
       ),
     }));
+    
+    // Round 151: Trigger auto-save after parameter update
+    _get().triggerAutoSave();
   },
   
   // Add circuit wire
@@ -546,6 +595,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
       };
     });
     
+    // Round 151: Trigger auto-save after adding wire
+    _get().triggerAutoSave();
+    
     return wire;
   },
   
@@ -577,6 +629,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         ),
       };
     });
+    
+    // Round 151: Trigger auto-save after removing wire
+    _get().triggerAutoSave();
   },
   
   // Select circuit wire
@@ -796,6 +851,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
       // Keep layers but clear their node/wire references
       layers: _get().layers.map(l => ({ ...l, nodeIds: [], wireIds: [] })),
     });
+    
+    // Round 151: Clear persisted circuit state when canvas is cleared
+    clearPersistedCircuitState();
   },
   
   // Set cycle affected nodes
@@ -1108,5 +1166,140 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         }),
       };
     });
+  },
+
+  // ============================================================
+  // Round 151: Circuit Persistence Methods
+  // ============================================================
+  
+  /**
+   * Save circuit state to localStorage
+   * Called after every state mutation (auto-save)
+   */
+  saveCircuitToStorage: (name?: string): SaveResult => {
+    const state = _get();
+    
+    const result = persistCircuitState(
+      state.nodes,
+      state.wires,
+      state.junctions,
+      state.layers,
+      state.activeLayerId,
+      undefined, // Generate new ID for new saves
+      name
+    );
+    
+    return result;
+  },
+  
+  /**
+   * Load circuit state from localStorage
+   * Called on store initialization to restore previous session
+   */
+  loadCircuitFromStorage: (slotIndex?: number): boolean => {
+    const data = loadPersistedCircuitState(slotIndex);
+    
+    if (!data) {
+      return false;
+    }
+    
+    set({
+      nodes: data.nodes || [],
+      wires: data.wires || [],
+      junctions: data.junctions || [],
+      layers: data.layers || [],
+      activeLayerId: data.activeLayerId || null,
+      selectedNodeId: null,
+      selectedCircuitNodeIds: [],
+      selectedWireId: null,
+      isDrawingWire: false,
+      wireStart: null,
+      wirePreviewEnd: null,
+      cycleAffectedNodeIds: [],
+      simulationStepCount: 0,
+    });
+    
+    return true;
+  },
+  
+  /**
+   * Load circuit by specific ID
+   */
+  loadCircuitFromStorageById: (circuitId: string): boolean => {
+    const data = loadCircuitStateById(circuitId);
+    
+    if (!data) {
+      return false;
+    }
+    
+    set({
+      nodes: data.nodes || [],
+      wires: data.wires || [],
+      junctions: data.junctions || [],
+      layers: data.layers || [],
+      activeLayerId: data.activeLayerId || null,
+      selectedNodeId: null,
+      selectedCircuitNodeIds: [],
+      selectedWireId: null,
+      isDrawingWire: false,
+      wireStart: null,
+      wirePreviewEnd: null,
+      cycleAffectedNodeIds: [],
+      simulationStepCount: 0,
+    });
+    
+    return true;
+  },
+  
+  /**
+   * Get list of recent saved circuits
+   */
+  getRecentCircuits: (): CircuitMetadata[] => {
+    return getPersistedRecentCircuits();
+  },
+  
+  /**
+   * Clear circuit from storage
+   */
+  clearStoredCircuit: (slotIndex?: number): boolean => {
+    if (slotIndex !== undefined) {
+      // Clear specific slot by finding the circuit ID first
+      const recent = getPersistedRecentCircuits();
+      const metadata = recent.find(c => c.slotIndex === slotIndex);
+      if (metadata) {
+        clearCircuitById(metadata.id);
+        return true;
+      }
+    }
+    
+    // Clear all circuit data
+    return clearPersistedCircuitState();
+  },
+  
+  /**
+   * Trigger auto-save with debouncing
+   * Called after state mutations to persist changes
+   */
+  triggerAutoSave: () => {
+    // Clear existing timeout
+    if (autoSaveTimeout) {
+      clearTimeout(autoSaveTimeout);
+    }
+    
+    // Set new timeout for debounced save
+    autoSaveTimeout = setTimeout(() => {
+      const state = _get();
+      
+      // Only save if there's actual content
+      if (state.nodes.length > 0 || state.wires.length > 0) {
+        persistCircuitState(
+          state.nodes,
+          state.wires,
+          state.junctions,
+          state.layers,
+          state.activeLayerId
+        );
+      }
+    }, AUTO_SAVE_DEBOUNCE);
   },
 }));
