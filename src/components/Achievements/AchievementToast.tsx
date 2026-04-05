@@ -3,41 +3,57 @@
  * 
  * Displays toast notifications when achievements are unlocked.
  * Supports a queue system for multiple simultaneous achievement unlocks.
- * Auto-dismisses after 4 seconds per toast.
+ * Auto-dismisses after 3 seconds per toast.
  * 
- * Round 77 Fix: Uses React Context to ensure all components share the same
- * queue state instance, preventing the bug where toast notifications never
- * appeared due to separate hook instances.
+ * ROUND 136: Changed duration default from 4000 to 3000 (3-second auto-dismiss).
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { FACTIONS, ACHIEVEMENTS } from '../../data/achievements';
-import type { FactionId } from '../../types/factions';
+import type { Achievement } from '../../types/achievement';
+import { getCategoryDisplayName } from '../../data/achievements';
+
+// Default duration for auto-dismiss (3 seconds)
+const DEFAULT_DURATION = 3000;
 
 interface AchievementToastProps {
-  achievement: typeof ACHIEVEMENTS[number];
+  achievement: Achievement;
   onDismiss: () => void;
   duration?: number;
-  position?: number; // Position in queue (0 = first)
-  maxVisible?: number; // Maximum visible toasts
+  position?: number;
+  maxVisible?: number;
+}
+
+/**
+ * Get badge color based on category
+ */
+function getCategoryColor(category: string): string {
+  const colors: Record<string, string> = {
+    'circuit-building': '#00d4ff',
+    'recipe-discovery': '#ff6b6b',
+    'subcircuit': '#4ecdc4',
+    'exploration': '#ffe66d',
+  };
+  return colors[category] || '#fbbf24';
 }
 
 export const AchievementToast: React.FC<AchievementToastProps> = ({
   achievement,
   onDismiss,
-  duration = 4000,
+  duration = DEFAULT_DURATION,
   position = 0,
   maxVisible = 3,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   
-  // Calculate offset based on position
   const offset = Math.min(position, maxVisible - 1);
+  // Guard against null achievement - default to 'exploration' category
+  const category = achievement?.category || 'exploration';
+  const categoryInfo = getCategoryDisplayName(category);
+  const badgeColor = getCategoryColor(category);
   
   useEffect(() => {
     if (achievement) {
-      // Trigger entrance animation with slight delay based on position
       const entranceDelay = offset * 100;
       const entranceTimer = setTimeout(() => {
         requestAnimationFrame(() => {
@@ -45,7 +61,7 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
         });
       }, entranceDelay);
       
-      // Auto-dismiss after duration
+      // Auto-dismiss after duration (3 seconds by default)
       const dismissTimer = setTimeout(() => {
         handleDismiss();
       }, duration + entranceDelay);
@@ -63,20 +79,14 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
       setIsVisible(false);
       setIsLeaving(false);
       onDismiss();
-    }, 300); // Animation duration
+    }, 300);
   }, [onDismiss]);
   
   if (!achievement || !isVisible) {
     return null;
   }
   
-  // Get faction colors for badge
-  const factionConfig = achievement.faction ? FACTIONS[achievement.faction as FactionId] : null;
-  const badgeColor = factionConfig?.color || '#fbbf24';
-  const badgeGlow = factionConfig?.glowColor || 'rgba(251, 191, 36, 0.5)';
-  
-  // Calculate vertical offset for stacked toasts
-  const stackOffset = offset * 90; // 90px per toast
+  const stackOffset = offset * 90;
   
   return (
     <div
@@ -87,7 +97,7 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
       `}
       style={{
         top: `calc(16px + ${stackOffset}px)`,
-        boxShadow: `0 0 30px ${badgeGlow}`,
+        boxShadow: `0 0 30px ${badgeColor}66`,
       }}
       role="alert"
       aria-live="polite"
@@ -110,18 +120,18 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
         <div
           className="h-1 w-full"
           style={{
-            background: `linear-gradient(to right, ${badgeColor}, ${factionConfig?.secondaryColor || '#f59e0b'}, ${badgeColor})`,
+            background: `linear-gradient(to right, ${badgeColor}, ${badgeColor}aa, ${badgeColor})`,
           }}
         />
         
         <div className="p-4 flex items-start gap-3">
-          {/* Achievement icon with faction glow */}
+          {/* Achievement icon with glow */}
           <div
-            className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
+            className="flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-2xl border-2"
             style={{
               backgroundColor: `${badgeColor}20`,
-              border: `2px solid ${badgeColor}`,
-              boxShadow: `0 0 15px ${badgeGlow}`,
+              borderColor: badgeColor,
+              boxShadow: `0 0 15px ${badgeColor}66`,
             }}
           >
             {achievement.icon}
@@ -136,17 +146,15 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
               >
                 成就解锁
               </span>
-              {factionConfig && (
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded"
-                  style={{
-                    backgroundColor: `${badgeColor}20`,
-                    color: badgeColor,
-                  }}
-                >
-                  {factionConfig.nameCn}
-                </span>
-              )}
+              <span
+                className="text-xs px-1.5 py-0.5 rounded"
+                style={{
+                  backgroundColor: `${badgeColor}20`,
+                  color: badgeColor,
+                }}
+              >
+                {categoryInfo.nameCn}
+              </span>
             </div>
             <h3 className="text-white font-bold text-base leading-tight">
               {achievement.nameCn}
@@ -164,6 +172,7 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
             onClick={handleDismiss}
             className="flex-shrink-0 p-1 rounded hover:bg-white/10 transition-colors text-[#6b7280] hover:text-white"
             aria-label="关闭"
+            data-dismiss-toast
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 4l8 8M12 4l-8 8" />
@@ -186,16 +195,12 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
 };
 
 /**
- * Achievement Toast Queue Manager
- * 
- * Manages a queue of achievements to display, handling multiple
- * simultaneous unlocks with staggered animation timing.
+ * Toast Queue Item interface
  */
-
 interface ToastQueueItem {
-  achievement: typeof ACHIEVEMENTS[number];
+  achievement: Achievement;
   timestamp: number;
-  id: string; // Unique ID for this queue item
+  id: string;
 }
 
 interface AchievementToastQueueOptions {
@@ -203,10 +208,9 @@ interface AchievementToastQueueOptions {
   staggerDelay?: number;
 }
 
-// Return type for the hook
 interface AchievementToastQueueState {
   visibleAchievements: ToastQueueItem[];
-  addToQueue: (achievements: typeof ACHIEVEMENTS) => void;
+  addToQueue: (achievements: Achievement[]) => void;
   removeFromQueue: (id: string) => void;
   clearQueue: () => void;
   isProcessing: boolean;
@@ -216,29 +220,22 @@ interface AchievementToastQueueState {
 
 /**
  * Context for sharing toast queue state across components.
- * This ensures all components share the same queue instance.
  */
 const AchievementToastContext = createContext<AchievementToastQueueState | null>(null);
 
 /**
  * Hook to manage achievement toast queue
- * This is a proper React hook that uses useState and useEffect internally
- * 
- * NOTE: This hook manages its own state. For shared state across components,
- * use the AchievementToastProvider and useAchievementToastQueueContext instead.
  */
 export function useAchievementToastQueue(options: AchievementToastQueueOptions = {}) {
-  const { maxVisible = 3, staggerDelay = 3000 } = options;
+  const { maxVisible = 3, staggerDelay = DEFAULT_DURATION } = options;
   
   const [queue, setQueue] = useState<ToastQueueItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const processingRef = useRef(false);
   const processTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  // Get currently visible achievements
   const visibleAchievements = queue.slice(currentIndex, currentIndex + maxVisible);
   
-  // Process the queue
   const processQueue = useCallback(() => {
     if (queue.length === 0) {
       processingRef.current = false;
@@ -246,14 +243,12 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
     }
     
     if (currentIndex >= queue.length) {
-      // Queue is complete, clear it
       setQueue([]);
       setCurrentIndex(0);
       processingRef.current = false;
       return;
     }
     
-    // Move to next toast after stagger delay
     processingRef.current = true;
     processTimerRef.current = setTimeout(() => {
       setCurrentIndex((prev) => prev + 1);
@@ -261,7 +256,6 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
     }, staggerDelay);
   }, [queue.length, currentIndex, staggerDelay]);
   
-  // Start processing when queue has items
   useEffect(() => {
     if (queue.length > 0 && !processingRef.current) {
       processQueue();
@@ -274,28 +268,24 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
     };
   }, [queue.length, processQueue]);
   
-  // Add achievements to queue
-  const addToQueue = useCallback((achievements: typeof ACHIEVEMENTS) => {
+  const addToQueue = useCallback((achievements: Achievement[]) => {
     const newItems: ToastQueueItem[] = achievements.map((achievement, index) => ({
       achievement,
-      timestamp: Date.now() + index * 100, // Slight timestamp offset
+      timestamp: Date.now() + index * 100,
       id: `${achievement.id}-${Date.now()}-${index}`,
     }));
     
     setQueue((prev) => {
-      // Filter out duplicates
       const existingIds = new Set(prev.map((item) => item.achievement.id));
       const uniqueNewItems = newItems.filter((item) => !existingIds.has(item.achievement.id));
       return [...prev, ...uniqueNewItems];
     });
   }, []);
   
-  // Remove from queue (when toast is dismissed)
   const removeFromQueue = useCallback((id: string) => {
     setQueue((prev) => prev.filter((item) => item.id !== id));
   }, []);
   
-  // Clear entire queue
   const clearQueue = useCallback(() => {
     setQueue([]);
     setCurrentIndex(0);
@@ -305,10 +295,7 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
     processingRef.current = false;
   }, []);
   
-  // Check if queue is processing
   const isProcessing = processingRef.current;
-  
-  // Get remaining count
   const remainingCount = Math.max(0, queue.length - currentIndex);
   
   return {
@@ -324,13 +311,6 @@ export function useAchievementToastQueue(options: AchievementToastQueueOptions =
 
 /**
  * Provider component that wraps the app and provides shared toast queue state.
- * 
- * Usage:
- * ```tsx
- * <AchievementToastProvider>
- *   <App />
- * </AchievementToastProvider>
- * ```
  */
 export const AchievementToastProvider: React.FC<{
   options?: AchievementToastQueueOptions;
@@ -338,7 +318,6 @@ export const AchievementToastProvider: React.FC<{
 }> = ({ options = {}, children }) => {
   const queueState = useAchievementToastQueue(options);
   
-  // Memoize the context value to prevent unnecessary re-renders
   const contextValue = useMemo(
     () => queueState,
     [
@@ -346,7 +325,6 @@ export const AchievementToastProvider: React.FC<{
       queueState.isProcessing,
       queueState.remainingCount,
       queueState.totalInQueue,
-      // Note: addToQueue, removeFromQueue, clearQueue are stable callbacks
     ]
   );
   
@@ -359,28 +337,6 @@ export const AchievementToastProvider: React.FC<{
 
 /**
  * Hook to access the shared achievement toast queue context.
- * 
- * MUST be used within an AchievementToastProvider.
- * 
- * Usage:
- * ```tsx
- * // In App.tsx
- * function App() {
- *   return (
- *     <AchievementToastProvider>
- *       <AppContent />
- *     </AchievementToastProvider>
- *   );
- * }
- * 
- * // In any component that needs addToQueue
- * function SomeComponent() {
- *   const { addToQueue } = useAchievementToastQueueContext();
- *   // ...
- * }
- * ```
- * 
- * @throws Error if used outside of AchievementToastProvider
  */
 export function useAchievementToastQueueContext(): AchievementToastQueueState {
   const context = useContext(AchievementToastContext);
@@ -399,16 +355,10 @@ export function useAchievementToastQueueContext(): AchievementToastQueueState {
  * Achievement Toast Container Component
  * 
  * Renders multiple achievement toasts based on the queue state.
- * Uses context to share state with other components (like App.tsx).
- * 
- * FIX: No longer calls useAchievementToastQueue directly.
- * Now uses useAchievementToastQueueContext to access shared queue state.
  */
 export const AchievementToastContainer: React.FC<{
   options?: AchievementToastQueueOptions;
 }> = ({ options = {} }) => {
-  // FIX: Use context hook instead of direct hook call
-  // This ensures we read from the same queue state that App.tsx writes to
   const { visibleAchievements, removeFromQueue } = useAchievementToastQueueContext();
   
   if (visibleAchievements.length === 0) {
@@ -429,5 +379,8 @@ export const AchievementToastContainer: React.FC<{
     </>
   );
 };
+
+// Re-export Achievement type
+export type { Achievement } from '../../types/achievement';
 
 export default AchievementToast;

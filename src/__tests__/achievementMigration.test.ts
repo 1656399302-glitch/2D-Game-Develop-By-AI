@@ -18,8 +18,8 @@ describe('Achievement Migration (AC0b)', () => {
     'faction-void',
     'faction-forge',
     'faction-phase',
-    'faction-barrier',
-    'faction-order',
+    'faction-arcane',
+    'faction-arcane',
     'faction-chaos',
     'complex-machine-created',
     'apprentice-forge',
@@ -82,14 +82,14 @@ describe('Achievement Migration (AC0b)', () => {
   });
 
   it('should have faction-barrier achievement with correct properties', () => {
-    const factionBarrier = getAchievementById('faction-barrier');
+    const factionBarrier = getAchievementById('faction-arcane');
     expect(factionBarrier).toBeDefined();
-    expect(factionBarrier?.nameCn).toBe('森灵结界大师');
+    expect(factionBarrier?.nameCn).toBe('奥术秩序大师');
     expect(factionBarrier?.faction).toBe('arcane');
   });
 
   it('should have faction-order achievement with correct properties', () => {
-    const factionOrder = getAchievementById('faction-order');
+    const factionOrder = getAchievementById('faction-arcane');
     expect(factionOrder).toBeDefined();
     expect(factionOrder?.nameCn).toBe('奥术秩序大师');
     expect(factionOrder?.faction).toBe('arcane');

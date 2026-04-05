@@ -121,7 +121,7 @@ describe('AchievementStore Integration', () => {
     let callbackCalled = false;
     let receivedAchievement = null;
     
-    const mockCallback = (achievement: typeof ACHIEVEMENTS[0]) => {
+    const mockCallback = (achievement: any) => {
       callbackCalled = true;
       receivedAchievement = achievement;
     };
@@ -133,7 +133,10 @@ describe('AchievementStore Integration', () => {
     store.triggerUnlock(achievement);
     
     expect(callbackCalled).toBe(true);
-    expect(receivedAchievement).toBe(achievement);
+    // Callback receives the achievement with updated state
+    expect(receivedAchievement.id).toBe(achievement.id);
+    expect(receivedAchievement.isUnlocked).toBe(true);
+    expect(receivedAchievement.unlockedAt).toBeTruthy();
   });
 
   it('triggerUnlock does nothing if callback is null', () => {
@@ -189,10 +192,18 @@ describe('AchievementToast Callback Integration', () => {
 
   it('achievement store can be used with callback pattern', () => {
     const store = useAchievementStore.getState();
+    
+    // Reset the first achievement to unlocked state
+    useAchievementStore.setState({
+      achievements: store.achievements.map((a, i) => 
+        i === 0 ? { ...a, isUnlocked: false, unlockedAt: null } : a
+      ),
+    });
+    
     let callbackCalled = false;
     let receivedAchievement = null;
     
-    const mockCallback = (achievement: typeof ACHIEVEMENTS[0]) => {
+    const mockCallback = (achievement: any) => {
       callbackCalled = true;
       receivedAchievement = achievement;
     };
@@ -203,9 +214,10 @@ describe('AchievementToast Callback Integration', () => {
     // Trigger unlock
     store.triggerUnlock(ACHIEVEMENTS[0]);
     
-    // Verify callback was called
+    // Verify callback was called with updated achievement
     expect(callbackCalled).toBe(true);
-    expect(receivedAchievement).toBe(ACHIEVEMENTS[0]);
+    expect(receivedAchievement.id).toBe(ACHIEVEMENTS[0].id);
+    expect(receivedAchievement.isUnlocked).toBe(true);
   });
 
   it('achievement store supports removing callback', () => {

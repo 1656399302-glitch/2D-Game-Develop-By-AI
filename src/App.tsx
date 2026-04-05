@@ -427,7 +427,7 @@ function AppContent() {
         };
         
         // Check if the achievement condition is met
-        if (gettingStartedAchievement.condition(stats)) {
+        if (gettingStartedAchievement.condition && gettingStartedAchievement.condition(stats)) {
           // Trigger the achievement
           useAchievementStore.getState().triggerUnlock(gettingStartedAchievement);
           
@@ -499,7 +499,7 @@ function AppContent() {
           complexMachinesCreated: 0,
         };
         
-        if (achievement.condition(stats)) {
+        if (achievement.condition && achievement.condition(stats)) {
           useAchievementStore.getState().triggerUnlock(achievement);
           addEarnedAchievement(achievementId);
         }

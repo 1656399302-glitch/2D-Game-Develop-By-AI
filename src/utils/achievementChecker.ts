@@ -4,10 +4,10 @@
  * Detects when achievements are earned based on user statistics.
  * Triggers callbacks when achievements are unlocked.
  * 
- * ROUND 80: Updated to import ACHIEVEMENTS from the correct location.
+ * ROUND 136: Updated to use new Achievement types from achievement.ts
  */
 
-import { Achievement, UserStats } from '../types/factions';
+import type { Achievement, AchievementDefinition, ExtendedUserStats } from '../types/achievement';
 import { ACHIEVEMENTS } from '../data/achievements';
 
 export type AchievementCallback = (achievement: Achievement) => void;
@@ -19,7 +19,7 @@ export type AchievementCallback = (achievement: Achievement) => void;
  * @returns Array of newly earned achievement IDs
  */
 export function checkAchievements(
-  stats: UserStats,
+  stats: ExtendedUserStats,
   earnedIds: Set<string> = new Set()
 ): string[] {
   const newlyEarned: string[] = [];
@@ -30,8 +30,8 @@ export function checkAchievements(
       return;
     }
     
-    // Check if the achievement condition is met
-    if (achievement.condition(stats)) {
+    // Check if the achievement has a condition and if it's met
+    if (achievement.condition && achievement.condition(stats)) {
       newlyEarned.push(achievement.id);
     }
   });
@@ -47,7 +47,7 @@ export function checkAchievements(
  * @returns Array of newly earned achievement IDs
  */
 export function checkAchievementsWithCallback(
-  stats: UserStats,
+  stats: ExtendedUserStats,
   earnedIds: Set<string>,
   callback: AchievementCallback
 ): string[] {
@@ -57,7 +57,7 @@ export function checkAchievementsWithCallback(
   newlyEarned.forEach((id) => {
     const achievement = ACHIEVEMENTS.find((a) => a.id === id);
     if (achievement) {
-      callback(achievement);
+      callback(achievement as Achievement);
     }
   });
   
@@ -71,7 +71,7 @@ export function checkAchievementsWithCallback(
  */
 export function getAllAchievementsWithStatus(
   earnedIds: Set<string>
-): Array<Achievement & { earned: boolean }> {
+): Array<AchievementDefinition & { earned: boolean }> {
   return ACHIEVEMENTS.map((achievement) => ({
     ...achievement,
     earned: earnedIds.has(achievement.id),
@@ -83,7 +83,7 @@ export function getAllAchievementsWithStatus(
  * @param id - Achievement ID
  * @returns Achievement or null if not found
  */
-export function getAchievementById(id: string): Achievement | null {
+export function getAchievementById(id: string): AchievementDefinition | null {
   return ACHIEVEMENTS.find((a) => a.id === id) || null;
 }
 

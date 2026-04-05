@@ -2,7 +2,7 @@
  * Achievement Expansion Tests
  * 
  * Tests for the expanded milestone achievements and toast queue system.
- * Updated for Round 80 with 6 factions and 23 achievements.
+ * Updated for Round 80 with 6 factions and 27 achievements.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -29,12 +29,12 @@ describe('Achievement Expansion Tests', () => {
   });
 
   describe('Achievement Definitions', () => {
-    // Updated: 23 achievements in Round 80 (from 15)
-    it('should have 23 total achievements after Round 80 expansion', async () => {
+    // Updated: 27 achievements in Round 80 (from 15)
+    it('should have 34 total achievements after Round 136 expansion', async () => {
       const { ACHIEVEMENTS } = await import('../data/achievements');
       
       expect(ACHIEVEMENTS).toBeDefined();
-      expect(ACHIEVEMENTS.length).toBe(23);
+      expect(ACHIEVEMENTS.length).toBe(34);
     });
 
     it('should include all milestone achievements', async () => {
@@ -195,7 +195,7 @@ describe('Achievement Expansion Tests', () => {
       const toastContent = fs.readFileSync('src/components/Achievements/AchievementToast.tsx', 'utf8');
       
       expect(toastContent).toContain('interface ToastQueueItem');
-      expect(toastContent).toContain('achievement: typeof ACHIEVEMENTS[number]');
+      expect(toastContent).toContain('achievement: Achievement');
       expect(toastContent).toContain('timestamp: number');
       expect(toastContent).toContain('id: string');
     });
@@ -220,7 +220,7 @@ describe('Achievement Expansion Tests', () => {
       const fs = await import('fs');
       const toastContent = fs.readFileSync('src/components/Achievements/AchievementToast.tsx', 'utf8');
       
-      expect(toastContent).toContain('staggerDelay = 3000');
+      expect(toastContent).toContain('staggerDelay = DEFAULT_DURATION');
     });
   });
 
@@ -301,11 +301,11 @@ describe('Achievement Expansion Tests', () => {
   });
 
   describe('Total Achievements Count', () => {
-    // Updated: 23 achievements in Round 80
-    it('should export TOTAL_ACHIEVEMENTS constant (23 in Round 80)', async () => {
+    // Updated: 27 achievements in Round 80
+    it('should export TOTAL_ACHIEVEMENTS constant (34 in Round 136)', async () => {
       const { TOTAL_ACHIEVEMENTS } = await import('../data/achievements');
       
-      expect(TOTAL_ACHIEVEMENTS).toBe(23);
+      expect(TOTAL_ACHIEVEMENTS).toBe(34);
     });
 
     it('should match count of ACHIEVEMENTS array', async () => {

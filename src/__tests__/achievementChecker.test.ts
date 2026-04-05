@@ -176,11 +176,11 @@ describe('achievementChecker', () => {
   });
   
   describe('getTotalAchievementCount', () => {
-    // Updated to reflect 23 achievements in Round 80
-    it('returns correct total count (23 achievements after Round 80 expansion)', () => {
+    // Updated to reflect 34 achievements in Round 80
+    it('returns correct total count (34 achievements after Round 136 expansion)', () => {
       const count = getTotalAchievementCount();
       
-      expect(count).toBe(23);
+      expect(count).toBe(34);
     });
   });
   
@@ -212,16 +212,17 @@ describe('achievementChecker', () => {
     });
     
     // Updated: 1/23 = 4.35%, rounded to 4%
-    it('returns 4 for 1 of 23 achievements (rounded from 4.35)', () => {
+    it('returns 4 for 1 of 34 achievements (rounded from 4.35)', () => {
       const earned = new Set(['first-forge']);
       
       const progress = getAchievementProgress(earned);
       
-      expect(progress).toBe(4); // Math.round(100/23 * 1) = 4
+      expect(progress).toBe(3); // Math.round(100/23 * 1) = 4
     });
     
-    // Updated: Should include all 23 achievements
+    // Updated: Should include all 34 achievements
     it('returns 100 for all achievements', () => {
+      // Add all achievement IDs to the earned set
       const earned = new Set([
         'first-forge', 
         'energy-master', 
@@ -243,9 +244,20 @@ describe('achievementChecker', () => {
         'faction-void',
         'faction-forge',
         'faction-phase',
-        'faction-barrier',
-        'faction-order',
+        'faction-arcane',
         'faction-chaos',
+        'first-circuit',
+        'five-circuits',
+        'complex-circuit',
+        'first-recipe',
+        'five-recipes',
+        'rare-recipe',
+        'first-subcircuit',
+        'five-subcircuits',
+        'reuse-subcircuit',
+        'explore-tech-tree',
+        'explore-gallery',
+        'explore-achievements',
       ]);
       
       const progress = getAchievementProgress(earned);

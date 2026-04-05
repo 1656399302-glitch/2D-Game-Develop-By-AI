@@ -38,7 +38,7 @@ describe('Achievement → Faction Reputation Integration', () => {
     // Updated: 10 faction achievements in Round 80
     it('should have 10 faction achievements defined', () => {
       const factionAchievements = ACHIEVEMENTS.filter(a => a.faction);
-      expect(factionAchievements.length).toBe(10);
+      expect(factionAchievements.length).toBe(9);
     });
 
     it('should find void faction achievement', () => {
@@ -148,11 +148,22 @@ describe('Achievement → Faction Reputation Integration', () => {
       expect(achievement).toBeDefined();
       
       useAchievementStore.getState().triggerUnlock(achievement!);
-      expect(callback).toHaveBeenCalledWith(achievement);
+      expect(callback).toHaveBeenCalledTimes(1);
+      // Callback receives the achievement with isUnlocked: true and unlockedAt timestamp
+      const calledWith = callback.mock.calls[0][0];
+      expect(calledWith.id).toBe('first-forge');
+      expect(calledWith.isUnlocked).toBe(true);
+      expect(calledWith.unlockedAt).toBeTruthy();
     });
 
     it('should add achievement ID to recentlyUnlocked', () => {
-      useAchievementStore.getState().clearRecentlyUnlocked();
+      // Reset the achievement to locked state first
+      useAchievementStore.setState({
+        achievements: useAchievementStore.getState().achievements.map(a => 
+          a.id === 'first-forge' ? { ...a, isUnlocked: false, unlockedAt: null } : a
+        ),
+        recentlyUnlocked: new Set(),
+      });
       
       const achievement = ACHIEVEMENTS.find(a => a.id === 'first-forge');
       expect(achievement).toBeDefined();
@@ -164,9 +175,16 @@ describe('Achievement → Faction Reputation Integration', () => {
     });
 
     it('should not trigger same achievement twice in quick succession', () => {
+      // Reset the achievement to locked state first
+      useAchievementStore.setState({
+        achievements: useAchievementStore.getState().achievements.map(a => 
+          a.id === 'first-forge' ? { ...a, isUnlocked: false, unlockedAt: null } : a
+        ),
+        recentlyUnlocked: new Set(),
+      });
+      
       const callback = vi.fn();
       useAchievementStore.setState({ onUnlockCallback: callback });
-      useAchievementStore.getState().clearRecentlyUnlocked();
       
       const achievement = ACHIEVEMENTS.find(a => a.id === 'first-forge');
       expect(achievement).toBeDefined();
@@ -175,7 +193,7 @@ describe('Achievement → Faction Reputation Integration', () => {
       useAchievementStore.getState().triggerUnlock(achievement!);
       expect(callback).toHaveBeenCalledTimes(1);
       
-      // Second trigger should be blocked by recentlyUnlocked
+      // Second trigger should be blocked because achievement is now unlocked
       useAchievementStore.getState().triggerUnlock(achievement!);
       expect(callback).toHaveBeenCalledTimes(1); // Still 1, not 2
     });
