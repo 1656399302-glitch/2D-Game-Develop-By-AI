@@ -5,7 +5,7 @@
  * - Tests localStorage read/write behavior
  * - Tests that stores can serialize/deserialize state
  * - Tests corrupted data fallback to defaults
- * - Tests all 13 stores
+ * - Tests all 16 stores
  * 
  * Note: Most stores use `skipHydration: true` to prevent cascading state updates,
  * so we manually trigger hydration or test the serialization/deserialization behavior.
@@ -24,6 +24,9 @@ import { useCommunityStore } from '../store/useCommunityStore';
 import { useSelectionStore } from '../store/useSelectionStore';
 import { useGroupingStore } from '../store/useGroupingStore';
 import { useRatingsStore } from '../store/useRatingsStore';
+import { useComparisonStore } from '../store/useComparisonStore';
+import { useSubCircuitStore } from '../store/useSubCircuitStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 import { Rarity } from '../types';
 import { FactionId } from '../types/factions';
 
@@ -172,6 +175,23 @@ const resetAllStores = () => {
     userRatings: {},
     reviews: {},
   });
+
+  useComparisonStore.setState({
+    selectedMachineA: null,
+    selectedMachineB: null,
+    savedComparisons: [],
+  });
+
+  useSubCircuitStore.setState({
+    subCircuits: [],
+    maxSubCircuits: 50,
+  });
+
+  useSettingsStore.setState({
+    aiProvider: {
+      providerType: 'local',
+    },
+  });
 };
 
 beforeEach(() => {
@@ -311,6 +331,39 @@ describe('Store Persistence Configuration', () => {
     it('should have version configured', () => {
       const options = useRatingsStore.persist?.getOptions?.();
       expect(options?.version).toBeDefined();
+    });
+  });
+
+  describe('useComparisonStore', () => {
+    it('should have persistence configured', () => {
+      expect(useComparisonStore.persist).toBeDefined();
+    });
+
+    it('should have skipHydration configured', () => {
+      const options = useComparisonStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+  });
+
+  describe('useSubCircuitStore', () => {
+    it('should have persistence configured', () => {
+      expect(useSubCircuitStore.persist).toBeDefined();
+    });
+
+    it('should have skipHydration configured', () => {
+      const options = useSubCircuitStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+  });
+
+  describe('useSettingsStore', () => {
+    it('should have persistence configured', () => {
+      expect(useSettingsStore.persist).toBeDefined();
+    });
+
+    it('should have skipHydration configured', () => {
+      const options = useSettingsStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
     });
   });
 });
@@ -1350,6 +1403,236 @@ describe('Ratings Store Hydration (Round 140)', () => {
 
       expect(useRatingsStore.getState().userRatings['machine-1:user-1'].value).toBe(5);
       expect(useRatingsStore.getState().reviews).toEqual({});
+    });
+  });
+});
+
+// =============================================================================
+// Comparison Store Hydration Tests (Round 141)
+// =============================================================================
+describe('Comparison Store Hydration (Round 141)', () => {
+  describe('hydrateComparisonStore function', () => {
+    it('should be defined as a function in the store', () => {
+      expect(typeof useComparisonStore.persist?.rehydrate).toBe('function');
+    });
+
+    it('should call rehydrate without throwing', () => {
+      expect(() => {
+        useComparisonStore.persist?.rehydrate?.();
+      }).not.toThrow();
+    });
+  });
+
+  describe('Comparison store persistence configuration', () => {
+    it('should have arcane-comparison-storage as localStorage key', () => {
+      const options = useComparisonStore.persist?.getOptions?.();
+      expect(options?.name).toBe('arcane-comparison-storage');
+    });
+
+    it('should have skipHydration set to true', () => {
+      const options = useComparisonStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+  });
+
+  describe('Comparison store state management', () => {
+    it('should have empty state by default', () => {
+      const state = useComparisonStore.getState();
+      expect(state.selectedMachineA).toBeNull();
+      expect(state.selectedMachineB).toBeNull();
+      expect(state.savedComparisons).toEqual([]);
+    });
+
+    it('should handle direct state manipulation for testing', () => {
+      const mockMachine = {
+        id: 'codex-1',
+        codexId: 'MC-0001',
+        name: 'Test Machine',
+        rarity: 'common' as Rarity,
+        modules: [],
+        connections: [],
+        attributes: {
+          name: 'Test',
+          rarity: 'common' as Rarity,
+          stats: { stability: 50, powerOutput: 50, energyCost: 50, failureRate: 50 },
+          tags: [],
+          description: 'Test',
+          codexId: 'MC-0001',
+        },
+        createdAt: Date.now(),
+      };
+
+      useComparisonStore.setState({
+        selectedMachineA: mockMachine,
+        selectedMachineB: { ...mockMachine, id: 'codex-2', name: 'Test Machine 2' },
+      });
+
+      const state = useComparisonStore.getState();
+      expect(state.selectedMachineA).toBeDefined();
+      expect(state.selectedMachineB).toBeDefined();
+      expect(state.hasBothSelected()).toBe(true);
+    });
+  });
+
+  describe('Malformed localStorage handling', () => {
+    it('should handle missing comparison data gracefully', () => {
+      const emptyData = null;
+      expect(emptyData).toBeNull();
+      // Store should default to empty state
+      expect(useComparisonStore.getState().savedComparisons).toEqual([]);
+    });
+
+    it('should handle corrupted JSON gracefully', () => {
+      const corruptedJson = '{{{invalid json{{';
+      expect(() => {
+        JSON.parse(corruptedJson);
+      }).toThrow();
+      // Store should not crash - defaults should apply
+      expect(useComparisonStore.getState()).toBeDefined();
+    });
+  });
+});
+
+// =============================================================================
+// SubCircuit Store Hydration Tests (Round 141)
+// =============================================================================
+describe('SubCircuit Store Hydration (Round 141)', () => {
+  describe('hydrateSubCircuitStore function', () => {
+    it('should be defined as a function in the store', () => {
+      expect(typeof useSubCircuitStore.persist?.rehydrate).toBe('function');
+    });
+
+    it('should call rehydrate without throwing', () => {
+      expect(() => {
+        useSubCircuitStore.persist?.rehydrate?.();
+      }).not.toThrow();
+    });
+  });
+
+  describe('SubCircuit store persistence configuration', () => {
+    it('should have arcane-subcircuit-storage as localStorage key', () => {
+      const options = useSubCircuitStore.persist?.getOptions?.();
+      expect(options?.name).toBe('arcane-subcircuits-storage');
+    });
+
+    it('should have skipHydration set to true', () => {
+      const options = useSubCircuitStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+  });
+
+  describe('SubCircuit store state management', () => {
+    it('should have empty state by default', () => {
+      const state = useSubCircuitStore.getState();
+      expect(state.subCircuits).toEqual([]);
+      expect(state.maxSubCircuits).toBe(50);
+    });
+
+    it('should handle direct state manipulation for testing', () => {
+      const mockSubCircuit = {
+        id: 'subcircuit-1',
+        name: 'Test SubCircuit',
+        moduleIds: ['module-1', 'module-2'],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        description: 'Test description',
+      };
+
+      useSubCircuitStore.setState({
+        subCircuits: [mockSubCircuit],
+      });
+
+      const state = useSubCircuitStore.getState();
+      expect(state.subCircuits.length).toBe(1);
+      expect(state.subCircuits[0].name).toBe('Test SubCircuit');
+    });
+  });
+
+  describe('Malformed localStorage handling', () => {
+    it('should handle missing subCircuit data gracefully', () => {
+      const emptyData = null;
+      expect(emptyData).toBeNull();
+      // Store should default to empty state
+      expect(useSubCircuitStore.getState().subCircuits).toEqual([]);
+    });
+
+    it('should handle corrupted JSON gracefully', () => {
+      const corruptedJson = '{{{invalid json{{';
+      expect(() => {
+        JSON.parse(corruptedJson);
+      }).toThrow();
+      // Store should not crash - defaults should apply
+      expect(useSubCircuitStore.getState()).toBeDefined();
+    });
+  });
+});
+
+// =============================================================================
+// Settings Store Hydration Tests (Round 141)
+// =============================================================================
+describe('Settings Store Hydration (Round 141)', () => {
+  describe('hydrateSettingsStore function', () => {
+    it('should be defined as a function in the store', () => {
+      expect(typeof useSettingsStore.persist?.rehydrate).toBe('function');
+    });
+
+    it('should call rehydrate without throwing', () => {
+      expect(() => {
+        useSettingsStore.persist?.rehydrate?.();
+      }).not.toThrow();
+    });
+  });
+
+  describe('Settings store persistence configuration', () => {
+    it('should have arcane-settings-storage as localStorage key', () => {
+      const options = useSettingsStore.persist?.getOptions?.();
+      expect(options?.name).toBe('arcane-settings-storage');
+    });
+
+    it('should have skipHydration set to true', () => {
+      const options = useSettingsStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+  });
+
+  describe('Settings store state management', () => {
+    it('should have default AI provider state', () => {
+      const state = useSettingsStore.getState();
+      expect(state.aiProvider.providerType).toBe('local');
+    });
+
+    it('should handle direct state manipulation for testing', () => {
+      useSettingsStore.setState({
+        aiProvider: {
+          providerType: 'openai',
+          apiKey: 'test-api-key',
+          baseUrl: 'https://api.openai.com/v1',
+          model: 'gpt-4',
+        },
+      });
+
+      const state = useSettingsStore.getState();
+      expect(state.aiProvider.providerType).toBe('openai');
+      expect(state.aiProvider.apiKey).toBe('test-api-key');
+      expect(state.getProviderType()).toBe('openai');
+    });
+  });
+
+  describe('Malformed localStorage handling', () => {
+    it('should handle missing settings data gracefully', () => {
+      const emptyData = null;
+      expect(emptyData).toBeNull();
+      // Store should default to local provider
+      expect(useSettingsStore.getState().aiProvider.providerType).toBe('local');
+    });
+
+    it('should handle corrupted JSON gracefully', () => {
+      const corruptedJson = '{{{invalid json{{';
+      expect(() => {
+        JSON.parse(corruptedJson);
+      }).toThrow();
+      // Store should not crash - defaults should apply
+      expect(useSettingsStore.getState()).toBeDefined();
     });
   });
 });

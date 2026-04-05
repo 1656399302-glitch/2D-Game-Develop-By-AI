@@ -11,6 +11,9 @@ import { hydrateFavoritesStore } from '../store/useFavoritesStore';
 import { hydrateMachineTagsStore } from '../store/useMachineTagsStore';
 import { hydrateTemplateStore } from '../store/useTemplateStore';
 import { hydrateRatingsStore } from '../store/useRatingsStore';
+import { hydrateComparisonStore } from '../store/useComparisonStore';
+import { hydrateSubCircuitStore } from '../store/useSubCircuitStore';
+import { hydrateSettingsStore } from '../store/useSettingsStore';
 
 /**
  * Store Hydration Hook - REWRITTEN FOR ROUND 38
@@ -72,6 +75,9 @@ const hydrateAllStores = () => {
   hydrateStore('machineTags', hydrateMachineTagsStore);
   hydrateStore('templates', hydrateTemplateStore);
   hydrateStore('ratings', hydrateRatingsStore);
+  hydrateStore('comparison', hydrateComparisonStore);
+  hydrateStore('subCircuit', hydrateSubCircuitStore);
+  hydrateStore('settings', hydrateSettingsStore);
 };
 
 /**
