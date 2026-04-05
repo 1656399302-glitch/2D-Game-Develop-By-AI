@@ -4,6 +4,7 @@
  * Round 122: Circuit Canvas Integration
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop support
  * Round 131: Multi-selection support for sub-circuit creation
+ * Round 144: Added Junction and Layer support
  * 
  * Zustand store for managing circuit components on the canvas.
  * Extends the circuit simulation engine with canvas-specific state.
@@ -18,6 +19,10 @@ import {
   CircuitWire,
   CanvasCircuitState,
   CIRCUIT_NODE_SIZES,
+  CircuitJunction,
+  CircuitLayer,
+  CreateLayerOptions,
+  DEFAULT_LAYER_COLORS,
 } from '../types/circuitCanvas';
 import {
   GateType,
@@ -88,6 +93,23 @@ interface CircuitCanvasStore extends CanvasCircuitState {
   getInputNodes: () => PlacedInputNode[];
   getGateNodes: () => PlacedGateNode[];
   getOutputNodes: () => PlacedOutputNode[];
+  
+  // Junction operations (Round 144)
+  createJunction: (x: number, y: number) => CircuitJunction;
+  removeJunction: (junctionId: string) => void;
+  selectJunction: (junctionId: string | null) => void;
+  updateJunctionSignal: (junctionId: string, signal: SignalState) => void;
+  connectWireToJunction: (wireId: string, junctionId: string) => void;
+  
+  // Layer operations (Round 144)
+  createLayer: (options?: CreateLayerOptions) => CircuitLayer;
+  removeLayer: (layerId: string) => boolean;
+  setActiveLayer: (layerId: string) => void;
+  renameLayer: (layerId: string, name: string) => void;
+  toggleLayerVisibility: (layerId: string) => void;
+  getActiveLayerNodes: () => PlacedCircuitNode[];
+  getActiveLayerWires: () => CircuitWire[];
+  moveNodesToLayer: (nodeIds: string[], targetLayerId: string) => void;
 }
 
 // ============================================================================
@@ -111,7 +133,8 @@ function createPlacedNode(
   y: number,
   gateType?: GateType,
   label?: string,
-  parameters?: Record<string, unknown>
+  parameters?: Record<string, unknown>,
+  layerId?: string
 ): PlacedCircuitNode {
   const size = gateType
     ? CIRCUIT_NODE_SIZES[gateType]
@@ -127,6 +150,7 @@ function createPlacedNode(
     signal: false,
     size,
     parameters,
+    layerId,
   };
   
   if (type === 'input') {
@@ -210,6 +234,21 @@ function getPortYPosition(gateType: GateType | undefined, portIndex: number, hei
   }
 }
 
+/**
+ * Generate next layer name
+ */
+function generateLayerName(existingNames: string[]): string {
+  let counter = 1;
+  let name = `Layer ${counter}`;
+  
+  while (existingNames.includes(name)) {
+    counter++;
+    name = `Layer ${counter}`;
+  }
+  
+  return name;
+}
+
 // ============================================================================
 // Store Implementation
 // ============================================================================
@@ -228,6 +267,10 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   cycleAffectedNodeIds: [],
   isSimulating: false,
   simulationStepCount: 0,
+  // Round 144: Junction and Layer support
+  junctions: [],
+  layers: [],
+  activeLayerId: null,
   
   // Circuit mode toggle
   setCircuitMode: (enabled: boolean) => {
@@ -236,13 +279,24 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   
   // Add circuit node
   addCircuitNode: (type: CircuitNodeType, x: number, y: number, gateType?: GateType, label?: string, parameters?: Record<string, unknown>) => {
-    const node = createPlacedNode(type, x, y, gateType, label, parameters);
+    const state = _get();
+    const activeLayerId = state.activeLayerId;
     
-    set((state: CircuitCanvasStore) => ({
-      nodes: [...state.nodes, node],
+    const node = createPlacedNode(type, x, y, gateType, label, parameters, activeLayerId || undefined);
+    
+    set((prevState: CircuitCanvasStore) => ({
+      nodes: [...prevState.nodes, node],
       selectedNodeId: node.id,
       // Round 131: Also update multi-selection
       selectedCircuitNodeIds: [node.id],
+      // Round 144: Update layer nodeIds
+      layers: activeLayerId
+        ? prevState.layers.map(l =>
+            l.id === activeLayerId
+              ? { ...l, nodeIds: [...l.nodeIds, node.id] }
+              : l
+          )
+        : prevState.layers,
     }));
     
     return node;
@@ -250,15 +304,27 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   
   // Remove circuit node
   removeCircuitNode: (nodeId: string) => {
-    set((state: CircuitCanvasStore) => ({
-      nodes: state.nodes.filter((n: PlacedCircuitNode) => n.id !== nodeId),
-      wires: state.wires.filter(
-        (w: CircuitWire) => w.sourceNodeId !== nodeId && w.targetNodeId !== nodeId
-      ),
-      selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
-      // Round 131: Remove from multi-selection
-      selectedCircuitNodeIds: state.selectedCircuitNodeIds.filter(id => id !== nodeId),
-    }));
+    set((state: CircuitCanvasStore) => {
+      const node = state.nodes.find(n => n.id === nodeId);
+      
+      return {
+        nodes: state.nodes.filter((n: PlacedCircuitNode) => n.id !== nodeId),
+        wires: state.wires.filter(
+          (w: CircuitWire) => w.sourceNodeId !== nodeId && w.targetNodeId !== nodeId
+        ),
+        selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+        // Round 131: Remove from multi-selection
+        selectedCircuitNodeIds: state.selectedCircuitNodeIds.filter(id => id !== nodeId),
+        // Round 144: Update layer nodeIds
+        layers: node?.layerId
+          ? state.layers.map(l =>
+              l.id === node.layerId
+                ? { ...l, nodeIds: l.nodeIds.filter(id => id !== nodeId) }
+                : l
+            )
+          : state.layers,
+      };
+    });
   },
   
   // Select circuit node (single selection - backward compatibility)
@@ -375,6 +441,13 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         return state;
       }
       
+      // Round 144: Check layer isolation
+      if (sourceNode.layerId && targetNode.layerId && sourceNode.layerId !== targetNode.layerId) {
+        // Cannot create wire between different layers
+        console.warn('Cannot create wire between nodes on different layers');
+        return state;
+      }
+      
       // Check for duplicate connection
       const existingWire = state.wires.find(
         (w: CircuitWire) =>
@@ -408,6 +481,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         y: targetNode.position.y + targetPortY,
       };
       
+      // Determine layer ID (from source node)
+      const layerId = sourceNode.layerId || undefined;
+      
       wire = {
         id: uuidv4(),
         sourceNodeId,
@@ -416,10 +492,19 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         signal: false,
         startPoint,
         endPoint,
+        layerId,
       };
       
       return {
         wires: [...state.wires, wire],
+        // Round 144: Update layer wireIds
+        layers: layerId
+          ? state.layers.map(l =>
+              l.id === layerId
+                ? { ...l, wireIds: [...l.wireIds, wire!.id] }
+                : l
+            )
+          : state.layers,
       };
     });
     
@@ -428,10 +513,32 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   
   // Remove circuit wire
   removeCircuitWire: (wireId: string) => {
-    set((state: CircuitCanvasStore) => ({
-      wires: state.wires.filter((w: CircuitWire) => w.id !== wireId),
-      selectedWireId: state.selectedWireId === wireId ? null : state.selectedWireId,
-    }));
+    set((state: CircuitCanvasStore) => {
+      const wire = state.wires.find(w => w.id === wireId);
+      
+      return {
+        wires: state.wires.filter((w: CircuitWire) => w.id !== wireId),
+        selectedWireId: state.selectedWireId === wireId ? null : state.selectedWireId,
+        // Round 144: Update layer wireIds
+        layers: wire?.layerId
+          ? state.layers.map(l =>
+              l.id === wire.layerId
+                ? { ...l, wireIds: l.wireIds.filter(id => id !== wireId) }
+                : l
+            )
+          : state.layers,
+        // Round 144: Update junction connection counts
+        junctions: state.junctions.map(j =>
+          j.connectedWireIds.includes(wireId)
+            ? {
+                ...j,
+                connectedWireIds: j.connectedWireIds.filter(id => id !== wireId),
+                connectionCount: j.connectionCount - 1,
+              }
+            : j
+        ),
+      };
+    });
   },
   
   // Select circuit wire
@@ -455,14 +562,14 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   
   // Wire drawing - finish
   finishWireDrawing: (targetNodeId: string, targetPort: number) => {
-    const wireStart = useCircuitCanvasStore.getState().wireStart;
+    const wireStart = _get().wireStart;
     if (!wireStart) {
       set({ isDrawingWire: false, wireStart: null, wirePreviewEnd: null });
       return;
     }
     
     // Add the wire
-    useCircuitCanvasStore.getState().addCircuitWire(wireStart.nodeId, targetNodeId, targetPort);
+    _get().addCircuitWire(wireStart.nodeId, targetNodeId, targetPort);
     
     set({
       isDrawingWire: false,
@@ -498,12 +605,12 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
     }));
     
     // Auto-run simulation after toggle
-    useCircuitCanvasStore.getState().runCircuitSimulation();
+    _get().runCircuitSimulation();
   },
   
   // Run circuit simulation
   runCircuitSimulation: () => {
-    const state = useCircuitCanvasStore.getState();
+    const state = _get();
     
     if (state.nodes.length === 0) return;
     
@@ -636,6 +743,9 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
       wirePreviewEnd: null,
       cycleAffectedNodeIds: [],
       simulationStepCount: 0,
+      junctions: [], // Round 144: Clear junctions
+      // Keep layers but clear their node/wire references
+      layers: _get().layers.map(l => ({ ...l, nodeIds: [], wireIds: [] })),
     });
   },
   
@@ -646,39 +756,308 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   
   // Get node by ID
   getNodeById: (nodeId: string): PlacedCircuitNode | undefined => {
-    const state = useCircuitCanvasStore.getState();
+    const state = _get();
     return state.nodes.find((n: PlacedCircuitNode) => n.id === nodeId);
   },
   
   // Get node signal
   getNodeSignal: (nodeId: string): SignalState => {
-    const state = useCircuitCanvasStore.getState();
+    const state = _get();
     const node = state.nodes.find((n: PlacedCircuitNode) => n.id === nodeId);
     return node?.signal ?? false;
   },
   
   // Get wire signal
   getWireSignal: (wireId: string): SignalState => {
-    const state = useCircuitCanvasStore.getState();
+    const state = _get();
     const wire = state.wires.find((w: CircuitWire) => w.id === wireId);
     return wire?.signal ?? false;
   },
   
   // Get all input nodes
   getInputNodes: (): PlacedInputNode[] => {
-    const state = useCircuitCanvasStore.getState();
+    const state = _get();
     return state.nodes.filter((n: PlacedCircuitNode) => n.type === 'input') as PlacedInputNode[];
   },
   
   // Get all gate nodes
   getGateNodes: (): PlacedGateNode[] => {
-    const state = useCircuitCanvasStore.getState();
+    const state = _get();
     return state.nodes.filter((n: PlacedCircuitNode) => n.type === 'gate') as PlacedGateNode[];
   },
   
   // Get all output nodes
   getOutputNodes: (): PlacedOutputNode[] => {
-    const state = useCircuitCanvasStore.getState();
+    const state = _get();
     return state.nodes.filter((n: PlacedCircuitNode) => n.type === 'output') as PlacedOutputNode[];
+  },
+  
+  // ============================================================
+  // Junction Operations (Round 144)
+  // ============================================================
+  
+  /**
+   * Create a new junction at the specified position
+   */
+  createJunction: (x: number, y: number): CircuitJunction => {
+    const state = _get();
+    const activeLayerId = state.activeLayerId;
+    
+    const junction: CircuitJunction = {
+      id: uuidv4(),
+      type: 'junction',
+      position: { x, y },
+      signal: false,
+      connectionCount: 0,
+      connectedWireIds: [],
+      layerId: activeLayerId || undefined,
+    };
+    
+    set((prevState: CircuitCanvasStore) => ({
+      junctions: [...prevState.junctions, junction],
+    }));
+    
+    return junction;
+  },
+  
+  /**
+   * Remove a junction
+   */
+  removeJunction: (junctionId: string) => {
+    set((state: CircuitCanvasStore) => ({
+      junctions: state.junctions.filter(j => j.id !== junctionId),
+    }));
+  },
+  
+  /**
+   * Select a junction (for UI highlighting)
+   */
+  selectJunction: (junctionId: string | null) => {
+    // Junction selection could be handled via a separate state if needed
+    // For now, we just log it
+    console.log('Selected junction:', junctionId);
+  },
+  
+  /**
+   * Update junction signal state
+   */
+  updateJunctionSignal: (junctionId: string, signal: SignalState) => {
+    set((state: CircuitCanvasStore) => ({
+      junctions: state.junctions.map(j =>
+        j.id === junctionId ? { ...j, signal } : j
+      ),
+    }));
+  },
+  
+  /**
+   * Connect a wire to a junction
+   */
+  connectWireToJunction: (wireId: string, junctionId: string) => {
+    set((state: CircuitCanvasStore) => ({
+      junctions: state.junctions.map(j =>
+        j.id === junctionId
+          ? {
+              ...j,
+              connectedWireIds: [...j.connectedWireIds, wireId],
+              connectionCount: j.connectionCount + 1,
+            }
+          : j
+      ),
+    }));
+  },
+  
+  // ============================================================
+  // Layer Operations (Round 144)
+  // ============================================================
+  
+  /**
+   * Create a new layer
+   */
+  createLayer: (options?: CreateLayerOptions): CircuitLayer => {
+    const state = _get();
+    const existingNames = state.layers.map(l => l.name);
+    const name = options?.name || generateLayerName(existingNames);
+    const color = options?.color || DEFAULT_LAYER_COLORS[state.layers.length % DEFAULT_LAYER_COLORS.length];
+    
+    const layer: CircuitLayer = {
+      id: uuidv4(),
+      name,
+      visible: true,
+      color,
+      order: state.layers.length,
+      nodeIds: [],
+      wireIds: [],
+    };
+    
+    set((prevState: CircuitCanvasStore) => ({
+      layers: [...prevState.layers, layer],
+      // If this is the first layer, set it as active
+      activeLayerId: prevState.activeLayerId || layer.id,
+    }));
+    
+    return layer;
+  },
+  
+  /**
+   * Remove a layer
+   */
+  removeLayer: (layerId: string): boolean => {
+    const state = _get();
+    
+    // Cannot remove if it's the last layer
+    if (state.layers.length <= 1) {
+      return false;
+    }
+    
+    const layer = state.layers.find(l => l.id === layerId);
+    if (!layer) {
+      return false;
+    }
+    
+    set((prevState: CircuitCanvasStore) => {
+      // Remove nodes and wires on this layer
+      const nodesToRemove = new Set(layer.nodeIds);
+      const wiresToRemove = new Set(layer.wireIds);
+      
+      const newLayers = prevState.layers.filter(l => l.id !== layerId);
+      
+      // If removing active layer, switch to first remaining layer
+      const newActiveLayerId = prevState.activeLayerId === layerId
+        ? newLayers[0]?.id || null
+        : prevState.activeLayerId;
+      
+      return {
+        layers: newLayers,
+        activeLayerId: newActiveLayerId,
+        nodes: prevState.nodes.filter(n => !nodesToRemove.has(n.id)),
+        wires: prevState.wires.filter(w => !wiresToRemove.has(w.id)),
+        // Clear selection if selected nodes were removed
+        selectedNodeId: nodesToRemove.has(prevState.selectedNodeId || '') ? null : prevState.selectedNodeId,
+        selectedCircuitNodeIds: prevState.selectedCircuitNodeIds.filter(id => !nodesToRemove.has(id)),
+      };
+    });
+    
+    return true;
+  },
+  
+  /**
+   * Set active layer
+   */
+  setActiveLayer: (layerId: string) => {
+    const state = _get();
+    const layer = state.layers.find(l => l.id === layerId);
+    
+    if (layer) {
+      set({ activeLayerId: layerId });
+    }
+  },
+  
+  /**
+   * Rename a layer
+   */
+  renameLayer: (layerId: string, name: string) => {
+    set((state: CircuitCanvasStore) => ({
+      layers: state.layers.map(l =>
+        l.id === layerId ? { ...l, name } : l
+      ),
+    }));
+  },
+  
+  /**
+   * Toggle layer visibility
+   */
+  toggleLayerVisibility: (layerId: string) => {
+    set((state: CircuitCanvasStore) => ({
+      layers: state.layers.map(l =>
+        l.id === layerId ? { ...l, visible: !l.visible } : l
+      ),
+    }));
+  },
+  
+  /**
+   * Get nodes on the active layer
+   */
+  getActiveLayerNodes: (): PlacedCircuitNode[] => {
+    const state = _get();
+    
+    if (!state.activeLayerId) {
+      // If no active layer, return all nodes
+      return state.nodes;
+    }
+    
+    const activeLayer = state.layers.find(l => l.id === state.activeLayerId);
+    if (!activeLayer) {
+      return state.nodes;
+    }
+    
+    // Only return visible layers
+    if (!activeLayer.visible) {
+      return [];
+    }
+    
+    return state.nodes.filter(n => n.layerId === state.activeLayerId);
+  },
+  
+  /**
+   * Get wires on the active layer
+   */
+  getActiveLayerWires: (): CircuitWire[] => {
+    const state = _get();
+    
+    if (!state.activeLayerId) {
+      // If no active layer, return all wires
+      return state.wires;
+    }
+    
+    const activeLayer = state.layers.find(l => l.id === state.activeLayerId);
+    if (!activeLayer) {
+      return state.wires;
+    }
+    
+    // Only return visible layers
+    if (!activeLayer.visible) {
+      return [];
+    }
+    
+    return state.wires.filter(w => w.layerId === state.activeLayerId);
+  },
+  
+  /**
+   * Move nodes to a different layer
+   */
+  moveNodesToLayer: (nodeIds: string[], targetLayerId: string) => {
+    set((state: CircuitCanvasStore) => {
+      const sourceLayerIds = new Set(nodeIds.map(id => {
+        const node = state.nodes.find(n => n.id === id);
+        return node?.layerId;
+      }));
+      
+      return {
+        nodes: state.nodes.map(n =>
+          nodeIds.includes(n.id)
+            ? { ...n, layerId: targetLayerId }
+            : n
+        ),
+        layers: state.layers.map(l => {
+          // Remove nodeIds from source layers
+          if (sourceLayerIds.has(l.id) && l.id !== targetLayerId) {
+            return {
+              ...l,
+              nodeIds: l.nodeIds.filter(id => !nodeIds.includes(id)),
+            };
+          }
+          // Add nodeIds to target layer
+          if (l.id === targetLayerId) {
+            const existingIds = new Set(l.nodeIds);
+            const newIds = nodeIds.filter(id => !existingIds.has(id));
+            return {
+              ...l,
+              nodeIds: [...l.nodeIds, ...newIds],
+            };
+          }
+          return l;
+        }),
+      };
+    });
   },
 }));

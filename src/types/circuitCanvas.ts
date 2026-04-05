@@ -4,6 +4,7 @@
  * Round 122: Circuit Canvas Integration
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop types
  * Round 131: Added React import for CanvasCircuitNodeProps onClick signature
+ * Round 144: Added Junction and Layer types
  * 
  * Defines types for circuit components placed on the canvas,
  * extending the base circuit simulation types with canvas-specific state.
@@ -40,6 +41,8 @@ export interface PlacedCircuitNode {
   size?: { width: number; height: number };
   /** Component-specific parameters */
   parameters?: Record<string, unknown>;
+  /** Layer ID for multi-layer support */
+  layerId?: string;
 }
 
 /**
@@ -100,6 +103,83 @@ export interface CircuitWire {
   startPoint?: { x: number; y: number };
   /** End point coordinates */
   endPoint?: { x: number; y: number };
+  /** Layer ID for multi-layer support */
+  layerId?: string;
+}
+
+// ============================================================================
+// Junction Types (Round 144)
+// ============================================================================
+
+/**
+ * Junction point for complex wire routing
+ * Allows multiple wires to connect at a single point
+ */
+export interface CircuitJunction {
+  /** Unique identifier */
+  id: string;
+  /** Junction type */
+  type: 'junction';
+  /** Position on canvas */
+  position: { x: number; y: number };
+  /** Signal state */
+  signal: SignalState;
+  /** Number of connected wires */
+  connectionCount: number;
+  /** Connected wire IDs */
+  connectedWireIds: string[];
+  /** Layer ID for multi-layer support */
+  layerId?: string;
+}
+
+/**
+ * Junction port configuration
+ */
+export interface JunctionPort {
+  /** Port index */
+  index: number;
+  /** Position relative to junction center */
+  x: number;
+  y: number;
+  /** Connected wire ID (if any) */
+  wireId?: string;
+  /** Signal state */
+  signal: SignalState;
+}
+
+// ============================================================================
+// Layer Types (Round 144)
+// ============================================================================
+
+/**
+ * Circuit layer for multi-layer support
+ * Allows organizing circuits into separate layers
+ */
+export interface CircuitLayer {
+  /** Unique identifier */
+  id: string;
+  /** Layer name for display */
+  name: string;
+  /** Whether layer is visible */
+  visible: boolean;
+  /** Layer color for UI display */
+  color: string;
+  /** Layer order (z-index) */
+  order: number;
+  /** Node IDs on this layer */
+  nodeIds: string[];
+  /** Wire IDs on this layer */
+  wireIds: string[];
+}
+
+/**
+ * Layer creation options
+ */
+export interface CreateLayerOptions {
+  /** Optional custom name */
+  name?: string;
+  /** Optional custom color */
+  color?: string;
 }
 
 // ============================================================================
@@ -134,6 +214,12 @@ export interface CanvasCircuitState {
   isSimulating: boolean;
   /** Simulation step count */
   simulationStepCount: number;
+  /** Junction nodes */
+  junctions: CircuitJunction[];
+  /** Circuit layers */
+  layers: CircuitLayer[];
+  /** Active layer ID */
+  activeLayerId: string | null;
 }
 
 // ============================================================================
@@ -207,6 +293,22 @@ export interface CircuitWireProps {
   onClick?: (wireId: string) => void;
 }
 
+/**
+ * Junction component props
+ */
+export interface CircuitJunctionProps {
+  /** Junction data */
+  junction: CircuitJunction;
+  /** Whether junction is selected */
+  isSelected?: boolean;
+  /** Zoom level */
+  zoom?: number;
+  /** Click handler */
+  onClick?: (junctionId: string) => void;
+  /** Port click handler */
+  onPortClick?: (junctionId: string, portIndex: number) => void;
+}
+
 // ============================================================================
 // Gate Size Constants
 // ============================================================================
@@ -255,3 +357,15 @@ export const DEFAULT_NODE_LABELS: Record<string, string> = {
   D_LATCH: 'D',
   D_FLIP_FLOP: 'D-FF',
 };
+
+/**
+ * Default layer colors
+ */
+export const DEFAULT_LAYER_COLORS = [
+  '#3b82f6', // Blue
+  '#22c55e', // Green
+  '#f59e0b', // Orange
+  '#ef4444', // Red
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+];
