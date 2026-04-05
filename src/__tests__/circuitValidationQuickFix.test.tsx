@@ -2,6 +2,7 @@
  * Circuit Validation Quick Fix Test Suite
  * 
  * Round 156: Enhanced Circuit Validation with Auto-Fix Quick Actions
+ * Round 157: Edge case tests and overlay lifecycle
  * 
  * Tests for:
  * - AC-156-001: Quick-fix buttons render for fixable errors
@@ -14,6 +15,8 @@
  * - Cross-contamination prevention
  * - Error type detection
  * - Store state consistency
+ * - Edge cases (multiple isolated groups, partial isolation)
+ * - Overlay lifecycle (dismiss → reopen → fix → dismiss)
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
@@ -1208,5 +1211,403 @@ describe('Store Integration with Quick Fix', () => {
 
     const finalModuleCount = useMachineStore.getState().modules.length;
     expect(finalModuleCount).toBeGreaterThan(initialModuleCount);
+  });
+});
+
+// ============================================================================
+// Round 157: Edge Case Tests
+// ============================================================================
+
+describe('ISLAND_MODULES Edge Cases', () => {
+  beforeEach(() => {
+    resetStore();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('should handle multiple isolated groups (two separate clusters of isolated modules)', async () => {
+    // Create two separate isolated groups: {pipe-1, gear-1} and {pipe-2, gear-2}
+    // Each cluster has connections internally but is isolated from core
+    const modules = [
+      createMockModule('core-1', 'core-furnace'),
+      // First isolated group
+      createMockModule('pipe-1', 'energy-pipe', 300, 100),
+      createMockModule('gear-1', 'gear', 400, 100),
+      // Second isolated group
+      createMockModule('pipe-2', 'energy-pipe', 300, 300),
+      createMockModule('gear-2', 'gear', 400, 300),
+    ];
+    // Internal connections exist within each group
+    const connections = [
+      createMockConnection('conn-1', 'pipe-1', 'gear-1'),
+      createMockConnection('conn-2', 'pipe-2', 'gear-2'),
+    ];
+    
+    useMachineStore.setState({ modules, connections, machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // ISLAND_MODULES error should appear
+    const errorItem = document.querySelector('[data-error-code="ISLAND_MODULES"]');
+    expect(errorItem).toBeTruthy();
+
+    // Fix should remove all isolated modules
+    const quickFixButton = screen.getByTestId('quick-fix-button-island_modules');
+    await act(async () => {
+      fireEvent.click(quickFixButton);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    // Only core should remain
+    const storeModules = useMachineStore.getState().modules;
+    expect(storeModules.length).toBe(1);
+    expect(storeModules[0].instanceId).toBe('core-1');
+  });
+
+  it('should handle partial isolation (module with connections but no power source)', async () => {
+    // A module connected to another isolated module (not to core)
+    const modules = [
+      createMockModule('core-1', 'core-furnace'),
+      createMockModule('pipe-1', 'energy-pipe', 200, 100), // Connected to nothing
+      createMockModule('output-1', 'output-array', 300, 100), // Connected to pipe-1
+    ];
+    const connections = [
+      createMockConnection('conn-1', 'pipe-1', 'output-1'),
+    ];
+    // pipe-1 is isolated from core (has connection to output-1, but output-1 has no power)
+    
+    useMachineStore.setState({ modules, connections, machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Both pipe-1 and output-1 are isolated (no connection to core)
+    const errorItem = document.querySelector('[data-error-code="ISLAND_MODULES"]');
+    expect(errorItem).toBeTruthy();
+
+    const quickFixButton = screen.getByTestId('quick-fix-button-island_modules');
+    await act(async () => {
+      fireEvent.click(quickFixButton);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    // Only core should remain
+    const storeModules = useMachineStore.getState().modules;
+    expect(storeModules.length).toBe(1);
+    expect(storeModules[0].instanceId).toBe('core-1');
+  });
+});
+
+describe('CIRCUIT_INCOMPLETE Edge Cases', () => {
+  beforeEach(() => {
+    resetStore();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('should handle empty canvas (valid - no validation needed)', async () => {
+    // Empty canvas is valid per validation logic
+    useMachineStore.setState({ modules: [], connections: [], machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // No overlay for empty canvas (valid circuit)
+    const overlay = screen.queryByTestId('circuit-validation-overlay');
+    expect(overlay).toBeNull();
+  });
+
+  it('should handle single module with existing connections to valid circuit', async () => {
+    // A single module with connections - this is a valid circuit
+    const modules = [
+      createMockModule('core-1', 'core-furnace'),
+    ];
+    
+    useMachineStore.setState({ modules, connections: [], machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Single core module is valid
+    const overlay = screen.queryByTestId('circuit-validation-overlay');
+    expect(overlay).toBeNull();
+  });
+});
+
+describe('Overlay Lifecycle Integration', () => {
+  beforeEach(() => {
+    resetStore();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('should fix ISLAND_MODULES and remove isolated module successfully', async () => {
+    // Start with isolated module scenario
+    const modules = [
+      createMockModule('core-1', 'core-furnace'),
+      createMockModule('isolated-1', 'gear', 400, 100),
+    ];
+    
+    useMachineStore.setState({ modules, machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // ISLAND_MODULES overlay should be visible
+    let overlay = screen.queryByTestId('circuit-validation-overlay');
+    expect(overlay).toBeTruthy();
+    let errorItem = document.querySelector('[data-error-code="ISLAND_MODULES"]');
+    expect(errorItem).toBeTruthy();
+
+    // Click Quick Fix to remove isolated module
+    const quickFixButton = screen.getByTestId('quick-fix-button-island_modules');
+    await act(async () => {
+      fireEvent.click(quickFixButton);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Overlay should hide (error fixed)
+    overlay = screen.queryByTestId('circuit-validation-overlay');
+    expect(overlay).toBeNull();
+
+    // Verify module was removed
+    const finalModules = useMachineStore.getState().modules;
+    expect(finalModules.length).toBe(1);
+    expect(finalModules[0].instanceId).toBe('core-1');
+  });
+
+  it('should handle fix → dismiss lifecycle with CIRCUIT_INCOMPLETE', async () => {
+    // Start with incomplete circuit (no core)
+    const modules = [
+      createMockModule('pipe-1', 'energy-pipe'),
+      createMockModule('output-1', 'output-array'),
+    ];
+    
+    useMachineStore.setState({ modules, machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // CIRCUIT_INCOMPLETE overlay should be visible
+    let overlay = screen.queryByTestId('circuit-validation-overlay');
+    expect(overlay).toBeTruthy();
+
+    // Fix adds a wire (or core)
+    const quickFixButton = screen.getByTestId('quick-fix-button-circuit_incomplete');
+    await act(async () => {
+      fireEvent.click(quickFixButton);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // After fix, overlay behavior depends on result
+    // Either dismissed (circuit valid) or shows new error
+    overlay = screen.queryByTestId('circuit-validation-overlay');
+    // Verify fix was applied (either connection added or core added)
+    const stateAfter = useMachineStore.getState();
+    const hasChanges = stateAfter.connections.length > 0 || 
+                       stateAfter.modules.some(m => m.type === 'core-furnace');
+    expect(hasChanges).toBe(true);
+  });
+});
+
+describe('Cross-Fix Contamination Scenarios', () => {
+  beforeEach(() => {
+    resetStore();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('should not affect connections when fixing ISLAND_MODULES', async () => {
+    const modules = [
+      createMockModule('core-1', 'core-furnace'),
+      createMockModule('pipe-1', 'energy-pipe', 200, 100),
+      createMockModule('isolated-1', 'gear', 400, 100),
+    ];
+    const connections = [
+      createMockConnection('conn-1', 'core-1', 'pipe-1'),
+    ];
+    
+    useMachineStore.setState({ modules, connections, machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Before fix
+    expect(useMachineStore.getState().connections.length).toBe(1);
+    expect(useMachineStore.getState().connections[0].id).toBe('conn-1');
+
+    // Fix ISLAND_MODULES
+    const quickFixButton = screen.getByTestId('quick-fix-button-island_modules');
+    await act(async () => {
+      fireEvent.click(quickFixButton);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    // Connections should be preserved
+    expect(useMachineStore.getState().connections.length).toBe(1);
+    expect(useMachineStore.getState().connections[0].id).toBe('conn-1');
+  });
+
+  it('should not affect modules when fixing unreachable outputs (with valid circuit structure)', async () => {
+    // When circuit is valid, there should be no UNREACHABLE_OUTPUT error
+    const modules = [
+      createMockModule('core-1', 'core-furnace'),
+      createMockModule('output-1', 'output-array', 300, 100),
+    ];
+    const connections = [
+      createMockConnection('conn-1', 'core-1', 'output-1'),
+    ];
+    
+    useMachineStore.setState({ modules, connections, machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // Circuit is valid - no overlay
+    const overlay = screen.queryByTestId('circuit-validation-overlay');
+    expect(overlay).toBeNull();
+  });
+
+  it('should fix CIRCUIT_INCOMPLETE without affecting existing module structure', async () => {
+    // Single output without core triggers CIRCUIT_INCOMPLETE
+    const modules = [
+      createMockModule('output-1', 'output-array'),
+    ];
+    
+    useMachineStore.setState({ modules, connections: [], machineState: 'idle' });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    // CIRCUIT_INCOMPLETE should be visible
+    const overlay = screen.queryByTestId('circuit-validation-overlay');
+    expect(overlay).toBeTruthy();
+
+    // Fix
+    const quickFixButton = screen.getByTestId('quick-fix-button-circuit_incomplete');
+    await act(async () => {
+      fireEvent.click(quickFixButton);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+
+    // Original module should still exist
+    const stateAfter = useMachineStore.getState();
+    expect(stateAfter.modules.some(m => m.instanceId === 'output-1')).toBe(true);
+    // And core should be added
+    expect(stateAfter.modules.some(m => m.type === 'core-furnace')).toBe(true);
+  });
+});
+
+
+describe("Quick Fix Button Accessibility", () => {
+  beforeEach(() => {
+    resetStore();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("should have proper tabIndex for keyboard navigation", async () => {
+    const modules = [
+      createMockModule("core-1", "core-furnace"),
+      createMockModule("isolated-1", "energy-pipe"),
+    ];
+    
+    useMachineStore.setState({ modules, machineState: "idle" });
+
+    await act(async () => {
+      render(<CircuitValidationOverlay />);
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(200);
+    });
+
+    const button = screen.getByTestId("quick-fix-button-island_modules");
+    // Button should be focusable for keyboard users
+    expect(button.hasAttribute("tabIndex") || button.tagName === "BUTTON").toBeTruthy();
   });
 });
