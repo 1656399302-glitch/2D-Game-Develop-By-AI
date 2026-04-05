@@ -10,6 +10,7 @@ import { hydrateCommunityStore } from '../store/useCommunityStore';
 import { hydrateFavoritesStore } from '../store/useFavoritesStore';
 import { hydrateMachineTagsStore } from '../store/useMachineTagsStore';
 import { hydrateTemplateStore } from '../store/useTemplateStore';
+import { hydrateRatingsStore } from '../store/useRatingsStore';
 
 /**
  * Store Hydration Hook - REWRITTEN FOR ROUND 38
@@ -70,6 +71,7 @@ const hydrateAllStores = () => {
   hydrateStore('favorites', hydrateFavoritesStore);
   hydrateStore('machineTags', hydrateMachineTagsStore);
   hydrateStore('templates', hydrateTemplateStore);
+  hydrateStore('ratings', hydrateRatingsStore);
 };
 
 /**

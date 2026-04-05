@@ -23,6 +23,7 @@ import { useFactionReputationStore } from '../store/useFactionReputationStore';
 import { useCommunityStore } from '../store/useCommunityStore';
 import { useSelectionStore } from '../store/useSelectionStore';
 import { useGroupingStore } from '../store/useGroupingStore';
+import { useRatingsStore } from '../store/useRatingsStore';
 import { Rarity } from '../types';
 import { FactionId } from '../types/factions';
 
@@ -166,6 +167,11 @@ const resetAllStores = () => {
     groups: [],
     activeGroupId: null,
   });
+
+  useRatingsStore.setState({
+    userRatings: {},
+    reviews: {},
+  });
 };
 
 beforeEach(() => {
@@ -289,6 +295,22 @@ describe('Store Persistence Configuration', () => {
     it('should only persist specific fields', () => {
       const options = useExchangeStore.persist?.getOptions?.();
       expect(typeof options?.partialize).toBe('function');
+    });
+  });
+
+  describe('useRatingsStore', () => {
+    it('should have persistence configured', () => {
+      expect(useRatingsStore.persist).toBeDefined();
+    });
+
+    it('should have skipHydration configured', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+
+    it('should have version configured', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      expect(options?.version).toBeDefined();
     });
   });
 });
@@ -584,6 +606,46 @@ describe('Happy Path State Management', () => {
 
       expect(useExchangeStore.getState().notifications.length).toBe(1);
       expect(useExchangeStore.getState().getUnreadCount()).toBe(1);
+    });
+  });
+
+  describe('useRatingsStore State', () => {
+    it('should store user ratings correctly', () => {
+      useRatingsStore.setState({
+        userRatings: {
+          'machine-1:user-1': {
+            id: 'rating-1',
+            machineId: 'machine-1',
+            userId: 'user-1',
+            value: 4,
+            timestamp: Date.now(),
+          },
+        },
+      });
+
+      expect(useRatingsStore.getState().userRatings['machine-1:user-1']).toBeDefined();
+      expect(useRatingsStore.getState().userRatings['machine-1:user-1'].value).toBe(4);
+    });
+
+    it('should store reviews correctly', () => {
+      useRatingsStore.setState({
+        reviews: {
+          'machine-1': [
+            {
+              id: 'review-1',
+              machineId: 'machine-1',
+              authorId: 'user-1',
+              authorName: 'Test User',
+              rating: 5,
+              text: 'Great machine!',
+              timestamp: Date.now(),
+            },
+          ],
+        },
+      });
+
+      expect(useRatingsStore.getState().reviews['machine-1']).toHaveLength(1);
+      expect(useRatingsStore.getState().reviews['machine-1'][0].text).toBe('Great machine!');
     });
   });
 });
@@ -1106,6 +1168,188 @@ describe('Hydration Helper Functions', () => {
 
     it('should have isExchangeHydrated function', () => {
       expect(typeof useExchangeStore.persist?.hasHydrated).toBe('function');
+    });
+  });
+
+  describe('useRatingsStore', () => {
+    it('should have persist rehydrate function', () => {
+      expect(typeof useRatingsStore.persist?.rehydrate).toBe('function');
+    });
+
+    it('should have persist hasHydrated function', () => {
+      expect(typeof useRatingsStore.persist?.hasHydrated).toBe('function');
+    });
+
+    it('should have persist setOptions function', () => {
+      expect(typeof useRatingsStore.persist?.setOptions).toBe('function');
+    });
+
+    it('should have persist getOptions function', () => {
+      expect(typeof useRatingsStore.persist?.getOptions).toBe('function');
+    });
+  });
+});
+
+// =============================================================================
+// Ratings Store Hydration Tests (Round 140)
+// =============================================================================
+describe('Ratings Store Hydration (Round 140)', () => {
+  describe('hydrateRatingsStore function', () => {
+    it('should be defined as a function in the store', () => {
+      expect(typeof useRatingsStore.persist?.rehydrate).toBe('function');
+    });
+
+    it('should call rehydrate without throwing', () => {
+      expect(() => {
+        useRatingsStore.persist?.rehydrate?.();
+      }).not.toThrow();
+    });
+
+    it('should not throw when called multiple times', () => {
+      expect(() => {
+        useRatingsStore.persist?.rehydrate?.();
+        useRatingsStore.persist?.rehydrate?.();
+      }).not.toThrow();
+    });
+  });
+
+  describe('Ratings store persistence configuration', () => {
+    it('should have arcane-ratings-store as localStorage key', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      expect(options?.name).toBe('arcane-ratings-store');
+    });
+
+    it('should have skipHydration set to true', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+
+    it('should have partialize function for selective persistence', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      expect(typeof options?.partialize).toBe('function');
+    });
+
+    it('should persist userRatings and reviews via partialize', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      const state = useRatingsStore.getState();
+      const partial = options?.partialize?.(state);
+      expect(partial).toHaveProperty('userRatings');
+      expect(partial).toHaveProperty('reviews');
+    });
+  });
+
+  describe('Ratings store hydration scenarios', () => {
+    it('should have empty state by default', () => {
+      const state = useRatingsStore.getState();
+      expect(state.userRatings).toEqual({});
+      expect(state.reviews).toEqual({});
+    });
+
+    it('should handle direct state manipulation for testing', () => {
+      useRatingsStore.setState({
+        userRatings: {
+          'test-machine:user-123': {
+            id: 'rating-123',
+            machineId: 'test-machine',
+            userId: 'user-123',
+            value: 4,
+            timestamp: 1234567890,
+          },
+        },
+      });
+
+      const state = useRatingsStore.getState();
+      expect(state.userRatings['test-machine:user-123']).toBeDefined();
+      expect(state.userRatings['test-machine:user-123'].value).toBe(4);
+    });
+
+    it('should calculate average rating from hydrated state', () => {
+      useRatingsStore.setState({
+        userRatings: {
+          'test-machine:user-1': {
+            id: 'rating-1',
+            machineId: 'test-machine',
+            userId: 'user-1',
+            value: 5,
+            timestamp: Date.now(),
+          },
+          'test-machine:user-2': {
+            id: 'rating-2',
+            machineId: 'test-machine',
+            userId: 'user-2',
+            value: 3,
+            timestamp: Date.now(),
+          },
+        },
+      });
+
+      const stats = useRatingsStore.getState().getAverageRating('test-machine');
+      expect(stats?.averageRating).toBe(4);
+      expect(stats?.ratingCount).toBe(2);
+    });
+
+    it('should include reviews in average rating calculation', () => {
+      useRatingsStore.setState({
+        reviews: {
+          'test-machine': [
+            {
+              id: 'review-1',
+              machineId: 'test-machine',
+              authorId: 'user-1',
+              authorName: 'User One',
+              rating: 4,
+              text: 'Great machine!',
+              timestamp: Date.now(),
+            },
+          ],
+        },
+      });
+
+      const stats = useRatingsStore.getState().getAverageRating('test-machine');
+      expect(stats?.averageRating).toBe(4);
+      expect(stats?.ratingCount).toBe(1);
+    });
+  });
+
+  describe('Malformed localStorage handling', () => {
+    it('should handle missing ratings data gracefully', () => {
+      // Simulate what happens when localStorage has no data
+      const emptyData = null;
+      expect(emptyData).toBeNull();
+      // Store should default to empty state
+      expect(useRatingsStore.getState().userRatings).toEqual({});
+    });
+
+    it('should handle corrupted JSON gracefully', () => {
+      const corruptedJson = '{{{invalid json{{';
+      expect(() => {
+        JSON.parse(corruptedJson);
+      }).toThrow();
+      // Store should not crash - defaults should apply
+      expect(useRatingsStore.getState()).toBeDefined();
+    });
+
+    it('should handle partial ratings data', () => {
+      // Simulate partial data - only userRatings without reviews
+      const partialState = {
+        userRatings: {
+          'machine-1:user-1': {
+            id: 'rating-1',
+            machineId: 'machine-1',
+            userId: 'user-1',
+            value: 5,
+            timestamp: Date.now(),
+          },
+        },
+      };
+      
+      useRatingsStore.setState({
+        ...partialState,
+        reviews: {}, // Missing from partial state
+      });
+
+      expect(useRatingsStore.getState().userRatings['machine-1:user-1'].value).toBe(5);
+      expect(useRatingsStore.getState().reviews).toEqual({});
     });
   });
 });

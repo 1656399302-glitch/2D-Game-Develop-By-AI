@@ -8,15 +8,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRatingsStore } from '../store/useRatingsStore';
 
-// Mock zustand persist
-vi.mock('zustand/middleware', async () => {
-  const actual = await vi.importActual('zustand/middleware');
-  return {
-    ...actual,
-    persist: (store) => store,
-  };
-});
-
 // Mock uuid
 vi.mock('uuid', () => ({
   v4: () => 'test-uuid-' + Math.random().toString(36).substr(2, 9),
@@ -284,6 +275,170 @@ describe('useRatingsStore', () => {
       
       const reviews = result.current.getReviews('non-existent');
       expect(reviews).toEqual([]);
+    });
+  });
+});
+
+// =============================================================================
+// Hydration Tests (Round 140)
+// =============================================================================
+describe('Ratings Store Hydration (Round 140)', () => {
+  beforeEach(() => {
+    // Reset store state before each test
+    useRatingsStore.setState({
+      userRatings: {},
+      reviews: {},
+    });
+  });
+
+  describe('persist interface', () => {
+    it('should have persist interface available on the store', () => {
+      expect(useRatingsStore.persist).toBeDefined();
+    });
+
+    it('should have persist rehydrate function', () => {
+      expect(typeof useRatingsStore.persist?.rehydrate).toBe('function');
+    });
+
+    it('should have persist hasHydrated function', () => {
+      expect(typeof useRatingsStore.persist?.hasHydrated).toBe('function');
+    });
+
+    it('should have persist setOptions function', () => {
+      expect(typeof useRatingsStore.persist?.setOptions).toBe('function');
+    });
+
+    it('should have persist getOptions function', () => {
+      expect(typeof useRatingsStore.persist?.getOptions).toBe('function');
+    });
+
+    it('should have skipHydration configured', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      expect(options?.skipHydration).toBe(true);
+    });
+
+    it('should use arcane-ratings-store as storage key', () => {
+      const options = useRatingsStore.persist?.getOptions?.();
+      expect(options?.name).toBe('arcane-ratings-store');
+    });
+  });
+
+  describe('State persistence behavior', () => {
+    it('should preserve userRatings state across setState calls', () => {
+      const { result } = renderHook(() => useRatingsStore());
+      
+      act(() => {
+        result.current.submitRating('machine-1', 'user-1', 5);
+      });
+      
+      // Verify state is preserved
+      const rating = result.current.getUserRating('machine-1', 'user-1');
+      expect(rating?.value).toBe(5);
+      
+      // Trigger another setState to ensure no state loss
+      act(() => {
+        result.current.submitRating('machine-2', 'user-1', 3);
+      });
+      
+      // Original rating should still exist
+      const originalRating = result.current.getUserRating('machine-1', 'user-1');
+      expect(originalRating?.value).toBe(5);
+    });
+
+    it('should preserve reviews state across setState calls', () => {
+      const { result } = renderHook(() => useRatingsStore());
+      
+      act(() => {
+        result.current.submitReview('machine-1', 'user-1', 'User One', 4, 'Great!');
+      });
+      
+      // Verify reviews exist
+      const reviews = result.current.getReviews('machine-1');
+      expect(reviews).toHaveLength(1);
+      
+      // Add another review
+      act(() => {
+        result.current.submitReview('machine-2', 'user-2', 'User Two', 5, 'Amazing!');
+      });
+      
+      // Original reviews should still exist
+      const originalReviews = result.current.getReviews('machine-1');
+      expect(originalReviews).toHaveLength(1);
+      expect(originalReviews[0].text).toBe('Great!');
+    });
+
+    it('should handle rehydrate call without throwing', () => {
+      expect(() => {
+        useRatingsStore.persist?.rehydrate?.();
+      }).not.toThrow();
+    });
+  });
+
+  describe('Partial hydration scenarios', () => {
+    it('should handle missing reviews field gracefully', () => {
+      const { result } = renderHook(() => useRatingsStore());
+      
+      // Manually set only userRatings (simulating partial hydration)
+      useRatingsStore.setState({
+        userRatings: {
+          'machine-1:user-1': {
+            id: 'rating-1',
+            machineId: 'machine-1',
+            userId: 'user-1',
+            value: 4,
+            timestamp: Date.now(),
+          },
+        },
+        // reviews is not set - should default to {}
+      });
+      
+      // Should not crash
+      expect(result.current.getReviews('machine-1')).toEqual([]);
+      expect(result.current.getAverageRating('machine-1')?.averageRating).toBe(4);
+    });
+
+    it('should handle missing userRatings field gracefully', () => {
+      const { result } = renderHook(() => useRatingsStore());
+      
+      // Manually set only reviews (simulating partial hydration)
+      useRatingsStore.setState({
+        reviews: {
+          'machine-1': [
+            {
+              id: 'review-1',
+              machineId: 'machine-1',
+              authorId: 'user-1',
+              authorName: 'User One',
+              rating: 5,
+              text: 'Perfect!',
+              timestamp: Date.now(),
+            },
+          ],
+        },
+        // userRatings is not set - should default to {}
+      });
+      
+      // Should not crash
+      expect(result.current.getUserRating('machine-1', 'user-1')).toBeUndefined();
+      expect(result.current.getAverageRating('machine-1')?.averageRating).toBe(5);
+    });
+
+    it('should handle empty state', () => {
+      const { result } = renderHook(() => useRatingsStore());
+      
+      // Ensure empty state
+      useRatingsStore.setState({
+        userRatings: {},
+        reviews: {},
+      });
+      
+      // Should handle gracefully
+      expect(result.current.getAverageRating('any-machine')).toEqual({
+        machineId: 'any-machine',
+        averageRating: 0,
+        ratingCount: 0,
+      });
+      expect(result.current.getReviews('any-machine')).toEqual([]);
     });
   });
 });
