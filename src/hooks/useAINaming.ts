@@ -99,6 +99,20 @@ const DEFAULT_OPTIONS: UseAINamingOptions = {
 };
 
 /**
+ * Error messages for different failure scenarios
+ */
+const ERROR_MESSAGES = {
+  INVALID_MODULES: 'Invalid module configuration provided.',
+  INVALID_CONNECTIONS: 'Invalid connection configuration provided.',
+  NAME_GENERATION_FAILED: 'Name generation failed. Please try again.',
+  DESCRIPTION_GENERATION_FAILED: 'Description generation failed. Please try again.',
+  ATTRIBUTES_GENERATION_FAILED: 'Attribute generation failed. Please try again.',
+  PROVIDER_INIT_FAILED: 'Failed to initialize AI provider. Using local generation.',
+  PROVIDER_SWITCH_FAILED: 'Failed to switch AI provider.',
+  GENERATION_TIMEOUT: 'Generation timed out. Please try again.',
+};
+
+/**
  * useAINaming Hook
  * 
  * Provides AI naming and description generation with automatic fallback.
@@ -157,7 +171,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
         ...prev,
         isUsingAI: false,
         lastProvider: 'local',
-        error: 'Failed to initialize AI provider. Using local generation.',
+        error: ERROR_MESSAGES.PROVIDER_INIT_FAILED,
       }));
     }
   }, [initialProvider]); // Only re-run when provider type changes
@@ -174,6 +188,20 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
   }, []);
 
   /**
+   * Validate input parameters
+   */
+  const validateModules = (modules: unknown): modules is Array<{ type: string }> => {
+    return Array.isArray(modules) && modules.every(m => m && typeof m === 'object' && 'type' in m);
+  };
+
+  const validateConnections = (connections: unknown): connections is Array<{ sourceModuleId: string; targetModuleId: string }> => {
+    return Array.isArray(connections) && connections.every(c => 
+      c && typeof c === 'object' && 
+      'sourceModuleId' in c && 'targetModuleId' in c
+    );
+  };
+
+  /**
    * Generate a machine name
    */
   const generateName = useCallback(async (params: {
@@ -183,6 +211,19 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
     preferredTags?: string[];
     preferredRarity?: string;
   }): Promise<AIProviderResult<string>> => {
+    // Validate inputs
+    if (!validateModules(params.modules)) {
+      const error = ERROR_MESSAGES.INVALID_MODULES;
+      setLoading(false, error);
+      throw new Error(error);
+    }
+
+    if (!validateConnections(params.connections)) {
+      const error = ERROR_MESSAGES.INVALID_CONNECTIONS;
+      setLoading(false, error);
+      throw new Error(error);
+    }
+
     setLoading(true);
 
     try {
@@ -212,12 +253,12 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
           return result;
         } catch (localError) {
           console.error('[useAINaming] Local fallback also failed:', localError);
-          setLoading(false, 'Name generation failed. Please try again.');
+          setLoading(false, ERROR_MESSAGES.NAME_GENERATION_FAILED);
           throw localError;
         }
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Name generation failed';
+      const errorMessage = ERROR_MESSAGES.NAME_GENERATION_FAILED;
       setLoading(false, errorMessage);
       throw error;
     }
@@ -239,6 +280,26 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
     style?: 'technical' | 'flavor' | 'lore' | 'mixed';
     maxLength?: number;
   }): Promise<AIProviderResult<string>> => {
+    // Validate inputs
+    if (!validateModules(params.modules)) {
+      const error = ERROR_MESSAGES.INVALID_MODULES;
+      setLoading(false, error);
+      throw new Error(error);
+    }
+
+    if (!validateConnections(params.connections)) {
+      const error = ERROR_MESSAGES.INVALID_CONNECTIONS;
+      setLoading(false, error);
+      throw new Error(error);
+    }
+
+    // Validate attributes
+    if (!params.attributes || typeof params.attributes !== 'object') {
+      const error = 'Invalid attributes configuration provided.';
+      setLoading(false, error);
+      throw new Error(error);
+    }
+
     setLoading(true);
 
     try {
@@ -268,12 +329,12 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
           return result;
         } catch (localError) {
           console.error('[useAINaming] Local fallback also failed:', localError);
-          setLoading(false, 'Description generation failed. Please try again.');
+          setLoading(false, ERROR_MESSAGES.DESCRIPTION_GENERATION_FAILED);
           throw localError;
         }
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Description generation failed';
+      const errorMessage = ERROR_MESSAGES.DESCRIPTION_GENERATION_FAILED;
       setLoading(false, errorMessage);
       throw error;
     }
@@ -286,6 +347,19 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
     modules: Array<{ type: string; category?: string; id?: string; instanceId?: string }>,
     connections: Array<{ sourceModuleId: string; targetModuleId: string }>
   ): Promise<AIProviderResult<GeneratedAttributes>> => {
+    // Validate inputs
+    if (!validateModules(modules)) {
+      const error = ERROR_MESSAGES.INVALID_MODULES;
+      setLoading(false, error);
+      throw new Error(error);
+    }
+
+    if (!validateConnections(connections)) {
+      const error = ERROR_MESSAGES.INVALID_CONNECTIONS;
+      setLoading(false, error);
+      throw new Error(error);
+    }
+
     setLoading(true);
 
     try {
@@ -315,12 +389,12 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
           return result;
         } catch (localError) {
           console.error('[useAINaming] Local fallback also failed:', localError);
-          setLoading(false, 'Attribute generation failed. Please try again.');
+          setLoading(false, ERROR_MESSAGES.ATTRIBUTES_GENERATION_FAILED);
           throw localError;
         }
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Attribute generation failed';
+      const errorMessage = ERROR_MESSAGES.ATTRIBUTES_GENERATION_FAILED;
       setLoading(false, errorMessage);
       throw error;
     }
@@ -343,7 +417,7 @@ export function useAINaming(options: UseAINamingOptions = {}): UseAINamingReturn
       console.error('[useAINaming] Failed to set provider:', error);
       setState(prev => ({
         ...prev,
-        error: 'Failed to switch AI provider',
+        error: ERROR_MESSAGES.PROVIDER_SWITCH_FAILED,
       }));
     }
   }, [config]);

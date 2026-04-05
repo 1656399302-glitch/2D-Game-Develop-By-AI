@@ -56,6 +56,9 @@ const DESCRIPTIONS = [
 
 // Random helper functions (matching original implementation)
 function randomChoice<T>(arr: T[]): T {
+  if (!arr || arr.length === 0) {
+    return '' as T;
+  }
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
@@ -86,13 +89,24 @@ export class LocalAIProvider implements AIProvider {
     preferredTags?: string[];
     preferredRarity?: string;
   }): Promise<AIProviderResult<string>> {
-    const name = this.generateLocalName(params);
-    return {
-      data: name,
-      isFromAI: false,
-      confidence: 0.95, // Local generation is deterministic-ish
-      provider: 'local',
-    };
+    try {
+      const name = this.generateLocalName(params);
+      return {
+        data: name,
+        isFromAI: false,
+        confidence: 0.95, // Local generation is deterministic-ish
+        provider: 'local',
+      };
+    } catch (error) {
+      // Fallback to a default name on any error
+      console.error('[LocalAIProvider] Error generating name, using default:', error);
+      return {
+        data: 'Arcane Device Prime',
+        isFromAI: false,
+        confidence: 0.5,
+        provider: 'local',
+      };
+    }
   }
 
   /**
@@ -131,6 +145,11 @@ export class LocalAIProvider implements AIProvider {
       }
     }
 
+    // Ensure we have at least one prefix
+    if (availablePrefixes.length === 0) {
+      availablePrefixes = [...PREFIXES];
+    }
+
     const prefix = randomChoice(availablePrefixes);
     const type = randomChoice(TYPES);
     const suffix = randomChoice(SUFFIXES);
@@ -142,6 +161,8 @@ export class LocalAIProvider implements AIProvider {
    * Get prefixes filtered by faction
    */
   private getFactionPrefixes(faction: string): string[] {
+    if (!faction) return [];
+    
     const factionPrefixMap: Record<string, string[]> = {
       inferno: ['Infernal', 'Crimson', 'Obsidian', 'Fire'],
       storm: ['Thunder', 'Lightning', 'Storm', 'Azure'],
@@ -164,6 +185,8 @@ export class LocalAIProvider implements AIProvider {
    * Get prefixes filtered by tags
    */
   private getTagPrefixes(tags: string[]): string[] {
+    if (!tags || !Array.isArray(tags)) return [];
+    
     const tagPrefixMap: Record<string, string[]> = {
       fire: ['Infernal', 'Crimson', 'Obsidian'],
       lightning: ['Thunder', 'Lightning', 'Storm'],
@@ -180,6 +203,7 @@ export class LocalAIProvider implements AIProvider {
 
     const matchingPrefixes: string[] = [];
     for (const tag of tags) {
+      if (typeof tag !== 'string') continue;
       const prefixes = tagPrefixMap[tag.toLowerCase()];
       if (prefixes) {
         matchingPrefixes.push(...prefixes);
@@ -192,6 +216,8 @@ export class LocalAIProvider implements AIProvider {
    * Get prefixes filtered by rarity
    */
   private getRarityPrefixes(rarity: string): string[] {
+    if (!rarity) return [];
+    
     const rarityPrefixMap: Record<string, string[]> = {
       legendary: ['Void', 'Celestial', 'Eternal', 'Ancient'],
       epic: ['Stellar', 'Cosmic', 'Dimensional', 'Forgotten'],
@@ -219,13 +245,24 @@ export class LocalAIProvider implements AIProvider {
     style?: 'technical' | 'flavor' | 'lore' | 'mixed';
     maxLength?: number;
   }): Promise<AIProviderResult<string>> {
-    const description = this.generateLocalDescription(params);
-    return {
-      data: description,
-      isFromAI: false,
-      confidence: 0.90,
-      provider: 'local',
-    };
+    try {
+      const description = this.generateLocalDescription(params);
+      return {
+        data: description,
+        isFromAI: false,
+        confidence: 0.90,
+        provider: 'local',
+      };
+    } catch (error) {
+      // Fallback to a default description on any error
+      console.error('[LocalAIProvider] Error generating description, using default:', error);
+      return {
+        data: 'An arcane device of mysterious origin.',
+        isFromAI: false,
+        confidence: 0.5,
+        provider: 'local',
+      };
+    }
   }
 
   /**
@@ -245,24 +282,51 @@ export class LocalAIProvider implements AIProvider {
     maxLength?: number;
   }): string {
     const { style = 'mixed' } = params;
-    const { stability, power } = params.attributes;
+    
+    // Handle undefined/null attributes with defaults
+    const stability = typeof params.attributes?.stability === 'number' ? params.attributes.stability : 50;
+    const power = typeof params.attributes?.power === 'number' ? params.attributes.power : 50;
+    
+    // Handle empty modules array
+    const modules = Array.isArray(params.modules) ? params.modules : [];
+    const connections = Array.isArray(params.connections) ? params.connections : [];
 
     // Select description based on style
     let description: string;
 
     switch (style) {
       case 'technical':
-        description = this.generateTechnicalDescription(params);
+        description = this.generateTechnicalDescription({
+          machineName: params.machineName,
+          moduleCount: modules.length,
+          connectionCount: connections.length,
+          attributes: {
+            rarity: params.attributes?.rarity || 'common',
+            stability,
+            power,
+          },
+        });
         break;
       case 'flavor':
-        description = this.generateFlavorDescription(params);
+        description = this.generateFlavorDescription();
         break;
       case 'lore':
-        description = this.generateLoreDescription(params);
+        description = this.generateLoreDescription({
+          machineName: params.machineName,
+          rarity: params.attributes?.rarity || 'common',
+        });
         break;
       case 'mixed':
       default:
-        description = this.generateMixedDescription(params);
+        description = this.generateMixedDescription({
+          moduleCount: modules.length,
+          connectionCount: connections.length,
+          attributes: {
+            rarity: params.attributes?.rarity || 'common',
+            stability,
+            power,
+          },
+        });
     }
 
     // Add stats flavor
@@ -280,7 +344,7 @@ export class LocalAIProvider implements AIProvider {
     }
 
     // Add module-specific details
-    description += this.generateModuleDetails(params.modules);
+    description += this.generateModuleDetails(modules);
 
     // Truncate if maxLength specified
     if (params.maxLength && description.length > params.maxLength) {
@@ -295,15 +359,12 @@ export class LocalAIProvider implements AIProvider {
    */
   private generateTechnicalDescription(params: {
     machineName: string;
-    modules: Array<{ type: string }>;
-    connections: Array<{ sourceModuleId: string; targetModuleId: string }>;
+    moduleCount: number;
+    connectionCount: number;
     attributes: { rarity: string; stability: number; power: number };
   }): string {
-    const moduleCount = params.modules.length;
-    const connectionCount = params.connections.length;
-
-    return `This ${params.machineName} is constructed with ${moduleCount} functional modules ` +
-      `interconnected via ${connectionCount} energy conduits. ` +
+    return `This ${params.machineName} is constructed with ${params.moduleCount} functional modules ` +
+      `interconnected via ${params.connectionCount} energy conduits. ` +
       `System stability registers at ${params.attributes.stability}% with a power output of ${params.attributes.power}%. ` +
       `Classification: ${params.attributes.rarity} tier apparatus.`;
   }
@@ -311,10 +372,7 @@ export class LocalAIProvider implements AIProvider {
   /**
    * Generate a flavor-style description
    */
-  private generateFlavorDescription(_params: {
-    machineName: string;
-    modules: Array<{ type: string }>;
-  }): string {
+  private generateFlavorDescription(): string {
     return randomChoice(DESCRIPTIONS);
   }
 
@@ -323,12 +381,10 @@ export class LocalAIProvider implements AIProvider {
    */
   private generateLoreDescription(params: {
     machineName: string;
-    attributes: { rarity: string };
+    rarity: string;
   }): string {
-    const rarity = params.attributes.rarity;
-    
     const loreTemplates = [
-      `Legends speak of the ${params.machineName}, a ${rarity} device said to have been forged ` +
+      `Legends speak of the ${params.machineName}, a ${params.rarity} device said to have been forged ` +
         `in the ancient workshops where magic and machinery were first united.`,
 
       `The ${params.machineName} bears the hallmarks of master craftsmanship from an age ` +
@@ -345,13 +401,12 @@ export class LocalAIProvider implements AIProvider {
    * Generate a mixed-style description
    */
   private generateMixedDescription(params: {
-    machineName: string;
-    modules: Array<{ type: string }>;
-    connections: Array<{ sourceModuleId: string; targetModuleId: string }>;
+    moduleCount: number;
+    connectionCount: number;
     attributes: { rarity: string; stability: number; power: number };
   }): string {
     const flavor = randomChoice(DESCRIPTIONS);
-    const technical = ` This apparatus integrates ${params.modules.length} modules through ${params.connections.length} connections, ` +
+    const technical = ` This apparatus integrates ${params.moduleCount} modules through ${params.connectionCount} connections, ` +
       `producing ${params.attributes.power}% power output with ${params.attributes.stability}% stability.`;
 
     return flavor + technical;
@@ -361,9 +416,11 @@ export class LocalAIProvider implements AIProvider {
    * Generate module-specific detail text
    */
   private generateModuleDetails(modules: Array<{ type: string; category?: string }>): string {
+    if (!modules || !Array.isArray(modules)) return '';
+    
     const details: string[] = [];
 
-    const hasModule = (type: string) => modules.some(m => m.type.includes(type));
+    const hasModule = (type: string) => modules.some(m => m && m.type && m.type.includes(type));
 
     if (hasModule('output-array')) {
       details.push(' Output array projects focused arcane beams.');
@@ -394,37 +451,58 @@ export class LocalAIProvider implements AIProvider {
     modules: Array<{ type: string; category?: string; id?: string; instanceId?: string }>,
     connections: Array<{ sourceModuleId: string; targetModuleId: string }>
   ): Promise<AIProviderResult<GeneratedAttributes>> {
-    // Convert to PlacedModule format expected by original function
-    const convertedModules: PlacedModule[] = modules.map(m => ({
-      id: m.id || '',
-      instanceId: m.instanceId || m.id || '',
-      type: m.type as ModuleType,
-      x: 0,
-      y: 0,
-      rotation: 0,
-      scale: 1,
-      flipped: false,
-      ports: [],
-    }));
+    try {
+      // Convert to PlacedModule format expected by original function
+      const safeModules = Array.isArray(modules) ? modules : [];
+      const safeConnections = Array.isArray(connections) ? connections : [];
+      
+      const convertedModules: PlacedModule[] = safeModules.map((m, idx) => ({
+        id: m?.id || `generated-${idx}`,
+        instanceId: m?.instanceId || m?.id || `generated-${idx}`,
+        type: (m?.type || 'core-furnace') as ModuleType,
+        x: 0,
+        y: 0,
+        rotation: 0,
+        scale: 1,
+        flipped: false,
+        ports: [],
+      }));
 
-    const convertedConnections: Connection[] = connections.map(c => ({
-      id: '',
-      sourceModuleId: c.sourceModuleId,
-      sourcePortId: '',
-      targetModuleId: c.targetModuleId,
-      targetPortId: '',
-      pathData: '',
-    }));
+      const convertedConnections: Connection[] = safeConnections.map((c, idx) => ({
+        id: `conn-${idx}`,
+        sourceModuleId: c?.sourceModuleId || '',
+        sourcePortId: '',
+        targetModuleId: c?.targetModuleId || '',
+        targetPortId: '',
+        pathData: '',
+      }));
 
-    // Use the original generateAttributes function (wrapped in Promise for async interface)
-    const attributes = originalGenerateAttributes(convertedModules, convertedConnections);
+      // Use the original generateAttributes function (wrapped in Promise for async interface)
+      const attributes = originalGenerateAttributes(convertedModules, convertedConnections);
 
-    return {
-      data: attributes,
-      isFromAI: false,
-      confidence: 0.95,
-      provider: 'local',
-    };
+      return {
+        data: attributes,
+        isFromAI: false,
+        confidence: 0.95,
+        provider: 'local',
+      };
+    } catch (error) {
+      // Fallback to default attributes on any error
+      console.error('[LocalAIProvider] Error generating full attributes, using defaults:', error);
+      return {
+        data: {
+          name: 'Arcane Device Prime',
+          rarity: 'common',
+          stats: { stability: 50, powerOutput: 50, energyCost: 50, failureRate: 50 },
+          tags: ['stable'],
+          description: 'An arcane device of mysterious origin.',
+          codexId: 'ERR-0000',
+        },
+        isFromAI: false,
+        confidence: 0.5,
+        provider: 'local',
+      };
+    }
   }
 
   /**
