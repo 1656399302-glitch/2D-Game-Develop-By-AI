@@ -2,6 +2,7 @@
  * Circuit Validation Type Definitions
  * 
  * Round 112: Advanced Circuit Validation System
+ * Round 156: Enhanced Circuit Validation with Auto-Fix Quick Actions
  * 
  * This module defines all types related to circuit validation,
  * including validation results, error types, warnings, and graph structures.
@@ -28,7 +29,41 @@ export type ValidationErrorType =
 export type ValidationSeverity = 'error' | 'warning';
 
 /**
+ * Quick fix action types for auto-fixing validation errors
+ * Round 156: Auto-Fix Quick Actions
+ */
+export type QuickFixType =
+  | 'ISLAND_MODULES'    // Auto-fix: Remove isolated modules
+  | 'UNREACHABLE_OUTPUT' // Auto-fix: Disconnect unreachable outputs
+  | 'CIRCUIT_INCOMPLETE'; // Auto-fix: Add default wire from nearest input
+
+/**
+ * Represents a quick-fix action that can be applied to resolve a validation error
+ * Round 156: Auto-Fix Quick Actions
+ */
+export interface QuickFixAction {
+  /** Unique identifier for this fix */
+  id: string;
+  /** The type of fix */
+  type: QuickFixType;
+  /** Human-readable label for the fix button */
+  label: string;
+  /** Description of what the fix will do */
+  description: string;
+  /** Affected module/connection IDs that will be modified */
+  affectedIds: {
+    moduleIds?: string[];
+    connectionIds?: string[];
+  };
+  /** Icon emoji for the fix button */
+  icon: string;
+  /** Whether this fix is currently executing */
+  isExecuting?: boolean;
+}
+
+/**
  * Represents a single validation error
+ * Round 156: Extended with quickFix action definitions
  */
 export interface ValidationError {
   /** Unique error code */
@@ -41,6 +76,8 @@ export interface ValidationError {
   affectedConnectionIds?: string[];
   /** Suggested fix description */
   fixSuggestion?: string;
+  /** Quick-fix action for auto-resolving this error (Round 156) */
+  quickFix?: QuickFixAction;
 }
 
 /**
@@ -330,3 +367,40 @@ export function isPassiveModule(moduleType: ModuleType): boolean {
 export function canBeConnected(moduleType: ModuleType): boolean {
   return !isPassiveModule(moduleType);
 }
+
+/**
+ * Error types that support auto-fix (Round 156)
+ */
+export const FIXABLE_ERROR_TYPES: ValidationErrorType[] = [
+  'ISLAND_MODULES',
+  'UNREACHABLE_OUTPUT',
+  'CIRCUIT_INCOMPLETE',
+];
+
+/**
+ * Check if an error type supports auto-fix (Round 156)
+ */
+export function isFixableError(errorCode: ValidationErrorType): boolean {
+  return FIXABLE_ERROR_TYPES.includes(errorCode);
+}
+
+/**
+ * Quick fix button labels and descriptions (Round 156)
+ */
+export const QUICK_FIX_LABELS: Record<QuickFixType, { label: string; description: string; icon: string }> = {
+  'ISLAND_MODULES': {
+    label: '快速修复',
+    description: '删除孤立模块',
+    icon: '🗑️',
+  },
+  'UNREACHABLE_OUTPUT': {
+    label: '快速修复',
+    description: '断开无法到达的输出',
+    icon: '✂️',
+  },
+  'CIRCUIT_INCOMPLETE': {
+    label: '快速修复',
+    description: '添加默认连接',
+    icon: '⚡',
+  },
+};

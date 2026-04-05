@@ -2,15 +2,16 @@
  * Circuit Validation Overlay Component
  * 
  * Round 112: Advanced Circuit Validation System
+ * Round 156: Enhanced Circuit Validation with Auto-Fix Quick Actions
  * 
  * This component displays validation results before activation,
- * showing errors with actionable messages and hints.
+ * showing errors with actionable messages, hints, and quick-fix buttons.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import '../../styles/circuit-animations.css';
 import { useCircuitValidation, useValidationOverlay } from '../../hooks/useCircuitValidation';
-import { ValidationError, ValidationWarning } from '../../types/circuitValidation';
+import { ValidationError, ValidationWarning, QuickFixAction } from '../../types/circuitValidation';
 import { useMachineStore } from '../../store/useMachineStore';
 import { ModuleType } from '../../types';
 
@@ -107,11 +108,43 @@ const overlayStyles: Record<string, React.CSSProperties> = {
     padding: '8px 10px',
     borderRadius: '4px',
     borderLeft: '3px solid #50fa7b',
+    marginTop: '8px',
   },
   fixLabel: {
     fontWeight: 'bold',
     marginRight: '6px',
     color: '#50fa7b',
+  },
+  // Round 156: Quick fix button styles
+  quickFixButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    marginTop: '10px',
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid rgba(80, 250, 123, 0.4)',
+    background: 'rgba(80, 250, 123, 0.15)',
+    color: '#50fa7b',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    fontFamily: '"Noto Sans SC", sans-serif',
+    width: '100%',
+  },
+  quickFixButtonDisabled: {
+    opacity: 0.5,
+    cursor: 'not-allowed',
+    background: 'rgba(128, 128, 128, 0.2)',
+    border: '1px solid rgba(128, 128, 128, 0.3)',
+    color: 'rgba(248, 248, 242, 0.5)',
+  },
+  quickFixButtonHover: {
+    background: 'rgba(80, 250, 123, 0.25)',
+    border: '1px solid rgba(80, 250, 123, 0.6)',
+    transform: 'translateY(-1px)',
   },
   warningList: {
     display: 'flex',
@@ -200,26 +233,95 @@ const ErrorIcon: React.FC<{ code: string }> = ({ code }) => {
 };
 
 // ============================================================================
-// Validation Error Item Component
+// Quick Fix Button Component (Round 156)
+// ============================================================================
+
+interface QuickFixButtonProps {
+  fix: QuickFixAction;
+  isExecuting: boolean;
+  onFix: () => void;
+}
+
+const QuickFixButton: React.FC<QuickFixButtonProps> = ({ fix, isExecuting, onFix }) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  const buttonStyle: React.CSSProperties = {
+    ...overlayStyles.quickFixButton,
+    ...(isExecuting || fix.isExecuting ? overlayStyles.quickFixButtonDisabled : {}),
+    ...(isHovered && !isExecuting && !fix.isExecuting ? overlayStyles.quickFixButtonHover : {}),
+  };
+
+  return (
+    <button
+      style={buttonStyle}
+      onClick={onFix}
+      disabled={isExecuting || fix.isExecuting}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title={fix.description}
+      data-testid={`quick-fix-button-${fix.type.toLowerCase()}`}
+      aria-label={`${fix.label}: ${fix.description}`}
+    >
+      <span style={{ fontSize: '14px' }}>{fix.icon}</span>
+      <span>{fix.label}</span>
+      <span style={{ fontSize: '11px', opacity: 0.8 }}>({fix.description})</span>
+    </button>
+  );
+};
+
+// ============================================================================
+// Validation Error Item Component (Round 156: Extended with Quick Fix)
 // ============================================================================
 
 interface ValidationErrorItemProps {
   error: ValidationError;
   modules: Array<{ instanceId: string; type: ModuleType }>;
+  onQuickFix?: (error: ValidationError) => void;
+  executingFixId: string | null;
+  isFixable: boolean;
 }
 
-const ValidationErrorItem: React.FC<ValidationErrorItemProps> = ({ error, modules }) => {
+const ValidationErrorItem: React.FC<ValidationErrorItemProps> = ({ 
+  error, 
+  modules, 
+  onQuickFix,
+  executingFixId,
+  isFixable,
+}) => {
   // Get affected module names
   const affectedModules = error.affectedModuleIds
     .map(id => modules.find(m => m.instanceId === id))
     .filter(Boolean)
     .map(m => m!.type);
 
+  // Determine if this specific fix is executing
+  const isThisFixExecuting = executingFixId?.includes(error.code) ?? false;
+
   return (
-    <div style={overlayStyles.errorItem}>
+    <div 
+      style={overlayStyles.errorItem}
+      data-error-code={error.code}
+      data-fixable={isFixable}
+    >
       <div style={overlayStyles.errorHeader}>
         <ErrorIcon code={error.code} />
         <span style={overlayStyles.errorCode}>{error.code}</span>
+        {/* Round 156: Show fixable badge */}
+        {isFixable && (
+          <span 
+            style={{
+              fontSize: '10px',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              background: 'rgba(80, 250, 123, 0.2)',
+              color: '#50fa7b',
+              fontFamily: 'monospace',
+            }}
+            data-testid="fixable-badge"
+          >
+            可修复
+          </span>
+        )}
       </div>
       <div style={overlayStyles.errorMessage}>{error.message}</div>
       {error.fixSuggestion && (
@@ -232,6 +334,15 @@ const ValidationErrorItem: React.FC<ValidationErrorItemProps> = ({ error, module
         <div style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(248, 248, 242, 0.6)' }}>
           涉及模块: {affectedModules.join(', ')}
         </div>
+      )}
+      
+      {/* Round 156: Quick Fix Button */}
+      {isFixable && error.quickFix && onQuickFix && (
+        <QuickFixButton
+          fix={error.quickFix}
+          isExecuting={isThisFixExecuting}
+          onFix={() => onQuickFix(error)}
+        />
       )}
     </div>
   );
@@ -269,7 +380,33 @@ const ValidationWarningItem: React.FC<ValidationWarningItemProps> = ({ warning }
 export const CircuitValidationOverlay: React.FC = () => {
   const { visible, errors, warnings, onDismiss, onProceedAnyway } = useValidationOverlay();
   const modules = useMachineStore((state) => state.modules);
+  const {
+    autoFixIslandModules,
+    autoFixUnreachableOutput,
+    autoFixCircuitIncomplete,
+    executingFixId,
+    isErrorFixable,
+  } = useCircuitValidation();
   
+  // Handle quick fix action (Round 156)
+  const handleQuickFix = useCallback((error: ValidationError) => {
+    console.log(`[CircuitValidationOverlay] Quick fix requested for: ${error.code}`);
+    
+    switch (error.code) {
+      case 'ISLAND_MODULES':
+        autoFixIslandModules(error);
+        break;
+      case 'UNREACHABLE_OUTPUT':
+        autoFixUnreachableOutput(error);
+        break;
+      case 'CIRCUIT_INCOMPLETE':
+        autoFixCircuitIncomplete();
+        break;
+      default:
+        console.warn(`[CircuitValidationOverlay] No auto-fix available for: ${error.code}`);
+    }
+  }, [autoFixIslandModules, autoFixUnreachableOutput, autoFixCircuitIncomplete]);
+
   // Handle proceed anyway
   const handleProceedAnyway = useCallback(() => {
     if (onProceedAnyway) {
@@ -283,6 +420,11 @@ export const CircuitValidationOverlay: React.FC = () => {
     // Don't automatically start activation, just dismiss overlay
   }, [onDismiss]);
 
+  // Round 156: Count of fixable errors
+  const fixableErrorCount = useMemo(() => {
+    return errors.filter(e => isErrorFixable(e)).length;
+  }, [errors, isErrorFixable]);
+
   // CSS animations are now in src/styles/circuit-animations.css (Round 147)
 
   if (!visible) {
@@ -290,24 +432,47 @@ export const CircuitValidationOverlay: React.FC = () => {
   }
 
   return (
-    <div style={overlayStyles.backdrop} onClick={handleDismissAndActivate}>
+    <div 
+      style={overlayStyles.backdrop} 
+      onClick={handleDismissAndActivate}
+      data-testid="circuit-validation-overlay"
+    >
       <div style={overlayStyles.container} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div style={overlayStyles.header}>
           <span style={overlayStyles.headerIcon}>⚠️</span>
           <h2 style={overlayStyles.headerTitle}>电路验证失败</h2>
+          {/* Round 156: Show fixable count */}
+          {fixableErrorCount > 0 && (
+            <span 
+              style={{
+                marginLeft: 'auto',
+                fontSize: '11px',
+                padding: '4px 8px',
+                borderRadius: '10px',
+                background: 'rgba(80, 250, 123, 0.2)',
+                color: '#50fa7b',
+              }}
+              data-testid="fixable-count"
+            >
+              {fixableErrorCount} 可修复
+            </span>
+          )}
         </div>
 
         {/* Content */}
         <div style={overlayStyles.content}>
           {/* Errors */}
           {errors.length > 0 && (
-            <div style={overlayStyles.errorList}>
+            <div style={overlayStyles.errorList} data-testid="error-list">
               {errors.map((error, index) => (
                 <ValidationErrorItem
                   key={`${error.code}-${index}`}
                   error={error}
                   modules={modules}
+                  onQuickFix={handleQuickFix}
+                  executingFixId={executingFixId}
+                  isFixable={isErrorFixable(error)}
                 />
               ))}
             </div>
@@ -362,7 +527,7 @@ interface ValidationIndicatorProps {
 }
 
 export const ValidationIndicator: React.FC<ValidationIndicatorProps> = ({ className }) => {
-  const { isValid, errors, validate } = useCircuitValidation();
+  const { isValid, errors } = useCircuitValidation();
 
   // Get the most severe error code
   const primaryError = errors[0];
@@ -395,7 +560,6 @@ export const ValidationIndicator: React.FC<ValidationIndicatorProps> = ({ classN
     <div
       style={indicatorStyles.container}
       className={className}
-      onClick={validate}
       title={isValid ? '电路验证通过' : primaryError?.message}
     >
       <span style={indicatorStyles.icon}>
