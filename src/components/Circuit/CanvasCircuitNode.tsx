@@ -6,6 +6,7 @@
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop shapes
  * Round 131: Added modifier key support for multi-selection (Shift+Click, Cmd/Ctrl+Click)
  * Round 146: Enhanced visual states - animated selection border, signal state visualization
+ * Round 147: Moved CSS animations to external file for bundle optimization
  * 
  * Renders circuit nodes (gates, InputNode, OutputNode) on the canvas
  * with signal state visualization and animated selection indicators.
@@ -20,62 +21,8 @@ import {
   SIGNAL_COLORS,
   PlacedCircuitNode,
 } from '../../types/circuitCanvas';
-import { GateType } from '../../types/circuit';
-
-// ============================================================================
-// Selection Animation Styles (Injected for GPU-accelerated animations)
-// ============================================================================
-
-const selectionAnimationStyle = `
-  @keyframes circuit-node-selection-pulse {
-    0%, 100% {
-      opacity: 0.8;
-    }
-    50% {
-      opacity: 0.4;
-    }
-  }
-  
-  @keyframes circuit-node-glow {
-    0%, 100% {
-      filter: drop-shadow(0 0 6px var(--glow-color, #22c55e));
-    }
-    50% {
-      filter: drop-shadow(0 0 12px var(--glow-color, #22c55e));
-    }
-  }
-  
-  .circuit-node-selection-indicator {
-    transition: stroke 0.2s ease-out, stroke-width 0.15s ease-out;
-    animation: circuit-node-selection-pulse 1.5s ease-in-out infinite;
-  }
-  
-  .circuit-node-powered {
-    --glow-color: #22c55e;
-  }
-  
-  .circuit-node-unpowered {
-    --glow-color: #64748b;
-  }
-  
-  .circuit-node-selected .circuit-node-selection-indicator {
-    stroke: #3b82f6;
-    stroke-width: 2;
-    stroke-dasharray: none;
-  }
-  
-  .circuit-node-high-signal {
-    animation: circuit-node-glow 1.5s ease-in-out infinite;
-  }
-  
-  /* Respect reduced motion preferences */
-  @media (prefers-reduced-motion: reduce) {
-    .circuit-node-selection-indicator,
-    .circuit-node-high-signal {
-      animation: none;
-    }
-  }
-`;
+// Round 147: Import CSS animations from external file
+import '../../styles/circuit-animations.css';
 
 // ============================================================================
 // Gate SVG Shapes with Signal State Visualization
@@ -328,15 +275,6 @@ const DFlipFlopGateShape: React.FC<{ signalColor: string; width: number; height:
 // Node Components with Enhanced Visual States
 // ============================================================================
 
-// Inject selection animation styles once
-const styleId = 'circuit-node-ux-styles';
-if (typeof document !== 'undefined' && !document.getElementById(styleId)) {
-  const styleEl = document.createElement('style');
-  styleEl.id = styleId;
-  styleEl.textContent = selectionAnimationStyle;
-  document.head.appendChild(styleEl);
-}
-
 const InputNodeCanvas: React.FC<{ node: PlacedInputNode; isSelected: boolean; cycleWarning: boolean; onClick: (e: React.MouseEvent) => void; onToggle: () => void; onPortClick?: (portIndex: number, isOutput: boolean) => void }> = ({ node, isSelected, cycleWarning, onClick, onToggle, onPortClick }) => {
   const signalColor = node.state ? SIGNAL_COLORS.HIGH : SIGNAL_COLORS.LOW;
   const isPowered = node.state === true;
@@ -567,23 +505,6 @@ export const CanvasCircuitNode: React.FC<CanvasCircuitNodeProps> = ({ node, isSe
   );
 };
 
-export interface GateSelectorItem {
-  type: 'gate' | 'input' | 'output';
-  gateType?: GateType;
-  label: string;
-  icon: string;
-}
 
-export const CIRCUIT_COMPONENT_SELECTOR: GateSelectorItem[] = [
-  { type: 'input', label: '输入', icon: '🔌' },
-  { type: 'output', label: '输出', icon: '💡' },
-  { type: 'gate', gateType: 'AND', label: 'AND', icon: '∧' },
-  { type: 'gate', gateType: 'OR', label: 'OR', icon: '∨' },
-  { type: 'gate', gateType: 'NOT', label: 'NOT', icon: '¬' },
-  { type: 'gate', gateType: 'NAND', label: 'NAND', icon: '⊼' },
-  { type: 'gate', gateType: 'NOR', label: 'NOR', icon: '⊽' },
-  { type: 'gate', gateType: 'XOR', label: 'XOR', icon: '⊕' },
-  { type: 'gate', gateType: 'XNOR', label: 'XNOR', icon: '⊙' },
-];
 
 export default CanvasCircuitNode;

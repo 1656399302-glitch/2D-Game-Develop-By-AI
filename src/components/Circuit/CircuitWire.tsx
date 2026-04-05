@@ -3,6 +3,7 @@
  * 
  * Round 122: Circuit Canvas Integration
  * Round 146: Enhanced wire rendering with extended hit area (≥8px tolerance)
+ * Round 147: Moved CSS animations to external file for bundle optimization
  * 
  * Wire component with signal state visualization.
  * Wire color reflects signal state (green=HIGH, gray=LOW).
@@ -10,55 +11,8 @@
 
 import React, { useMemo } from 'react';
 import { CircuitWire as CircuitWireType, CircuitWireProps, SIGNAL_COLORS } from '../../types/circuitCanvas';
-
-// ============================================================================
-// Wire Animation Styles
-// ============================================================================
-
-const wireAnimationStyle = `
-  @keyframes wire-signal-flow {
-    0% {
-      stroke-dashoffset: 20;
-    }
-    100% {
-      stroke-dashoffset: 0;
-    }
-  }
-  
-  @keyframes wire-pulse {
-    0%, 100% {
-      opacity: 0.6;
-    }
-    50% {
-      opacity: 0.3;
-    }
-  }
-  
-  .circuit-wire.signal-high .wire-path {
-    animation: wire-signal-flow 0.5s linear infinite;
-  }
-  
-  .circuit-wire-highlight {
-    animation: wire-pulse 1s ease-in-out infinite;
-  }
-  
-  /* Respect reduced motion preferences */
-  @media (prefers-reduced-motion: reduce) {
-    .circuit-wire.signal-high .wire-path,
-    .circuit-wire-highlight {
-      animation: none;
-    }
-  }
-`;
-
-// Inject styles once
-const wireStyleId = 'circuit-wire-ux-styles';
-if (typeof document !== 'undefined' && !document.getElementById(wireStyleId)) {
-  const styleEl = document.createElement('style');
-  styleEl.id = wireStyleId;
-  styleEl.textContent = wireAnimationStyle;
-  document.head.appendChild(styleEl);
-}
+// Round 147: Import CSS animations from external file
+import '../../styles/circuit-animations.css';
 
 // ============================================================================
 // Wire Path Utilities

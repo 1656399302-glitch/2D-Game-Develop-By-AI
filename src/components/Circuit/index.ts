@@ -16,8 +16,7 @@ export { OutputNode, LEDDisplay, LEDArray, DemoOutputNode } from './OutputNode';
 export { SimulationPanel, SimulationControls, FullSimulationPanel } from './SimulationPanel';
 
 // Components from Round 122 - Canvas Integration
-export { CanvasCircuitNode, CIRCUIT_COMPONENT_SELECTOR } from './CanvasCircuitNode';
-export type { GateSelectorItem } from './CanvasCircuitNode';
+export { CanvasCircuitNode } from './CanvasCircuitNode';
 export { CircuitWire, WirePreview, WireBundle } from './CircuitWire';
 
 // Components from Round 128 - Sequential Components

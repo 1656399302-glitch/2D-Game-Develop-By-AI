@@ -111,6 +111,7 @@ const LazyCreateSubCircuitModal = lazy(() => import('./components/SubCircuit/Cre
 
 type ViewMode = 'editor' | 'codex';
 
+// Round 147: CSS animations moved to external file src/styles/circuit-animations.css
 /**
  * Enhanced Loading fallback for lazy components (Round 146)
  * 
@@ -121,57 +122,6 @@ type ViewMode = 'editor' | 'codex';
  * - Respect prefers-reduced-motion for accessibility
  */
 function LazyLoadingFallback({ height = '200px', variant = 'default' }: { height?: string; variant?: 'default' | 'panel' | 'modal' | 'list' }) {
-  // Skeleton animation keyframes - injected once
-  const skeletonStyleId = 'lazy-skeleton-styles';
-  if (typeof document !== 'undefined' && !document.getElementById(skeletonStyleId)) {
-    const styleEl = document.createElement('style');
-    styleEl.id = skeletonStyleId;
-    styleEl.textContent = `
-      @keyframes skeleton-pulse {
-        0%, 100% {
-          opacity: 0.4;
-        }
-        50% {
-          opacity: 0.7;
-        }
-      }
-      
-      @keyframes skeleton-shimmer {
-        0% {
-          background-position: -200% 0;
-        }
-        100% {
-          background-position: 200% 0;
-        }
-      }
-      
-      .skeleton-element {
-        animation: skeleton-pulse 1.5s ease-in-out infinite;
-        background-color: #1e2a42;
-      }
-      
-      .skeleton-shimmer {
-        background: linear-gradient(
-          90deg,
-          #1e2a42 0%,
-          #2d3a56 50%,
-          #1e2a42 100%
-        );
-        background-size: 200% 100%;
-        animation: skeleton-shimmer 1.5s ease-in-out infinite;
-      }
-      
-      /* Respect reduced motion preferences */
-      @media (prefers-reduced-motion: reduce) {
-        .skeleton-element,
-        .skeleton-shimmer {
-          animation: none;
-          opacity: 0.5;
-        }
-      }
-    `;
-    document.head.appendChild(styleEl);
-  }
 
   const renderSkeleton = () => {
     switch (variant) {

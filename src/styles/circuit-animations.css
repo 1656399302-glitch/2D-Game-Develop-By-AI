@@ -1,0 +1,230 @@
+/**
+ * Circuit Component Animations
+ * 
+ * Moved from inline style strings in:
+ * - CanvasCircuitNode.tsx (Round 146)
+ * - CircuitWire.tsx (Round 146)
+ * 
+ * Using external CSS file allows proper code splitting
+ * and reduces main bundle size.
+ */
+
+/* ============================================
+   Circuit Node Selection Animations
+   ============================================ */
+
+@keyframes circuit-node-selection-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes circuit-node-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px var(--glow-color, #22c55e));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px var(--glow-color, #22c55e));
+  }
+}
+
+.circuit-node-selection-indicator {
+  transition: stroke 0.2s ease-out, stroke-width 0.15s ease-out;
+  animation: circuit-node-selection-pulse 1.5s ease-in-out infinite;
+}
+
+.circuit-node-powered {
+  --glow-color: #22c55e;
+}
+
+.circuit-node-unpowered {
+  --glow-color: #64748b;
+}
+
+.circuit-node-selected .circuit-node-selection-indicator {
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: none;
+}
+
+.circuit-node-high-signal {
+  animation: circuit-node-glow 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   Circuit Wire Animations
+   ============================================ */
+
+@keyframes wire-signal-flow {
+  0% {
+    stroke-dashoffset: 20;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes wire-pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.circuit-wire.signal-high .wire-path {
+  animation: wire-signal-flow 0.5s linear infinite;
+}
+
+.circuit-wire-highlight {
+  animation: wire-pulse 1s ease-in-out infinite;
+}
+
+/* ============================================
+   Shared Loading Skeleton Animations
+   ============================================ */
+
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-element {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  background-color: #1e2a42;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    #1e2a42 0%,
+    #2d3a56 50%,
+    #1e2a42 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   Lazy Loading Fallback
+   ============================================ */
+
+.lazy-loading-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #121826;
+}
+
+/* ============================================
+   Panel Scrollbar Styling (Consistency)
+   ============================================ */
+
+.module-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.module-panel::-webkit-scrollbar-track {
+  background: #121826;
+}
+
+.module-panel::-webkit-scrollbar-thumb {
+  background-color: #1e2a42;
+  border-radius: 3px;
+}
+
+.module-panel::-webkit-scrollbar-thumb:hover {
+  background-color: #2d3a56;
+}
+
+/* ============================================
+   Reduced Motion Preferences
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .circuit-node-selection-indicator,
+  .circuit-node-high-signal {
+    animation: none;
+  }
+  
+  .circuit-wire.signal-high .wire-path,
+  .circuit-wire-highlight {
+    animation: none;
+  }
+  
+  .skeleton-element,
+  .skeleton-shimmer {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* ============================================
+   Module Panel Animations (moved from ModulePanel.tsx)
+   ============================================ */
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+@media (max-width: 768px) {
+  .module-panel {
+    width: 100%;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid #1e2a42;
+  }
+}
+
+/* ============================================
+   Circuit Validation Overlay Animations
+   ============================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.circuit-overlay-dismiss:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.circuit-overlay-proceed:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(233, 69, 96, 0.5) !important;
+}
+
+.circuit-overlay-proceed:active {
+  transform: translateY(0);
+}

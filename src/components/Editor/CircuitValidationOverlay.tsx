@@ -7,7 +7,8 @@
  * showing errors with actionable messages and hints.
  */
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
+import '../../styles/circuit-animations.css';
 import { useCircuitValidation, useValidationOverlay } from '../../hooks/useCircuitValidation';
 import { ValidationError, ValidationWarning } from '../../types/circuitValidation';
 import { useMachineStore } from '../../store/useMachineStore';
@@ -282,35 +283,7 @@ export const CircuitValidationOverlay: React.FC = () => {
     // Don't automatically start activation, just dismiss overlay
   }, [onDismiss]);
 
-  // Add CSS animations
-  useEffect(() => {
-    const styleId = 'circuit-validation-overlay-styles';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = `
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideIn {
-          from { transform: translateY(-20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .circuit-overlay-dismiss:hover {
-          background: rgba(255, 255, 255, 0.1) !important;
-        }
-        .circuit-overlay-proceed:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(233, 69, 96, 0.5) !important;
-        }
-        .circuit-overlay-proceed:active {
-          transform: translateY(0);
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
+  // CSS animations are now in src/styles/circuit-animations.css (Round 147)
 
   if (!visible) {
     return null;

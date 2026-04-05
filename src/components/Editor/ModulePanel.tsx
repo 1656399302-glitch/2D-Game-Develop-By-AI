@@ -513,31 +513,11 @@ export function ModulePanel() {
       </div>
 
       <div 
-        className="flex-1 overflow-y-auto p-2" 
+        className="flex-1 overflow-y-auto p-2 module-panel" 
         role="listbox" 
         aria-label="可用模块"
         data-tutorial-action="module-list"
-        // Custom scrollbar styling for consistency (Round 146)
-        style={{
-          scrollbarWidth: 'thin',
-          scrollbarColor: '#1e2a42 #121826',
-        }}
       >
-        <style>{`
-          .module-panel::-webkit-scrollbar {
-            width: 6px;
-          }
-          .module-panel::-webkit-scrollbar-track {
-            background: #121826;
-          }
-          .module-panel::-webkit-scrollbar-thumb {
-            background-color: #1e2a42;
-            border-radius: 3px;
-          }
-          .module-panel::-webkit-scrollbar-thumb:hover {
-            background-color: #2d3a56;
-          }
-        `}</style>
         <div className="space-y-2">
           {/* Base modules */}
           {BASE_MODULES.map((module, index) => {
@@ -633,29 +613,6 @@ export function ModulePanel() {
         </p>
       </div>
 
-      <style>{`
-        @keyframes pulse-subtle {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
-          }
-          50% {
-            box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
-          }
-        }
-
-        .animate-pulse-subtle {
-          animation: pulse-subtle 2s ease-in-out infinite;
-        }
-
-        @media (max-width: 768px) {
-          .module-panel {
-            width: 100%;
-            max-height: 200px;
-            border-r: none;
-            border-bottom: 1px solid #1e2a42;
-          }
-        }
-      `}</style>
     </div>
   );
 }
