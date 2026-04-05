@@ -45,11 +45,15 @@ import { ValidationStatusBar } from './components/Editor/ValidationStatusBar';
 import { getActivationGate } from './utils/validationIntegration';
 import { useActivationGate } from './hooks/useCircuitValidation';
 
+// Round 137: Import setupAchievementIntegration for tech tree integration
+import { setAchievementStoreGetter, setupAchievementIntegration } from './store/useTechTreeStore';
+
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
 const LazyChallengePanel = lazy(() => import('./components/Challenge/ChallengePanel'));
 const LazyFactionPanel = lazy(() => import('./components/Factions/FactionPanel'));
-const LazyTechTree = lazy(() => import('./components/Factions/TechTree'));
+// Round 137: LazyCircuitTechTree replaces LazyTechTree for circuit component tech tree
+const LazyCircuitTechTree = lazy(() => import('./components/TechTree/LazyCircuitTechTree'));
 const LazyExchangePanel = lazy(() => import('./components/Exchange/ExchangePanel'));
 
 // Template components - Round 67 remediation: lazy-loaded to reduce bundle size
@@ -941,9 +945,10 @@ function AppContent() {
           </Suspense>
         )}
         
+        {/* Round 137: Circuit component TechTree panel - displays AND Gate, OR Gate, NOT Gate, etc. */}
         {showTechTree && (
           <Suspense fallback={<LazyLoadingFallback height="100%" />}>
-            <LazyTechTree onClose={() => setShowTechTree(false)} />
+            <LazyCircuitTechTree onClose={() => setShowTechTree(false)} />
           </Suspense>
         )}
         
@@ -1089,8 +1094,16 @@ function AppContent() {
 }
 
 // Main App with Error Boundary, Accessibility Layer, and AchievementToastProvider
-// FIX Round 77: Wrap with AchievementToastProvider to share toast queue state
+// Round 137: Setup tech tree to achievement store integration on app initialization
 function App() {
+  // Round 137: Set up achievement integration for tech tree
+  useEffect(() => {
+    // Set the achievement store getter before calling setupAchievementIntegration
+    setAchievementStoreGetter(() => useAchievementStore);
+    // Set up the subscription to achievement changes
+    setupAchievementIntegration();
+  }, []);
+  
   return (
     <ErrorBoundary
       onError={(error, errorInfo) => {
