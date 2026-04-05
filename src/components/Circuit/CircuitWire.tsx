@@ -2,6 +2,7 @@
  * Circuit Wire Component
  * 
  * Round 122: Circuit Canvas Integration
+ * Round 146: Enhanced wire rendering with extended hit area (≥8px tolerance)
  * 
  * Wire component with signal state visualization.
  * Wire color reflects signal state (green=HIGH, gray=LOW).
@@ -9,6 +10,55 @@
 
 import React, { useMemo } from 'react';
 import { CircuitWire as CircuitWireType, CircuitWireProps, SIGNAL_COLORS } from '../../types/circuitCanvas';
+
+// ============================================================================
+// Wire Animation Styles
+// ============================================================================
+
+const wireAnimationStyle = `
+  @keyframes wire-signal-flow {
+    0% {
+      stroke-dashoffset: 20;
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+  
+  @keyframes wire-pulse {
+    0%, 100% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  
+  .circuit-wire.signal-high .wire-path {
+    animation: wire-signal-flow 0.5s linear infinite;
+  }
+  
+  .circuit-wire-highlight {
+    animation: wire-pulse 1s ease-in-out infinite;
+  }
+  
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .circuit-wire.signal-high .wire-path,
+    .circuit-wire-highlight {
+      animation: none;
+    }
+  }
+`;
+
+// Inject styles once
+const wireStyleId = 'circuit-wire-ux-styles';
+if (typeof document !== 'undefined' && !document.getElementById(wireStyleId)) {
+  const styleEl = document.createElement('style');
+  styleEl.id = wireStyleId;
+  styleEl.textContent = wireAnimationStyle;
+  document.head.appendChild(styleEl);
+}
 
 // ============================================================================
 // Wire Path Utilities
@@ -65,12 +115,14 @@ const WireGlow: React.FC<{ color: string; path: string }> = ({ color, path }) =>
 );
 
 // ============================================================================
-// Wire Component
+// Wire Component with Extended Hit Area
 // ============================================================================
 
 /**
  * Circuit Wire Component
  * Renders a wire between two circuit nodes with signal state visualization
+ * 
+ * Round 146: Enhanced with extended hit area (≥8px tolerance) for easier wire selection
  */
 export const CircuitWire: React.FC<CircuitWireProps> = ({
   wire,
@@ -107,6 +159,10 @@ export const CircuitWire: React.FC<CircuitWireProps> = ({
     onClick?.(wire.id);
   };
   
+  // Extended hit area for easier wire selection (Round 146)
+  // Minimum 8px tolerance on each side of the visible wire
+  const hitAreaStrokeWidth = 8; // Ensures 8px tolerance on each side
+  
   return (
     <g
       className={`circuit-wire ${wire.signal ? 'signal-high' : 'signal-low'}`}
@@ -115,7 +171,20 @@ export const CircuitWire: React.FC<CircuitWireProps> = ({
       data-wire-id={wire.id}
       data-signal={wire.signal ? 'HIGH' : 'LOW'}
       data-selected={isSelected ? 'true' : 'false'}
+      data-hit-area={hitAreaStrokeWidth}
     >
+      {/* Invisible hit area for extended click target (Round 146: ≥8px tolerance) */}
+      {/* This path is invisible but captures clicks within 8px of the wire */}
+      <path
+        d={path}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={hitAreaStrokeWidth * 2} // 16px total hit area (8px on each side)
+        strokeLinecap="round"
+        className="wire-hit-area"
+        style={{ pointerEvents: 'stroke' }}
+      />
+      
       {/* Glow effect for HIGH signals */}
       {showGlow && <WireGlow color={signalColor} path={path} />}
       
@@ -128,17 +197,19 @@ export const CircuitWire: React.FC<CircuitWireProps> = ({
           strokeWidth="8"
           strokeLinecap="round"
           opacity="0.3"
+          className="circuit-wire-highlight"
         />
       )}
       
-      {/* Main wire */}
+      {/* Main wire with signal flow animation for powered wires */}
       <path
         d={path}
         fill="none"
         stroke={selectionColor}
         strokeWidth={isSelected ? 3 : 2}
         strokeLinecap="round"
-        className="wire-path"
+        className={`wire-path ${wire.signal ? 'wire-powered' : 'wire-unpowered'}`}
+        strokeDasharray={wire.signal ? "10 5" : "none"}
       />
       
       {/* Arrow indicator showing direction */}

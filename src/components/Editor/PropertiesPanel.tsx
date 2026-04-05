@@ -3,6 +3,9 @@ import { useMachineStore } from '../../store/useMachineStore';
 import { generateAttributes, getRarityColor, getRarityLabel } from '../../utils/attributeGenerator';
 import { BASE_MODULES, ModuleInfo } from './ModulePanel';
 
+// CSS variable for panel consistency (Round 146)
+const PANEL_BORDER_RADIUS = '12px';
+
 const MODULE_INFO = Object.fromEntries(
   BASE_MODULES.map((m: ModuleInfo) => [m.type, m])
 );
@@ -99,18 +102,47 @@ export function PropertiesPanel() {
   }, [selectedConnection, actions.removeConnection]);
   
   return (
-    <div className="w-72 bg-[#121826] border-l border-[#1e2a42] flex flex-col overflow-hidden">
+    <div 
+      className="w-72 bg-[#121826] border-l flex flex-col overflow-hidden properties-panel"
+      style={{ 
+        borderColor: '#1e2a42',
+        borderRadius: `0 ${PANEL_BORDER_RADIUS} ${PANEL_BORDER_RADIUS} 0`,
+      }}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-[#1e2a42]">
+      <div className="p-4 border-b" style={{ borderColor: '#1e2a42' }}>
         <h2 className="text-sm font-semibold text-[#00d4ff] tracking-wider">
           PROPERTIES
         </h2>
       </div>
       
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div 
+        className="flex-1 overflow-y-auto"
+        // Custom scrollbar styling for consistency (Round 146)
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#1e2a42 #121826',
+        }}
+      >
+        <style>{`
+          .properties-panel::-webkit-scrollbar {
+            width: 6px;
+          }
+          .properties-panel::-webkit-scrollbar-track {
+            background: #121826;
+          }
+          .properties-panel::-webkit-scrollbar-thumb {
+            background-color: #1e2a42;
+            border-radius: 3px;
+          }
+          .properties-panel::-webkit-scrollbar-thumb:hover {
+            background-color: #2d3a56;
+          }
+        `}</style>
+        
         {/* Machine Overview */}
-        <div className="p-4 border-b border-[#1e2a42]">
+        <div className="p-4 border-b" style={{ borderColor: '#1e2a42' }}>
           <h3 className="text-xs font-medium text-[#9ca3af] uppercase tracking-wider mb-3">
             Machine Overview
           </h3>
@@ -121,10 +153,11 @@ export function PropertiesPanel() {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-[#4a5568]">Name</span>
                 <span 
-                  className="text-xs font-medium px-2 py-0.5 rounded"
+                  className="text-xs font-medium px-2 py-0.5"
                   style={{ 
                     backgroundColor: `${getRarityColor(attributes.rarity)}20`,
                     color: getRarityColor(attributes.rarity),
+                    borderRadius: '8px',
                   }}
                 >
                   {getRarityLabel(attributes.rarity)}
@@ -146,7 +179,12 @@ export function PropertiesPanel() {
                 {attributes.tags.map((tag) => (
                   <span 
                     key={tag}
-                    className="text-xs px-2 py-0.5 rounded bg-[#1e2a42] text-[#9ca3af]"
+                    className="text-xs px-2 py-0.5"
+                    style={{
+                      backgroundColor: '#1e2a42',
+                      color: '#9ca3af',
+                      borderRadius: '8px',
+                    }}
                   >
                     {tag}
                   </span>
@@ -165,7 +203,7 @@ export function PropertiesPanel() {
         
         {/* Selected Module */}
         {selectedModule && moduleInfo && (
-          <div className="p-4 border-b border-[#1e2a42]">
+          <div className="p-4 border-b" style={{ borderColor: '#1e2a42' }}>
             <h3 className="text-xs font-medium text-[#9ca3af] uppercase tracking-wider mb-3">
               Selected Module
             </h3>
@@ -205,7 +243,7 @@ export function PropertiesPanel() {
                   step="0.1"
                   value={selectedModule.scale}
                   onChange={handleScaleChange}
-                  className="w-full h-2 bg-[#1e2a42] rounded-lg appearance-none cursor-pointer mt-1
+                  className="w-full h-2 bg-[#1e2a42] appearance-none cursor-pointer mt-1
                     [&::-webkit-slider-thumb]:appearance-none
                     [&::-webkit-slider-thumb]:w-3
                     [&::-webkit-slider-thumb]:h-3
@@ -234,11 +272,16 @@ export function PropertiesPanel() {
                   {selectedModule.ports.map((port) => (
                     <span 
                       key={port.id}
-                      className={`text-xs px-2 py-0.5 rounded ${
-                        port.type === 'input' 
-                          ? 'bg-[#22c55e]/20 text-[#22c55e]' 
-                          : 'bg-[#00d4ff]/20 text-[#00d4ff]'
-                      }`}
+                      className={`text-xs px-2 py-0.5 rounded`}
+                      style={{
+                        backgroundColor: port.type === 'input' 
+                          ? 'rgba(34, 197, 94, 0.2)' 
+                          : 'rgba(0, 212, 255, 0.2)',
+                        color: port.type === 'input' 
+                          ? '#22c55e' 
+                          : '#00d4ff',
+                        borderRadius: '8px',
+                      }}
                     >
                       {port.type === 'input' ? 'IN' : 'OUT'}
                     </span>
@@ -251,16 +294,25 @@ export function PropertiesPanel() {
                 <button
                   onClick={handleRotate}
                   className="flex-1 arcane-button-secondary text-xs py-1.5"
+                  style={{ borderRadius: '8px' }}
                 >
                   ↻ Rotate (R)
                 </button>
                 <button
                   onClick={handleFlip}
-                  className={`flex-1 text-xs py-1.5 border transition-colors ${
-                    selectedModule.flipped
-                      ? 'bg-[#00d4ff]/20 border-[#00d4ff] text-[#00d4ff]'
-                      : 'arcane-button-secondary'
-                  }`}
+                  className={`flex-1 text-xs py-1.5 border transition-colors`}
+                  style={{
+                    borderRadius: '8px',
+                    backgroundColor: selectedModule.flipped
+                      ? 'rgba(0, 212, 255, 0.2)'
+                      : undefined,
+                    borderColor: selectedModule.flipped
+                      ? '#00d4ff'
+                      : undefined,
+                    color: selectedModule.flipped
+                      ? '#00d4ff'
+                      : undefined,
+                  }}
                 >
                   ⇆ Flip (F)
                 </button>
@@ -269,6 +321,7 @@ export function PropertiesPanel() {
               <button
                 onClick={handleDeleteModule}
                 className="w-full arcane-button-danger text-xs py-1.5"
+                style={{ borderRadius: '8px' }}
               >
                 🗑 Delete (Del)
               </button>
@@ -278,7 +331,7 @@ export function PropertiesPanel() {
         
         {/* Selected Connection */}
         {selectedConnection && (
-          <div className="p-4 border-b border-[#1e2a42]">
+          <div className="p-4 border-b" style={{ borderColor: '#1e2a42' }}>
             <h3 className="text-xs font-medium text-[#9ca3af] uppercase tracking-wider mb-3">
               Selected Connection
             </h3>
@@ -301,6 +354,7 @@ export function PropertiesPanel() {
             <button
               onClick={handleDeleteConnection}
               className="w-full mt-3 arcane-button-danger text-xs py-1.5"
+              style={{ borderRadius: '8px' }}
             >
               🗑 Delete Connection
             </button>
@@ -316,9 +370,13 @@ export function PropertiesPanel() {
           <div className="space-y-2">
             <button
               onClick={actions.toggleGrid}
-              className={`w-full arcane-button-secondary text-xs py-2 ${
-                gridEnabled ? 'border-[#00d4ff] text-[#00d4ff]' : ''
-              }`}
+              className={`w-full arcane-button-secondary text-xs py-2`}
+              style={{ 
+                borderRadius: '8px',
+                backgroundColor: gridEnabled ? undefined : undefined,
+                borderColor: gridEnabled ? '#00d4ff' : undefined,
+                color: gridEnabled ? '#00d4ff' : undefined,
+              }}
             >
               Grid: {gridEnabled ? 'ON' : 'OFF'}
             </button>
@@ -326,6 +384,7 @@ export function PropertiesPanel() {
             <button
               onClick={actions.resetViewport}
               className="w-full arcane-button-secondary text-xs py-2"
+              style={{ borderRadius: '8px' }}
             >
               Reset View
             </button>
@@ -333,13 +392,18 @@ export function PropertiesPanel() {
             <button
               onClick={actions.clearCanvas}
               className="w-full arcane-button-danger text-xs py-2"
+              style={{ borderRadius: '8px' }}
             >
               Clear Canvas
             </button>
           </div>
           
           {/* Keyboard Shortcuts Reference */}
-          <div className="mt-4 p-3 bg-[#0a0e17] rounded-lg border border-[#1e2a42]">
+          <div className="mt-4 p-3 border" style={{ 
+            backgroundColor: '#0a0e17',
+            borderColor: '#1e2a42',
+            borderRadius: '12px',
+          }}>
             <p className="text-xs text-[#4a5568] mb-2">Keyboard Shortcuts:</p>
             <div className="space-y-1 text-[10px] text-[#4a5568]">
               <div className="flex justify-between">
@@ -388,7 +452,7 @@ export function PropertiesPanel() {
       </div>
       
       {/* Footer */}
-      <div className="p-3 border-t border-[#1e2a42] text-xs text-[#4a5568]">
+      <div className="p-3 border-t text-xs text-[#4a5568]" style={{ borderColor: '#1e2a42' }}>
         <p>ID: {attributes.codexId}</p>
       </div>
     </div>
@@ -414,12 +478,13 @@ function StatBar({
         <span className="text-[#4a5568]">{label}</span>
         <span style={{ color }}>{displayValue}%</span>
       </div>
-      <div className="h-1.5 bg-[#1e2a42] rounded mt-1 overflow-hidden">
+      <div className="h-1.5 bg-[#1e2a42] rounded mt-1 overflow-hidden" style={{ borderRadius: '4px' }}>
         <div 
           className="h-full rounded transition-all duration-300"
           style={{ 
             width: `${displayValue}%`,
             backgroundColor: color,
+            borderRadius: '4px',
           }}
         />
       </div>

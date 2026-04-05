@@ -112,18 +112,155 @@ const LazyCreateSubCircuitModal = lazy(() => import('./components/SubCircuit/Cre
 type ViewMode = 'editor' | 'codex';
 
 /**
- * Loading fallback for lazy components
+ * Enhanced Loading fallback for lazy components (Round 146)
+ * 
+ * Features:
+ * - Animated skeleton with pulsing effect
+ * - Multiple skeleton variants for different component types
+ * - CSS animation for smooth loading indication
+ * - Respect prefers-reduced-motion for accessibility
  */
-function LazyLoadingFallback({ height = '200px' }: { height?: string }) {
+function LazyLoadingFallback({ height = '200px', variant = 'default' }: { height?: string; variant?: 'default' | 'panel' | 'modal' | 'list' }) {
+  // Skeleton animation keyframes - injected once
+  const skeletonStyleId = 'lazy-skeleton-styles';
+  if (typeof document !== 'undefined' && !document.getElementById(skeletonStyleId)) {
+    const styleEl = document.createElement('style');
+    styleEl.id = skeletonStyleId;
+    styleEl.textContent = `
+      @keyframes skeleton-pulse {
+        0%, 100% {
+          opacity: 0.4;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+      
+      @keyframes skeleton-shimmer {
+        0% {
+          background-position: -200% 0;
+        }
+        100% {
+          background-position: 200% 0;
+        }
+      }
+      
+      .skeleton-element {
+        animation: skeleton-pulse 1.5s ease-in-out infinite;
+        background-color: #1e2a42;
+      }
+      
+      .skeleton-shimmer {
+        background: linear-gradient(
+          90deg,
+          #1e2a42 0%,
+          #2d3a56 50%,
+          #1e2a42 100%
+        );
+        background-size: 200% 100%;
+        animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      }
+      
+      /* Respect reduced motion preferences */
+      @media (prefers-reduced-motion: reduce) {
+        .skeleton-element,
+        .skeleton-shimmer {
+          animation: none;
+          opacity: 0.5;
+        }
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }
+
+  const renderSkeleton = () => {
+    switch (variant) {
+      case 'panel':
+        // Panel skeleton with header and list items
+        return (
+          <div className="w-full h-full p-4 space-y-4">
+            {/* Header skeleton */}
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded skeleton-element" />
+              <div className="w-24 h-4 rounded skeleton-element" />
+            </div>
+            {/* List item skeletons */}
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded skeleton-element" />
+                <div className="flex-1 space-y-1">
+                  <div className="w-3/4 h-3 rounded skeleton-element" />
+                  <div className="w-1/2 h-2 rounded skeleton-element" />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      
+      case 'modal':
+        // Modal skeleton with content blocks
+        return (
+          <div className="w-full h-full p-6 space-y-4">
+            {/* Title skeleton */}
+            <div className="w-1/2 h-6 rounded skeleton-element mx-auto" />
+            {/* Content skeletons */}
+            <div className="space-y-3">
+              <div className="w-full h-4 rounded skeleton-element" />
+              <div className="w-5/6 h-4 rounded skeleton-element" />
+              <div className="w-4/5 h-4 rounded skeleton-element" />
+            </div>
+            {/* Action button skeletons */}
+            <div className="flex justify-center gap-3 pt-4">
+              <div className="w-24 h-8 rounded skeleton-element" />
+              <div className="w-24 h-8 rounded skeleton-element" />
+            </div>
+          </div>
+        );
+      
+      case 'list':
+        // List skeleton with multiple items
+        return (
+          <div className="w-full h-full p-2 space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-2 p-2 rounded" style={{ backgroundColor: 'rgba(30, 42, 66, 0.3)' }}>
+                <div className="w-8 h-8 rounded skeleton-element" />
+                <div className="flex-1 space-y-1">
+                  <div className="w-2/3 h-3 rounded skeleton-element" />
+                  <div className="w-1/3 h-2 rounded skeleton-element" />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      
+      case 'default':
+      default:
+        // Default skeleton with spinner and content
+        return (
+          <div className="flex flex-col items-center gap-4">
+            {/* Animated spinner */}
+            <div className="relative w-12 h-12">
+              <div className="absolute inset-0 border-3 border-[#7c3aed]/30 rounded-full" />
+              <div className="absolute inset-0 border-3 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
+            </div>
+            {/* Content skeleton */}
+            <div className="space-y-2 w-full px-4">
+              <div className="w-full h-4 rounded skeleton-shimmer" />
+              <div className="w-3/4 h-4 rounded skeleton-element mx-auto" />
+            </div>
+          </div>
+        );
+    }
+  };
+
   return (
     <div 
-      className="flex items-center justify-center bg-[#121826]"
+      className="flex items-center justify-center bg-[#121826] lazy-loading-fallback"
       style={{ height }}
+      data-testid="lazy-loading-fallback"
+      data-variant={variant}
     >
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
-        <span className="text-sm text-[#9ca3af]">加载中...</span>
-      </div>
+      {renderSkeleton()}
     </div>
   );
 }
@@ -158,17 +295,10 @@ function AppContent() {
   
   /**
    * FIX Round 106: Track welcome modal dismissal to coordinate with LoadPromptModal
-   * 
-   * Problem: When WelcomeModal is dismissed, LoadPromptModal could still appear
-   * if there's saved state, causing confusing user experience.
-   * 
-   * Solution: Track when WelcomeModal is shown/dismissed, and suppress LoadPromptModal
-   * if WelcomeModal was displayed.
    */
   const [welcomeModalWasShown, setWelcomeModalWasShown] = useState(false);
   
   // FIX Round 77: Use context hook instead of direct hook call
-  // This ensures the same queue state is shared with AchievementToastContainer
   const { addToQueue } = useAchievementToastQueueContext();
   
   // FIX: Use store hydration hook to prevent cascading updates
@@ -230,10 +360,9 @@ function AppContent() {
   const viewport = useViewportSize();
   
   // FIX: Read localStorage synchronously to determine welcome modal visibility
-  // This prevents Zustand hydration race conditions
   const hasSeenWelcome = useTutorialStore(state => state.hasSeenWelcome);
   
-  // Welcome modal hook - provides handlers but modal visibility is controlled locally
+  // Welcome modal hook
   const {
     handleStartTutorial: handleWelcomeStartTutorial,
     handleSkip: handleWelcomeSkip,
@@ -241,22 +370,9 @@ function AppContent() {
 
   /**
    * FIX Round 106: Coordinated handleSkip that suppresses LoadPromptModal
-   * 
-   * When WelcomeModal is dismissed (either by skip or start tutorial),
-   * we need to:
-   * 1. Mark welcome modal as having been shown (to suppress LoadPromptModal)
-   * 2. Update tutorial store
-   * 3. Restore saved state if needed (done by handleWelcomeSkip)
    */
   const handleSkip = useCallback(() => {
-    // Mark that welcome modal was shown and dismissed
-    // This prevents LoadPromptModal from appearing
     setWelcomeModalWasShown(true);
-    
-    // Call the original handleWelcomeSkip which:
-    // - Sets hasSeenWelcome to true
-    // - Sets tutorialEnabled to false
-    // - Restores saved state if it exists
     handleWelcomeSkip();
   }, [handleWelcomeSkip]);
 
@@ -264,11 +380,7 @@ function AppContent() {
    * FIX Round 106: Coordinated handleStartTutorial that suppresses LoadPromptModal
    */
   const handleStartTutorialCallback = useCallback(() => {
-    // Mark that welcome modal was shown and dismissed
-    // This prevents LoadPromptModal from appearing
     setWelcomeModalWasShown(true);
-    
-    // Call the original handler from the hook
     handleWelcomeStartTutorial();
   }, [handleWelcomeStartTutorial]);
 
@@ -279,10 +391,6 @@ function AppContent() {
 
   /**
    * Round 132: Listen for open-create-subcircuit-modal event from Toolbar
-   * 
-   * When the "创建子电路" button is clicked in the Toolbar (when ≥2 nodes are selected),
-   * it dispatches a custom event. This effect listens for that event and opens
-   * the CreateSubCircuitModal.
    */
   useEffect(() => {
     const handleOpenCreateSubCircuitModal = (event: Event) => {
@@ -312,39 +420,28 @@ function AppContent() {
    * Round 132: Handler for sub-circuit creation success
    */
   const handleSubCircuitCreated = useCallback(() => {
-    // Clear the circuit node selection after successful creation
     useCircuitCanvasStore.getState().clearCircuitNodeSelection();
   }, []);
 
   /**
    * FIX Round 106: Check for saved state on mount
-   * 
-   * Only show LoadPromptModal if:
-   * 1. There's saved state
-   * 2. WelcomeModal was NOT shown (user didn't dismiss it first)
-   * 
-   * This prevents the confusing scenario where WelcomeModal is dismissed
-   * and then LoadPromptModal appears.
    */
   useEffect(() => {
-    // If WelcomeModal was shown, suppress LoadPromptModal regardless of saved state
     if (welcomeModalWasShown) {
       markStateAsLoadedRef.current();
       return;
     }
     
-    // Only show LoadPromptModal if there's saved state and WelcomeModal wasn't shown
     if (hasSavedState()) {
       setShowLoadPrompt(true);
     } else {
       markStateAsLoadedRef.current();
     }
-  }, [welcomeModalWasShown]); // Re-run when welcome modal dismissal state changes
+  }, [welcomeModalWasShown]);
   
   // Track when WelcomeModal is shown to coordinate with LoadPromptModal
   useEffect(() => {
     if (isHydrated && !hasSeenWelcome) {
-      // WelcomeModal will be shown - mark this
       setWelcomeModalWasShown(true);
     }
   }, [isHydrated, hasSeenWelcome]);
@@ -358,9 +455,7 @@ function AppContent() {
   // D6 Integration: Global keyboard handler for ? key toggle (Round 82)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Toggle shortcuts panel with ? key (Shift + /)
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        // Only trigger if not typing in an input
         if (document.activeElement?.tagName !== 'INPUT' && 
             document.activeElement?.tagName !== 'TEXTAREA' &&
             !document.activeElement?.hasAttribute('contenteditable')) {
@@ -374,7 +469,7 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleShortcutsPanel]);
   
-  // Sync store modal states with local state - FIX: Only sync after hydration
+  // Sync store modal states with local state
   useEffect(() => {
     if (!isHydrated) return;
     setShowExport(showExportModal);
@@ -386,7 +481,6 @@ function AppContent() {
   }, [showCodexModal, isHydrated]);
   
   // Tutorial completion handler - trigger recipe unlocks
-  // FIX: Use ref to avoid store action in dependency array
   useEffect(() => {
     if (!isHydrated) return;
     const tutorialStore = useTutorialStore.getState();
@@ -394,12 +488,11 @@ function AppContent() {
     if (tutorialCompleted) {
       checkTutorialUnlockRef.current();
     }
-  }, [isHydrated]); // Only run once after hydration
+  }, [isHydrated]);
   
   // Connect AchievementToastContainer to achievement store callbacks
   useEffect(() => {
     const handleAchievementUnlock = (achievement: any) => {
-      // Add achievement to toast queue - uses shared context state
       addToQueue([achievement]);
     };
     
@@ -413,11 +506,9 @@ function AppContent() {
   // FIX: Listen for tutorial:completed event and trigger "入门者" achievement
   useEffect(() => {
     const handleTutorialCompleted = () => {
-      // Get the "入门者" (getting-started) achievement
       const gettingStartedAchievement = getAchievementById('getting-started');
       
       if (gettingStartedAchievement) {
-        // Build stats with tutorialCompleted = true
         const stats = {
           machinesCreated,
           activations,
@@ -430,12 +521,9 @@ function AppContent() {
           complexMachinesCreated: 0,
         };
         
-        // Check if the achievement condition is met
         if (gettingStartedAchievement.condition && gettingStartedAchievement.condition(stats)) {
-          // Trigger the achievement
           useAchievementStore.getState().triggerUnlock(gettingStartedAchievement);
           
-          // Also add it to earned achievements
           if (!earnedAchievements.includes('getting-started')) {
             addEarnedAchievement('getting-started');
           }
@@ -450,7 +538,7 @@ function AppContent() {
     };
   }, [machinesCreated, activations, errors, factionCounts, codexEntries, earnedAchievements, addEarnedAchievement]);
   
-  // Round 113: Circuit validation hook - exposes canActivate for activation button
+  // Round 113: Circuit validation hook
   const { canActivate } = useActivationGate();
   
   const handleSaveToCodex = useCallback(() => {
@@ -465,7 +553,6 @@ function AppContent() {
     incrementMachinesCreated();
     incrementCodexEntries();
     
-    // Check for machine creation achievements
     const newMachinesCreated = machinesCreated + 1;
     checkAchievementsForMachines(newMachinesCreated);
     
@@ -477,15 +564,14 @@ function AppContent() {
     alert(`机器 "${entry.name}" 已保存到图鉴! (${entry.codexId})`);
   }, [modules, connections, addEntry, incrementMachinesCreated, incrementCodexEntries, incrementFactionCount, machinesCreated]);
   
-  // Helper function to check machine-related achievements
   const checkAchievementsForMachines = (count: number) => {
     const machineThresholdAchievements = [
-      'first-forge',      // 1 machine
-      'apprentice-forge', // 5 machines
-      'skilled-artisan',  // 10 machines
-      'master-creator',   // 25 machines
-      'legendary-machinist', // 50 machines
-      'eternal-forger',   // 100 machines
+      'first-forge',
+      'apprentice-forge',
+      'skilled-artisan',
+      'master-creator',
+      'legendary-machinist',
+      'eternal-forger',
     ];
     
     machineThresholdAchievements.forEach(achievementId => {
@@ -511,18 +597,16 @@ function AppContent() {
     });
   };
   
-  // Round 113: Fixed handleActivate with validation gate check
   const handleActivate = useCallback(() => {
     const gate = getActivationGate();
     if (!gate.canActivate) {
-      return; // Block activation - button should already be disabled
+      return;
     }
     setShowActivation(true);
     setMachineState('charging');
     incrementActivations();
   }, [setMachineState, setShowActivation, incrementActivations]);
   
-  // Round 113: Handle validation badge click - show QuickFixActions menu
   const handleModuleValidationClick = useCallback((moduleId: string, position: { x: number; y: number }) => {
     setQuickFixModuleId(moduleId);
     setQuickFixPosition(position);
@@ -546,18 +630,14 @@ function AppContent() {
     setViewMode('editor');
   }, [loadMachine]);
   
-  // Round 130: Handle sub-circuit deletion - remove instances from canvas
   const handleSubCircuitDelete = useCallback((_subCircuitId: string) => {
-    // Sub-circuit is already deleted from store by SubCircuitPanel
-    // This callback is for additional cleanup if needed
+    // Sub-circuit is already deleted from store
   }, []);
   
   const handleSubCircuitRemoveInstances = useCallback((subCircuitId: string) => {
-    // Remove sub-circuit instances from circuit canvas
     const nodes = useCircuitCanvasStore.getState().nodes;
     const removeCircuitNode = useCircuitCanvasStore.getState().removeCircuitNode;
     
-    // Find all nodes that are instances of this sub-circuit
     nodes.forEach((node: any) => {
       if (node.parameters?.isSubCircuit === true && node.parameters?.subCircuitId === subCircuitId) {
         removeCircuitNode(node.id);
@@ -637,7 +717,6 @@ function AppContent() {
               
               <div className="w-px h-6 bg-[#1e2a42] mx-1" aria-hidden="true" />
               
-              {/* Exchange Button */}
               <ExchangeButton onClick={() => setShowExchange(true)} />
               
               <button
@@ -675,7 +754,6 @@ function AppContent() {
                 ❓ 帮助
               </button>
               
-              {/* Round 113: Validation Status Bar in header - kept eager for header use */}
               <ValidationStatusBar />
               
               <button
@@ -720,11 +798,9 @@ function AppContent() {
         <div className="flex-1 flex overflow-hidden">
           {viewMode === 'editor' ? (
             <>
-              {/* Left sidebar: ModulePanel + SubCircuitPanel */}
               <div className="flex flex-col">
                 <ModulePanel />
-                {/* Round 130: SubCircuitPanel lazy loaded */}
-                <Suspense fallback={<LazyLoadingFallback height="150px" />}>
+                <Suspense fallback={<LazyLoadingFallback height="150px" variant="panel" />}>
                   <LazySubCircuitPanel 
                     onDelete={handleSubCircuitDelete}
                     onRemoveInstances={handleSubCircuitRemoveInstances}
@@ -732,10 +808,8 @@ function AppContent() {
                 </Suspense>
               </div>
               <div className="flex-1 flex">
-                {/* Round 113: Canvas with validation click handler */}
                 <div className="relative flex-1">
                   <Canvas onModuleValidationClick={handleModuleValidationClick} />
-                  {/* Round 113: Canvas Validation Overlay - lazy loaded */}
                   <Suspense fallback={null}>
                     <LazyCanvasValidationOverlay />
                   </Suspense>
@@ -744,7 +818,7 @@ function AppContent() {
               </div>
             </>
           ) : (
-            <Suspense fallback={<LazyLoadingFallback height="100%" />}>
+            <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
               <LazyCodexView onLoadToEditor={handleLoadToEditor} />
             </Suspense>
           )}
@@ -757,16 +831,13 @@ function AppContent() {
           <span>网格: {useMachineStore.getState().gridEnabled ? '开启' : '关闭'}</span>
         </footer>
         
-        {/* D5 Integration: QuickActionsToolbar - Fixed bottom-right toolbar (Round 82) */}
         {viewMode === 'editor' && <QuickActionsToolbar />}
         
-        {/* D6 Integration: KeyboardShortcutsPanel - Toggle with ? key (Round 82) */}
         <KeyboardShortcutsPanel 
           isOpen={isShortcutsPanelOpen} 
           onClose={closeShortcutsPanel} 
         />
         
-        {/* Shortcut Feedback Toast */}
         {shortcutFeedback && (
           <div 
             className="fixed bottom-16 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-lg bg-[#7c3aed]/90 text-white text-sm font-medium shadow-lg z-50 animate-pulse"
@@ -777,7 +848,6 @@ function AppContent() {
           </div>
         )}
         
-        {/* Round 113: Quick Fix Actions Menu - lazy loaded */}
         <Suspense fallback={null}>
           <LazyQuickFixActions
             moduleId={quickFixModuleId}
@@ -787,7 +857,6 @@ function AppContent() {
           />
         </Suspense>
         
-        {/* Modals */}
         {showExport && <ExportModal onClose={() => setShowExport(false)} />}
         
         {showCodex && (
@@ -810,7 +879,6 @@ function AppContent() {
         
         {showActivation && <ActivationOverlay onComplete={handleActivationComplete} />}
         
-        {/* Round 112: Circuit Validation Overlay - lazy loaded */}
         <Suspense fallback={null}>
           <LazyCircuitValidationOverlay />
         </Suspense>
@@ -822,7 +890,7 @@ function AppContent() {
                 <div />
                 <button onClick={() => setShowChallenges(false)} className="w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af]" aria-label="关闭">✕</button>
               </div>
-              <Suspense fallback={<LazyLoadingFallback height="400px" />}>
+              <Suspense fallback={<LazyLoadingFallback height="400px" variant="modal" />}>
                 <LazyChallengePanel />
               </Suspense>
             </div>
@@ -831,21 +899,16 @@ function AppContent() {
         
         <RecipeBrowser isOpen={showRecipeBrowser} onClose={() => setShowRecipeBrowser(false)} />
         
-        {/* RecipeBook Modal - lazy loaded */}
         {showRecipeBook && (
-          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+          <Suspense fallback={<LazyLoadingFallback height="80vh" variant="modal" />}>
             <LazyRecipeBook onClose={() => setShowRecipeBook(false)} />
           </Suspense>
         )}
         
-        {/* FIX Round 106: LoadPromptModal only shows when appropriate */}
-        {/* Condition: showLoadPrompt AND welcomeModalWasShown is false */}
-        {/* This means LoadPromptModal only shows if user didn't see WelcomeModal first */}
         {showLoadPrompt && !welcomeModalWasShown && (
           <LoadPromptModal onDismiss={() => setShowLoadPrompt(false)} />
         )}
         
-        {/* RandomGeneratorModal — Round 57: integrated to fix Round 56 critical integration failure */}
         {showRandomGenerator && (
           <RandomGeneratorModal
             isOpen={showRandomGenerator}
@@ -856,9 +919,8 @@ function AppContent() {
           />
         )}
         
-        {/* Template Library Modal - Round 67 (lazy-loaded for code splitting) */}
         {showTemplateLibrary && (
-          <Suspense fallback={<LazyLoadingFallback height="500px" />}>
+          <Suspense fallback={<LazyLoadingFallback height="500px" variant="modal" />}>
             <LazyTemplateLibrary
               isOpen={showTemplateLibrary}
               onClose={() => setShowTemplateLibrary(false)}
@@ -870,21 +932,18 @@ function AppContent() {
           </Suspense>
         )}
         
-        {/* Save Template Modal - Round 67 (lazy-loaded for code splitting) */}
         {showSaveTemplate && (
-          <Suspense fallback={<LazyLoadingFallback height="300px" />}>
+          <Suspense fallback={<LazyLoadingFallback height="300px" variant="modal" />}>
             <LazySaveTemplateModal
               isOpen={showSaveTemplate}
               onClose={() => setShowSaveTemplate(false)}
               onSuccess={(templateId) => {
-                // Template saved successfully - could show a toast or notification
                 console.log('Template saved:', templateId);
               }}
             />
           </Suspense>
         )}
         
-        {/* Round 132: CreateSubCircuitModal for sub-circuit creation - lazy loaded */}
         {showCreateSubCircuitModal && (
           <Suspense fallback={null}>
             <LazyCreateSubCircuitModal
@@ -938,76 +997,61 @@ function AppContent() {
           </div>
         )}
         
-        {/* Lazy-loaded panels */}
         {showFactionPanel && (
-          <Suspense fallback={<LazyLoadingFallback height="100%" />}>
+          <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
             <LazyFactionPanel onClose={() => setShowFactionPanel(false)} />
           </Suspense>
         )}
         
-        {/* Round 137: Circuit component TechTree panel - displays AND Gate, OR Gate, NOT Gate, etc. */}
         {showTechTree && (
-          <Suspense fallback={<LazyLoadingFallback height="100%" />}>
+          <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
             <LazyCircuitTechTree onClose={() => setShowTechTree(false)} />
           </Suspense>
         )}
         
-        {/* Exchange Panel */}
         {showExchange && (
-          <Suspense fallback={<LazyLoadingFallback height="85vh" />}>
+          <Suspense fallback={<LazyLoadingFallback height="85vh" variant="modal" />}>
             <LazyExchangePanel onClose={() => setShowExchange(false)} />
           </Suspense>
         )}
         
-        {/* Machine Statistics Dashboard - Enhanced version with 5 tabs (Round 44 integration) - lazy loaded */}
         {isStatsPanelOpen && (
-          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+          <Suspense fallback={<LazyLoadingFallback height="80vh" variant="panel" />}>
             <LazyEnhancedStatsDashboard onClose={closeStatsPanel} />
           </Suspense>
         )}
         
-        {/* Achievement List - lazy loaded */}
         {showAchievements && (
-          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+          <Suspense fallback={<LazyLoadingFallback height="80vh" variant="panel" />}>
             <LazyAchievementList onClose={() => setShowAchievements(false)} />
           </Suspense>
         )}
         
-        {/* AI Assistant Slide-in Panel - FIX: Use AIAssistantSlideIn wrapper for close functionality */}
-        <Suspense fallback={<LazyLoadingFallback height="100%" />}>
+        <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
           <LazyAIAssistantSlideIn isOpen={showAIAssistant} onClose={() => setShowAIAssistant(false)} />
         </Suspense>
         
-        {/* Toast Notifications - lazy loaded */}
         <Suspense fallback={null}>
           <LazyConnectionErrorFeedback />
         </Suspense>
         <LazyRandomForgeToast />
-        {/* FIX Round 77: AchievementToastContainer is now inside AchievementToastProvider (see App wrapper) 
-            and uses useAchievementToastQueueContext to share queue state with App.tsx */}
         <AchievementToastContainer options={{ maxVisible: 3, staggerDelay: 3000 }} />
         <LazyRecipeToastManager />
         
-        {/* Trade Notification - lazy loaded */}
         <LazyTradeNotification onOpenExchange={() => setShowExchange(true)} />
         
-        {/* Community Gallery Modal - lazy loaded */}
         {isGalleryOpen && (
-          <Suspense fallback={<LazyLoadingFallback height="80vh" />}>
+          <Suspense fallback={<LazyLoadingFallback height="80vh" variant="modal" />}>
             <LazyCommunityGallery />
           </Suspense>
         )}
         
-        {/* Publish to Gallery Modal - lazy loaded */}
         {isPublishModalOpen && (
-          <Suspense fallback={<LazyLoadingFallback height="400px" />}>
+          <Suspense fallback={<LazyLoadingFallback height="400px" variant="modal" />}>
             <LazyPublishModal />
           </Suspense>
         )}
         
-        {/* FIX Round 106: WelcomeModal coordination with LoadPromptModal
-            WelcomeModal is shown when user hasn't seen it before.
-            When it's dismissed (skip or start tutorial), LoadPromptModal is suppressed. */}
         {isHydrated && !hasSeenWelcome && (
           <WelcomeModal 
             onStartTutorial={handleStartTutorialCallback} 
@@ -1015,7 +1059,6 @@ function AppContent() {
           />
         )}
         
-        {/* Tutorial Overlay - lazy loaded */}
         <Suspense fallback={null}>
           <LazyTutorialOverlay
             onModuleAdded={() => {}}
@@ -1029,7 +1072,7 @@ function AppContent() {
     );
   }
   
-  // Mobile layout with touch enhancements
+  // Mobile layout
   return (
     <MobileTouchEnhancer
       config={{
@@ -1064,20 +1107,17 @@ function AppContent() {
               <PropertiesPanel />
             </>
           ) : (
-            <Suspense fallback={<LazyLoadingFallback height="100%" />}>
+            <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
               <LazyCodexView onLoadToEditor={handleLoadToEditor} />
             </Suspense>
           )
         }
       />
-      {/* D5 Integration: QuickActionsToolbar for mobile (Round 82) */}
       {viewMode === 'editor' && <QuickActionsToolbar />}
-      {/* D6 Integration: KeyboardShortcutsPanel for mobile (Round 82) */}
       <KeyboardShortcutsPanel 
         isOpen={isShortcutsPanelOpen} 
         onClose={closeShortcutsPanel} 
       />
-      {/* Round 132: CreateSubCircuitModal for mobile - lazy loaded */}
       {showCreateSubCircuitModal && (
         <Suspense fallback={null}>
           <LazyCreateSubCircuitModal
@@ -1093,14 +1133,9 @@ function AppContent() {
   );
 }
 
-// Main App with Error Boundary, Accessibility Layer, and AchievementToastProvider
-// Round 137: Setup tech tree to achievement store integration on app initialization
 function App() {
-  // Round 137: Set up achievement integration for tech tree
   useEffect(() => {
-    // Set the achievement store getter before calling setupAchievementIntegration
     setAchievementStoreGetter(() => useAchievementStore);
-    // Set up the subscription to achievement changes
     setupAchievementIntegration();
   }, []);
   

@@ -194,6 +194,9 @@ const FACTION_COLORS: Record<string, string> = {
   stellar: '#fbbf24',
 };
 
+// CSS variable for panel consistency (Round 146)
+const PANEL_BORDER_RADIUS = '12px';
+
 // Helper to safely get faction color
 const getFactionColor = (factionId: string | undefined): string | undefined => {
   if (!factionId) return undefined;
@@ -211,13 +214,16 @@ const checkIsModuleUnlocked = (type: ModuleType): boolean => {
   return useRecipeStore.getState().isUnlocked(recipe.id);
 };
 
-// Loading fallback for CircuitModulePanel
+// Loading fallback for CircuitModulePanel with animated skeleton (Round 146)
 function CircuitModulePanelFallback() {
   return (
-    <div className="p-3 border-t border-[#1e2a42]">
+    <div 
+      className="p-3 border-t"
+      style={{ borderColor: '#1e2a42', borderRadius: `0 0 ${PANEL_BORDER_RADIUS} 0` }}
+    >
       <div className="animate-pulse space-y-2">
-        <div className="h-8 bg-[#1e2a42] rounded"></div>
-        <div className="h-6 bg-[#1e2a42] rounded w-3/4"></div>
+        <div className="h-8 bg-[#1e2a42] rounded" style={{ borderRadius: '8px' }}></div>
+        <div className="h-6 bg-[#1e2a42] rounded w-3/4" style={{ borderRadius: '8px' }}></div>
       </div>
     </div>
   );
@@ -328,6 +334,7 @@ export function ModulePanel() {
         style={{
           borderLeftColor: factionColor || CATEGORY_COLORS[module.category],
           borderLeftWidth: '3px',
+          borderRadius: '12px',
           ...((!isAccessible) && rarityStyle ? {
             borderColor: `${rarityStyle.primary}40`,
           } : {})
@@ -342,6 +349,7 @@ export function ModulePanel() {
             style={{
               backgroundColor: !isAccessible ? '#1f2937' : `${factionColor || CATEGORY_COLORS[module.category]}20`,
               border: !isAccessible ? '1px dashed #4b5563' : `1px solid ${factionColor || CATEGORY_COLORS[module.category]}40`,
+              borderRadius: '12px',
             }}
             aria-hidden="true"
           >
@@ -370,7 +378,12 @@ export function ModulePanel() {
               </h3>
               {/* Faction variant lock badge */}
               {module.factionId && factionLocked && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30">
+                <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ 
+                  backgroundColor: 'rgba(245, 158, 11, 0.2)', 
+                  color: '#f59e0b', 
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  borderRadius: '8px'
+                }}>
                   宗师解锁
                 </span>
               )}
@@ -387,6 +400,7 @@ export function ModulePanel() {
                       backgroundColor: `${rarityStyle?.primary}20`,
                       color: rarityStyle?.primary,
                       border: `1px solid ${rarityStyle?.primary}40`,
+                      borderRadius: '8px',
                     }}
                   >
                     {recipe.rarity}
@@ -405,6 +419,7 @@ export function ModulePanel() {
                       backgroundColor: `${factionColor || '#a78bfa'}20`,
                       color: factionColor || '#a78bfa',
                       border: `1px solid ${factionColor || '#a78bfa'}40`,
+                      borderRadius: '8px',
                     }}
                   >
                     {module.factionId} 派系
@@ -422,6 +437,7 @@ export function ModulePanel() {
                     style={{
                       backgroundColor: `${factionColor || CATEGORY_COLORS[module.category]}20`,
                       color: factionColor || CATEGORY_COLORS[module.category],
+                      borderRadius: '8px',
                     }}
                   >
                     {factionColor ? `${module.factionId} 派系` : CATEGORY_NAMES[module.category]}
@@ -434,15 +450,16 @@ export function ModulePanel() {
 
         {!isAccessible && (
           <div
-            className="absolute inset-0 rounded-lg pointer-events-none"
+            className="absolute inset-0 pointer-events-none"
             style={{
               background: 'linear-gradient(135deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 100%)',
+              borderRadius: '12px',
             }}
           />
         )}
 
         {!locked && !factionLocked && (
-          <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg pointer-events-none" />
+          <div className="absolute inset-0 bg-[#00d4ff]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" style={{ borderRadius: '12px' }} />
         )}
       </div>
     );
@@ -450,33 +467,40 @@ export function ModulePanel() {
 
   return (
     <div
-      className="module-panel w-64 bg-[#121826] border-r border-[#1e2a42] flex flex-col overflow-hidden"
+      className="module-panel w-64 bg-[#121826] border-r flex flex-col overflow-hidden"
       role="region"
       aria-label="模块面板"
       data-tutorial="module-panel"
       data-tutorial-action="module-panel"
+      style={{ 
+        borderColor: '#1e2a42',
+        borderRadius: PANEL_BORDER_RADIUS,
+      }}
     >
-      <div className="p-4 border-b border-[#1e2a42]">
+      <div className="p-4 border-b" style={{ borderColor: '#1e2a42' }}>
         <h2 className="text-sm font-semibold text-[#00d4ff] tracking-wider">
           模块面板
         </h2>
         <p className="text-xs text-[#4a5568] mt-1">拖拽或点击添加</p>
       </div>
 
-      <div className="p-3 border-b border-[#1e2a42] bg-gradient-to-r from-[#1a1a2e] to-[#121826]">
+      <div className="p-3 border-b bg-gradient-to-r from-[#1a1a2e] to-[#121826]" style={{ borderColor: '#1e2a42' }}>
         <button
           onClick={handleRandomForge}
           data-tutorial-action="module-random-forge"
-          className="w-full px-4 py-3 rounded-lg font-bold text-sm 
+          className="w-full px-4 py-3 font-bold text-sm 
                      bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] 
                      text-white 
                      hover:from-[#8b5cf6] hover:to-[#7c3aed]
-                     border border-[#a78bfa]/50
-                     shadow-lg shadow-purple-900/30
+                     border shadow-lg shadow-purple-900/30
                      transition-all duration-200
                      flex items-center justify-center gap-2
                      hover:scale-[1.02] active:scale-[0.98]
                      animate-pulse-subtle"
+          style={{ 
+            borderRadius: '12px',
+            borderColor: 'rgba(167, 139, 250, 0.5)'
+          }}
           title="随机生成2-6个模块的机器"
           aria-label="随机锻造 - 生成随机机器"
         >
@@ -493,7 +517,27 @@ export function ModulePanel() {
         role="listbox" 
         aria-label="可用模块"
         data-tutorial-action="module-list"
+        // Custom scrollbar styling for consistency (Round 146)
+        style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#1e2a42 #121826',
+        }}
       >
+        <style>{`
+          .module-panel::-webkit-scrollbar {
+            width: 6px;
+          }
+          .module-panel::-webkit-scrollbar-track {
+            background: #121826;
+          }
+          .module-panel::-webkit-scrollbar-thumb {
+            background-color: #1e2a42;
+            border-radius: 3px;
+          }
+          .module-panel::-webkit-scrollbar-thumb:hover {
+            background-color: #2d3a56;
+          }
+        `}</style>
         <div className="space-y-2">
           {/* Base modules */}
           {BASE_MODULES.map((module, index) => {
@@ -509,10 +553,11 @@ export function ModulePanel() {
           })}
 
           {/* Round 64: Advanced modules - collapsible section */}
-          <div className="mt-4 pt-4 border-t border-[#1e2a42]">
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: '#1e2a42' }}>
             <button
               onClick={() => setAdvancedExpanded(!advancedExpanded)}
-              className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold text-[#22d3ee] hover:bg-[#1e2a42] rounded transition-colors"
+              className="w-full flex items-center justify-between px-2 py-2 text-sm font-semibold text-[#22d3ee] hover:bg-[#1e2a42] transition-colors"
+              style={{ borderRadius: '12px' }}
               aria-expanded={advancedExpanded}
               aria-controls="advanced-modules-section"
             >
@@ -552,10 +597,13 @@ export function ModulePanel() {
 
       {hoveredModule && (
         <div
-          className="fixed z-50 p-3 rounded-lg bg-[#1a1f2e] border border-[#00d4ff]/30 shadow-xl max-w-[260px] pointer-events-none"
+          className="fixed z-50 p-3 shadow-xl max-w-[260px] pointer-events-none"
           style={{
             left: `${tooltipPosition.x}px`,
             top: `${tooltipPosition.y}px`,
+            backgroundColor: '#1a1f2e',
+            border: '1px solid rgba(0, 212, 255, 0.3)',
+            borderRadius: '12px',
           }}
           role="tooltip"
           aria-live="polite"
@@ -571,7 +619,7 @@ export function ModulePanel() {
           <p className="text-xs text-[#9ca3af] leading-relaxed">
             {hoveredModule.description}
           </p>
-          <div className="mt-2 pt-2 border-t border-[#1e2a42]">
+          <div className="mt-2 pt-2 border-t" style={{ borderColor: '#1e2a42' }}>
             <p className="text-[10px] text-[#6b7280]">
               💡 提示: 点击或拖拽添加模块
             </p>
@@ -579,7 +627,7 @@ export function ModulePanel() {
         </div>
       )}
 
-      <div className="p-3 border-t border-[#1e2a42]">
+      <div className="p-3 border-t" style={{ borderColor: '#1e2a42' }}>
         <p className="text-xs text-[#4a5568] text-center">
           共 {BASE_MODULES.length + FACTION_VARIANT_MODULES.length + ADVANCED_MODULES.length} 种模块类型
         </p>
