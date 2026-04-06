@@ -6,6 +6,8 @@
  * 
  * @see contract.md AC-RECIPE-001 through AC-RECIPE-008
  * @see progress.md Round 102 Acceptance Criteria
+ * 
+ * Round 163 Fix: All state-mutating store calls and React 18 async renders wrapped in act()
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -46,6 +48,9 @@ const TEST_STORAGE_KEYS = {
 // Helper function to wait for async operations
 const waitForAsync = () => new Promise(resolve => setTimeout(resolve, 10));
 
+// Helper to flush React 18 concurrent updates after act()
+const flushUpdates = () => new Promise(resolve => setTimeout(resolve, 0));
+
 describe('Recipe Integration Tests', () => {
   beforeEach(() => {
     // Reset all stores to initial state
@@ -78,36 +83,48 @@ describe('Recipe Integration Tests', () => {
   });
 
   describe('TM-RECIPE-001: Challenge Integration Test', () => {
-    it('should unlock Energy Pipe recipe when challenge-001 is completed', () => {
+    it('should unlock Energy Pipe recipe when challenge-001 is completed', async () => {
       // Simulate challenge completion
-      useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      });
       
       // Verify Energy Pipe recipe is in pending discoveries
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-energy-pipe');
     });
 
-    it('should unlock multiple challenge-based recipes when corresponding challenges complete', () => {
+    it('should unlock multiple challenge-based recipes when corresponding challenges complete', async () => {
       // Complete challenge 001
-      useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-energy-pipe');
       
       // Complete challenge 002
-      useRecipeStore.getState().checkChallengeUnlock('challenge-002');
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('challenge-002');
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-gear');
       
       // Complete challenge 007
-      useRecipeStore.getState().checkChallengeUnlock('challenge-007');
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('challenge-007');
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-stabilizer-core');
     });
 
-    it('should not duplicate already unlocked recipes', () => {
-      useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+    it('should not duplicate already unlocked recipes', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      });
       const count1 = useRecipeStore.getState().pendingDiscoveries.filter(
         id => id === 'recipe-energy-pipe'
       ).length;
       
       // Call again
-      useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      });
       const count2 = useRecipeStore.getState().pendingDiscoveries.filter(
         id => id === 'recipe-energy-pipe'
       ).length;
@@ -116,47 +133,61 @@ describe('Recipe Integration Tests', () => {
       expect(count2).toBe(1);
     });
 
-    it('should handle challenge_count unlock type', () => {
+    it('should handle challenge_count unlock type', async () => {
       // Lightning Conductor requires 3 challenges
-      useRecipeStore.getState().checkChallengeCountUnlock(3);
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeCountUnlock(3);
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-lightning-conductor');
     });
 
-    it('should not unlock challenge_count recipe before threshold', () => {
-      useRecipeStore.getState().checkChallengeCountUnlock(2);
+    it('should not unlock challenge_count recipe before threshold', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeCountUnlock(2);
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).not.toContain('recipe-lightning-conductor');
     });
   });
 
   describe('TM-RECIPE-002: Machine Creation Test', () => {
-    it('should unlock Resonance Chamber when 3 machines are created', () => {
+    it('should unlock Resonance Chamber when 3 machines are created', async () => {
       // Simulate saving machines to codex
-      useRecipeStore.getState().checkMachinesCreatedUnlock(3);
+      await act(async () => {
+        useRecipeStore.getState().checkMachinesCreatedUnlock(3);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-resonance-chamber');
     });
 
-    it('should unlock Amplifier Crystal when 5 machines are created', () => {
-      useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+    it('should unlock Amplifier Crystal when 5 machines are created', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-amplifier-crystal');
     });
 
-    it('should unlock both recipes when thresholds are met', () => {
-      useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+    it('should unlock both recipes when thresholds are met', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-resonance-chamber');
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-amplifier-crystal');
     });
 
-    it('should not unlock Amplifier Crystal before threshold', () => {
-      useRecipeStore.getState().checkMachinesCreatedUnlock(4);
+    it('should not unlock Amplifier Crystal before threshold', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkMachinesCreatedUnlock(4);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).not.toContain('recipe-amplifier-crystal');
     });
 
-    it('should not affect Core Furnace (tutorial) recipe', () => {
-      useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+    it('should not affect Core Furnace (tutorial) recipe', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+      });
       
       // Core Furnace is unlocked by tutorial, not by machine count
       expect(useRecipeStore.getState().pendingDiscoveries).not.toContain('recipe-core-furnace');
@@ -164,26 +195,34 @@ describe('Recipe Integration Tests', () => {
   });
 
   describe('TM-RECIPE-003: Activation Counter Test', () => {
-    it('should unlock Fire Crystal after 10 activations', () => {
-      useRecipeStore.getState().checkActivationCountUnlock(10);
+    it('should unlock Fire Crystal after 10 activations', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkActivationCountUnlock(10);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-fire-crystal');
     });
 
-    it('should unlock Void Siphon after 50 activations', () => {
-      useRecipeStore.getState().checkActivationCountUnlock(50);
+    it('should unlock Void Siphon after 50 activations', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkActivationCountUnlock(50);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-void-siphon');
     });
 
-    it('should not unlock Fire Crystal before 10 activations', () => {
-      useRecipeStore.getState().checkActivationCountUnlock(9);
+    it('should not unlock Fire Crystal before 10 activations', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkActivationCountUnlock(9);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).not.toContain('recipe-fire-crystal');
     });
 
-    it('should unlock both activation-based recipes when thresholds are met', () => {
-      useRecipeStore.getState().checkActivationCountUnlock(50);
+    it('should unlock both activation-based recipes when thresholds are met', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkActivationCountUnlock(50);
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-fire-crystal');
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-void-siphon');
@@ -191,9 +230,11 @@ describe('Recipe Integration Tests', () => {
   });
 
   describe('TM-RECIPE-004: Tech Research Test', () => {
-    it('should unlock Phase Modulator when Void T3 is completed', () => {
+    it('should unlock Phase Modulator when Void T3 is completed', async () => {
       // Simulate completing Void T3 research
-      useFactionReputationStore.getState().completeResearch('void-tier-3', 'void');
+      await act(async () => {
+        useFactionReputationStore.getState().completeResearch('void-tier-3', 'void');
+      });
       
       // Phase Modulator requires void-t3
       // First check the tech level requirement function
@@ -230,7 +271,7 @@ describe('Recipe Integration Tests', () => {
       expect(isMet).toBe(false);
     });
 
-    it('should trigger recipe check on research completion', () => {
+    it('should trigger recipe check on research completion', async () => {
       // This tests the integration between FactionReputationStore and RecipeStore
       // Manually set up the tech completion which should trigger recipe check
       useFactionReputationStore.setState({
@@ -238,7 +279,9 @@ describe('Recipe Integration Tests', () => {
       });
       
       // Call checkTechLevelUnlocks directly
-      useRecipeStore.getState().checkTechLevelUnlocks();
+      await act(async () => {
+        useRecipeStore.getState().checkTechLevelUnlocks();
+      });
       
       // Phase Modulator should be unlocked
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-phase-modulator');
@@ -257,10 +300,12 @@ describe('Recipe Integration Tests', () => {
       expect(factionVariants.length).toBeGreaterThanOrEqual(0);
     });
 
-    it('should check faction grandmaster unlock condition', () => {
+    it('should check faction grandmaster unlock condition', async () => {
       // The faction variant check uses checkChallengeUnlock with 'faction-grandmaster'
       // This would be triggered when a faction reaches Grandmaster rank
-      useRecipeStore.getState().checkChallengeUnlock('faction-grandmaster');
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('faction-grandmaster');
+      });
       
       // Note: The actual faction variant recipes are defined in RecipeBrowser.tsx
       // The core recipes.ts doesn't contain faction variants, they are extended there
@@ -268,10 +313,12 @@ describe('Recipe Integration Tests', () => {
       expect(useRecipeStore.getState()).toBeDefined();
     });
 
-    it('should handle faction reputation reaching Grandmaster (2000+)', () => {
+    it('should handle faction reputation reaching Grandmaster (2000+)', async () => {
       // Set void faction to Grandmaster rank
-      useFactionReputationStore.setState({
-        reputations: { void: 2500, inferno: 0, storm: 0, stellar: 0 },
+      await act(async () => {
+        useFactionReputationStore.setState({
+          reputations: { void: 2500, inferno: 0, storm: 0, stellar: 0 },
+        });
       });
       
       // Check variant unlock
@@ -279,10 +326,12 @@ describe('Recipe Integration Tests', () => {
       expect(isUnlocked).toBe(true);
     });
 
-    it('should not unlock faction variants before Grandmaster rank', () => {
+    it('should not unlock faction variants before Grandmaster rank', async () => {
       // Set void faction to lower rank
-      useFactionReputationStore.setState({
-        reputations: { void: 1500, inferno: 0, storm: 0, stellar: 0 },
+      await act(async () => {
+        useFactionReputationStore.setState({
+          reputations: { void: 1500, inferno: 0, storm: 0, stellar: 0 },
+        });
       });
       
       const isUnlocked = useFactionReputationStore.getState().isVariantUnlocked('void');
@@ -299,10 +348,14 @@ describe('Recipe Integration Tests', () => {
       });
     });
 
-    it('should correctly filter unlocked recipes', () => {
+    it('should correctly filter unlocked recipes', async () => {
       // Unlock some recipes
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+      });
       
       const unlockedRecipes = useRecipeStore.getState().getUnlockedRecipes();
       
@@ -311,25 +364,31 @@ describe('Recipe Integration Tests', () => {
       expect(unlockedRecipes.length).toBe(0); // Not discovered yet
       
       // Mark as discovered
-      useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      await act(async () => {
+        useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      });
       const afterDiscover = useRecipeStore.getState().getUnlockedRecipes();
       expect(afterDiscover.some(r => r.id === 'recipe-core-furnace')).toBe(true);
     });
 
-    it('should correctly filter locked recipes', () => {
+    it('should correctly filter locked recipes', async () => {
       // Initially, all recipes are locked
       const lockedRecipes = useRecipeStore.getState().getLockedRecipes();
       expect(lockedRecipes.length).toBe(RECIPE_DEFINITIONS.length);
       
       // Unlock one recipe
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      });
       
       const lockedAfter = useRecipeStore.getState().getLockedRecipes();
       expect(lockedAfter.some(r => r.id === 'recipe-core-furnace')).toBe(false);
     });
 
-    it('should show recipe progress correctly', () => {
+    it('should show recipe progress correctly', async () => {
       // Unlock and discover several recipes
       const testRecipes = [
         'recipe-core-furnace',
@@ -337,10 +396,14 @@ describe('Recipe Integration Tests', () => {
         'recipe-gear',
       ];
       
-      testRecipes.forEach(id => {
-        useRecipeStore.getState().unlockRecipe(id);
-        useRecipeStore.getState().discoverRecipe(id);
-      });
+      for (const id of testRecipes) {
+        await act(async () => {
+          useRecipeStore.getState().unlockRecipe(id);
+        });
+        await act(async () => {
+          useRecipeStore.getState().discoverRecipe(id);
+        });
+      }
       
       const unlockedRecipes = useRecipeStore.getState().getUnlockedRecipes();
       const totalRecipes = RECIPE_DEFINITIONS.length;
@@ -354,95 +417,105 @@ describe('Recipe Integration Tests', () => {
     // Store roots for cleanup
     const roots: Root[] = [];
     
-    afterEach(() => {
+    afterEach(async () => {
       // Clean up React roots
-      roots.forEach(root => root.unmount());
-      roots.length = 0;
+      await act(async () => {
+        for (const root of roots) {
+          root.unmount();
+        }
+        roots.length = 0;
+      });
     });
 
-    const renderModule = (type: string) => {
+    // Helper to render a module component with proper React 18 async handling
+    const renderModule = async (type: string) => {
       const container = document.createElement('div');
       const root = createRoot(container);
       roots.push(root);
       
-      act(() => {
+      // Use async act to properly handle React 18's concurrent rendering
+      await act(async () => {
         root.render(<ModulePreview type={type as any} isActive={false} />);
+        await flushUpdates();
       });
+      
+      // Wait for render to complete
+      await flushUpdates();
       
       return container;
     };
 
-    it('should render core-furnace module preview', () => {
-      const container = renderModule('core-furnace');
+    it('should render core-furnace module preview', async () => {
+      const container = await renderModule('core-furnace');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render energy-pipe module preview', () => {
-      const container = renderModule('energy-pipe');
+    it('should render energy-pipe module preview', async () => {
+      const container = await renderModule('energy-pipe');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render gear module preview', () => {
-      const container = renderModule('gear');
+    it('should render gear module preview', async () => {
+      const container = await renderModule('gear');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render rune-node module preview', () => {
-      const container = renderModule('rune-node');
+    it('should render rune-node module preview', async () => {
+      const container = await renderModule('rune-node');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render shield-shell module preview', () => {
-      const container = renderModule('shield-shell');
+    it('should render shield-shell module preview', async () => {
+      const container = await renderModule('shield-shell');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render trigger-switch module preview', () => {
-      const container = renderModule('trigger-switch');
+    it('should render trigger-switch module preview', async () => {
+      const container = await renderModule('trigger-switch');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render output-array module preview', () => {
-      const container = renderModule('output-array');
+    it('should render output-array module preview', async () => {
+      const container = await renderModule('output-array');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render amplifier-crystal module preview', () => {
-      const container = renderModule('amplifier-crystal');
+    it('should render amplifier-crystal module preview', async () => {
+      const container = await renderModule('amplifier-crystal');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render stabilizer-core module preview', () => {
-      const container = renderModule('stabilizer-core');
+    it('should render stabilizer-core module preview', async () => {
+      const container = await renderModule('stabilizer-core');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render void-siphon module preview', () => {
-      const container = renderModule('void-siphon');
+    it('should render void-siphon module preview', async () => {
+      const container = await renderModule('void-siphon');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render phase-modulator module preview', () => {
-      const container = renderModule('phase-modulator');
+    it('should render phase-modulator module preview', async () => {
+      const container = await renderModule('phase-modulator');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render resonance-chamber module preview', () => {
-      const container = renderModule('resonance-chamber');
+    it('should render resonance-chamber module preview', async () => {
+      const container = await renderModule('resonance-chamber');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render fire-crystal module preview', () => {
-      const container = renderModule('fire-crystal');
+    it('should render fire-crystal module preview', async () => {
+      const container = await renderModule('fire-crystal');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render lightning-conductor module preview', () => {
-      const container = renderModule('lightning-conductor');
+    it('should render lightning-conductor module preview', async () => {
+      const container = await renderModule('lightning-conductor');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render all faction variant modules', () => {
+    it('should render all faction variant modules', async () => {
       const factionModules = [
         'void-arcane-gear',
         'inferno-blazing-core',
@@ -450,51 +523,60 @@ describe('Recipe Integration Tests', () => {
         'stellar-harmonic-crystal',
       ];
       
-      factionModules.forEach(type => {
-        const container = renderModule(type);
+      for (const type of factionModules) {
+        const container = await renderModule(type);
         expect(container.querySelector('.module-preview')).toBeTruthy();
-      });
+      }
     });
 
-    it('should render fallback for unknown module types', () => {
-      const container = renderModule('unknown-module');
+    it('should render fallback for unknown module types', async () => {
+      const container = await renderModule('unknown-module');
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should accept size prop', () => {
+    it('should accept size prop', async () => {
       const container = document.createElement('div');
       const root = createRoot(container);
       roots.push(root);
       
-      act(() => {
+      await act(async () => {
         root.render(<ModulePreview type="core-furnace" size={120} />);
+        await flushUpdates();
       });
+      
+      await flushUpdates();
       
       const preview = container.querySelector('.module-preview') as HTMLElement;
       expect(preview.style.width).toBe('120px');
       expect(preview.style.height).toBe('120px');
     });
 
-    it('should render active state', () => {
+    it('should render active state', async () => {
       const container = document.createElement('div');
       const root = createRoot(container);
       roots.push(root);
       
-      act(() => {
+      await act(async () => {
         root.render(<ModulePreview type="core-furnace" isActive={true} />);
+        await flushUpdates();
       });
+      
+      await flushUpdates();
       
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
 
-    it('should render charging state', () => {
+    it('should render charging state', async () => {
       const container = document.createElement('div');
       const root = createRoot(container);
       roots.push(root);
       
-      act(() => {
+      await act(async () => {
         root.render(<ModulePreview type="core-furnace" isCharging={true} />);
+        await flushUpdates();
       });
+      
+      await flushUpdates();
       
       expect(container.querySelector('.module-preview')).toBeTruthy();
     });
@@ -512,42 +594,58 @@ describe('Recipe Integration Tests', () => {
       expect(state).toBeDefined();
     });
 
-    it('should reset all recipes', () => {
+    it('should reset all recipes', async () => {
       // Add some recipes
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+      });
       
       // Verify they're added
       expect(useRecipeStore.getState().unlockedRecipes.length).toBe(2);
       
       // Reset all
-      useRecipeStore.getState().resetAllRecipes();
+      await act(async () => {
+        useRecipeStore.getState().resetAllRecipes();
+      });
       
       // Verify reset
       expect(useRecipeStore.getState().unlockedRecipes).toEqual([]);
       expect(useRecipeStore.getState().pendingDiscoveries).toEqual([]);
     });
 
-    it('should maintain unlock state in session', () => {
+    it('should maintain unlock state in session', async () => {
       // Unlock and discover recipes
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      });
       
       // Verify state
       expect(useRecipeStore.getState().isUnlocked('recipe-core-furnace')).toBe(true);
       expect(useRecipeStore.getState().getUnlockedRecipes().length).toBe(1);
     });
 
-    it('should clear pending discoveries without losing unlocked state', () => {
+    it('should clear pending discoveries without losing unlocked state', async () => {
       // Unlock recipes
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+      });
       
       // Verify pending
       expect(useRecipeStore.getState().pendingDiscoveries.length).toBe(2);
       
       // Clear pending
-      useRecipeStore.getState().clearPendingDiscoveries();
+      await act(async () => {
+        useRecipeStore.getState().clearPendingDiscoveries();
+      });
       
       // Verify pending is cleared but unlocked recipes remain
       expect(useRecipeStore.getState().pendingDiscoveries.length).toBe(0);
@@ -579,7 +677,10 @@ describe('Recipe Integration Tests', () => {
       });
       
       // Call checkRecipeUnlocks which should trigger RecipeStore
-      useCodexStore.getState().checkRecipeUnlocks();
+      await act(async () => {
+        useCodexStore.getState().checkRecipeUnlocks();
+        await flushUpdates();
+      });
       
       // Wait for async operations (dynamic import + setTimeout)
       await waitForAsync();
@@ -595,7 +696,10 @@ describe('Recipe Integration Tests', () => {
       });
       
       // Call checkRecipeUnlocks which should trigger RecipeStore
-      useActivationStore.getState().checkRecipeUnlocks();
+      await act(async () => {
+        useActivationStore.getState().checkRecipeUnlocks();
+        await flushUpdates();
+      });
       
       // Wait for async operations (dynamic import + setTimeout)
       await waitForAsync();
@@ -604,14 +708,16 @@ describe('Recipe Integration Tests', () => {
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-fire-crystal');
     });
 
-    it('should verify FactionReputationStore calls RecipeStore when research completes', () => {
+    it('should verify FactionReputationStore calls RecipeStore when research completes', async () => {
       // Complete Void T3 research
       useFactionReputationStore.setState({
         completedResearch: { void: ['void-tier-3'], inferno: [], storm: [], stellar: [] },
       });
       
       // Call checkTechLevelUnlocks
-      useRecipeStore.getState().checkTechLevelUnlocks();
+      await act(async () => {
+        useRecipeStore.getState().checkTechLevelUnlocks();
+      });
       
       // Should unlock Phase Modulator
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-phase-modulator');
@@ -619,7 +725,7 @@ describe('Recipe Integration Tests', () => {
   });
 
   describe('Recipe State Machine', () => {
-    it('should transition recipes through proper states', () => {
+    it('should transition recipes through proper states', async () => {
       const recipeId = 'recipe-core-furnace';
       
       // Initial state: not in list
@@ -627,28 +733,40 @@ describe('Recipe Integration Tests', () => {
       expect(useRecipeStore.getState().isPendingDiscovery(recipeId)).toBe(false);
       
       // Unlock: added to list, pending discovery
-      useRecipeStore.getState().unlockRecipe(recipeId);
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe(recipeId);
+      });
       expect(useRecipeStore.getState().isPendingDiscovery(recipeId)).toBe(true);
       expect(useRecipeStore.getState().isUnlocked(recipeId)).toBe(false); // Still not discovered
       
       // Discover: marked as discovered
-      useRecipeStore.getState().discoverRecipe(recipeId);
+      await act(async () => {
+        useRecipeStore.getState().discoverRecipe(recipeId);
+      });
       // Note: discoverRecipe marks as discovered but does NOT clear from pendingDiscoveries
       // That's handled by clearPendingDiscoveries or when the toast is shown
       expect(useRecipeStore.getState().isUnlocked(recipeId)).toBe(true);
       
       // Mark as seen: still unlocked
-      useRecipeStore.getState().markAsSeen(recipeId);
+      await act(async () => {
+        useRecipeStore.getState().markAsSeen(recipeId);
+      });
       expect(useRecipeStore.getState().isUnlocked(recipeId)).toBe(true);
     });
 
-    it('should clear pending discoveries properly', () => {
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+    it('should clear pending discoveries properly', async () => {
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-energy-pipe');
+      });
       
       expect(useRecipeStore.getState().pendingDiscoveries.length).toBe(2);
       
-      useRecipeStore.getState().clearPendingDiscoveries();
+      await act(async () => {
+        useRecipeStore.getState().clearPendingDiscoveries();
+      });
       expect(useRecipeStore.getState().pendingDiscoveries.length).toBe(0);
       
       // Recipes should still be unlocked
@@ -727,40 +845,50 @@ describe('Acceptance Criteria Verification', () => {
   });
 
   describe('AC-RECIPE-001: Challenge completion triggers recipe check', () => {
-    it('should trigger checkChallengeUnlock when challenge completed', () => {
-      useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+    it('should trigger checkChallengeUnlock when challenge completed', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkChallengeUnlock('challenge-001');
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-energy-pipe');
     });
   });
 
   describe('AC-RECIPE-002: Machine creation triggers recipe check', () => {
-    it('should trigger checkMachinesCreatedUnlock when machines saved', () => {
-      useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+    it('should trigger checkMachinesCreatedUnlock when machines saved', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkMachinesCreatedUnlock(5);
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-amplifier-crystal');
     });
   });
 
   describe('AC-RECIPE-003: Machine activation triggers recipe check', () => {
-    it('should trigger checkActivationCountUnlock on activation', () => {
-      useRecipeStore.getState().checkActivationCountUnlock(50);
+    it('should trigger checkActivationCountUnlock on activation', async () => {
+      await act(async () => {
+        useRecipeStore.getState().checkActivationCountUnlock(50);
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-void-siphon');
     });
   });
 
   describe('AC-RECIPE-004: Tech research completion triggers recipe check', () => {
-    it('should trigger checkTechLevelUnlocks when research completes', () => {
+    it('should trigger checkTechLevelUnlocks when research completes', async () => {
       useFactionReputationStore.setState({
         completedResearch: { void: ['void-tier-3'], inferno: [], storm: [], stellar: [] },
       });
-      useRecipeStore.getState().checkTechLevelUnlocks();
+      await act(async () => {
+        useRecipeStore.getState().checkTechLevelUnlocks();
+      });
       expect(useRecipeStore.getState().pendingDiscoveries).toContain('recipe-phase-modulator');
     });
   });
 
   describe('AC-RECIPE-005: Faction rank triggers faction variant unlock', () => {
-    it('should unlock faction variants at Grandmaster rank', () => {
-      useFactionReputationStore.setState({
-        reputations: { void: 2500, inferno: 0, storm: 0, stellar: 0 },
+    it('should unlock faction variants at Grandmaster rank', async () => {
+      await act(async () => {
+        useFactionReputationStore.setState({
+          reputations: { void: 2500, inferno: 0, storm: 0, stellar: 0 },
+        });
       });
       const isUnlocked = useFactionReputationStore.getState().isVariantUnlocked('void');
       expect(isUnlocked).toBe(true);
@@ -768,9 +896,13 @@ describe('Acceptance Criteria Verification', () => {
   });
 
   describe('AC-RECIPE-006: Recipe browser shows correct unlock status', () => {
-    it('should correctly identify unlocked vs locked recipes', () => {
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+    it('should correctly identify unlocked vs locked recipes', async () => {
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      });
       
       const unlocked = useRecipeStore.getState().getUnlockedRecipes();
       const locked = useRecipeStore.getState().getLockedRecipes();
@@ -801,10 +933,14 @@ describe('Acceptance Criteria Verification', () => {
       expect(useRecipeStore.persist).toBeDefined();
     });
 
-    it('should maintain recipe unlock state in session', () => {
+    it('should maintain recipe unlock state in session', async () => {
       // Unlock recipes
-      useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
-      useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      await act(async () => {
+        useRecipeStore.getState().unlockRecipe('recipe-core-furnace');
+      });
+      await act(async () => {
+        useRecipeStore.getState().discoverRecipe('recipe-core-furnace');
+      });
       
       // State should be maintained
       expect(useRecipeStore.getState().isUnlocked('recipe-core-furnace')).toBe(true);
