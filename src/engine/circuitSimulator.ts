@@ -754,3 +754,20 @@ export function resetCounters(): void {
   nodeIdCounter = 0;
   connectionIdCounter = 0;
 }
+
+
+/**
+ * Get all counter states for the CounterPanel
+ * ROUND 183: Added for CounterPanel integration
+ */
+export function getAllCounterStates(): Map<string, CounterState> {
+  return componentStateStore.counterStates;
+}
+
+/**
+ * Get counter state by node ID (for external access)
+ * ROUND 183: Added for CounterPanel integration
+ */
+export function getCounterStateByNodeId(nodeId: string): CounterState | undefined {
+  return componentStateStore.counterStates.get(nodeId);
+}

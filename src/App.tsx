@@ -130,6 +130,15 @@ const LazyRecipePanel = lazy(() => import('./components/Recipes/RecipePanel').th
   }>
 })));
 
+// Round 183: Lazy-loaded CounterPanel for bundle optimization
+const LazyCounterPanel = lazy(() => import('./components/Circuit/CounterPanel').then((module) => ({
+  default: module.CounterPanel as unknown as React.ComponentType<{
+    counters: any[];
+    onClose?: () => void;
+    onCounterClick?: (counterId: string) => void;
+  }>
+})));
+
 type ViewMode = 'editor' | 'codex';
 
 // Round 147: CSS animations moved to external file src/styles/circuit-animations.css
@@ -254,6 +263,9 @@ function AppContent() {
   const [showRecipeBook, setShowRecipeBook] = useState(false);
   // Round 182: RecipePanel state
   const [showRecipes, setShowRecipes] = useState(false);
+  
+  // Round 183: CounterPanel state
+  const [showCounters, setShowCounters] = useState(false);
   
   // Template system state - Round 67
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
@@ -768,6 +780,17 @@ function AppContent() {
                 <span>配方</span>
               </button>
               
+              {/* Round 183: CounterPanel navigation button */}
+              <button
+                onClick={() => setShowCounters(true)}
+                className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#22c55e] hover:text-white border border-[#1e2a42] hover:border-[#22c55e]/30 transition-colors flex items-center gap-2"
+                aria-label="打开计数器面板"
+                data-testid="nav-counters"
+              >
+                <span>🔢</span>
+                <span>计数</span>
+              </button>
+              
               <button
                 onClick={() => setShowRecipeBrowser(true)}
                 className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a855f7] hover:text-white border border-[#1e2a42] hover:border-[#a855f7]/30 transition-colors flex items-center gap-2"
@@ -967,6 +990,16 @@ function AppContent() {
                 recipeStoreState.unlockedRecipes.map(r => [r.recipeId, r.unlockedAt])
               )}
               onClose={() => setShowRecipes(false)}
+            />
+          </Suspense>
+        )}
+        
+        {/* Round 183: CounterPanel - sidebar panel with counter statistics */}
+        {showCounters && (
+          <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
+            <LazyCounterPanel
+              counters={[]}
+              onClose={() => setShowCounters(false)}
             />
           </Suspense>
         )}

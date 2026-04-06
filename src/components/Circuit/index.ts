@@ -5,6 +5,7 @@
  * Round 122: Circuit Canvas Integration
  * Round 128: Sequential Components (Timer, Counter, SR Latch, D Latch, D Flip-Flop)
  * Round 144: Wire Junction (CircuitPalette retired - Track B)
+ * Round 183: CounterPanel for counter statistics
  * 
  * Exports all circuit simulation components.
  */
@@ -28,3 +29,7 @@ export { DFlipFlop } from './DFlipFlop';
 
 // Components from Round 144 - Wire Junction
 export { WireJunction, JunctionHub } from './WireJunction';
+
+// Components from Round 183 - CounterPanel
+export { CounterPanel } from './CounterPanel';
+export { CounterStats } from './CounterStats';
