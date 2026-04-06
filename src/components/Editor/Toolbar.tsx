@@ -7,6 +7,7 @@ import { useTemplateStore } from '../../store/useTemplateStore';
 import { useCircuitCanvasStore } from '../../store/useCircuitCanvasStore';
 import { CollectionStatsPanel } from '../Stats/CollectionStatsPanel';
 import { CircuitSignalVisualizer } from '../Circuit/CircuitSignalVisualizer';
+import { BackupButton } from '../Backup/BackupButton';
 import { 
   autoArrange, 
   autoArrangeCircular, 
@@ -28,6 +29,7 @@ export interface ToolbarProps {
   onOpenRandomGenerator?: () => void;
   onOpenTemplateLibrary?: () => void;
   onOpenSaveTemplate?: () => void;
+  onOpenBackupManager?: () => void;
 }
 
 // Granular selectors for performance optimization (AC1: Re-render Reduction)
@@ -55,6 +57,7 @@ export function Toolbar({
   onOpenRandomGenerator,
   onOpenTemplateLibrary,
   onOpenSaveTemplate,
+  onOpenBackupManager,
 }: ToolbarProps = {}) {
   // Use granular selectors to prevent unnecessary re-renders (AC1)
   const modulesCount = useModulesCount();
@@ -142,6 +145,10 @@ export function Toolbar({
   const handleOpenSaveTemplate = useCallback(() => {
     onOpenSaveTemplate?.();
   }, [onOpenSaveTemplate]);
+
+  const handleOpenBackupManager = useCallback(() => {
+    onOpenBackupManager?.();
+  }, [onOpenBackupManager]);
 
   const handleOpenCollectionStats = useCallback(() => {
     setShowCollectionStats(true);
@@ -582,6 +589,9 @@ export function Toolbar({
 
         {/* Right side - actions */}
         <div className="flex items-center gap-2">
+          {/* Backup Button - Round 170: Circuit Persistence Backup System Integration */}
+          <BackupButton onManage={handleOpenBackupManager} />
+
           {/* Collection Stats Button - NEW (Round 65) */}
           <button
             data-testid="collection-stats-button"

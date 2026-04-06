@@ -1,4 +1,4 @@
-import{j as e}from"./components-circuit-module-DaUEWxkx.js";import{R as d}from"./index-BTq2IoQH.js";import{M as x}from"./ModulePreview-C1ouhbtj.js";const h=({recipe:r,isUnlocked:s,onClick:i,showHint:n=!0,isFactionVariant:t=!1,factionColor:a})=>{const o=d[r.rarity],l=t&&a?a:o.primary;return e.jsxs("div",{className:`
+import{j as e}from"./components-circuit-module-DaUEWxkx.js";import{R as d}from"./index-DtkEeRLW.js";import{M as x}from"./ModulePreview-Cc7Imhcy.js";const h=({recipe:r,isUnlocked:s,onClick:i,showHint:n=!0,isFactionVariant:t=!1,factionColor:a})=>{const o=d[r.rarity],l=t&&a?a:o.primary;return e.jsxs("div",{className:`
         relative rounded-lg overflow-hidden cursor-pointer
         transition-all duration-300 ease-out
         ${s?"bg-gray-900/80 border-2 hover:scale-105 hover:shadow-lg":"bg-gray-800/50 border border-gray-700 opacity-60 hover:opacity-80"}

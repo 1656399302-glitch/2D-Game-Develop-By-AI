@@ -254,7 +254,7 @@ export const RecoveryPrompt: React.FC<RecoveryPromptProps> = ({
   onStartFresh,
   onImport,
 }) => {
-  // Get auto-save data
+  // Get auto-save data - always call hooks at the top
   const autoSave = useBackupStore((state) => state.autoSave);
   const clearAutoSave = useBackupStore((state) => state.clearAutoSave);
   const clearUnsavedChanges = useBackupStore((state) => state.clearUnsavedChanges);
@@ -262,20 +262,13 @@ export const RecoveryPrompt: React.FC<RecoveryPromptProps> = ({
   // Local state for import modal
   const [showImportModal, setShowImportModal] = useState(false);
 
-  // Don't render if not visible or no auto-save data
-  if (!isVisible || !autoSave) {
-    return null;
-  }
-
-  // Handlers
+  // Handlers - define before the early return to ensure hooks are called consistently
   const handleRestore = useCallback(() => {
-    // Clear unsaved changes flag and trigger restore
     clearUnsavedChanges();
     onRestore();
   }, [clearUnsavedChanges, onRestore]);
 
   const handleStartFresh = useCallback(() => {
-    // Clear auto-save and unsaved changes flag
     clearAutoSave();
     clearUnsavedChanges();
     onStartFresh();
@@ -298,7 +291,6 @@ export const RecoveryPrompt: React.FC<RecoveryPromptProps> = ({
         const text = await file.text();
         const backup = useBackupStore.getState().importBackup(text);
         if (backup) {
-          // Clear current auto-save and unsaved changes
           clearAutoSave();
           clearUnsavedChanges();
           setShowImportModal(false);
@@ -314,31 +306,39 @@ export const RecoveryPrompt: React.FC<RecoveryPromptProps> = ({
     input.click();
   }, [clearAutoSave, clearUnsavedChanges]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      handleStartFresh();
-    }
-  }, [handleStartFresh]);
+  // Use a derived value instead of early return after hooks
+  const shouldRender = isVisible && autoSave;
 
   // Add keyboard listener
   useEffect(() => {
-    if (isVisible) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => {
-        window.removeEventListener('keydown', handleKeyDown);
-      };
-    }
-  }, [isVisible, handleKeyDown]);
+    if (!shouldRender) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleStartFresh();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [shouldRender, handleStartFresh]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
-    if (isVisible) {
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = '';
-      };
-    }
-  }, [isVisible]);
+    if (!shouldRender) return;
+    
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [shouldRender]);
+
+  // Don't render if not visible or no auto-save data
+  if (!shouldRender) {
+    return null;
+  }
 
   return (
     <>

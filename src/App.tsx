@@ -44,6 +44,12 @@ import { useActivationGate } from './hooks/useCircuitValidation';
 // Round 137: Import setupAchievementIntegration for tech tree integration
 import { setAchievementStoreGetter, setupAchievementIntegration } from './store/useTechTreeStore';
 
+// Round 170: Import Backup System components
+import { RecoveryPrompt } from './components/Backup/RecoveryPrompt';
+import { BackupManager } from './components/Backup/BackupManager';
+import { useCircuitBackup } from './hooks/useCircuitBackup';
+import { useBackupStore } from './store/backupStore';
+
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
 const LazyChallengePanel = lazy(() => import('./components/Challenge/ChallengePanel'));
@@ -244,6 +250,10 @@ function AppContent() {
   const [showCreateSubCircuitModal, setShowCreateSubCircuitModal] = useState(false);
   const [pendingSubCircuitModuleIds, setPendingSubCircuitModuleIds] = useState<string[]>([]);
   
+  // Round 170: State for Backup Manager
+  const [showBackupManager, setShowBackupManager] = useState(false);
+  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(false);
+  
   /**
    * FIX Round 106: Track welcome modal dismissal to coordinate with LoadPromptModal
    */
@@ -318,6 +328,60 @@ function AppContent() {
     handleStartTutorial: handleWelcomeStartTutorial,
     handleSkip: handleWelcomeSkip,
   } = useWelcomeModal();
+
+  // Round 170: Get auto-save data for recovery check
+  const autoSave = useBackupStore((state) => state.autoSave);
+
+  // Round 170: Check if recovery is needed on mount
+  useEffect(() => {
+    if (isHydrated && autoSave) {
+      // Check if there's a crash recovery flag or auto-save data
+      const recoveryFlag = localStorage.getItem('circuit_backup_pending_recovery');
+      if (recoveryFlag || autoSave) {
+        setShowRecoveryPrompt(true);
+      }
+    }
+  }, [isHydrated, autoSave]);
+
+  // Round 170: Setup circuit backup hook
+  useCircuitBackup({
+    enabled: isHydrated,
+    onRecoveryNeeded: () => {
+      setShowRecoveryPrompt(true);
+    },
+  });
+
+  // Round 170: Recovery prompt handlers
+  const handleRecoveryRestore = useCallback(() => {
+    // Restore from auto-save
+    const backup = useBackupStore.getState().autoSave;
+    if (backup) {
+      try {
+        const nodes = JSON.parse(backup.nodes);
+        const conns = JSON.parse(backup.connections);
+        // Load the circuit data
+        loadMachine(nodes, conns);
+      } catch (e) {
+        console.error('Failed to restore from auto-save:', e);
+      }
+    }
+    setShowRecoveryPrompt(false);
+  }, [loadMachine]);
+
+  const handleRecoveryStartFresh = useCallback(() => {
+    // Clear auto-save and start fresh
+    useBackupStore.getState().clearAutoSave();
+    useBackupStore.getState().clearUnsavedChanges();
+    setShowRecoveryPrompt(false);
+  }, []);
+
+  const handleOpenBackupManager = useCallback(() => {
+    setShowBackupManager(true);
+  }, []);
+
+  const handleCloseBackupManager = useCallback(() => {
+    setShowBackupManager(false);
+  }, []);
 
   /**
    * FIX Round 106: Coordinated handleSkip that suppresses LoadPromptModal
@@ -742,6 +806,7 @@ function AppContent() {
             onOpenRandomGenerator={() => setShowRandomGenerator(true)}
             onOpenTemplateLibrary={() => setShowTemplateLibrary(true)}
             onOpenSaveTemplate={() => setShowSaveTemplate(true)}
+            onOpenBackupManager={handleOpenBackupManager}
           />
         )}
         
@@ -978,7 +1043,7 @@ function AppContent() {
           </Suspense>
         )}
         
-        <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
+        <Suspense fallback={null}>
           <LazyAIAssistantSlideIn isOpen={showAIAssistant} onClose={() => setShowAIAssistant(false)} />
         </Suspense>
         
@@ -1019,6 +1084,35 @@ function AppContent() {
             onMachineSaved={() => {}}
           />
         </Suspense>
+
+        {/* Round 170: Recovery Prompt - shown when crash recovery is detected */}
+        <RecoveryPrompt
+          isVisible={showRecoveryPrompt}
+          onRestore={handleRecoveryRestore}
+          onStartFresh={handleRecoveryStartFresh}
+        />
+
+        {/* Round 170: Backup Manager Modal */}
+        {showBackupManager && (
+          <div 
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onClick={handleCloseBackupManager}
+          >
+            <div 
+              className="relative max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto bg-[#121826] rounded-xl border border-[#1e2a42] shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <BackupManager />
+              <button
+                onClick={handleCloseBackupManager}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af]"
+                aria-label="关闭备份管理"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1079,6 +1173,35 @@ function AppContent() {
             onCreated={handleSubCircuitCreated}
           />
         </Suspense>
+      )}
+      
+      {/* Round 170: Recovery Prompt for mobile */}
+      <RecoveryPrompt
+        isVisible={showRecoveryPrompt}
+        onRestore={handleRecoveryRestore}
+        onStartFresh={handleRecoveryStartFresh}
+      />
+      
+      {/* Round 170: Backup Manager for mobile */}
+      {showBackupManager && (
+        <div 
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={handleCloseBackupManager}
+        >
+          <div 
+            className="relative max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto bg-[#121826] rounded-xl border border-[#1e2a42] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <BackupManager />
+            <button
+              onClick={handleCloseBackupManager}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1e2a42] hover:bg-[#2d3a56] flex items-center justify-center text-[#9ca3af]"
+              aria-label="关闭备份管理"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
     </MobileTouchEnhancer>
   );
