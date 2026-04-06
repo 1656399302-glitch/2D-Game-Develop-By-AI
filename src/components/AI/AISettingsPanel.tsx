@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { ProviderType } from '../../services/ai/AIServiceFactory';
+import { ProviderType, isProviderImplemented } from '../../services/ai/AIServiceFactory';
 import { OpenAIProvider } from '../../services/ai/OpenAIProvider';
 import {
   useSettingsStore,
@@ -58,13 +58,6 @@ const API_KEY_CONFIG: Record<ProviderType, { label: string; placeholder: string 
  */
 function requiresApiKey(provider: ProviderType): boolean {
   return provider !== 'local';
-}
-
-/**
- * Check if a provider is implemented
- */
-function isImplemented(provider: ProviderType): boolean {
-  return provider === 'local' || provider === 'openai';
 }
 
 /**
@@ -224,7 +217,7 @@ export function AISettingsPanel({
   // Get API key config for current provider
   const currentApiKeyConfig = API_KEY_CONFIG[providerType];
   const showApiKeyField = requiresApiKey(providerType);
-  const providerImplemented = isImplemented(providerType);
+  const providerImplemented = isProviderImplemented(providerType);
 
   return (
     <div 
@@ -259,19 +252,19 @@ export function AISettingsPanel({
           <div className="space-y-2">
             {AVAILABLE_PROVIDERS.map((provider) => {
               const isSelected = providerType === provider;
-              const isProviderImplemented = isImplemented(provider);
+              const providerIsImplemented = isProviderImplemented(provider);
               
               return (
                 <button
                   key={provider}
                   onClick={() => handleProviderSelect(provider)}
-                  disabled={!isProviderImplemented}
+                  disabled={!providerIsImplemented}
                   data-testid={`provider-${provider}`}
                   className={`w-full p-3 rounded-lg border transition-all text-left ${
                     isSelected
                       ? 'bg-[#7c3aed]/20 border-[#7c3aed]'
                       : 'bg-[#121826] border-[#1e2a42] hover:border-[#7c3aed]/50'
-                  } ${!isProviderImplemented ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${!providerIsImplemented ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="flex items-start gap-3">
                     {/* Radio indicator */}
@@ -292,7 +285,7 @@ export function AISettingsPanel({
                         <span className={`font-medium ${isSelected ? 'text-white' : 'text-[#e5e7eb]'}`}>
                           {PROVIDER_DISPLAY_NAMES[provider]}
                         </span>
-                        {!isProviderImplemented && (
+                        {!providerIsImplemented && (
                           <span className="px-1.5 py-0.5 text-[10px] rounded bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30">
                             即将推出
                           </span>

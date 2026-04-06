@@ -154,12 +154,13 @@ describe('AISettingsPanel', () => {
       expect(screen.getByText('✨')).toBeInTheDocument(); // Gemini
     });
 
-    it('should show "Coming Soon" badge for unimplemented providers', () => {
+    it('should show no "Coming Soon" badges - all providers are implemented', () => {
       const props = createMockProps();
       render(<AISettingsPanel {...props} />);
       
-      // Only Anthropic and Gemini are not implemented (OpenAI is now implemented)
-      expect(screen.getAllByText('即将推出').length).toBe(2);
+      // All four providers (local, openai, anthropic, gemini) are implemented
+      // so there should be no "即将推出" badges
+      expect(screen.queryAllByText('即将推出')).toHaveLength(0);
     });
 
     it('should display status section', () => {
