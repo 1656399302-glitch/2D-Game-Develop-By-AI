@@ -15,6 +15,7 @@ import { useAchievementStore } from './store/useAchievementStore';
 import { useCommunityStore } from './store/useCommunityStore';
 import { useMachineStatsStore } from './store/useMachineStatsStore';
 import { useCircuitCanvasStore } from './store/useCircuitCanvasStore';
+import { useCircuitChallengeStore } from './store/useCircuitChallengeStore';
 import { hydrateExchangeStore } from './store/useExchangeStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStoreHydration } from './hooks/useStoreHydration';
@@ -49,6 +50,9 @@ import { RecoveryPrompt } from './components/Backup/RecoveryPrompt';
 import { BackupManager } from './components/Backup/BackupManager';
 import { useCircuitBackup } from './hooks/useCircuitBackup';
 import { useBackupStore } from './store/backupStore';
+
+// Round 175/177: Import Circuit Challenge Panel for circuit challenge system
+import { CircuitChallengePanel } from './components/Circuit/CircuitChallengePanel';
 
 // Lazy-loaded modal components for code splitting
 const LazyCodexView = lazy(() => import('./components/Codex/CodexView'));
@@ -316,6 +320,9 @@ function AppContent() {
   useEffect(() => {
     checkTutorialUnlockRef.current = useRecipeStore.getState().checkTutorialUnlock;
   }, []);
+  
+  // Round 175/177: Circuit Challenge Panel visibility from store
+  const isCircuitChallengePanelOpen = useCircuitChallengeStore((state) => state.isPanelOpen);
   
   // Viewport size for responsive layout
   const viewport = useViewportSize();
@@ -1113,6 +1120,9 @@ function AppContent() {
             </div>
           </div>
         )}
+
+        {/* Round 175/177: Circuit Challenge Panel - conditionally rendered when isCircuitChallengePanelOpen is true */}
+        {isCircuitChallengePanelOpen && <CircuitChallengePanel />}
       </div>
     );
   }
@@ -1203,6 +1213,9 @@ function AppContent() {
           </div>
         </div>
       )}
+
+      {/* Round 175/177: Circuit Challenge Panel - conditionally rendered when isCircuitChallengePanelOpen is true (mobile) */}
+      {isCircuitChallengePanelOpen && <CircuitChallengePanel />}
     </MobileTouchEnhancer>
   );
 }

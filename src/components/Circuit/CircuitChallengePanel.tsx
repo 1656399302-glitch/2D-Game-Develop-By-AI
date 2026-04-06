@@ -167,7 +167,10 @@ export function CircuitChallengePanel() {
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-[#0a0e17] border-l border-[#1e2a42] flex flex-col z-50 shadow-xl">
+    <div 
+      className="fixed inset-y-0 right-0 w-96 bg-[#0a0e17] border-l border-[#1e2a42] flex flex-col z-50 shadow-xl"
+      data-testid="circuit-challenge-panel"
+    >
       {/* Header */}
       <div className="px-4 py-3 border-b border-[#1e2a42] bg-[#121826]">
         <div className="flex items-center justify-between mb-2">
@@ -179,6 +182,7 @@ export function CircuitChallengePanel() {
             onClick={closePanel}
             className="p-1 text-[#9ca3af] hover:text-white transition-colors"
             aria-label="关闭面板"
+            data-testid="close-panel-button"
           >
             ✕
           </button>
