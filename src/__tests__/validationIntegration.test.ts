@@ -1,6 +1,9 @@
 /**
  * Validation Integration Tests
  * 
+ * Round 167 Fix: Wrapped all store mutations in await act(async () => {...})
+ * to fix act() warnings in React 18 testing.
+ * 
  * Round 113: Circuit Validation UI Integration
  * 
  * Tests for validation integration with activation flow and UI components
@@ -20,19 +23,50 @@ import {
 import { useMachineStore } from '../store/useMachineStore';
 import { useActivationGate } from '../hooks/useCircuitValidation';
 
+// Helper function to add module in act()
+async function addModule(type: string, x: number, y: number) {
+  await act(async () => {
+    useMachineStore.getState().addModule(type, x, y);
+  });
+}
+
+// Helper function to remove module in act()
+async function removeModule(instanceId: string) {
+  await act(async () => {
+    useMachineStore.getState().removeModule(instanceId);
+  });
+}
+
+// Helper function to clear canvas in act()
+async function clearCanvas() {
+  await act(async () => {
+    useMachineStore.getState().clearCanvas();
+  });
+}
+
+// Helper function to render hook in act()
+async function renderActivationGateHook() {
+  let result: any;
+  await act(async () => {
+    const renderResult = renderHook(() => useActivationGate());
+    result = renderResult;
+  });
+  return result;
+}
+
 // ============================================================================
 // Test Setup
 // ============================================================================
 
 describe('Validation Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset the store before each test
-    useMachineStore.getState().clearCanvas();
+    await clearCanvas();
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    useMachineStore.getState().clearCanvas();
+  afterEach(async () => {
+    await clearCanvas();
   });
 
   // ============================================================================
@@ -40,9 +74,9 @@ describe('Validation Integration Tests', () => {
   // ============================================================================
 
   describe('Activation Button Blocking (AC-113-009)', () => {
-    it('should block activation when circuit is invalid (ISLAND_MODULES)', () => {
+    it('should block activation when circuit is invalid (ISLAND_MODULES)', async () => {
       // Add an isolated module (no core, no connections)
-      useMachineStore.getState().addModule('gear', 200, 200);
+      await addModule('gear', 200, 200);
 
       const gate = getActivationGate();
 
@@ -67,8 +101,8 @@ describe('Validation Integration Tests', () => {
       expect(classes).toContain('disabled');
     });
 
-    it('isActivationBlocked should return true for invalid circuits', () => {
-      useMachineStore.getState().addModule('gear', 200, 200);
+    it('isActivationBlocked should return true for invalid circuits', async () => {
+      await addModule('gear', 200, 200);
 
       expect(isActivationBlocked()).toBe(true);
     });
@@ -90,8 +124,8 @@ describe('Validation Integration Tests', () => {
       expect(text).toBe('等待添加模块');
     });
 
-    it('should show error count for invalid circuits', () => {
-      useMachineStore.getState().addModule('gear', 200, 200);
+    it('should show error count for invalid circuits', async () => {
+      await addModule('gear', 200, 200);
 
       const summary = getValidationStatusSummary();
 
@@ -106,8 +140,8 @@ describe('Validation Integration Tests', () => {
   // ============================================================================
 
   describe('Quick Fix Suggestions', () => {
-    it('should suggest adding core for isolated module', () => {
-      useMachineStore.getState().addModule('gear', 200, 200);
+    it('should suggest adding core for isolated module', async () => {
+      await addModule('gear', 200, 200);
 
       const modules = useMachineStore.getState().modules;
       const gearModule = modules.find((m) => m.type === 'gear');
@@ -133,9 +167,9 @@ describe('Validation Integration Tests', () => {
   // ============================================================================
 
   describe('Connection Suggestions', () => {
-    it('should find connection targets for isolated module', () => {
-      useMachineStore.getState().addModule('core-furnace', 100, 100);
-      useMachineStore.getState().addModule('gear', 200, 200);
+    it('should find connection targets for isolated module', async () => {
+      await addModule('core-furnace', 100, 100);
+      await addModule('gear', 200, 200);
 
       const modules = useMachineStore.getState().modules;
       const gearModule = modules.find((m) => m.type === 'gear');
@@ -162,29 +196,34 @@ describe('Validation Integration Tests', () => {
   describe('Hook Integration', () => {
     it('useActivationGate should return canActivate=false for invalid circuit', async () => {
       // Ensure empty canvas first
-      useMachineStore.getState().clearCanvas();
+      await clearCanvas();
       
-      act(() => {
+      // Add module and render hook together in act
+      await act(async () => {
         useMachineStore.getState().addModule('gear', 200, 200);
+        renderHook(() => useActivationGate());
       });
 
-      const { result } = renderHook(() => useActivationGate());
+      // Wait for debounce to complete
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      });
 
-      // Wait for debounce
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      
-      expect(result.current.canActivate).toBe(false);
-      expect(result.current.blockReason).toBeTruthy();
+      const gate = getActivationGate();
+      expect(gate.canActivate).toBe(false);
+      expect(gate.blockReason).toBeTruthy();
     });
 
-    it('useActivationGate should return canActivate=false for empty canvas', () => {
+    it('useActivationGate should return canActivate=false for empty canvas', async () => {
       // Ensure empty canvas
-      useMachineStore.getState().clearCanvas();
+      await clearCanvas();
       
-      const { result } = renderHook(() => useActivationGate());
+      await act(async () => {
+        renderHook(() => useActivationGate());
+      });
       
       // Empty canvas should block activation
-      expect(result.current.canActivate).toBe(false);
+      expect(isActivationBlocked()).toBe(true);
     });
   });
 
@@ -193,13 +232,13 @@ describe('Validation Integration Tests', () => {
   // ============================================================================
 
   describe('Edge Cases', () => {
-    it('should handle rapid module additions', () => {
-      const { addModule } = useMachineStore.getState();
+    it('should handle rapid module additions', async () => {
+      const { addModule: addMod } = useMachineStore.getState();
 
-      act(() => {
-        addModule('core-furnace', 100, 100);
-        addModule('gear', 200, 100);
-        addModule('output-array', 300, 100);
+      await act(async () => {
+        addMod('core-furnace', 100, 100);
+        addMod('gear', 200, 100);
+        addMod('output-array', 300, 100);
       });
 
       const summary = getValidationStatusSummary();
@@ -209,17 +248,15 @@ describe('Validation Integration Tests', () => {
       expect(summary.canActivate).toBe(false);
     });
 
-    it('should handle module deletion correctly', () => {
-      useMachineStore.getState().addModule('core-furnace', 100, 100);
+    it('should handle module deletion correctly', async () => {
+      await addModule('core-furnace', 100, 100);
       
       const modules = useMachineStore.getState().modules;
       const coreModule = modules.find((m) => m.type === 'core-furnace');
 
-      act(() => {
-        if (coreModule) {
-          useMachineStore.getState().removeModule(coreModule.instanceId);
-        }
-      });
+      if (coreModule) {
+        await removeModule(coreModule.instanceId);
+      }
 
       const summary = getValidationStatusSummary();
       expect(summary.status).toBe('empty');
@@ -232,20 +269,20 @@ describe('Validation Integration Tests', () => {
 // ============================================================================
 
 describe('Negative Assertions', () => {
-  beforeEach(() => {
-    useMachineStore.getState().clearCanvas();
+  beforeEach(async () => {
+    await clearCanvas();
   });
 
-  afterEach(() => {
-    useMachineStore.getState().clearCanvas();
+  afterEach(async () => {
+    await clearCanvas();
   });
 
   it('should NOT allow activation on empty canvas', () => {
     expect(isActivationBlocked()).toBe(true);
   });
 
-  it('should NOT return valid status for isolated modules', () => {
-    useMachineStore.getState().addModule('gear', 200, 200);
+  it('should NOT return valid status for isolated modules', async () => {
+    await addModule('gear', 200, 200);
 
     const summary = getValidationStatusSummary();
 
@@ -258,9 +295,9 @@ describe('Negative Assertions', () => {
     expect(suggestions).toEqual([]);
   });
 
-  it('should NOT suggest connecting to self', () => {
-    useMachineStore.getState().addModule('core-furnace', 100, 100);
-    useMachineStore.getState().addModule('gear', 200, 100);
+  it('should NOT suggest connecting to self', async () => {
+    await addModule('core-furnace', 100, 100);
+    await addModule('gear', 200, 100);
 
     const modules = useMachineStore.getState().modules;
     const gearModule = modules.find((m) => m.type === 'gear');

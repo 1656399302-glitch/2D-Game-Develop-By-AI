@@ -1,0 +1,52 @@
+{
+  "round": 165,
+  "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
+  "branch": "main",
+  "commit": "ca9f1c16f4a6cce017f0cd97ace87f1eba821387",
+  "completed_items": [
+    "| AC-165-001 | TimeTrialChallenge.test.tsx runs with 0 `act()` warnings | **VERIFIED** | `grep -ciE \"act\\(|not wrapped in act|inside an act\"` \u2192 0 |",
+    "| AC-165-002 | CircuitModulePanel.browser.test.tsx runs with 0 `act()` warnings | **VERIFIED** | `grep -ciE \"act\\(|not wrapped in act|inside an act\"` \u2192 0 |",
+    "| AC-165-003 | All tests in TimeTrialChallenge.test.tsx pass | **VERIFIED** | `npm test -- --run src/__tests__/TimeTrialChallenge.test.tsx` \u2192 28 tests passing |",
+    "| AC-165-004 | All tests in CircuitModulePanel.browser.test.tsx pass | **VERIFIED** | `npm test -- --run src/__tests__/CircuitModulePanel.browser.test.tsx` \u2192 22 tests passing |",
+    "| AC-165-005 | Full test suite passes with \u2265 6865 tests | **VERIFIED** | `npm test -- --run` \u2192 238 files, 6865 tests |",
+    "| AC-165-006 | Build passes with bundle \u2264 512 KB | **VERIFIED** | `index-BTq2IoQH.js: 435.79 kB (442,534 bytes)` |"
+  ],
+  "incomplete_items": [],
+  "failure_reasons": [],
+  "key_files": [
+    ".ai-harness/decision-log/decisions.md",
+    ".ai-harness/handoffs/latest.json",
+    ".ai-harness/handoffs/round-164.json",
+    ".ai-harness/qa-reports/sprint-164-qa.md",
+    ".ai-harness/runtime/resume-state.json",
+    ".ai-harness/sprint-contracts/sprint-165.md",
+    "contract.md",
+    "feedback.md",
+    "node_modules/.vitest-cache/vitest/results.json",
+    "progress.md",
+    "src/__tests__/CircuitModulePanel.browser.test.tsx",
+    "src/__tests__/TimeTrialChallenge.test.tsx"
+  ],
+  "run_instructions": [
+    "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
+    "python harness.py dashboard"
+  ],
+  "known_issues": [],
+  "next_priorities": [
+    "1. **TimeTrialChallenge.test.tsx act() warnings (147 warnings \u2192 0)**:",
+    "2. **CircuitModulePanel.browser.test.tsx act() warnings (39 warnings \u2192 0)**:",
+    "1. Added `act` to imports from `@testing-library/react`",
+    "2. Added `flushUpdates()` helper function with proper fake timer handling",
+    "3. Created `renderTimeTrial()` async helper wrapping `render()` in `await act(async () => { ... })`",
+    "4. Created `renderTimeTrialWithProps()` async helper with custom props",
+    "5. Created `clickButton()` helper for consistent click handling",
+    "6. All test functions converted to `async` where needed",
+    "7. All `fireEvent.click()` calls wrapped with `await clickButton()` or `await act(async () => { ... })`",
+    "8. All `vi.advanceTimersByTimeAsync()` calls wrapped in `await act(async () => { ... })`"
+  ],
+  "evaluator_failures": [],
+  "restore_instructions": [
+    "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",
+    "Use .ai-harness/handoffs/latest.json as the first recovery artifact."
+  ]
+}

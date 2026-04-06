@@ -1,6 +1,9 @@
 /**
  * Exchange Store Tests
  * 
+ * Round 167 Fix: Wrapped all renderHook() calls in await act(async () => {...})
+ * to fix act() warnings in React 18 testing.
+ * 
  * Tests for the Exchange Store functionality including:
  * - simulateIncomingProposal
  * - acceptIncomingProposal
@@ -9,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act } from 'react';
+import { act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
 import { useExchangeStore } from '../../../store/useExchangeStore';
 
@@ -26,6 +29,44 @@ vi.mock('zustand/middleware', async () => {
 vi.mock('uuid', () => ({
   v4: () => 'test-uuid-' + Math.random().toString(36).substr(2, 9),
 }));
+
+// Helper function to wrap renderHook in act()
+async function renderExchangeStore() {
+  let result: any;
+  await act(async () => {
+    const renderResult = renderHook(() => useExchangeStore());
+    result = renderResult;
+  });
+  return result;
+}
+
+// Helper function to reset store in act()
+async function resetStore() {
+  await act(async () => {
+    useExchangeStore.setState({
+      listings: [],
+      incomingProposals: [],
+      outgoingProposals: [],
+      tradeHistory: [],
+      notifications: [],
+      isHydrated: true,
+    });
+  });
+}
+
+// Helper function to wrap store mutations in act()
+async function simulateIncomingProposal(result: any) {
+  await act(async () => {
+    result.current.simulateIncomingProposal();
+  });
+}
+
+// Helper function to wrap store mutations in act()
+async function rejectProposal(result: any, proposalId: string) {
+  await act(async () => {
+    result.current.rejectProposal(proposalId);
+  });
+}
 
 describe('Exchange Store - Incoming Proposals', () => {
   // Mock community machines
@@ -70,45 +111,34 @@ describe('Exchange Store - Incoming Proposals', () => {
     },
   ];
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     // Reset the store state before each test
-    useExchangeStore.setState({
-      listings: [],
-      incomingProposals: [],
-      outgoingProposals: [],
-      tradeHistory: [],
-      notifications: [],
-      isHydrated: true,
-    });
+    await resetStore();
   });
 
   // =========================================================================
   // AC-120-001: Simulated Incoming Proposals
   // =========================================================================
   describe('simulateIncomingProposal (AC-120-001)', () => {
-    it('creates incoming proposal when simulateIncomingProposal is called', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('creates incoming proposal when simulateIncomingProposal is called', async () => {
+      const { result } = await renderExchangeStore();
       
       // Initial state should have no incoming proposals
       expect(result.current.incomingProposals.length).toBe(0);
       
       // Call simulateIncomingProposal
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       // Should have created a new incoming proposal
       expect(result.current.incomingProposals.length).toBe(1);
       expect(result.current.incomingProposals[0].status).toBe('pending');
     });
 
-    it('creates incoming proposal with valid structure', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('creates incoming proposal with valid structure', async () => {
+      const { result } = await renderExchangeStore();
       
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposal = result.current.incomingProposals[0];
       expect(proposal).toBeDefined();
@@ -121,26 +151,24 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(proposal.createdAt).toBeDefined();
     });
 
-    it('getIncomingPendingProposals returns pending proposals', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('getIncomingPendingProposals returns pending proposals', async () => {
+      const { result } = await renderExchangeStore();
       
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const pendingProposals = result.current.getIncomingPendingProposals();
       expect(pendingProposals.length).toBeGreaterThanOrEqual(1);
       expect(pendingProposals[0].status).toBe('pending');
     });
 
-    it('returns null when no community machines available', () => {
+    it('returns null when no community machines available', async () => {
       // This test is informational - the store will still create proposals
       // since getTradeableCommunityMachines uses the community store
-      const { result } = renderHook(() => useExchangeStore());
+      const { result } = await renderExchangeStore();
       
       // Without mocking the community store, simulateIncomingProposal may return null
       // or create proposals based on available community machines
-      const proposal = result.current.simulateIncomingProposal();
+      await simulateIncomingProposal(result);
       // Just verify the method is callable
       expect(typeof result.current.simulateIncomingProposal).toBe('function');
     });
@@ -150,18 +178,16 @@ describe('Exchange Store - Incoming Proposals', () => {
   // Accept Incoming Proposal
   // =========================================================================
   describe('acceptIncomingProposal', () => {
-    it('accepts incoming proposal and updates status to accepted', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('accepts incoming proposal and updates status to accepted', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create incoming proposal
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposalId = result.current.incomingProposals[0].id;
       
       // Accept proposal
-      act(() => {
+      await act(async () => {
         result.current.acceptIncomingProposal(proposalId);
       });
       
@@ -170,19 +196,17 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(updatedProposal?.status).toBe('accepted');
     });
 
-    it('adds accepted proposal to trade history', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('adds accepted proposal to trade history', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create incoming proposal
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposalId = result.current.incomingProposals[0].id;
       const targetMachineId = result.current.incomingProposals[0].targetMachineId;
       
       // Accept proposal
-      act(() => {
+      await act(async () => {
         result.current.acceptIncomingProposal(proposalId);
       });
       
@@ -192,18 +216,16 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(tradeHistory[0].receivedMachineId).toBe(targetMachineId);
     });
 
-    it('adds notification when proposal is accepted', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('adds notification when proposal is accepted', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create incoming proposal
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposalId = result.current.incomingProposals[0].id;
       
       // Accept proposal
-      act(() => {
+      await act(async () => {
         result.current.acceptIncomingProposal(proposalId);
       });
       
@@ -219,18 +241,16 @@ describe('Exchange Store - Incoming Proposals', () => {
   // Reject Incoming Proposal
   // =========================================================================
   describe('rejectIncomingProposal', () => {
-    it('rejects incoming proposal and updates status to rejected', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('rejects incoming proposal and updates status to rejected', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create incoming proposal
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposalId = result.current.incomingProposals[0].id;
       
       // Reject proposal
-      act(() => {
+      await act(async () => {
         result.current.rejectIncomingProposal(proposalId);
       });
       
@@ -239,18 +259,16 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(updatedProposal?.status).toBe('rejected');
     });
 
-    it('does not add to trade history when rejected', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('does not add to trade history when rejected', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create incoming proposal
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposalId = result.current.incomingProposals[0].id;
       
       // Reject proposal
-      act(() => {
+      await act(async () => {
         result.current.rejectIncomingProposal(proposalId);
       });
       
@@ -259,18 +277,16 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(tradeHistory.length).toBe(0);
     });
 
-    it('adds notification when proposal is rejected', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('adds notification when proposal is rejected', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create incoming proposal
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposalId = result.current.incomingProposals[0].id;
       
       // Reject proposal
-      act(() => {
+      await act(async () => {
         result.current.rejectIncomingProposal(proposalId);
       });
       
@@ -285,12 +301,10 @@ describe('Exchange Store - Incoming Proposals', () => {
   // Notification Integration
   // =========================================================================
   describe('Notification Integration', () => {
-    it('creates notification when simulateIncomingProposal is called', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('creates notification when simulateIncomingProposal is called', async () => {
+      const { result } = await renderExchangeStore();
       
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       // Should have at least one notification (the incoming proposal notification)
       expect(result.current.notifications.length).toBeGreaterThanOrEqual(1);
@@ -300,12 +314,10 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(incomingNotif).toBeDefined();
     });
 
-    it('notifications contain proposal ID', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('notifications contain proposal ID', async () => {
+      const { result } = await renderExchangeStore();
       
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const proposalId = result.current.incomingProposals[0].id;
       const incomingNotif = result.current.notifications.find(n => n.type === 'incoming');
@@ -315,11 +327,11 @@ describe('Exchange Store - Incoming Proposals', () => {
       }
     });
 
-    it('getUnreadCount returns correct count', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('getUnreadCount returns correct count', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create 3 incoming proposals
-      act(() => {
+      await act(async () => {
         result.current.simulateIncomingProposal();
         result.current.simulateIncomingProposal();
         result.current.simulateIncomingProposal();
@@ -329,16 +341,14 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(result.current.getUnreadCount()).toBeGreaterThanOrEqual(3);
     });
 
-    it('markNotificationRead updates notification read status', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('markNotificationRead updates notification read status', async () => {
+      const { result } = await renderExchangeStore();
       
-      act(() => {
-        result.current.simulateIncomingProposal();
-      });
+      await simulateIncomingProposal(result);
       
       const notifId = result.current.notifications[0]?.id;
       if (notifId) {
-        act(() => {
+        await act(async () => {
           result.current.markNotificationRead(notifId);
         });
         
@@ -347,18 +357,18 @@ describe('Exchange Store - Incoming Proposals', () => {
       }
     });
 
-    it('clearNotifications removes all notifications', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('clearNotifications removes all notifications', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create some proposals
-      act(() => {
+      await act(async () => {
         result.current.simulateIncomingProposal();
         result.current.simulateIncomingProposal();
       });
       
       expect(result.current.notifications.length).toBeGreaterThan(0);
       
-      act(() => {
+      await act(async () => {
         result.current.clearNotifications();
       });
       
@@ -370,11 +380,11 @@ describe('Exchange Store - Incoming Proposals', () => {
   // Multiple Proposals
   // =========================================================================
   describe('Multiple Proposals', () => {
-    it('can handle multiple incoming proposals', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('can handle multiple incoming proposals', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create 3 incoming proposals
-      act(() => {
+      await act(async () => {
         result.current.simulateIncomingProposal();
         result.current.simulateIncomingProposal();
         result.current.simulateIncomingProposal();
@@ -384,11 +394,11 @@ describe('Exchange Store - Incoming Proposals', () => {
       expect(result.current.getIncomingPendingProposals().length).toBe(3);
     });
 
-    it('can accept some and reject others', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('can accept some and reject others', async () => {
+      const { result } = await renderExchangeStore();
       
       // Create 3 incoming proposals
-      act(() => {
+      await act(async () => {
         result.current.simulateIncomingProposal();
         result.current.simulateIncomingProposal();
         result.current.simulateIncomingProposal();
@@ -397,7 +407,7 @@ describe('Exchange Store - Incoming Proposals', () => {
       const proposals = result.current.incomingProposals;
       
       // Accept first, reject second, leave third pending
-      act(() => {
+      await act(async () => {
         result.current.acceptIncomingProposal(proposals[0].id);
         result.current.rejectIncomingProposal(proposals[1].id);
       });
@@ -416,24 +426,22 @@ describe('Exchange Store - Incoming Proposals', () => {
   // Edge Cases
   // =========================================================================
   describe('Edge Cases', () => {
-    it('handles acceptProposal with invalid ID gracefully', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('handles acceptProposal with invalid ID gracefully', async () => {
+      const { result } = await renderExchangeStore();
       
       const success = result.current.acceptProposal('invalid-id');
       expect(success).toBe(false);
     });
 
-    it('handles rejectProposal with invalid ID gracefully', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('handles rejectProposal with invalid ID gracefully', async () => {
+      const { result } = await renderExchangeStore();
       
-      // Should not throw
-      expect(() => {
-        result.current.rejectProposal('invalid-id');
-      }).not.toThrow();
+      // Should not throw - need to wrap in act() to prevent warnings
+      await rejectProposal(result, 'invalid-id');
     });
 
-    it('getProposal returns undefined for non-existent proposal', () => {
-      const { result } = renderHook(() => useExchangeStore());
+    it('getProposal returns undefined for non-existent proposal', async () => {
+      const { result } = await renderExchangeStore();
       
       const proposal = result.current.getProposal('non-existent-id');
       expect(proposal).toBeUndefined();

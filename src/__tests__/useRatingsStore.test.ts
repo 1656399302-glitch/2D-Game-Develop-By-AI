@@ -1,6 +1,9 @@
 /**
  * useRatingsStore Tests
  * 
+ * Round 167 Fix: Wrapped all renderHook() calls in await act(async () => {...})
+ * to fix act() warnings in React 18 testing.
+ * 
  * Tests for the ratings store functionality.
  */
 
@@ -18,20 +21,37 @@ function makeKey(machineId: string, userId: string): string {
   return `${machineId}:${userId}`;
 }
 
-describe('useRatingsStore', () => {
-  beforeEach(() => {
-    // Reset store state before each test
+// Helper function to wrap renderHook in act()
+async function renderRatingsStore() {
+  let result: any;
+  await act(async () => {
+    const renderResult = renderHook(() => useRatingsStore());
+    result = renderResult;
+  });
+  return result;
+}
+
+// Helper function to reset store in act()
+async function resetStore() {
+  await act(async () => {
     useRatingsStore.setState({
       userRatings: {},
       reviews: {},
     });
   });
+}
+
+describe('useRatingsStore', () => {
+  beforeEach(async () => {
+    // Reset store state before each test
+    await resetStore();
+  });
 
   describe('submitRating', () => {
-    it('stores a rating for a machine', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('stores a rating for a machine', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 4);
       });
       
@@ -41,14 +61,14 @@ describe('useRatingsStore', () => {
       expect(result.current.userRatings[ratingKey].userId).toBe('user-1');
     });
 
-    it('updates an existing rating for the same user and machine', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('updates an existing rating for the same user and machine', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 3);
       });
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 5);
       });
       
@@ -56,31 +76,31 @@ describe('useRatingsStore', () => {
       expect(result.current.userRatings[ratingKey].value).toBe(5);
     });
 
-    it('removes rating when clicking the same star value', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('removes rating when clicking the same star value', async () => {
+      const { result } = await renderRatingsStore();
       const ratingKey = makeKey('machine-1', 'user-1');
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 4);
       });
       expect(result.current.userRatings[ratingKey]).toBeDefined();
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 4);
       });
       expect(result.current.userRatings[ratingKey]).toBeUndefined();
     });
 
-    it('clamps rating values to 1-5 range', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('clamps rating values to 1-5 range', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 10);
       });
       const key1 = makeKey('machine-1', 'user-1');
       expect(result.current.userRatings[key1].value).toBe(5);
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-2', 'user-1', -2);
       });
       const key2 = makeKey('machine-2', 'user-1');
@@ -89,10 +109,10 @@ describe('useRatingsStore', () => {
   });
 
   describe('getUserRating', () => {
-    it('returns the user rating for a machine', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('returns the user rating for a machine', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 4);
       });
       
@@ -101,17 +121,17 @@ describe('useRatingsStore', () => {
       expect(rating?.value).toBe(4);
     });
 
-    it('returns undefined for non-existent rating', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('returns undefined for non-existent rating', async () => {
+      const { result } = await renderRatingsStore();
       
       const rating = result.current.getUserRating('non-existent', 'user-1');
       expect(rating).toBeUndefined();
     });
 
-    it('returns undefined for different user', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('returns undefined for different user', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 4);
       });
       
@@ -122,7 +142,7 @@ describe('useRatingsStore', () => {
 
   describe('getAverageRating', () => {
     it('calculates average from user ratings only', async () => {
-      const { result } = renderHook(() => useRatingsStore());
+      const { result } = await renderRatingsStore();
       
       await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 4);
@@ -139,7 +159,7 @@ describe('useRatingsStore', () => {
     });
 
     it('calculates average including review ratings', async () => {
-      const { result } = renderHook(() => useRatingsStore());
+      const { result } = await renderRatingsStore();
       
       await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 5);
@@ -159,8 +179,8 @@ describe('useRatingsStore', () => {
       expect(stats?.ratingCount).toBe(3);
     });
 
-    it('returns 0 for machine with no ratings', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('returns 0 for machine with no ratings', async () => {
+      const { result } = await renderRatingsStore();
       
       const stats = result.current.getAverageRating('non-existent');
       expect(stats?.averageRating).toBe(0);
@@ -169,10 +189,10 @@ describe('useRatingsStore', () => {
   });
 
   describe('submitReview', () => {
-    it('adds a review to a machine', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('adds a review to a machine', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitReview('machine-1', 'user-1', 'Test User', 4, 'Great machine!');
       });
       
@@ -183,10 +203,10 @@ describe('useRatingsStore', () => {
       expect(reviews[0].rating).toBe(4);
     });
 
-    it('also submits rating when submitting review', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('also submits rating when submitting review', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitReview('machine-1', 'user-1', 'Test User', 4, 'Great machine!');
       });
       
@@ -197,17 +217,17 @@ describe('useRatingsStore', () => {
   });
 
   describe('deleteReview', () => {
-    it('deletes a review when user owns it', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('deletes a review when user owns it', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitReview('machine-1', 'user-1', 'Test User', 4, 'Great machine!');
       });
       
       const reviews = result.current.getReviews('machine-1');
       const reviewId = reviews[0].id;
       
-      act(() => {
+      await act(async () => {
         const deleted = result.current.deleteReview('machine-1', reviewId, 'user-1');
         expect(deleted).toBe(true);
       });
@@ -215,17 +235,17 @@ describe('useRatingsStore', () => {
       expect(result.current.getReviews('machine-1')).toHaveLength(0);
     });
 
-    it('returns false and does not delete when user does not own review', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('returns false and does not delete when user does not own review', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitReview('machine-1', 'user-1', 'Test User', 4, 'Great machine!');
       });
       
       const reviews = result.current.getReviews('machine-1');
       const reviewId = reviews[0].id;
       
-      act(() => {
+      await act(async () => {
         const deleted = result.current.deleteReview('machine-1', reviewId, 'user-2');
         expect(deleted).toBe(false);
       });
@@ -235,34 +255,36 @@ describe('useRatingsStore', () => {
   });
 
   describe('getReviews', () => {
-    it('returns reviews sorted by newest first', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('returns reviews sorted by newest first', async () => {
+      const { result } = await renderRatingsStore();
       
       // Manually add reviews with different timestamps
       const now = Date.now();
-      useRatingsStore.setState({
-        reviews: {
-          'machine-1': [
-            {
-              id: 'review-1',
-              machineId: 'machine-1',
-              authorId: 'user-1',
-              authorName: 'User 1',
-              rating: 4,
-              text: 'First review',
-              timestamp: now - 1000,
-            },
-            {
-              id: 'review-2',
-              machineId: 'machine-1',
-              authorId: 'user-2',
-              authorName: 'User 2',
-              rating: 5,
-              text: 'Second review',
-              timestamp: now,
-            },
-          ],
-        },
+      await act(async () => {
+        useRatingsStore.setState({
+          reviews: {
+            'machine-1': [
+              {
+                id: 'review-1',
+                machineId: 'machine-1',
+                authorId: 'user-1',
+                authorName: 'User 1',
+                rating: 4,
+                text: 'First review',
+                timestamp: now - 1000,
+              },
+              {
+                id: 'review-2',
+                machineId: 'machine-1',
+                authorId: 'user-2',
+                authorName: 'User 2',
+                rating: 5,
+                text: 'Second review',
+                timestamp: now,
+              },
+            ],
+          },
+        });
       });
       
       const reviews = result.current.getReviews('machine-1');
@@ -270,8 +292,8 @@ describe('useRatingsStore', () => {
       expect(reviews[1].id).toBe('review-1');
     });
 
-    it('returns empty array for machine with no reviews', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('returns empty array for machine with no reviews', async () => {
+      const { result } = await renderRatingsStore();
       
       const reviews = result.current.getReviews('non-existent');
       expect(reviews).toEqual([]);
@@ -283,12 +305,9 @@ describe('useRatingsStore', () => {
 // Hydration Tests (Round 140)
 // =============================================================================
 describe('Ratings Store Hydration (Round 140)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset store state before each test
-    useRatingsStore.setState({
-      userRatings: {},
-      reviews: {},
-    });
+    await resetStore();
   });
 
   describe('persist interface', () => {
@@ -324,10 +343,10 @@ describe('Ratings Store Hydration (Round 140)', () => {
   });
 
   describe('State persistence behavior', () => {
-    it('should preserve userRatings state across setState calls', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('should preserve userRatings state across setState calls', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-1', 'user-1', 5);
       });
       
@@ -336,7 +355,7 @@ describe('Ratings Store Hydration (Round 140)', () => {
       expect(rating?.value).toBe(5);
       
       // Trigger another setState to ensure no state loss
-      act(() => {
+      await act(async () => {
         result.current.submitRating('machine-2', 'user-1', 3);
       });
       
@@ -345,10 +364,10 @@ describe('Ratings Store Hydration (Round 140)', () => {
       expect(originalRating?.value).toBe(5);
     });
 
-    it('should preserve reviews state across setState calls', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('should preserve reviews state across setState calls', async () => {
+      const { result } = await renderRatingsStore();
       
-      act(() => {
+      await act(async () => {
         result.current.submitReview('machine-1', 'user-1', 'User One', 4, 'Great!');
       });
       
@@ -357,7 +376,7 @@ describe('Ratings Store Hydration (Round 140)', () => {
       expect(reviews).toHaveLength(1);
       
       // Add another review
-      act(() => {
+      await act(async () => {
         result.current.submitReview('machine-2', 'user-2', 'User Two', 5, 'Amazing!');
       });
       
@@ -375,21 +394,23 @@ describe('Ratings Store Hydration (Round 140)', () => {
   });
 
   describe('Partial hydration scenarios', () => {
-    it('should handle missing reviews field gracefully', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('should handle missing reviews field gracefully', async () => {
+      const { result } = await renderRatingsStore();
       
       // Manually set only userRatings (simulating partial hydration)
-      useRatingsStore.setState({
-        userRatings: {
-          'machine-1:user-1': {
-            id: 'rating-1',
-            machineId: 'machine-1',
-            userId: 'user-1',
-            value: 4,
-            timestamp: Date.now(),
+      await act(async () => {
+        useRatingsStore.setState({
+          userRatings: {
+            'machine-1:user-1': {
+              id: 'rating-1',
+              machineId: 'machine-1',
+              userId: 'user-1',
+              value: 4,
+              timestamp: Date.now(),
+            },
           },
-        },
-        // reviews is not set - should default to {}
+          // reviews is not set - should default to {}
+        });
       });
       
       // Should not crash
@@ -397,25 +418,27 @@ describe('Ratings Store Hydration (Round 140)', () => {
       expect(result.current.getAverageRating('machine-1')?.averageRating).toBe(4);
     });
 
-    it('should handle missing userRatings field gracefully', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('should handle missing userRatings field gracefully', async () => {
+      const { result } = await renderRatingsStore();
       
       // Manually set only reviews (simulating partial hydration)
-      useRatingsStore.setState({
-        reviews: {
-          'machine-1': [
-            {
-              id: 'review-1',
-              machineId: 'machine-1',
-              authorId: 'user-1',
-              authorName: 'User One',
-              rating: 5,
-              text: 'Perfect!',
-              timestamp: Date.now(),
-            },
-          ],
-        },
-        // userRatings is not set - should default to {}
+      await act(async () => {
+        useRatingsStore.setState({
+          reviews: {
+            'machine-1': [
+              {
+                id: 'review-1',
+                machineId: 'machine-1',
+                authorId: 'user-1',
+                authorName: 'User One',
+                rating: 5,
+                text: 'Perfect!',
+                timestamp: Date.now(),
+              },
+            ],
+          },
+          // userRatings is not set - should default to {}
+        });
       });
       
       // Should not crash
@@ -423,13 +446,15 @@ describe('Ratings Store Hydration (Round 140)', () => {
       expect(result.current.getAverageRating('machine-1')?.averageRating).toBe(5);
     });
 
-    it('should handle empty state', () => {
-      const { result } = renderHook(() => useRatingsStore());
+    it('should handle empty state', async () => {
+      const { result } = await renderRatingsStore();
       
       // Ensure empty state
-      useRatingsStore.setState({
-        userRatings: {},
-        reviews: {},
+      await act(async () => {
+        useRatingsStore.setState({
+          userRatings: {},
+          reviews: {},
+        });
       });
       
       // Should handle gracefully
