@@ -869,6 +869,7 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         wires: state.wires.map((w: CircuitWire) => ({ ...w, signal: false })),
         cycleAffectedNodeIds: [],
         simulationStepCount: 0,
+        simulationStatus: 'idle' as const,
       };
     });
   },
