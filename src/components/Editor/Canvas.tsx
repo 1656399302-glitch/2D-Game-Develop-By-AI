@@ -32,6 +32,7 @@ import { CanvasCircuitNode } from '../Circuit/CanvasCircuitNode';
 import { CircuitWire, WirePreview } from '../Circuit/CircuitWire';
 import { CIRCUIT_NODE_SIZES } from '../../types/circuitCanvas';
 import { PlacedCircuitNode, CircuitWire as CircuitWireType } from '../../types/circuitCanvas';
+import { CircuitNodeType, GateType } from '../../types/circuit';
 
 const GRID_SIZE = 20;
 const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
@@ -39,6 +40,9 @@ const SNAP_THRESHOLD = 8; // 8px threshold for smart snap-to-grid
 const VIEWPORT_CULLING_MARGIN = VIEWPORT_CULLING_BUFFER; // 50px
 // D8 Integration: 16ms debounce for 60fps performance
 const DEBOUNCE_MS = 16;
+// Round 172: Circuit drop preview constants
+const CIRCUIT_DROP_PREVIEW_SIZE = { width: 60, height: 60 };
+const CIRCUIT_COMPONENT_TYPE_KEY = 'circuit-component-type';
 
 // Round 92 Fix: Safe module position range - modules within this distance from origin should always be visible
 const SAFE_MODULE_POSITION = 500;
@@ -175,6 +179,10 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   const updateCircuitWirePreview = useCircuitCanvasStore((state) => state.updateWirePreview);
   const finishCircuitWireDrawing = useCircuitCanvasStore((state) => state.finishWireDrawing);
   const cancelCircuitWireDrawing = useCircuitCanvasStore((state) => state.cancelWireDrawing);
+  // Round 172: Circuit node addition
+  const addCircuitNode = useCircuitCanvasStore((state) => state.addCircuitNode);
+  const setCircuitMode = useCircuitCanvasStore((state) => state.setCircuitMode);
+  const isCircuitMode = useCircuitCanvasStore((state) => state.isCircuitMode);
   
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -205,6 +213,14 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   
   // Show layers panel state
   const [showLayersPanel, setShowLayersPanel] = useState(false);
+  // Round 172: Circuit drop preview state
+  const [circuitDropPreview, setCircuitDropPreview] = useState<{
+    x: number;
+    y: number;
+    componentId: string;
+    type: CircuitNodeType;
+    gateType?: GateType;
+  } | null>(null);
   
   const modules = useMachineStore((state) => state.modules);
   const connections = useMachineStore((state) => state.connections);
@@ -250,6 +266,77 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
       }
     };
   }, []);
+  
+  // Round 172: Keyboard shortcut handler for circuit component quick-add
+  // AC-172-005: Pressing number key (1-9, 0) while canvas is focused adds corresponding circuit component
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't interfere with text inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
+      // Check if canvas is focused (canvas has keyboard focus)
+      if (!svgRef.current?.contains(document.activeElement) && document.activeElement !== svgRef.current) {
+        return;
+      }
+      
+      // Map number keys to component IDs
+      const keyToComponent: Record<string, string> = {
+        '1': 'input',
+        '2': 'output',
+        '3': 'AND',
+        '4': 'OR',
+        '5': 'NOT',
+        '6': 'NAND',
+        '7': 'NOR',
+        '8': 'XOR',
+        '9': 'XNOR',
+        '0': 'TIMER',
+      };
+      
+      const componentId = keyToComponent[e.key];
+      if (!componentId) {
+        return; // Not a circuit component shortcut
+      }
+      
+      // Prevent default behavior
+      e.preventDefault();
+      
+      // Calculate center of viewport
+      const centerX = (window.innerWidth / 2 - viewport.x) / viewport.zoom;
+      const centerY = (window.innerHeight / 2 - viewport.y) / viewport.zoom;
+      
+      // Snap to grid
+      const snappedX = Math.round(centerX / GRID_SIZE) * GRID_SIZE;
+      const snappedY = Math.round(centerY / GRID_SIZE) * GRID_SIZE;
+      
+      // Enable circuit mode if not already active
+      if (!isCircuitMode) {
+        setCircuitMode(true);
+      }
+      
+      // Determine component type and gate type
+      let nodeType: CircuitNodeType = 'gate';
+      let gateType: GateType | undefined = undefined;
+      
+      if (componentId === 'input') {
+        nodeType = 'input';
+      } else if (componentId === 'output') {
+        nodeType = 'output';
+      } else {
+        nodeType = 'gate';
+        gateType = componentId as GateType;
+      }
+      
+      // Add circuit node at center of viewport
+      addCircuitNode(nodeType, snappedX, snappedY, gateType, componentId);
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewport, addCircuitNode, setCircuitMode, isCircuitMode]);
   
   // Initialize spatial index
   useEffect(() => {
@@ -612,6 +699,48 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   // Handle drop from module panel
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    
+    // Round 172: Check for circuit component drop first
+    const circuitComponentType = e.dataTransfer.getData(CIRCUIT_COMPONENT_TYPE_KEY);
+    if (circuitComponentType) {
+      const coords = getCanvasCoordinates(e.clientX, e.clientY);
+      
+      // Snap to grid: Math.round(pos / GRID_SIZE) * GRID_SIZE
+      const snappedX = Math.round(coords.x / GRID_SIZE) * GRID_SIZE;
+      const snappedY = Math.round(coords.y / GRID_SIZE) * GRID_SIZE;
+      
+      // Clamp to canvas bounds
+      const clampedX = Math.max(0, Math.min(snappedX, viewportSize.width - CIRCUIT_DROP_PREVIEW_SIZE.width));
+      const clampedY = Math.max(0, Math.min(snappedY, viewportSize.height - CIRCUIT_DROP_PREVIEW_SIZE.height));
+      
+      // Determine component type and gate type
+      let nodeType: CircuitNodeType = 'gate';
+      let gateType: GateType | undefined = undefined;
+      
+      if (circuitComponentType === 'input') {
+        nodeType = 'input';
+      } else if (circuitComponentType === 'output') {
+        nodeType = 'output';
+      } else {
+        nodeType = 'gate';
+        gateType = circuitComponentType as GateType;
+      }
+      
+      // Enable circuit mode if not already active
+      if (!isCircuitMode) {
+        setCircuitMode(true);
+      }
+      
+      // Add circuit node
+      addCircuitNode(nodeType, clampedX, clampedY, gateType, circuitComponentType);
+      
+      // Clear drop preview
+      setCircuitDropPreview(null);
+      
+      return;
+    }
+    
+    // Regular module drop (existing behavior)
     const moduleType = e.dataTransfer.getData('moduleType');
     if (moduleType) {
       const coords = getCanvasCoordinates(e.clientX, e.clientY);
@@ -624,10 +753,58 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
         }
       }, 0);
     }
-  }, [addModule, getCanvasCoordinates]);
+  }, [addModule, addCircuitNode, setCircuitMode, isCircuitMode, getCanvasCoordinates, viewportSize]);
   
+  // Round 172: Handle drag over for circuit component drop preview
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    
+    // Check for circuit component drag
+    const circuitComponentType = e.dataTransfer.getData(CIRCUIT_COMPONENT_TYPE_KEY);
+    if (circuitComponentType) {
+      e.dataTransfer.dropEffect = 'copy';
+      
+      const coords = getCanvasCoordinates(e.clientX, e.clientY);
+      
+      // Snap to grid
+      const snappedX = Math.round(coords.x / GRID_SIZE) * GRID_SIZE;
+      const snappedY = Math.round(coords.y / GRID_SIZE) * GRID_SIZE;
+      
+      // Clamp to canvas bounds
+      const clampedX = Math.max(0, Math.min(snappedX, viewportSize.width - CIRCUIT_DROP_PREVIEW_SIZE.width));
+      const clampedY = Math.max(0, Math.min(snappedY, viewportSize.height - CIRCUIT_DROP_PREVIEW_SIZE.height));
+      
+      // Determine component type
+      let nodeType: CircuitNodeType = 'gate';
+      let gateType: GateType | undefined = undefined;
+      
+      if (circuitComponentType === 'input') {
+        nodeType = 'input';
+      } else if (circuitComponentType === 'output') {
+        nodeType = 'output';
+      } else {
+        nodeType = 'gate';
+        gateType = circuitComponentType as GateType;
+      }
+      
+      // Update drop preview
+      setCircuitDropPreview({
+        x: clampedX,
+        y: clampedY,
+        componentId: circuitComponentType,
+        type: nodeType,
+        gateType,
+      });
+    }
+  }, [getCanvasCoordinates, viewportSize]);
+  
+  // Round 172: Handle drag leave to clear drop preview
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if leaving the canvas entirely (not entering child elements)
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (!relatedTarget || !containerRef.current?.contains(relatedTarget)) {
+      setCircuitDropPreview(null);
+    }
   }, []);
   
   // Check if a module is at the given screen coordinates
@@ -1343,6 +1520,7 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
         className="w-full h-full"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1565,6 +1743,64 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
               strokeDasharray={`${4 / viewport.zoom} ${2 / viewport.zoom}`}
               pointerEvents="none"
             />
+          )}
+          
+          {/* Round 172: Circuit drop preview visual */}
+          {/* AC-172-006: Preview element shows snapped position during drag over canvas */}
+          {circuitDropPreview && (
+            <g 
+              data-testid="circuit-drop-preview"
+              style={{ pointerEvents: 'none' }}
+            >
+              <rect
+                x={circuitDropPreview.x}
+                y={circuitDropPreview.y}
+                width={CIRCUIT_DROP_PREVIEW_SIZE.width}
+                height={CIRCUIT_DROP_PREVIEW_SIZE.height}
+                fill={circuitDropPreview.type === 'input' 
+                  ? 'rgba(34, 197, 94, 0.15)' 
+                  : circuitDropPreview.type === 'output'
+                    ? 'rgba(251, 191, 36, 0.15)'
+                    : 'rgba(0, 212, 255, 0.15)'}
+                stroke={circuitDropPreview.type === 'input' 
+                  ? '#22c55e' 
+                  : circuitDropPreview.type === 'output'
+                    ? '#fbbf24'
+                    : '#00d4ff'}
+                strokeWidth={2}
+                strokeDasharray="4 2"
+                rx={4}
+                opacity={0.8}
+              />
+              {/* Component label */}
+              <text
+                x={circuitDropPreview.x + CIRCUIT_DROP_PREVIEW_SIZE.width / 2}
+                y={circuitDropPreview.y + CIRCUIT_DROP_PREVIEW_SIZE.height + 16}
+                textAnchor="middle"
+                fill={circuitDropPreview.type === 'input' 
+                  ? '#22c55e' 
+                  : circuitDropPreview.type === 'output'
+                    ? '#fbbf24'
+                    : '#00d4ff'}
+                fontSize={10}
+                fontFamily="monospace"
+                fontWeight={600}
+              >
+                {circuitDropPreview.componentId}
+              </text>
+              {/* Snap indicator */}
+              <circle
+                cx={circuitDropPreview.x + CIRCUIT_DROP_PREVIEW_SIZE.width / 2}
+                cy={circuitDropPreview.y + CIRCUIT_DROP_PREVIEW_SIZE.height / 2}
+                r={4}
+                fill={circuitDropPreview.type === 'input' 
+                  ? '#22c55e' 
+                  : circuitDropPreview.type === 'output'
+                    ? '#fbbf24'
+                    : '#00d4ff'}
+                opacity={0.6}
+              />
+            </g>
           )}
           
           {/* Multi-selection highlight for selected modules */}

@@ -1,0 +1,171 @@
+/**
+ * Circuit Module Panel Styles
+ * 
+ * Round 172: Circuit Component Drag-and-Drop System
+ * 
+ * Styles for draggable circuit component buttons and visual feedback.
+ */
+
+/* Circuit component button - draggable state */
+.circuit-component-button[draggable="true"] {
+  cursor: grab;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.circuit-component-button[draggable="true"]:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+}
+
+.circuit-component-button[draggable="true"]:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+/* Dragging state - applied via JS when drag starts */
+.circuit-component-button.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: scale(0.95);
+  box-shadow: none;
+}
+
+/* Ghost element that follows cursor during drag */
+.circuit-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  background: rgba(0, 212, 255, 0.15);
+  border: 2px solid #00d4ff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: #00d4ff;
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+  backdrop-filter: blur(4px);
+  min-width: 100px;
+  transition: opacity 0.1s ease;
+}
+
+/* Ghost element icon */
+.circuit-drag-ghost-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+/* Ghost element label */
+.circuit-drag-ghost-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Circuit drop preview - shows where component will be placed */
+.circuit-drop-preview {
+  position: absolute;
+  pointer-events: none;
+  z-index: 100;
+  border: 2px dashed #00d4ff;
+  background: rgba(0, 212, 255, 0.1);
+  border-radius: 4px;
+  opacity: 0.8;
+  transition: all 0.1s ease;
+}
+
+/* Drop preview for gates */
+.circuit-drop-preview.gate {
+  border-color: #00d4ff;
+  background: rgba(0, 212, 255, 0.15);
+}
+
+/* Drop preview for input nodes */
+.circuit-drop-preview.input {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+}
+
+/* Drop preview for output nodes */
+.circuit-drop-preview.output {
+  border-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+}
+
+/* Keyboard shortcut indicator */
+.keyboard-shortcut-hint {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 8px;
+  color: #6b7280;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 3px;
+  border-radius: 2px;
+  font-family: monospace;
+}
+
+/* Keyboard shortcut panel hint */
+.keyboard-shortcut-panel {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid #1e2a42;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #9ca3af;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Keyboard shortcut key */
+.keyboard-shortcut-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #1e2a42;
+  border: 1px solid #2d3a4f;
+  border-radius: 4px;
+  color: #00d4ff;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+/* Keyboard shortcut label */
+.keyboard-shortcut-label {
+  color: #9ca3af;
+}
+
+/* Drop zone indicator when dragging over canvas */
+.canvas-drop-zone-active {
+  outline: 2px dashed #00d4ff;
+  outline-offset: -4px;
+  background: rgba(0, 212, 255, 0.05) !important;
+}
+
+/* Circuit component section header */
+.circuit-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(90deg, rgba(0, 212, 255, 0.1), transparent);
+  border-left: 3px solid #00d4ff;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #00d4ff;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}

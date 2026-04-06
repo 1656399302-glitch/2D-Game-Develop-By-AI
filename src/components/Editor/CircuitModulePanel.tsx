@@ -5,17 +5,53 @@
  * Round 128: Added Timer, Counter, SR Latch, D Latch, D Flip-Flop
  * Round 129: Added Custom Sub-Circuit section
  * Round 130: Fixed Custom section to always render (show empty state when no sub-circuits)
+ * Round 172: Added drag-and-drop support for circuit components
  * 
  * Module panel section for circuit components (gates, InputNode, OutputNode).
  * This is integrated into the main ModulePanel.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useCircuitCanvasStore } from '../../store/useCircuitCanvasStore';
 import { GateType, CircuitNodeType } from '../../types/circuit';
 import { useMachineStore } from '../../store/useMachineStore';
 import { useSubCircuitStore } from '../../store/useSubCircuitStore';
 import { SubCircuitModule } from '../../types/subCircuit';
+import styles from './CircuitModulePanel.module.css';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Data transfer key for circuit component type */
+const CIRCUIT_COMPONENT_TYPE_KEY = 'circuit-component-type';
+
+/** Keyboard shortcut mapping: key -> component id */
+const KEYBOARD_SHORTCUTS: Record<string, string> = {
+  '1': 'input',
+  '2': 'output',
+  '3': 'AND',
+  '4': 'OR',
+  '5': 'NOT',
+  '6': 'NAND',
+  '7': 'NOR',
+  '8': 'XOR',
+  '9': 'XNOR',
+  '0': 'TIMER',
+};
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface DragGhostData {
+  type: CircuitNodeType;
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  x: number;
+  y: number;
+}
 
 // ============================================================================
 // Circuit Component Selector
@@ -29,15 +65,18 @@ interface CircuitComponentItem {
   description: string;
   icon: React.ReactNode;
   color: string;
+  /** Keyboard shortcut key (if any) */
+  shortcutKey?: string;
 }
 
 const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
-  // Basic I/O
+  // Basic I/O - with keyboard shortcuts
   {
     id: 'input',
     type: 'input',
     label: '输入节点',
     description: '可切换的输入开关',
+    shortcutKey: '1',
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="8" stroke="#22c55e" strokeWidth="2" />
@@ -51,6 +90,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     type: 'output',
     label: '输出节点',
     description: 'LED 输出指示灯',
+    shortcutKey: '2',
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="10" stroke="#fbbf24" strokeWidth="2" />
@@ -60,13 +100,14 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     ),
     color: '#fbbf24',
   },
-  // Basic gates
+  // Basic gates - with keyboard shortcuts
   {
     id: 'AND',
     type: 'gate',
     gateType: 'AND',
     label: 'AND',
     description: '与门：全部输入为高时输出高',
+    shortcutKey: '3',
     icon: (
       <svg width="24" height="20" viewBox="0 0 80 50" fill="none">
         <path
@@ -88,6 +129,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     gateType: 'OR',
     label: 'OR',
     description: '或门：任一输入为高时输出高',
+    shortcutKey: '4',
     icon: (
       <svg width="24" height="20" viewBox="0 0 80 50" fill="none">
         <path
@@ -109,6 +151,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     gateType: 'NOT',
     label: 'NOT',
     description: '非门：反转输入信号',
+    shortcutKey: '5',
     icon: (
       <svg width="24" height="18" viewBox="0 0 60 40" fill="none">
         <path
@@ -130,6 +173,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     gateType: 'NAND',
     label: 'NAND',
     description: '与非门：AND 的反转',
+    shortcutKey: '6',
     icon: (
       <svg width="24" height="20" viewBox="0 0 80 50" fill="none">
         <path
@@ -152,6 +196,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     gateType: 'NOR',
     label: 'NOR',
     description: '或非门：OR 的反转',
+    shortcutKey: '7',
     icon: (
       <svg width="24" height="20" viewBox="0 0 80 50" fill="none">
         <path
@@ -174,6 +219,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     gateType: 'XOR',
     label: 'XOR',
     description: '异或门：输入不同时输出高',
+    shortcutKey: '8',
     icon: (
       <svg width="24" height="20" viewBox="0 0 80 50" fill="none">
         <path
@@ -196,6 +242,7 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     gateType: 'XNOR',
     label: 'XNOR',
     description: '同或门：输入相同时输出高',
+    shortcutKey: '9',
     icon: (
       <svg width="24" height="20" viewBox="0 0 80 50" fill="none">
         <path
@@ -213,13 +260,14 @@ const CIRCUIT_COMPONENTS: CircuitComponentItem[] = [
     ),
     color: '#f59e0b',
   },
-  // Sequential/Memory elements (Round 128)
+  // Sequential/Memory elements
   {
     id: 'TIMER',
     type: 'gate',
     gateType: 'TIMER',
     label: 'TIMER',
     description: '定时器：触发后延迟N ticks输出高',
+    shortcutKey: '0',
     icon: (
       <svg width="24" height="20" viewBox="0 0 80 70" fill="none">
         <rect x="5" y="5" width="70" height="60" rx="6" stroke="#06b6d4" strokeWidth="2" fill="none" />
@@ -336,6 +384,35 @@ const SubCircuitIcon: React.FC<{ color?: string }> = ({ color = '#8b5cf6' }) => 
 );
 
 // ============================================================================
+// Ghost Element Component
+// ============================================================================
+
+interface DragGhostProps {
+  data: DragGhostData;
+}
+
+const DragGhost: React.FC<DragGhostProps> = ({ data }) => {
+  return (
+    <div
+      className={styles['circuit-drag-ghost']}
+      data-testid="circuit-drag-ghost"
+      style={{
+        left: data.x,
+        top: data.y,
+        transform: 'translate(-50%, -50%)',
+      }}
+    >
+      <div className={styles['circuit-drag-ghost-icon']} aria-hidden="true">
+        {data.icon}
+      </div>
+      <span className={styles['circuit-drag-ghost-label']} style={{ color: data.color }}>
+        {data.label}
+      </span>
+    </div>
+  );
+};
+
+// ============================================================================
 // Component
 // ============================================================================
 
@@ -350,6 +427,7 @@ export interface CircuitModulePanelProps {
  * Circuit Module Panel Component
  * Displays circuit components (gates, InputNode, OutputNode) for placement on canvas
  * Round 129/130: Also displays custom sub-circuits with empty state support
+ * Round 172: Drag-and-drop support with ghost preview and keyboard shortcuts
  */
 export function CircuitModulePanel({
   isCircuitMode: _isCircuitModeProp = false,
@@ -357,6 +435,8 @@ export function CircuitModulePanel({
 }: CircuitModulePanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isCustomExpanded, setIsCustomExpanded] = useState(true);
+  const [draggingComponentId, setDraggingComponentId] = useState<string | null>(null);
+  const [dragGhost, setDragGhost] = useState<DragGhostData | null>(null);
   
   const addCircuitNode = useCircuitCanvasStore((state) => state.addCircuitNode);
   const setCircuitMode = useCircuitCanvasStore((state) => state.setCircuitMode);
@@ -365,6 +445,9 @@ export function CircuitModulePanel({
   
   // Get sub-circuits from store
   const subCircuits = useSubCircuitStore((state) => state.subCircuits);
+  
+  // Ref to track drag position updates
+  const dragPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   
   // Sort sub-circuits by creation date (newest first)
   const sortedSubCircuits = useMemo(() => {
@@ -421,11 +504,90 @@ export function CircuitModulePanel({
     );
   }, [addCircuitNode, setCircuitMode, isCircuitMode, viewport, onCircuitModeChange]);
   
+  // ============================================================================
+  // Round 172: Drag-and-Drop Handlers
+  // ============================================================================
+  
+  /**
+   * Handle drag start for circuit component
+   * AC-172-001: Circuit component drag start from CircuitModulePanel
+   */
+  const handleDragStart = useCallback((
+    e: React.DragEvent<HTMLButtonElement>,
+    item: CircuitComponentItem
+  ) => {
+    // Set the component type in data transfer
+    e.dataTransfer.setData(CIRCUIT_COMPONENT_TYPE_KEY, item.id);
+    e.dataTransfer.effectAllowed = 'copy';
+    
+    // Set dragging state for visual feedback
+    setDraggingComponentId(item.id);
+    
+    // Create ghost element data
+    setDragGhost({
+      type: item.type,
+      label: item.label,
+      icon: item.icon,
+      color: item.color,
+      x: e.clientX,
+      y: e.clientY,
+    });
+    
+    // Set drag image to transparent (we use our own ghost)
+    const dragImage = document.createElement('div');
+    dragImage.style.opacity = '0';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+  }, []);
+  
+  /**
+   * Handle drag over for ghost position update
+   */
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    
+    // Update ghost position
+    if (draggingComponentId) {
+      const item = CIRCUIT_COMPONENTS.find(c => c.id === draggingComponentId);
+      if (item) {
+        dragPositionRef.current = { x: e.clientX, y: e.clientY };
+        setDragGhost({
+          type: item.type,
+          label: item.label,
+          icon: item.icon,
+          color: item.color,
+          x: e.clientX,
+          y: e.clientY,
+        });
+      }
+    }
+  }, [draggingComponentId]);
+  
+  /**
+   * Handle drag end - clean up dragging state
+   */
+  const handleDragEnd = useCallback(() => {
+    setDraggingComponentId(null);
+    setDragGhost(null);
+  }, []);
+  
+  // Clean up ghost on component unmount
+  useEffect(() => {
+    return () => {
+      setDragGhost(null);
+    };
+  }, []);
+  
   return (
     <div
       className="border-t border-[#1e2a42]"
       data-circuit-module-panel
     >
+      {/* Ghost element for drag preview */}
+      {dragGhost && <DragGhost data={dragGhost} />}
+      
       {/* Circuit Mode Toggle Header */}
       <div className="p-3 border-b border-[#1e2a42] bg-gradient-to-r from-[#1a1a2e] to-[#121826]">
         <button
@@ -476,19 +638,30 @@ export function CircuitModulePanel({
           
           {/* Components Grid */}
           {isExpanded && (
-            <div className="grid grid-cols-2 gap-2 mt-2" role="group" aria-label="电路组件">
+            <div 
+              className="grid grid-cols-2 gap-2 mt-2" 
+              role="group" 
+              aria-label="电路组件"
+              onDragOver={handleDragOver}
+            >
               {CIRCUIT_COMPONENTS.map((item) => (
                 <button
                   key={item.id}
+                  // Round 172: Make draggable
+                  draggable={true}
+                  onDragStart={(e) => handleDragStart(e, item)}
+                  onDragEnd={handleDragEnd}
                   onClick={() => handleComponentClick(item)}
                   className={`
                     circuit-component-btn p-2 rounded-lg border transition-all duration-200
                     hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
                     text-left
+                    ${draggingComponentId === item.id ? styles.dragging : ''}
                   `}
                   style={{
                     borderColor: `${item.color}40`,
                     backgroundColor: `${item.color}10`,
+                    cursor: 'grab',
                   }}
                   data-circuit-component={item.id}
                   aria-label={`添加 ${item.label} - ${item.description}`}
@@ -499,13 +672,19 @@ export function CircuitModulePanel({
                   </div>
                   
                   {/* Label */}
-                  <div className="text-center">
+                  <div className="text-center relative">
                     <span
                       className="text-xs font-medium"
                       style={{ color: item.color }}
                     >
                       {item.label}
                     </span>
+                    {/* Keyboard shortcut hint */}
+                    {item.shortcutKey && (
+                      <span className={styles['keyboard-shortcut-hint']}>
+                        {item.shortcutKey}
+                      </span>
+                    )}
                   </div>
                   
                   {/* Description (tooltip) */}
@@ -601,9 +780,9 @@ export function CircuitModulePanel({
             )}
           </div>
           
-          {/* Help Text */}
+          {/* Help Text - Updated for Round 172 */}
           <p className="text-[10px] text-[#4a5568] text-center mt-3">
-            点击组件添加至画布 · Delete 删除选中节点
+            拖拽或点击添加 · 数字键快捷添加 · Delete 删除选中
           </p>
         </div>
       )}
@@ -613,3 +792,6 @@ export function CircuitModulePanel({
 
 // Export for direct import
 export default CircuitModulePanel;
+
+// Export constants for testing
+export { CIRCUIT_COMPONENT_TYPE_KEY, KEYBOARD_SHORTCUTS };
