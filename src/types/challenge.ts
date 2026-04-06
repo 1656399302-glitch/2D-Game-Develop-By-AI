@@ -2,6 +2,7 @@
  * Challenge System Type Definitions
  * Extended for Time Trial and Leaderboard functionality
  * Round 86: Added ChallengeCompletion type for codex integration
+ * Round 160: Added ChallengeObjective, ValidationResult, ObjectiveType, PartialCreditResult
  */
 
 // Re-export existing challenge types from data/challenges.ts
@@ -127,6 +128,254 @@ export interface ChallengeCompletion {
   completedAt: string;
 }
 
+// ============================================================================
+// Round 160: Challenge Validation Types
+// ============================================================================
+
+/**
+ * Objective types for challenge validation
+ * - output: Circuit must produce specific output states
+ * - component_count: Circuit must use ≤ specified components
+ * - timing: Circuit must meet timing requirements
+ */
+export type ObjectiveType = 'output' | 'component_count' | 'timing';
+
+/**
+ * Output state requirement for output validation
+ */
+export type OutputState = 'HIGH' | 'LOW';
+
+/**
+ * Target output configuration
+ */
+export interface OutputTarget {
+  /** Node ID or output identifier */
+  nodeId: string;
+  /** Display name for the output */
+  name: string;
+  /** Expected signal state */
+  expectedState: OutputState;
+}
+
+/**
+ * Component count constraint
+ */
+export interface ComponentCountConstraint {
+  /** Maximum number of components allowed */
+  maxComponents: number;
+  /** Include wire segments in count */
+  includeWires?: boolean;
+}
+
+/**
+ * Timing requirement types
+ */
+export type TimingRequirementType = 'clock_period' | 'edge_alignment' | 'delay_constraint';
+
+/**
+ * Clock period requirement
+ * Validates that clock signal meets period specification
+ * Tolerance: ±2 units
+ */
+export interface ClockPeriodRequirement {
+  /** Requirement type */
+  type: 'clock_period';
+  /** Expected period in time units */
+  expectedPeriod: number;
+  /** Tolerance in time units (±2 for clock period) */
+  tolerance: number;
+  /** Clock signal identifier */
+  clockSignalId: string;
+}
+
+/**
+ * Edge alignment requirement
+ * Validates that signal transitions align with clock edges
+ * Tolerance: ±1 unit
+ */
+export interface EdgeAlignmentRequirement {
+  /** Requirement type */
+  type: 'edge_alignment';
+  /** Signal to check */
+  signalId: string;
+  /** Expected alignment with clock edges */
+  tolerance: number;
+  /** Reference clock signal ID */
+  referenceClockId: string;
+}
+
+/**
+ * Delay constraint requirement
+ * Validates that signal propagation delay meets maximum
+ * Tolerance: ±1 unit
+ */
+export interface DelayConstraintRequirement {
+  /** Requirement type */
+  type: 'delay_constraint';
+  /** Maximum allowed delay in time units */
+  maxDelay: number;
+  /** Tolerance in time units (±1 for delay) */
+  tolerance: number;
+  /** Signal to check */
+  signalId: string;
+  /** Source node for delay measurement */
+  sourceNodeId: string;
+  /** Target node for delay measurement */
+  targetNodeId: string;
+}
+
+/**
+ * Union type for all timing requirements
+ */
+export type TimingRequirement = 
+  | ClockPeriodRequirement 
+  | EdgeAlignmentRequirement 
+  | DelayConstraintRequirement;
+
+/**
+ * Challenge objective definition
+ * A single objective that a circuit must satisfy
+ */
+export interface ChallengeObjective {
+  /** Unique identifier */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Detailed description */
+  description: string;
+  /** Type of objective */
+  objectiveType: ObjectiveType;
+  /** Priority (lower = higher priority) */
+  priority: number;
+  /** Points awarded for completing this objective */
+  points: number;
+  /** Output target (for 'output' type) */
+  outputTarget?: OutputTarget;
+  /** Component count constraint (for 'component_count' type) */
+  componentConstraint?: ComponentCountConstraint;
+  /** Timing requirements (for 'timing' type) */
+  timingRequirements?: TimingRequirement[];
+}
+
+/**
+ * Validation status for a single objective
+ */
+export type ValidationStatus = 'idle' | 'validating' | 'passed' | 'failed' | 'error';
+
+/**
+ * Result of validating a single objective
+ */
+export interface ObjectiveValidationResult {
+  /** Objective ID */
+  objectiveId: string;
+  /** Validation status */
+  status: ValidationStatus;
+  /** Whether the objective was met */
+  passed: boolean;
+  /** Detailed message */
+  message: string;
+  /** Actual measured value (if applicable) */
+  actualValue?: number;
+  /** Expected value (if applicable) */
+  expectedValue?: number;
+  /** Points earned for this objective */
+  pointsEarned: number;
+  /** Error details (if status is 'error') */
+  error?: string;
+}
+
+/**
+ * Result of validating all objectives for a challenge
+ */
+export interface ValidationResult {
+  /** Challenge ID */
+  challengeId: string;
+  /** Circuit ID being validated */
+  circuitId: string;
+  /** Whether all objectives passed */
+  isSuccess: boolean;
+  /** Overall validation status */
+  status: 'idle' | 'validating' | 'passed' | 'failed';
+  /** Individual objective results */
+  objectiveResults: ObjectiveValidationResult[];
+  /** Total points earned */
+  totalPoints: number;
+  /** Maximum possible points */
+  maxPoints: number;
+  /** Percentage score (0-100) */
+  score: number;
+  /** Timestamp of validation */
+  validatedAt: number;
+  /** Error message if validation failed completely */
+  error?: string;
+}
+
+/**
+ * Partial credit result for scoring
+ * Used when challenge allows partial credit based on objectives met
+ */
+export interface PartialCreditResult {
+  /** Challenge ID */
+  challengeId: string;
+  /** Total score (0-100) */
+  score: number;
+  /** Points earned */
+  pointsEarned: number;
+  /** Maximum points possible */
+  maxPoints: number;
+  /** Number of objectives passed */
+  objectivesPassed: number;
+  /** Total objectives */
+  totalObjectives: number;
+  /** Whether challenge is considered complete (score >= pass threshold) */
+  isComplete: boolean;
+  /** Breakdown by objective */
+  breakdown: Array<{
+    objectiveId: string;
+    passed: boolean;
+    pointsEarned: number;
+    pointsPossible: number;
+  }>;
+}
+
+/**
+ * Circuit data for validation
+ */
+export interface CircuitValidationData {
+  /** Circuit identifier */
+  id: string;
+  /** Circuit name */
+  name?: string;
+  /** Component instances in the circuit */
+  components: Array<{
+    id: string;
+    type: string;
+    position: { x: number; y: number };
+    parameters?: Record<string, unknown>;
+  }>;
+  /** Output node values */
+  outputs: Record<string, boolean>;
+  /** Signal traces for timing validation */
+  signalTraces?: Array<{
+    step: number;
+    signals: Record<string, boolean>;
+  }>;
+  /** Wire count (for includeWires option) */
+  wireCount?: number;
+}
+
+/**
+ * Validation options
+ */
+export interface ValidationOptions {
+  /** Include partial credit in results */
+  includePartialCredit?: boolean;
+  /** Pass threshold for partial credit (0-100) */
+  passThreshold?: number;
+  /** Enable strict mode (fail on any warning) */
+  strictMode?: boolean;
+}
+
 /**
  * Get difficulty multiplier
  */
@@ -194,3 +443,21 @@ export function formatDateDisplay(timestamp: number): string {
 export function generateLeaderboardEntryId(challengeId: string, time: number): string {
   return `lb-${challengeId}-${time}-${Date.now()}`;
 }
+
+/**
+ * Default validation tolerances per requirement type
+ */
+export const DEFAULT_TOLERANCES = {
+  clock_period: 2,
+  edge_alignment: 1,
+  delay_constraint: 1,
+} as const;
+
+/**
+ * Maximum tolerance values
+ */
+export const MAX_TOLERANCES = {
+  clock_period: 4,
+  edge_alignment: 2,
+  delay_constraint: 2,
+} as const;
