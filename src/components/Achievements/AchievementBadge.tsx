@@ -5,13 +5,14 @@
  * and locked/unlocked visual state.
  * 
  * ROUND 136: Created as individual badge component for reusability
- * in achievement panels and lists.
+ * ROUND 181: Enhanced with progress indicator for threshold-based achievements
  */
 
 import React from 'react';
 import type { Achievement } from '../../types/achievement';
 import { formatUnlockTime } from '../../types/achievement';
-import { getCategoryDisplayName } from '../../data/achievements';
+import { getCategoryDisplayName, getMilestoneThreshold } from '../../data/achievements';
+import { useStatsStore } from '../../store/useStatsStore';
 
 interface AchievementBadgeProps {
   achievement: Achievement;
@@ -33,16 +34,44 @@ function getCategoryColor(category: string): string {
   return colors[category] || '#fbbf24';
 }
 
+/**
+ * Check if an achievement is threshold-based (has milestone threshold)
+ */
+function isThresholdBased(achievementId: string): boolean {
+  return getMilestoneThreshold(achievementId) !== null;
+}
+
+/**
+ * Get the progress for a threshold-based achievement
+ * Uses machinesCreated from stats store
+ */
+function getThresholdProgress(achievementId: string): { current: number; threshold: number } | null {
+  const threshold = getMilestoneThreshold(achievementId);
+  if (threshold === null) return null;
+  
+  // Get current machines created from stats store
+  const machinesCreated = useStatsStore.getState()?.machinesCreated ?? 0;
+  
+  return {
+    current: Math.min(machinesCreated, threshold),
+    threshold,
+  };
+}
+
 export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
   achievement,
   showCategory = false,
   showTimestamp = true,
   onClick,
 }) => {
-  const { isUnlocked, unlockedAt, icon, name, nameCn, description, category } = achievement;
+  const { id, isUnlocked, unlockedAt, icon, name, nameCn, description, category } = achievement;
   const categoryInfo = getCategoryDisplayName(category);
   const badgeColor = getCategoryColor(category);
   const formattedTime = formatUnlockTime(unlockedAt);
+  
+  // ROUND 181: Check if this is a threshold-based achievement
+  const thresholdBased = isThresholdBased(id);
+  const progress = isUnlocked ? null : (thresholdBased ? getThresholdProgress(id) : null);
   
   return (
     <div
@@ -50,7 +79,7 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
         relative rounded-xl p-4 transition-all duration-300 cursor-pointer
         ${isUnlocked
           ? 'bg-gradient-to-br from-[#1e2a42]/80 to-[#0a0e17]/80 border border-[#fbbf24]/20'
-          : 'bg-[#0a0e17]/50 border border-[#1e2a42] opacity-60'
+          : 'bg-[#0a0e17]/50 border border-[#1e2a42]'
         }
         ${onClick ? 'hover:scale-[1.02] hover:border-[#fbbf24]/30' : ''}
       `}
@@ -58,8 +87,9 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
-      data-achievement-id={achievement.id}
+      data-achievement-id={id}
       data-unlocked={isUnlocked}
+      data-testid={`achievement-badge-${id}`}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}
@@ -69,8 +99,9 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
             transition-all duration-300
             ${isUnlocked
               ? 'border-2 shadow-lg'
-              : 'border border-[#1e2a42] grayscale'
+              : 'border border-[#1e2a42]'
             }
+            ${!isUnlocked && !thresholdBased ? 'grayscale' : ''}
           `}
           style={{
             backgroundColor: isUnlocked ? `${badgeColor}20` : '#121826',
@@ -108,6 +139,21 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
             {name}
           </p>
           
+          {/* ROUND 181: Progress indicator for threshold-based locked achievements */}
+          {progress && !isUnlocked && (
+            <div className="mt-2 flex items-center gap-2" data-testid={`achievement-progress-${id}`}>
+              <div className="flex-1 h-1.5 bg-[#1e2a42] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#fbbf24] to-[#f59e0b] transition-all duration-300"
+                  style={{ width: `${(progress.current / progress.threshold) * 100}%` }}
+                />
+              </div>
+              <span className="text-xs text-[#fbbf24] font-mono">
+                {progress.current} / {progress.threshold}
+              </span>
+            </div>
+          )}
+          
           {/* Timestamp for unlocked achievements */}
           {isUnlocked && showTimestamp && formattedTime && (
             <p className="text-xs mt-2 text-[#6b7280]">
@@ -137,8 +183,8 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
         </div>
       </div>
       
-      {/* Locked overlay */}
-      {!isUnlocked && (
+      {/* Locked overlay for non-threshold locked achievements */}
+      {!isUnlocked && !thresholdBased && (
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a0e17]/80 to-transparent rounded-xl" />
       )}
     </div>

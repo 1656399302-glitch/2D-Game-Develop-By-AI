@@ -1,8 +1,8 @@
-# Progress Report - Round 180
+# Progress Report - Round 181
 
 ## Round Summary
 
-**Objective:** Enhancement sprint focused on Exchange/Trade System improvements. Implement TradeNotification enhancements, add expireProposal action to Exchange store, and create edge case tests.
+**Objective:** Enhancement sprint focused on Achievement System Panel and Statistics. Create dedicated AchievementPanel component with filtering, sorting, and statistics display capabilities, enhance AchievementBadge with progress indicators, and create AchievementStats component.
 
 **Status:** COMPLETE — All acceptance criteria VERIFIED and PASSED
 
@@ -10,105 +10,127 @@
 
 ## Round Contract Scope
 
-Enhancement sprint focused on the Exchange/Trade System with the following deliverables:
+Enhancement sprint focused on the Achievement System with the following deliverables:
 
-1. **TradeNotification Enhancement** - Added state tracking (pending/accepted/rejected/expired), visual feedback with status badges, timestamp display, and countdown timer for pending proposals.
-2. **Exchange Store Enhancement** - Added `expireProposal` action and `getProposalById` selector.
-3. **New Edge Case Tests** - Created `TradeNotificationEdgeCases.test.tsx` with 21 tests covering all edge cases.
-4. **All existing Exchange tests** - Verified no regressions (184 tests pass).
+1. **AchievementPanel.tsx** - New dedicated panel component (sidebar-style) with tab navigation, category filter, sort dropdown, and statistics section
+2. **AchievementBadge.tsx (enhanced)** - Added progress indicator for threshold-based locked achievements
+3. **AchievementStats.tsx** - New statistics display component showing totals and category breakdown
+4. **index.ts** - Barrel export file for all Achievement components
+5. **Tests** - Three new test files with all tests passing
 
 ## Verification Results
 
-### AC-180-001: TradeNotification state rendering ✅ VERIFIED
-- **Tests:** `npm test -- --run src/components/Exchange/__tests__/TradeNotificationEdgeCases.test.tsx`
-- **Result:** 21 tests passed
+### AC-181-001: AchievementPanel renders correctly ✅ VERIFIED
+- **Tests:** `npm test -- --run src/components/Achievements/__tests__/AchievementPanel.test.tsx`
+- **Result:** 31 tests passed
 - **Coverage:**
-  - Pending state renders correctly with yellow/amber styling
-  - Accepted state renders with green styling and "已接受" badge
-  - Rejected state renders with red styling and "已拒绝" badge
-  - Expired state renders with gray styling and "已过期" badge
-  - Status badges only shown when status !== 'pending'
+  - Panel container renders with `data-testid="achievement-panel"`
+  - Three tab buttons render with correct data-testid attributes
+  - Category filter dropdown shows all 4 categories + "All" option
+  - Sort dropdown shows Recent, Name, Category options
+  - Statistics section visible at top
+  - Achievement list renders below statistics
 - **Status:** PASS
 
-### AC-180-002: Exchange store expireProposal action ✅ VERIFIED
-- **File:** `src/store/useExchangeStore.ts`
-- **Implementation:**
-  - Added `expireProposal(proposalId: string)` action
-  - Updates proposal status to 'expired' in both incoming and outgoing proposals
-  - Adds notification for expiration
-  - Removes expired proposals from pending lists
-  - Added `getProposalById` selector as alias for `getProposal`
-  - Improved state persistence (added proposals to persist partialize)
+### AC-181-002: AchievementPanel filtering works ✅ VERIFIED
+- **Tests:** Filtering tests in AchievementPanel.test.tsx
+- **Coverage:**
+  - "All" tab shows all achievements
+  - "Unlocked" tab shows only unlocked achievements
+  - "Locked" tab shows only locked achievements
+  - Category filter limits displayed achievements
+  - Filters can be combined (tab + category)
+  - Empty state displays when no achievements match filter
+  - Rapid tab switching does not cause stale data
 - **Status:** PASS
 
-### AC-180-003: Existing Exchange tests ✅ VERIFIED
-- **Command:** `npm test -- --run src/components/Exchange/__tests__/`
+### AC-181-003: AchievementPanel sorting works ✅ VERIFIED
+- **Tests:** Sorting tests in AchievementPanel.test.tsx
+- **Coverage:**
+  - "Recent" sort orders by unlockedAt descending (unlocked first, then by timestamp)
+  - Locked achievements sort to end when using "Recent"
+  - "Name" sort orders alphabetically by nameCn
+  - "Category" sort groups achievements by category
+  - Sort order persists during session
+  - Rapid sort changes do not cause race conditions
+- **Status:** PASS
+
+### AC-181-004: Achievement statistics display correctly ✅ VERIFIED
+- **Tests:** `npm test -- --run src/components/Achievements/__tests__/AchievementStats.test.tsx`
+- **Result:** 16 tests passed
+- **Coverage:**
+  - Total unlocked count formatted as "X / Y 已解锁"
+  - Completion percentage shown as progress bar
+  - Category breakdown displays per-category counts
+  - Statistics update when filter selection changes
+- **Status:** PASS
+
+### AC-181-005: AchievementBadge shows progress indicator ✅ VERIFIED
+- **Tests:** `npm test -- --run src/components/Achievements/__tests__/AchievementBadge.test.tsx`
+- **Result:** 16 tests passed
+- **Coverage:**
+  - Threshold-based locked achievements show "current / threshold" progress
+  - Unlocked threshold-based achievements show checkmark only
+  - Non-threshold achievements do not show progress
+- **Status:** PASS
+
+### AC-181-006: Existing AchievementList tests pass ✅ VERIFIED
+- **Command:** `npm test -- --run src/components/Achievements/__tests__/AchievementToast.integration.test.tsx`
+- **Result:** 11 tests passed, 0 failures
+- **Status:** PASS — No regression
+
+### AC-181-007: New tests pass ✅ VERIFIED
+- **Command:** `npm test -- --run src/components/Achievements/`
 - **Result:**
-  - Test Files: 6 passed (6)
-  - Tests: 184 passed (184)
-  - Duration: 1.45s
-- **Status:** PASS — No regressions
-
-### AC-180-004: New edge case tests ✅ VERIFIED
-- **File:** `src/components/Exchange/__tests__/TradeNotificationEdgeCases.test.tsx`
-- **Tests:** 21 tests covering:
-  - State Indicators (5 tests)
-  - Dismiss Workflow (2 tests)
-  - Countdown Timer Behavior (2 tests)
-  - Multiple Simultaneous Notifications (2 tests)
-  - State Transitions (2 tests)
-  - Dismiss During Countdown (1 test)
-  - Null/Undefined Handling (3 tests)
-  - Timestamp Display (1 test)
-  - Quick Actions Visibility (3 tests)
-- **Status:** PASS — All 21 tests passing
-
-### AC-180-005: Full test suite ✅ VERIFIED
-- **Command:** `npm test -- --run`
-- **Result:**
-  - Test Files: 249 passed (249)
-  - Tests: 7276 passed (7276)
-  - Duration: 30.77s
-- **Delta:** +21 tests from new edge case test file
+  - Test Files: 4 passed (4)
+  - Tests: 74 passed (74)
+  - Delta: +63 tests from new test files
 - **Status:** PASS
 
-### AC-180-006: TypeScript compilation ✅ VERIFIED
+### AC-181-008: TypeScript compilation passes ✅ VERIFIED
 - **Command:** `npx tsc --noEmit`
 - **Result:** Exit code 0, 0 errors
 - **Status:** PASS
 
-### AC-180-007: Bundle size ✅ VERIFIED
+### AC-181-009: Bundle size ≤512KB ✅ VERIFIED
 - **Command:** `npm run build` → `ls dist/assets/*.js | xargs wc -c | sort -n | tail -1`
 - **Result:**
-  - Main bundle: 493,496 bytes (482 KB)
+  - Main bundle: 493,645 bytes (482 KB)
   - Limit: 524,288 bytes (512 KB)
-  - Margin: 30,792 bytes under limit
+  - Margin: 30,643 bytes under limit
 - **Status:** PASS
 
 ## Acceptance Criteria Audit
 
 | ID | Criterion | Status | Evidence |
 |----|-----------|--------|----------|
-| AC-180-001 | TradeNotification state rendering with status indicators | **VERIFIED** | 21 edge case tests pass, component renders correct badges |
-| AC-180-002 | Exchange store expireProposal action | **VERIFIED** | Action implemented and tested |
-| AC-180-003 | Existing Exchange tests pass | **VERIFIED** | 184/184 tests pass, 0 failures |
-| AC-180-004 | New edge case tests written and passing | **VERIFIED** | 21 tests pass |
-| AC-180-005 | Full test suite passes | **VERIFIED** | 249 files, 7276 tests pass |
-| AC-180-006 | TypeScript compiles without errors | **VERIFIED** | Exit code 0, 0 errors |
-| AC-180-007 | Bundle size ≤512KB | **VERIFIED** | 482 KB < 512 KB limit |
+| AC-181-001 | AchievementPanel renders correctly | **VERIFIED** | 31 panel tests pass, all data-testid attributes present |
+| AC-181-002 | AchievementPanel filtering works | **VERIFIED** | Tab switching, category filter, combined filters all work |
+| AC-181-003 | AchievementPanel sorting works | **VERIFIED** | Recent/Name/Category sort all work correctly |
+| AC-181-004 | Achievement statistics display correctly | **VERIFIED** | 16 stats tests pass, totals and category breakdown correct |
+| AC-181-005 | AchievementBadge shows progress indicator | **VERIFIED** | 16 badge tests pass, progress shown for threshold-based locked |
+| AC-181-006 | Existing AchievementList tests pass | **VERIFIED** | 11 toast integration tests pass, no regression |
+| AC-181-007 | New tests pass | **VERIFIED** | 74 Achievement tests pass |
+| AC-181-008 | TypeScript compiles without errors | **VERIFIED** | Exit code 0, 0 errors |
+| AC-181-009 | Bundle size ≤512KB | **VERIFIED** | 482 KB < 512 KB limit |
 
 ## Deliverables Changed
 
-1. **TradeNotification.tsx** - Enhanced with state tracking, status badges, timestamp, and countdown timer
-2. **useExchangeStore.ts** - Added `expireProposal` action, `getProposalById` selector, improved persistence
-3. **TradeNotificationEdgeCases.test.tsx** - New test file with 21 edge case tests
-4. **TradeNotification.test.tsx** - Verified no regressions (all 39 tests pass)
+1. **AchievementPanel.tsx** - New panel component with tab navigation, category filter, sort dropdown, statistics section, and achievement list
+2. **AchievementBadge.tsx** - Enhanced with progress indicator for threshold-based locked achievements
+3. **AchievementStats.tsx** - New statistics display component
+4. **index.ts** - Barrel export file for all Achievement components
+5. **AchievementBadge.test.tsx** - New test file (16 tests)
+6. **AchievementStats.test.tsx** - New test file (16 tests)
+7. **AchievementPanel.test.tsx** - New test file (31 tests)
 
 ## Test Coverage
 
 New tests added:
-- 21 edge case tests for TradeNotification component
-- All acceptance criteria verified
+- 16 tests for AchievementBadge (state rendering, progress indicator, click handling)
+- 16 tests for AchievementStats (calculation accuracy, rendering with correct values)
+- 31 tests for AchievementPanel (filtering, sorting, tab switching, statistics display, empty states)
+- All 9 acceptance criteria verified by automated tests
 
 ## Build/Test Commands
 
@@ -117,23 +139,19 @@ New tests added:
 npx tsc --noEmit
 # Result: Exit code 0, 0 errors
 
-# Edge case tests
-npm test -- --run src/components/Exchange/__tests__/TradeNotificationEdgeCases.test.tsx
-# Result: 21 tests passed
-
-# Exchange tests (all)
-npm test -- --run src/components/Exchange/__tests__/
-# Result: 6 files, 184 tests passed
+# Achievement tests (all)
+npm test -- --run src/components/Achievements/
+# Result: 4 files, 74 tests passed
 
 # Full test suite
 npm test -- --run
-# Result: 249 files, 7276 tests passed, 0 failures
+# Result: 252 files, 7339 tests passed, 0 failures
 
 # Build and bundle size verification
 npm run build
-# Result: dist/assets/index-D6fN8axt.js: 493,496 bytes (482 KB)
+# Result: dist/assets/index-Bt-jt5a7.js: 493,645 bytes (482 KB)
 # Limit: 524,288 bytes (512 KB)
-# Status: PASS — 30,792 bytes under limit
+# Status: PASS — 30,643 bytes under limit
 ```
 
 ## Known Risks
@@ -142,7 +160,8 @@ None — All acceptance criteria verified.
 
 ## Known Gaps
 
-None — All contract deliverables completed.
+- AchievementPanel is not integrated into App.tsx navigation (out of scope per contract)
+- Progress indicator for threshold-based achievements uses `useStatsStore.getState()` which requires hydration
 
 ## Prior Round Remediation Status
 
@@ -167,18 +186,21 @@ None — All contract deliverables completed.
 | 177 | Circuit Challenge Panel Integration | COMPLETE |
 | 178 | Fix AI Provider Status Display | COMPLETE |
 | 179 | Verification Sprint | COMPLETE |
-| **180** | **Exchange/Trade System Enhancements** | **COMPLETE** |
+| 180 | Exchange/Trade System Enhancements | COMPLETE |
+| **181** | **Achievement System Panel and Statistics** | **COMPLETE** |
 
 ## Done Definition Verification
 
-1. ✅ TradeNotification component enhanced with state indicators and proper styling
-2. ✅ Exchange store has `expireProposal` action implemented and tested
-3. ✅ All existing Exchange tests pass (no regressions)
-4. ✅ New `TradeNotificationEdgeCases.test.tsx` file created with passing tests
-5. ✅ `npm test -- --run` exits with code 0 (full suite passes)
-6. ✅ `npx tsc --noEmit` exits with code 0 (0 TypeScript errors)
-7. ✅ Bundle size ≤512 KB (482 KB)
-8. ✅ **No "即将推出" badges or placeholder UI** — all changes are functional
-9. ✅ TradeNotification negative assertions verified (null props don't crash, dismissal cleans DOM)
+1. ✅ AchievementPanel.tsx created with data-testid attributes, renders tabs, filter, sort, stats, and list
+2. ✅ AchievementBadge.tsx enhanced with progress indicator for threshold-based locked achievements
+3. ✅ AchievementStats.tsx created with correct calculation logic for totals and category breakdown
+4. ✅ src/components/Achievements/index.ts barrel export created with all component exports
+5. ✅ Three new test files created with all tests passing (AchievementBadge: 16, AchievementStats: 16, AchievementPanel: 31)
+6. ✅ All existing Achievement tests continue to pass (no regression)
+7. ✅ TypeScript compiles without errors (`npx tsc --noEmit` exits 0)
+8. ✅ Bundle size ≤ 512KB (verified by build command)
+9. ✅ All 9 acceptance criteria verified by automated tests
+10. ✅ Empty state tests pass (data-testid="achievement-empty-state" verified)
+11. ✅ Rapid interaction stability verified by tests
 
-**Done Definition: 9/9 conditions met**
+**Done Definition: 11/11 conditions met**
