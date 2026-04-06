@@ -4,11 +4,13 @@
  * Unit tests for the main tech tree canvas component.
  * 
  * ROUND 136: Initial implementation
+ * ROUND 166: Fixed all render() calls and store mutations wrapped in act()
+ * for proper React 18 async rendering handling.
  */
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { TechTreeCanvas } from '../../../components/TechTree/TechTreeCanvas';
 import { useTechTreeStore } from '../../../store/useTechTreeStore';
 import { TECH_TREE_NODES } from '../../../data/techTreeNodes';
@@ -30,47 +32,72 @@ Object.defineProperty(global, 'localStorage', {
 });
 
 /**
- * Reset the store to initial state
+ * Reset the store to initial state - wrapped in act() for React 18
  */
-function resetStore() {
-  useTechTreeStore.setState({
-    unlockedNodes: TECH_TREE_NODES.reduce((acc, node) => {
-      acc[node.id] = false;
-      return acc;
-    }, {} as Record<string, boolean>),
-    selectedNodeId: null,
+async function resetStore() {
+  await act(async () => {
+    useTechTreeStore.setState({
+      unlockedNodes: TECH_TREE_NODES.reduce((acc, node) => {
+        acc[node.id] = false;
+        return acc;
+      }, {} as Record<string, boolean>),
+      selectedNodeId: null,
+    });
+    localStorageMock.clear();
   });
-  localStorageMock.clear();
 }
 
+// Render helper with proper act() wrapping
+const renderTreeCanvas = async () => {
+  let result: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(<TechTreeCanvas />);
+  });
+  return result!;
+};
+
+// Store mutation helper with proper act() wrapping
+const unlockNode = async (nodeId: string) => {
+  await act(async () => {
+    useTechTreeStore.getState().unlockNode(nodeId);
+  });
+};
+
+// Click helper with proper act() wrapping
+const clickElement = async (element: HTMLElement) => {
+  await act(async () => {
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+};
+
 describe('TechTreeCanvas Component', () => {
-  beforeEach(() => {
-    resetStore();
+  beforeEach(async () => {
+    await resetStore();
   });
 
-  afterEach(() => {
-    resetStore();
+  afterEach(async () => {
+    await resetStore();
   });
 
   describe('Rendering', () => {
-    it('renders the SVG canvas', () => {
-      render(<TechTreeCanvas />);
+    it('renders the SVG canvas', async () => {
+      await renderTreeCanvas();
       
       const canvas = screen.getByTestId('tech-tree-canvas');
       expect(canvas).toBeTruthy();
       expect(canvas.tagName.toLowerCase()).toBe('svg');
     });
 
-    it('renders all tech tree nodes', () => {
-      render(<TechTreeCanvas />);
+    it('renders all tech tree nodes', async () => {
+      await renderTreeCanvas();
       
       // Use queryAllByTestId to get all nodes
       const nodeElements = document.querySelectorAll('[data-testid^="tech-tree-node-"]');
       expect(nodeElements.length).toBe(TECH_TREE_NODES.length);
     });
 
-    it('renders nodes with correct data attributes', () => {
-      render(<TechTreeCanvas />);
+    it('renders nodes with correct data attributes', async () => {
+      await renderTreeCanvas();
       
       for (const node of TECH_TREE_NODES) {
         const nodeElement = document.querySelector(`[data-testid="tech-tree-node-${node.id}"]`);
@@ -78,15 +105,15 @@ describe('TechTreeCanvas Component', () => {
       }
     });
 
-    it('renders connection lines', () => {
-      render(<TechTreeCanvas />);
+    it('renders connection lines', async () => {
+      await renderTreeCanvas();
       
       const connections = screen.getByTestId('tech-tree-connections');
       expect(connections).toBeTruthy();
     });
 
-    it('all nodes have valid state attributes', () => {
-      render(<TechTreeCanvas />);
+    it('all nodes have valid state attributes', async () => {
+      await renderTreeCanvas();
       
       const nodes = document.querySelectorAll('[data-testid^="tech-tree-node-"]');
       for (const node of Array.from(nodes)) {
@@ -96,8 +123,8 @@ describe('TechTreeCanvas Component', () => {
       }
     });
 
-    it('nodes have category attributes', () => {
-      render(<TechTreeCanvas />);
+    it('nodes have category attributes', async () => {
+      await renderTreeCanvas();
       
       const nodes = document.querySelectorAll('[data-testid^="tech-tree-node-"]');
       for (const node of Array.from(nodes)) {
@@ -108,8 +135,8 @@ describe('TechTreeCanvas Component', () => {
   });
 
   describe('Visual States', () => {
-    it('shows locked state for nodes with unmet prerequisites', () => {
-      render(<TechTreeCanvas />);
+    it('shows locked state for nodes with unmet prerequisites', async () => {
+      await renderTreeCanvas();
       
       // Find a node with prerequisites that aren't met
       const prereqNode = TECH_TREE_NODES.find(n => n.prerequisites.length > 0);
@@ -121,18 +148,18 @@ describe('TechTreeCanvas Component', () => {
       }
     });
 
-    it('shows unlocked state for unlocked nodes with no prerequisites', () => {
-      render(<TechTreeCanvas />);
+    it('shows unlocked state for unlocked nodes with no prerequisites', async () => {
+      await renderTreeCanvas();
       
       // Find a node with no prerequisites and unlock it
       const noPrereqNode = TECH_TREE_NODES.find(n => n.prerequisites.length === 0);
       expect(noPrereqNode).toBeDefined();
       
       if (noPrereqNode) {
-        useTechTreeStore.getState().unlockNode(noPrereqNode.id);
+        await unlockNode(noPrereqNode.id);
         
         // Re-render after state change
-        render(<TechTreeCanvas />);
+        await renderTreeCanvas();
         
         const nodeElement = document.querySelector(`[data-testid="tech-tree-node-${noPrereqNode.id}"]`);
         expect(nodeElement?.getAttribute('data-state')).toBe('unlocked');
@@ -141,8 +168,8 @@ describe('TechTreeCanvas Component', () => {
   });
 
   describe('Interactions', () => {
-    it('updates selected node in store when clicked', () => {
-      render(<TechTreeCanvas />);
+    it('updates selected node in store when clicked', async () => {
+      await renderTreeCanvas();
       
       const state = useTechTreeStore.getState();
       const targetNode = state.nodes[0];
@@ -151,16 +178,16 @@ describe('TechTreeCanvas Component', () => {
       const nodeElement = document.querySelector(`[data-testid="tech-tree-node-${targetNode.id}"]`);
       expect(nodeElement).toBeTruthy();
       
-      // Simulate click
-      nodeElement?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      // Simulate click with proper act() wrapping
+      await clickElement(nodeElement!);
       
       expect(useTechTreeStore.getState().selectedNodeId).toBe(targetNode.id);
     });
   });
 
   describe('SVG Structure', () => {
-    it('SVG has correct viewBox dimensions', () => {
-      render(<TechTreeCanvas />);
+    it('SVG has correct viewBox dimensions', async () => {
+      await renderTreeCanvas();
       
       const canvas = screen.getByTestId('tech-tree-canvas');
       const viewBox = canvas.getAttribute('viewBox');
@@ -169,8 +196,8 @@ describe('TechTreeCanvas Component', () => {
       expect(viewBox).toMatch(/^\d+ \d+ \d+ \d+$/);
     });
 
-    it('SVG contains grid pattern definition', () => {
-      render(<TechTreeCanvas />);
+    it('SVG contains grid pattern definition', async () => {
+      await renderTreeCanvas();
       
       const canvas = screen.getByTestId('tech-tree-canvas');
       const gridPattern = canvas.querySelector('#tech-tree-grid');
@@ -178,8 +205,8 @@ describe('TechTreeCanvas Component', () => {
       expect(gridPattern).toBeTruthy();
     });
 
-    it('SVG contains gradient definitions for categories', () => {
-      render(<TechTreeCanvas />);
+    it('SVG contains gradient definitions for categories', async () => {
+      await renderTreeCanvas();
       
       const canvas = screen.getByTestId('tech-tree-canvas');
       
@@ -190,8 +217,8 @@ describe('TechTreeCanvas Component', () => {
   });
 
   describe('Category Zones', () => {
-    it('renders category zone backgrounds', () => {
-      render(<TechTreeCanvas />);
+    it('renders category zone backgrounds', async () => {
+      await renderTreeCanvas();
       
       const canvas = screen.getByTestId('tech-tree-canvas');
       const categoryZones = canvas.querySelectorAll('.tech-tree-category-zone');
@@ -199,8 +226,8 @@ describe('TechTreeCanvas Component', () => {
       expect(categoryZones.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('renders category labels', () => {
-      render(<TechTreeCanvas />);
+    it('renders category labels', async () => {
+      await renderTreeCanvas();
       
       const canvas = screen.getByTestId('tech-tree-canvas');
       const labels = canvas.querySelectorAll('.tech-tree-category-zone text');
