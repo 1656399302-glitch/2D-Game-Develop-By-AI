@@ -4,10 +4,11 @@
  * Tests for the refactored AchievementList component with new category taxonomy.
  * 
  * ROUND 136: Tests for AC-136-003: Achievement panel display
+ * ROUND 162: Fixed act() warning by wrapping state mutations in act()
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { AchievementList } from '../../../components/Achievements/AchievementList';
 import { useAchievementStore } from '../../../store/useAchievementStore';
@@ -80,7 +81,11 @@ describe('AchievementList Component Tests', () => {
       
       const state = useAchievementStore.getState();
       const achievementId = state.achievements[0].id;
-      useAchievementStore.getState().unlockAchievement(achievementId);
+      
+      // Wrap state mutation in act() to avoid React act() warning
+      act(() => {
+        useAchievementStore.getState().unlockAchievement(achievementId);
+      });
       
       rerender(<AchievementList onClose={vi.fn()} />);
       
