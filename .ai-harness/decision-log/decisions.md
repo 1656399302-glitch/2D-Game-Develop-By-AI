@@ -1371,3 +1371,15 @@
 ## Round 167 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 167 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 168 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+
+## Round 168 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 169 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

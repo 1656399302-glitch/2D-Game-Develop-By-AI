@@ -1,0 +1,58 @@
+{
+  "round": 167,
+  "workspace": "/Users/kingboat/Project/hardness/Harness_Engineering/2Dgame",
+  "branch": "main",
+  "commit": "61284b831992150a32d6c8b8bb54e8577565dfb5",
+  "completed_items": [
+    "| AC-167-001 | exchangeStore.test.ts runs with 0 `act()` warnings | **VERIFIED** | `grep -ciE \"not wrapped in act|inside an act\"` \u2192 0 |",
+    "| AC-167-002 | useRatingsStore.test.ts runs with 0 `act()` warnings | **VERIFIED** | `grep -ciE \"not wrapped in act|inside an act\"` \u2192 0 |",
+    "| AC-167-003 | validationIntegration.test.ts runs with 0 `act()` warnings | **VERIFIED** | `grep -ciE \"not wrapped in act|inside an act\"` \u2192 0 |",
+    "| AC-167-004 | All tests in exchangeStore.test.ts pass | **VERIFIED** | `npm test -- --run src/components/Exchange/__tests__/exchangeStore.test.ts` \u2192 20 tests passing |",
+    "| AC-167-005 | All tests in useRatingsStore.test.ts pass | **VERIFIED** | `npm test -- --run src/__tests__/useRatingsStore.test.ts` \u2192 29 tests passing |",
+    "| AC-167-006 | All tests in validationIntegration.test.ts pass | **VERIFIED** | `npm test -- --run src/__tests__/validationIntegration.test.ts` \u2192 19 tests passing |",
+    "| AC-167-007 | Full test suite passes with \u2265 6865 tests | **VERIFIED** | `npm test -- --run` \u2192 238 files, 6865 tests |",
+    "| AC-167-008 | Build passes with bundle \u2264 512 KB | **VERIFIED** | `index-BTq2IoQH.js: 435.79 kB (442,534 bytes)` |"
+  ],
+  "incomplete_items": [],
+  "failure_reasons": [],
+  "key_files": [
+    ".ai-harness/decision-log/decisions.md",
+    ".ai-harness/handoffs/latest.json",
+    ".ai-harness/handoffs/round-165.json",
+    ".ai-harness/handoffs/round-166.json",
+    ".ai-harness/qa-reports/sprint-165-qa.md",
+    ".ai-harness/qa-reports/sprint-166-qa.md",
+    ".ai-harness/runtime/resume-state.json",
+    ".ai-harness/sprint-contracts/sprint-166.md",
+    ".ai-harness/sprint-contracts/sprint-167.md",
+    "contract.md",
+    "feedback.md",
+    "node_modules/.vitest-cache/vitest/results.json",
+    "progress.md",
+    "src/__tests__/useRatingsStore.test.ts",
+    "src/__tests__/validationIntegration.test.ts",
+    "src/components/Exchange/__tests__/exchangeStore.test.ts"
+  ],
+  "run_instructions": [
+    "python harness.py --resume-dir <workspace> --skip-planner \"Close remaining blockers\"",
+    "python harness.py dashboard"
+  ],
+  "known_issues": [],
+  "next_priorities": [
+    "1. **exchangeStore.test.ts act() warnings (3 warnings \u2192 0)**:",
+    "2. **useRatingsStore.test.ts act() warnings (4 warnings \u2192 0)**:",
+    "3. **validationIntegration.test.ts act() warnings (20 warnings \u2192 0)**:",
+    "1. Added `act` to imports from `@testing-library/react`",
+    "2. Created `renderExchangeStore()` async helper wrapping `renderHook()` in `await act(async () => {...})`",
+    "3. Created `resetStore()` async helper for store reset",
+    "4. Created `simulateIncomingProposal()` helper for store mutations",
+    "5. Created `rejectProposal()` helper for store mutations",
+    "6. All test functions converted to `async` where needed",
+    "7. All store mutations wrapped with helper functions or `await act()`"
+  ],
+  "evaluator_failures": [],
+  "restore_instructions": [
+    "Read spec.md, contract.md, feedback.md, and progress.md before continuing.",
+    "Use .ai-harness/handoffs/latest.json as the first recovery artifact."
+  ]
+}
