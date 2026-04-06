@@ -2,6 +2,9 @@
  * CircuitModulePanel Browser Integration Tests
  * 
  * Round 145: Track B Retirement Sprint
+ * Round 165 Fix: All render() calls and fireEvent.click() calls wrapped in act()
+ * for proper React 18 async rendering handling. Store mutations in beforeEach/afterEach
+ * are also wrapped in act() to prevent Zustand update warnings.
  * 
  * Tests for CircuitModulePanel - the canonical circuit component panel.
  * These tests replace CircuitPalette.test.tsx which is deleted as dead code.
@@ -23,55 +26,74 @@ import { CircuitModulePanel } from '../components/Editor/CircuitModulePanel';
 import { useCircuitCanvasStore } from '../store/useCircuitCanvasStore';
 import { useMachineStore } from '../store/useMachineStore';
 
-// Helper to reset store state
-const resetCircuitStore = () => {
-  useCircuitCanvasStore.setState({
-    isCircuitMode: false,
-    nodes: [],
-    wires: [],
-    selectedCircuitNodeIds: [],
-    layers: [{ id: 'layer-1', name: 'Layer 1', visible: true, nodeIds: [], wireIds: [] }],
-    activeLayerId: 'layer-1',
+// Reset store state wrapped in act() to prevent React state update warnings
+const resetCircuitStore = async () => {
+  await act(async () => {
+    useCircuitCanvasStore.setState({
+      isCircuitMode: false,
+      nodes: [],
+      wires: [],
+      selectedCircuitNodeIds: [],
+      layers: [{ id: 'layer-1', name: 'Layer 1', visible: true, nodeIds: [], wireIds: [] }],
+      activeLayerId: 'layer-1',
+    });
+    // Also reset machine store viewport
+    useMachineStore.setState({
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
   });
-  // Also reset machine store viewport
-  useMachineStore.setState({
-    viewport: { x: 0, y: 0, zoom: 1 },
+};
+
+// Render helper with proper act() wrapping
+const renderPanel = async () => {
+  let result: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(<CircuitModulePanel />);
+  });
+  return result!;
+};
+
+// Click helper with proper act() wrapping
+const clickElement = async (element: HTMLElement) => {
+  await act(async () => {
+    fireEvent.click(element);
   });
 };
 
 describe('CircuitModulePanel Browser Integration Tests', () => {
-  beforeEach(() => {
-    resetCircuitStore();
-    // Set window dimensions for jsdom
+  beforeEach(async () => {
+    // Set window dimensions for jsdom before resetting store
     Object.defineProperty(window, 'innerWidth', { value: 1024, writable: true });
     Object.defineProperty(window, 'innerHeight', { value: 768, writable: true });
+    
+    // Reset store state wrapped in act()
+    await resetCircuitStore();
   });
 
-  afterEach(() => {
-    resetCircuitStore();
+  afterEach(async () => {
+    // Reset store state wrapped in act()
+    await resetCircuitStore();
   });
 
   // ============================================================
   // AC-145-002: Panel Rendering with data-circuit-component
   // ============================================================
   describe('AC-145-002: Panel Rendering with data-circuit-component', () => {
-    it('should render CircuitModulePanel with circuit mode toggle', () => {
-      render(<CircuitModulePanel />);
+    it('should render CircuitModulePanel with circuit mode toggle', async () => {
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]');
       expect(toggleButton).toBeInTheDocument();
     });
 
     it('should display circuit components when circuit mode is ON', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       // Click circuit mode toggle
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
       expect(toggleButton).toBeInTheDocument();
       
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       // Wait for components to render
       await waitFor(() => {
@@ -80,8 +102,8 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
       });
     });
 
-    it('should NOT display circuit component buttons when circuit mode is OFF', () => {
-      render(<CircuitModulePanel />);
+    it('should NOT display circuit component buttons when circuit mode is OFF', async () => {
+      await renderPanel();
       
       // Circuit mode should be OFF by default
       const components = document.querySelectorAll('[data-circuit-component]');
@@ -89,13 +111,11 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should have circuit component buttons with data-circuit-component attribute', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       // Enable circuit mode
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         const inputButton = document.querySelector('[data-circuit-component="input"]');
@@ -109,13 +129,11 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
   // ============================================================
   describe('AC-145-003: Component Count (14 buttons)', () => {
     it('should display exactly 14 circuit component buttons when circuit mode is ON', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       // Enable circuit mode
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         const components = document.querySelectorAll('[data-circuit-component]');
@@ -124,12 +142,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should display INPUT and OUTPUT buttons', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         const input = document.querySelector('[data-circuit-component="input"]');
@@ -140,12 +156,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should display all 7 logic gate buttons', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         const logicGates = ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR'];
@@ -157,12 +171,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should display all 5 sequential gate buttons', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         const sequentialGates = ['TIMER', 'COUNTER', 'SR_LATCH', 'D_LATCH', 'D_FLIP_FLOP'];
@@ -179,28 +191,24 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
   // ============================================================
   describe('AC-145-004: Node Addition (INPUT, AND, TIMER)', () => {
     it('should enable circuit mode when clicking circuit mode toggle', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       // Verify circuit mode starts OFF
       expect(useCircuitCanvasStore.getState().isCircuitMode).toBe(false);
       
       // Click toggle to enable circuit mode
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       expect(useCircuitCanvasStore.getState().isCircuitMode).toBe(true);
     });
 
     it('should add INPUT node to canvas when clicked', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       // First enable circuit mode
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       // Click INPUT button
       await waitFor(() => {
@@ -209,10 +217,7 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
       });
       
       const inputButton = document.querySelector('[data-circuit-component="input"]') as HTMLButtonElement;
-      
-      await act(async () => {
-        fireEvent.click(inputButton);
-      });
+      await clickElement(inputButton);
       
       // Verify node was added to store (using nodes property)
       const nodes = useCircuitCanvasStore.getState().nodes;
@@ -221,12 +226,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should add AND gate node to canvas when clicked', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         const andButton = document.querySelector('[data-circuit-component="AND"]');
@@ -234,9 +237,7 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
       });
       
       const andButton = document.querySelector('[data-circuit-component="AND"]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(andButton);
-      });
+      await clickElement(andButton);
       
       const nodes = useCircuitCanvasStore.getState().nodes;
       expect(nodes.length).toBe(1);
@@ -244,12 +245,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should add TIMER sequential gate node to canvas when clicked', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         const timerButton = document.querySelector('[data-circuit-component="TIMER"]');
@@ -257,9 +256,7 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
       });
       
       const timerButton = document.querySelector('[data-circuit-component="TIMER"]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(timerButton);
-      });
+      await clickElement(timerButton);
       
       const nodes = useCircuitCanvasStore.getState().nodes;
       expect(nodes.length).toBe(1);
@@ -267,31 +264,26 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should increment node count when multiple components are added', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         expect(document.querySelector('[data-circuit-component="input"]')).toBeInTheDocument();
       });
       
       // Add INPUT
-      await act(async () => {
-        fireEvent.click(document.querySelector('[data-circuit-component="input"]') as HTMLButtonElement);
-      });
+      const inputButton = document.querySelector('[data-circuit-component="input"]') as HTMLButtonElement;
+      await clickElement(inputButton);
       
       // Add AND
-      await act(async () => {
-        fireEvent.click(document.querySelector('[data-circuit-component="AND"]') as HTMLButtonElement);
-      });
+      const andButton = document.querySelector('[data-circuit-component="AND"]') as HTMLButtonElement;
+      await clickElement(andButton);
       
       // Add TIMER
-      await act(async () => {
-        fireEvent.click(document.querySelector('[data-circuit-component="TIMER"]') as HTMLButtonElement);
-      });
+      const timerButton = document.querySelector('[data-circuit-component="TIMER"]') as HTMLButtonElement;
+      await clickElement(timerButton);
       
       const nodes = useCircuitCanvasStore.getState().nodes;
       expect(nodes.length).toBe(3);
@@ -303,12 +295,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
   // ============================================================
   describe('AC-145-010: Duplicate Component Addition', () => {
     it('should add two separate AND nodes when clicked twice', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         expect(document.querySelector('[data-circuit-component="AND"]')).toBeInTheDocument();
@@ -317,12 +307,8 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
       const andButton = document.querySelector('[data-circuit-component="AND"]') as HTMLButtonElement;
       
       // Click twice
-      await act(async () => {
-        fireEvent.click(andButton);
-      });
-      await act(async () => {
-        fireEvent.click(andButton);
-      });
+      await clickElement(andButton);
+      await clickElement(andButton);
       
       const nodes = useCircuitCanvasStore.getState().nodes;
       expect(nodes.length).toBe(2);
@@ -332,12 +318,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should create two distinct nodes with unique IDs', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         expect(document.querySelector('[data-circuit-component="OR"]')).toBeInTheDocument();
@@ -366,36 +350,30 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
   // ============================================================
   describe('AC-145-011: Circuit Mode Toggle Reset', () => {
     it('should preserve added nodes when toggling circuit mode OFF then ON', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
       
       // Enable circuit mode
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       // Add two nodes
       await waitFor(() => {
         expect(document.querySelector('[data-circuit-component="input"]')).toBeInTheDocument();
       });
       
-      await act(async () => {
-        fireEvent.click(document.querySelector('[data-circuit-component="input"]') as HTMLButtonElement);
-        fireEvent.click(document.querySelector('[data-circuit-component="AND"]') as HTMLButtonElement);
-      });
+      const inputButton = document.querySelector('[data-circuit-component="input"]') as HTMLButtonElement;
+      const andButton = document.querySelector('[data-circuit-component="AND"]') as HTMLButtonElement;
+      await clickElement(inputButton);
+      await clickElement(andButton);
       
       expect(useCircuitCanvasStore.getState().nodes.length).toBe(2);
       
       // Disable circuit mode
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       // Re-enable circuit mode
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       // Nodes should still be present
       expect(useCircuitCanvasStore.getState().nodes.length).toBe(2);
@@ -403,7 +381,7 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should not crash when toggling circuit mode multiple times', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
       
@@ -424,8 +402,8 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
   // AC-145-009: Negative Test - Buttons Inactive Outside Circuit Mode
   // ============================================================
   describe('AC-145-009: Buttons Inactive Outside Circuit Mode', () => {
-    it('should have no circuit component buttons visible when circuit mode is OFF', () => {
-      render(<CircuitModulePanel />);
+    it('should have no circuit component buttons visible when circuit mode is OFF', async () => {
+      await renderPanel();
       
       // Verify circuit mode is OFF
       expect(useCircuitCanvasStore.getState().isCircuitMode).toBe(false);
@@ -436,7 +414,7 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should auto-enable circuit mode when clicking a component button', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       // Verify circuit mode starts OFF
       expect(useCircuitCanvasStore.getState().isCircuitMode).toBe(false);
@@ -452,7 +430,7 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
   // ============================================================
   describe('Additional Regression Tests', () => {
     it('should render circuit mode toggle button with correct text', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]');
       expect(toggleButton).toBeInTheDocument();
@@ -460,12 +438,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should display section headers when circuit mode is ON', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       await waitFor(() => {
         expect(screen.getByText('电路组件')).toBeInTheDocument();
@@ -473,12 +449,10 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
     });
 
     it('should handle all gate types without errors', async () => {
-      render(<CircuitModulePanel />);
+      await renderPanel();
       
       const toggleButton = document.querySelector('[data-circuit-mode-toggle]') as HTMLButtonElement;
-      await act(async () => {
-        fireEvent.click(toggleButton);
-      });
+      await clickElement(toggleButton);
       
       const gateTypes = ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR', 'XNOR', 'TIMER', 'COUNTER', 'SR_LATCH', 'D_LATCH', 'D_FLIP_FLOP'];
       
@@ -489,9 +463,7 @@ describe('CircuitModulePanel Browser Integration Tests', () => {
         });
         
         const button = document.querySelector(`[data-circuit-component="${gate}"]`) as HTMLButtonElement;
-        await act(async () => {
-          fireEvent.click(button);
-        });
+        await clickElement(button);
       }
       
       // All 12 gate types should be added

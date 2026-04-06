@@ -1,12 +1,16 @@
 /**
  * TimeTrialChallenge Component Tests
  * 
+ * Round 165 Fix: All render() calls, fireEvent.click(), rerender(), and
+ * vi.advanceTimersByTimeAsync() calls wrapped in act() for proper React 18
+ * async rendering handling.
+ * 
  * Tests for the TimeTrialChallenge modal component with timer functionality,
  * start/pause/resume/reset actions, objective progress, and completion flow.
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import React from 'react';
 import { TimeTrialChallenge } from '../components/Challenges/TimeTrialChallenge';
 
@@ -41,6 +45,57 @@ function formatTimerDisplay(milliseconds: number): string {
   return `${milliseconds < 0 ? '-' : ''}${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+// Flush pending React updates
+const flushUpdates = () => {
+  return act(async () => {
+    vi.advanceTimersByTime(0);
+  });
+};
+
+// Async render helper with proper act() wrapping
+const renderTimeTrial = async () => {
+  let result: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <TimeTrialChallenge
+        challengeId="time-trial-quick-build"
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    );
+    vi.advanceTimersByTime(0);
+  });
+  return result!;
+};
+
+// Async render helper with custom props
+const renderTimeTrialWithProps = async (props: {
+  challengeId?: string;
+  isOpen?: boolean;
+  onClose?: () => void;
+}) => {
+  let result: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(
+      <TimeTrialChallenge
+        challengeId={props.challengeId ?? "time-trial-quick-build"}
+        isOpen={props.isOpen ?? true}
+        onClose={props.onClose ?? vi.fn()}
+      />
+    );
+    vi.advanceTimersByTime(0);
+  });
+  return result!;
+};
+
+// Click helper with proper act() wrapping
+const clickButton = async (button: HTMLElement) => {
+  await act(async () => {
+    fireEvent.click(button);
+    vi.advanceTimersByTime(0);
+  });
+};
+
 describe('TimeTrialChallenge Component', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -73,14 +128,8 @@ describe('TimeTrialChallenge Component', () => {
       expect(formatTimerDisplay(-5000)).toBe('-00:05');
     });
 
-    it('should render timer display in MM:SS format', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should render timer display in MM:SS format', async () => {
+      await renderTimeTrial();
 
       // Timer should show the time limit from the challenge (180 seconds = 3:00)
       // Use queryByText to avoid error on multiple matches
@@ -90,34 +139,24 @@ describe('TimeTrialChallenge Component', () => {
   });
 
   describe('Start Trial Action (AC-138-001)', () => {
-    it('should show "开始挑战" button when trial is not active', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should show "开始挑战" button when trial is not active', async () => {
+      await renderTimeTrial();
 
       const startButton = screen.getByRole('button', { name: /开始挑战/i });
       expect(startButton).toBeTruthy();
     });
 
     it('should start trial when "开始挑战" button is clicked', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Click start button
       const startButton = screen.getByRole('button', { name: /开始挑战/i });
-      fireEvent.click(startButton);
+      await clickButton(startButton);
 
       // Advance timers so the interval fires
-      await vi.advanceTimersByTimeAsync(1100);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
 
       // Pause button should appear
       const pauseButton = screen.getByRole('button', { name: /暂停/i });
@@ -125,19 +164,15 @@ describe('TimeTrialChallenge Component', () => {
     });
 
     it('should set isTrialActive to true after starting', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       const startButton = screen.getByRole('button', { name: /开始挑战/i });
-      fireEvent.click(startButton);
+      await clickButton(startButton);
 
       // Advance timers
-      await vi.advanceTimersByTimeAsync(1100);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
 
       // Pause button should be visible
       expect(screen.getByRole('button', { name: /暂停/i })).toBeTruthy();
@@ -146,18 +181,14 @@ describe('TimeTrialChallenge Component', () => {
 
   describe('Pause Trial Action (AC-138-001)', () => {
     it('should show "暂停" button when trial is active and not paused', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start trial first
       const startButton = screen.getByRole('button', { name: /开始挑战/i });
-      fireEvent.click(startButton);
-      await vi.advanceTimersByTimeAsync(1100);
+      await clickButton(startButton);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
 
       // Pause button should appear
       const pauseButton = screen.getByRole('button', { name: /暂停/i });
@@ -165,21 +196,19 @@ describe('TimeTrialChallenge Component', () => {
     });
 
     it('should pause trial when "暂停" button is clicked', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start trial
-      fireEvent.click(screen.getByRole('button', { name: /开始挑战/i }));
-      await vi.advanceTimersByTimeAsync(1100);
+      await clickButton(screen.getByRole('button', { name: /开始挑战/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
 
       // Click pause
-      fireEvent.click(screen.getByRole('button', { name: /暂停/i }));
-      await vi.advanceTimersByTimeAsync(100);
+      await clickButton(screen.getByRole('button', { name: /暂停/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
 
       // "继续" button should appear
       const resumeButton = screen.getByRole('button', { name: /继续/i });
@@ -189,19 +218,17 @@ describe('TimeTrialChallenge Component', () => {
 
   describe('Resume Trial Action (AC-138-001)', () => {
     it('should show "继续" button when trial is paused', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start and pause
-      fireEvent.click(screen.getByRole('button', { name: /开始挑战/i }));
-      await vi.advanceTimersByTimeAsync(1100);
-      fireEvent.click(screen.getByRole('button', { name: /暂停/i }));
-      await vi.advanceTimersByTimeAsync(100);
+      await clickButton(screen.getByRole('button', { name: /开始挑战/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+      await clickButton(screen.getByRole('button', { name: /暂停/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
 
       // Resume button should appear
       const resumeButton = screen.getByRole('button', { name: /继续/i });
@@ -209,21 +236,21 @@ describe('TimeTrialChallenge Component', () => {
     });
 
     it('should resume trial when "继续" button is clicked', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start, pause, then resume
-      fireEvent.click(screen.getByRole('button', { name: /开始挑战/i }));
-      await vi.advanceTimersByTimeAsync(1100);
-      fireEvent.click(screen.getByRole('button', { name: /暂停/i }));
-      await vi.advanceTimersByTimeAsync(100);
-      fireEvent.click(screen.getByRole('button', { name: /继续/i }));
-      await vi.advanceTimersByTimeAsync(100);
+      await clickButton(screen.getByRole('button', { name: /开始挑战/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
+      await clickButton(screen.getByRole('button', { name: /暂停/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      await clickButton(screen.getByRole('button', { name: /继续/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
 
       // Pause button should reappear
       expect(screen.getByRole('button', { name: /暂停/i })).toBeTruthy();
@@ -232,17 +259,13 @@ describe('TimeTrialChallenge Component', () => {
 
   describe('Reset Trial Action (AC-138-001)', () => {
     it('should show "重置" button when trial is active', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start trial
-      fireEvent.click(screen.getByRole('button', { name: /开始挑战/i }));
-      await vi.advanceTimersByTimeAsync(1100);
+      await clickButton(screen.getByRole('button', { name: /开始挑战/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1100);
+      });
 
       // Reset button should appear
       const resetButton = screen.getByRole('button', { name: /重置/i });
@@ -250,39 +273,33 @@ describe('TimeTrialChallenge Component', () => {
     });
 
     it('should reset trial state when "重置" button is clicked', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start and advance time
-      fireEvent.click(screen.getByRole('button', { name: /开始挑战/i }));
-      await vi.advanceTimersByTimeAsync(2100);
+      await clickButton(screen.getByRole('button', { name: /开始挑战/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2100);
+      });
 
       // Click reset
-      fireEvent.click(screen.getByRole('button', { name: /重置/i }));
-      await vi.advanceTimersByTimeAsync(100);
+      await clickButton(screen.getByRole('button', { name: /重置/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
 
       // Start button should reappear
       expect(screen.getByRole('button', { name: /开始挑战/i })).toBeTruthy();
     });
 
     it('should return timer to initial value after reset', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start and advance
-      fireEvent.click(screen.getByRole('button', { name: /开始挑战/i }));
-      await vi.advanceTimersByTimeAsync(3100);
-      fireEvent.click(screen.getByRole('button', { name: /重置/i }));
+      await clickButton(screen.getByRole('button', { name: /开始挑战/i }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3100);
+      });
+      await clickButton(screen.getByRole('button', { name: /重置/i }));
 
       // Timer should show initial time (03:00 for quick-build)
       const timerText = screen.queryByText('03:00');
@@ -291,14 +308,8 @@ describe('TimeTrialChallenge Component', () => {
   });
 
   describe('Objective Progress Display (AC-138-001)', () => {
-    it('should display objective progress with current/target format', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should display objective progress with current/target format', async () => {
+      await renderTimeTrial();
 
       // Should show progress format (0/1, 1/1, etc.)
       // Use exact match for progress
@@ -306,14 +317,8 @@ describe('TimeTrialChallenge Component', () => {
       expect(progressText).toBeTruthy();
     });
 
-    it('should display progress bar for objectives', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should display progress bar for objectives', async () => {
+      await renderTimeTrial();
 
       // Progress bars should be present (div with h-2 class inside a div with bg-[#1e2a42])
       const progressBars = document.querySelectorAll('[class*="h-2"][class*="rounded-full"]');
@@ -322,32 +327,20 @@ describe('TimeTrialChallenge Component', () => {
   });
 
   describe('Close Button', () => {
-    it('should close modal when close button is clicked', () => {
+    it('should close modal when close button is clicked', async () => {
       const onClose = vi.fn();
 
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={onClose}
-        />
-      );
+      await renderTimeTrialWithProps({ onClose });
 
       // Click close button
       const closeButton = screen.getByRole('button', { name: /关闭/i });
-      fireEvent.click(closeButton);
+      await clickButton(closeButton);
 
       expect(onClose).toHaveBeenCalled();
     });
 
-    it('should not render when isOpen is false', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={false}
-          onClose={vi.fn()}
-        />
-      );
+    it('should not render when isOpen is false', async () => {
+      await renderTimeTrialWithProps({ isOpen: false });
 
       // Modal should not be in the document
       expect(screen.queryByRole('dialog')).toBeNull();
@@ -355,40 +348,35 @@ describe('TimeTrialChallenge Component', () => {
   });
 
   describe('Challenge Selection', () => {
-    it('should render with different challenge IDs', () => {
-      const { rerender } = render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should render with different challenge IDs', async () => {
+      const { rerender } = await renderTimeTrialWithProps({
+        challengeId: "time-trial-quick-build",
+        isOpen: true,
+        onClose: vi.fn()
+      });
 
       // Title should contain challenge title
       const title = screen.getByText(/快速建造/);
       expect(title).toBeTruthy();
 
       // Rerender with different challenge
-      rerender(
-        <TimeTrialChallenge
-          challengeId="time-trial-stability-seeker"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await act(async () => {
+        rerender(
+          <TimeTrialChallenge
+            challengeId="time-trial-stability-seeker"
+            isOpen={true}
+            onClose={vi.fn()}
+          />
+        );
+        vi.advanceTimersByTime(0);
+      });
 
       const newTitle = screen.getByText(/稳定追寻者/);
       expect(newTitle).toBeTruthy();
     });
 
-    it('should render nothing for invalid challenge ID', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="non-existent-challenge"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should render nothing for invalid challenge ID', async () => {
+      await renderTimeTrialWithProps({ challengeId: "non-existent-challenge" });
 
       // Modal should not render
       expect(screen.queryByRole('dialog')).toBeNull();
@@ -396,14 +384,8 @@ describe('TimeTrialChallenge Component', () => {
   });
 
   describe('Timer Color Changes', () => {
-    it('should show timer with cyan color when plenty of time remains', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should show timer with cyan color when plenty of time remains', async () => {
+      await renderTimeTrial();
 
       // Timer should be visible
       const timer = screen.queryByText('03:00');
@@ -411,20 +393,16 @@ describe('TimeTrialChallenge Component', () => {
     });
 
     it('should show timer with warning color when time is low', async () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      await renderTimeTrial();
 
       // Start trial - time will decrease
-      fireEvent.click(screen.getByRole('button', { name: /开始挑战/i }));
+      await clickButton(screen.getByRole('button', { name: /开始挑战/i }));
 
       // Advance time close to limit (to 25% remaining)
       // quick-build has 180s limit, so 25% = 45s remaining
-      await vi.advanceTimersByTimeAsync(135100); // 135+ seconds elapsed
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(135100); // 135+ seconds elapsed
+      });
 
       // Timer should show remaining time
       const timerText = screen.queryByText('00:45');
@@ -433,27 +411,15 @@ describe('TimeTrialChallenge Component', () => {
   });
 
   describe('Modal Structure', () => {
-    it('should have dialog role', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should have dialog role', async () => {
+      await renderTimeTrial();
 
       const dialog = screen.getByRole('dialog');
       expect(dialog).toBeTruthy();
     });
 
-    it('should have aria-modal attribute', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should have aria-modal attribute', async () => {
+      await renderTimeTrial();
 
       const dialog = screen.getByRole('dialog');
       // Use getAttribute directly instead of toHaveAttribute
@@ -461,33 +427,21 @@ describe('TimeTrialChallenge Component', () => {
       expect(ariaModal).toBe('true');
     });
 
-    it('should have title with challenge name', () => {
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+    it('should have title with challenge name', async () => {
+      await renderTimeTrial();
 
       const title = screen.getByText(/快速建造/);
       expect(title).toBeTruthy();
     });
 
-    it('should close when clicking backdrop', () => {
+    it('should close when clicking backdrop', async () => {
       const onClose = vi.fn();
 
-      render(
-        <TimeTrialChallenge
-          challengeId="time-trial-quick-build"
-          isOpen={true}
-          onClose={onClose}
-        />
-      );
+      await renderTimeTrialWithProps({ onClose });
 
       // Click backdrop (the outer div)
       const dialog = screen.getByRole('dialog');
-      fireEvent.click(dialog);
+      await clickButton(dialog);
 
       // onClose should be called
       expect(onClose).toHaveBeenCalled();
