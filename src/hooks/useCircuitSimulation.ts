@@ -129,7 +129,7 @@ export function useCircuitSimulation(): UseCircuitSimulationReturn {
     // Queries
     getInputNodes: store.getInputNodes(),
     getGateNodes: store.getGateNodes(),
-    isRunning: store.status === 'running' || store.status === 'completed',
+    isRunning: store.status === 'running' || store.status === 'stopped',
     isIdle: store.status === 'idle',
   };
 }

@@ -139,6 +139,17 @@ const LazyCounterPanel = lazy(() => import('./components/Circuit/CounterPanel').
   }>
 })));
 
+// Round 184: Lazy-loaded SimulationPanel for bundle optimization
+const LazySimulationPanel = lazy(() => import('./components/Circuit/SimulationPanel').then((module) => ({
+  default: module.SimulationPanel as unknown as React.ComponentType<{
+    isRunning: boolean;
+    onRun: () => void;
+    onReset: () => void;
+    stepCount?: number;
+    onClose?: () => void;
+  }>
+})));
+
 type ViewMode = 'editor' | 'codex';
 
 // Round 147: CSS animations moved to external file src/styles/circuit-animations.css
@@ -267,6 +278,9 @@ function AppContent() {
   // Round 183: CounterPanel state
   const [showCounters, setShowCounters] = useState(false);
   
+  // Round 184: SimulationPanel state
+  const [showSimulation, setShowSimulation] = useState(false);
+  
   // Template system state - Round 67
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -351,6 +365,16 @@ function AppContent() {
   
   // Round 175/177: Circuit Challenge Panel visibility from store
   const isCircuitChallengePanelOpen = useCircuitChallengeStore((state) => state.isPanelOpen);
+  
+  // Round 184: Circuit canvas store selectors for simulation panel
+  const simulationStatus = useCircuitCanvasStore((state) => state.simulationStatus);
+  const simulationStepCount = useCircuitCanvasStore((state) => state.simulationStepCount);
+  const isSimulating = useCircuitCanvasStore((state) => state.isSimulating);
+  const runSimulation = useCircuitCanvasStore((state) => state.runSimulation);
+  const resetCircuitSimulation = useCircuitCanvasStore((state) => state.resetCircuitSimulation);
+  
+  // Round 184: Derived simulation state for panel
+  const isRunning = simulationStatus === 'running' || isSimulating;
   
   // Viewport size for responsive layout
   const viewport = useViewportSize();
@@ -518,6 +542,32 @@ function AppContent() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleShortcutsPanel]);
+  
+  // Round 184: Keyboard shortcuts for simulation (R=Run, X=Reset)
+  // Only trigger when simulation panel is open AND no input is focused
+  useEffect(() => {
+    const handleSimulationShortcuts = (e: KeyboardEvent) => {
+      // Only handle if simulation panel is open
+      if (!showSimulation) return;
+      
+      // Do NOT trigger if an input field is focused
+      const activeElement = document.activeElement;
+      if (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA' || activeElement?.hasAttribute('contenteditable')) {
+        return;
+      }
+      
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        runSimulation();
+      } else if (e.key === 'x' || e.key === 'X') {
+        e.preventDefault();
+        resetCircuitSimulation();
+      }
+    };
+
+    window.addEventListener('keydown', handleSimulationShortcuts);
+    return () => window.removeEventListener('keydown', handleSimulationShortcuts);
+  }, [showSimulation, runSimulation, resetCircuitSimulation]);
   
   // Sync store modal states with local state
   useEffect(() => {
@@ -791,6 +841,17 @@ function AppContent() {
                 <span>计数</span>
               </button>
               
+              {/* Round 184: SimulationPanel navigation button */}
+              <button
+                onClick={() => setShowSimulation(true)}
+                className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#0ea5e9] hover:text-white border border-[#1e2a42] hover:border-[#0ea5e9]/30 transition-colors flex items-center gap-2"
+                aria-label="打开模拟面板"
+                data-testid="nav-simulation"
+              >
+                <span>⚡</span>
+                <span>模拟</span>
+              </button>
+              
               <button
                 onClick={() => setShowRecipeBrowser(true)}
                 className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a855f7] hover:text-white border border-[#1e2a42] hover:border-[#a855f7]/30 transition-colors flex items-center gap-2"
@@ -1000,6 +1061,19 @@ function AppContent() {
             <LazyCounterPanel
               counters={[]}
               onClose={() => setShowCounters(false)}
+            />
+          </Suspense>
+        )}
+        
+        {/* Round 184: SimulationPanel - sidebar panel with simulation controls */}
+        {showSimulation && (
+          <Suspense fallback={<LazyLoadingFallback height="300px" variant="panel" />}>
+            <LazySimulationPanel
+              isRunning={isRunning}
+              onRun={runSimulation}
+              onReset={resetCircuitSimulation}
+              stepCount={simulationStepCount}
+              onClose={() => setShowSimulation(false)}
             />
           </Suspense>
         )}

@@ -2,12 +2,14 @@
  * Simulation Panel Component
  * 
  * Round 121: Circuit Simulation Engine
+ * Round 184: Fixed - Removed 'completed' status, using 'stopped' instead
+ *            Added close button with data-testid="close-panel"
  * 
  * Control panel for circuit simulation with Run, Reset, and Step buttons.
  */
 
 import React, { useCallback } from 'react';
-import { SimulationStatus, SimulationPanelProps } from '../../types/circuit';
+import { SimulationStatus } from '../../types/circuit';
 
 // ============================================================================
 // Styles
@@ -27,7 +29,7 @@ const panelStyle: React.CSSProperties = {
 const headerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
+  justifyContent: 'space-between',
   paddingBottom: '8px',
   borderBottom: '1px solid #334155',
 };
@@ -120,11 +122,12 @@ interface StatusIndicatorProps {
 }
 
 const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status }) => {
-  const statusConfig = {
+  // Round 184: Removed 'completed' status - using 'stopped' instead
+  const statusConfig: Record<SimulationStatus, { color: string; label: string; icon: string }> = {
     idle: { color: '#64748b', label: '待机', icon: '⏸' },
     running: { color: '#22c55e', label: '运行中', icon: '▶' },
     paused: { color: '#eab308', label: '已暂停', icon: '⏸' },
-    completed: { color: '#0ea5e9', label: '完成', icon: '✓' },
+    stopped: { color: '#ef4444', label: '已停止', icon: '⏹' },
   };
   
   const config = statusConfig[status];
@@ -151,6 +154,18 @@ const StatusIndicator: React.FC<StatusIndicatorProps> = ({ status }) => {
 // ============================================================================
 
 /**
+ * Simulation Panel Props
+ */
+export interface SimulationPanelProps {
+  isRunning: boolean;
+  onRun: () => void;
+  onReset: () => void;
+  onStep?: () => void; // Optional - only render if provided
+  stepCount?: number;
+  onClose?: () => void; // Optional close handler
+}
+
+/**
  * Simulation Panel Component
  * Control panel with Run, Reset, and Step buttons
  */
@@ -160,6 +175,7 @@ export const SimulationPanel: React.FC<SimulationPanelProps> = ({
   onReset,
   onStep,
   stepCount = 0,
+  onClose,
 }) => {
   // Handle Run button click
   const handleRun = useCallback(() => {
@@ -176,16 +192,33 @@ export const SimulationPanel: React.FC<SimulationPanelProps> = ({
     onStep?.();
   }, [onStep]);
   
+  // Handle close button click
+  const handleClose = useCallback(() => {
+    onClose?.();
+  }, [onClose]);
+  
   return (
     <div
       style={panelStyle}
       className="shadow-xl"
       data-testid="simulation-panel"
     >
-      {/* Header */}
+      {/* Header with Close Button */}
       <div style={headerStyle}>
-        <span style={{ fontSize: '16px' }}>⚡</span>
-        <span style={titleStyle}>电路模拟</span>
+        <div className="flex items-center gap-2">
+          <span style={{ fontSize: '16px' }}>⚡</span>
+          <span style={titleStyle}>电路模拟</span>
+        </div>
+        {onClose && (
+          <button
+            onClick={handleClose}
+            className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+            aria-label="关闭"
+            data-testid="close-panel"
+          >
+            ✕
+          </button>
+        )}
       </div>
       
       {/* Status Bar */}
@@ -213,6 +246,7 @@ export const SimulationPanel: React.FC<SimulationPanelProps> = ({
           ↺ 重置
         </SimulationButton>
         
+        {/* Round 184: Step button is optional - only render if onStep is provided */}
         {onStep && (
           <SimulationButton
             onClick={handleStep}
@@ -327,8 +361,10 @@ export const FullSimulationPanel: React.FC<FullSimulationPanelProps> = ({
     >
       {/* Header */}
       <div style={headerStyle}>
-        <span style={{ fontSize: '16px' }}>⚡</span>
-        <span style={titleStyle}>电路模拟</span>
+        <div className="flex items-center gap-2">
+          <span style={{ fontSize: '16px' }}>⚡</span>
+          <span style={titleStyle}>电路模拟</span>
+        </div>
         <StatusIndicator status={isRunning ? 'running' : 'idle'} />
       </div>
       
@@ -371,6 +407,7 @@ export const FullSimulationPanel: React.FC<FullSimulationPanelProps> = ({
           ↺ 重置
         </SimulationButton>
         
+        {/* Round 184: Step button is optional */}
         {onStep && (
           <SimulationButton
             onClick={onStep}

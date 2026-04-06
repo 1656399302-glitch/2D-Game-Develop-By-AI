@@ -2,6 +2,7 @@
  * SimulationPanel Component Tests
  * 
  * Round 121: Circuit Simulation Engine
+ * Round 184: Added keyboard shortcut input-focus guard test
  * 
  * Tests for SimulationPanel controls functionality.
  */
@@ -200,6 +201,70 @@ describe('SimulationPanel Step Button', () => {
 });
 
 // ============================================================================
+// Close Button Tests (Round 184)
+// ============================================================================
+
+describe('SimulationPanel Close Button', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders close button when onClose is provided', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    const mockClose = vi.fn();
+    
+    render(
+      <SimulationPanel
+        isRunning={false}
+        onRun={mockRun}
+        onReset={mockReset}
+        onClose={mockClose}
+      />
+    );
+    
+    const closeButton = screen.getByTestId('simulation-panel').querySelector('[data-testid="close-panel"]');
+    expect(closeButton).toBeInTheDocument();
+  });
+
+  it('calls onClose when close button is clicked', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    const mockClose = vi.fn();
+    
+    render(
+      <SimulationPanel
+        isRunning={false}
+        onRun={mockRun}
+        onReset={mockReset}
+        onClose={mockClose}
+      />
+    );
+    
+    const closeButton = screen.getByTestId('close-panel');
+    fireEvent.click(closeButton);
+    
+    expect(mockClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render close button when onClose is not provided', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    
+    render(
+      <SimulationPanel
+        isRunning={false}
+        onRun={mockRun}
+        onReset={mockReset}
+      />
+    );
+    
+    const closeButton = screen.getByTestId('simulation-panel').querySelector('[data-testid="close-panel"]');
+    expect(closeButton).toBeNull();
+  });
+});
+
+// ============================================================================
 // Run After Reset Tests
 // ============================================================================
 
@@ -322,6 +387,47 @@ describe('SimulationPanel Status', () => {
     
     const statusDot = screen.getByTestId('simulation-panel').querySelector('[data-status-dot]');
     expect(statusDot).toBeInTheDocument();
+  });
+
+  it('does not show completed status (Round 184 fix)', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    
+    render(<SimulationPanel isRunning={false} onRun={mockRun} onReset={mockReset} />);
+    
+    // Status should show 'idle', not 'completed'
+    const statusElement = screen.getByTestId('simulation-panel').querySelector('[data-status]');
+    expect(statusElement).toHaveAttribute('data-status', 'idle');
+    expect(statusElement).not.toHaveAttribute('data-status', 'completed');
+  });
+
+  it('shows running status correctly when isRunning is true', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    
+    render(<SimulationPanel isRunning={true} onRun={mockRun} onReset={mockReset} />);
+    
+    const statusElement = screen.getByTestId('simulation-panel').querySelector('[data-status]');
+    expect(statusElement).toHaveAttribute('data-status', 'running');
+  });
+});
+
+// ============================================================================
+// Keyboard Shortcuts Hint Tests (Round 184)
+// ============================================================================
+
+describe('SimulationPanel Keyboard Shortcuts Hint', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('displays keyboard shortcuts hint', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    
+    render(<SimulationPanel isRunning={false} onRun={mockRun} onReset={mockReset} />);
+    
+    expect(screen.getByText('快捷键: R = 运行, X = 重置')).toBeInTheDocument();
   });
 });
 
@@ -487,5 +593,49 @@ describe('SimulationPanel Repeat Clicks', () => {
     }
     
     expect(mockReset).toHaveBeenCalledTimes(5);
+  });
+});
+
+// ============================================================================
+// Input Focus Guard Tests (Round 184 - Issue D)
+// ============================================================================
+
+describe('SimulationPanel Input Focus Guard (Keyboard Shortcuts)', () => {
+  afterEach(() => {
+    cleanup();
+    // Reset document active element after each test
+    document.activeElement && (document.activeElement as HTMLElement).blur?.();
+  });
+
+  it('renders keyboard shortcuts hint with input-focus note', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    
+    render(<SimulationPanel isRunning={false} onRun={mockRun} onReset={mockReset} />);
+    
+    // Verify the shortcuts hint is displayed
+    expect(screen.getByText(/快捷键.*R.*运行.*X.*重置/)).toBeInTheDocument();
+  });
+
+  it('step count displays correctly with data-step-count attribute', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    
+    render(<SimulationPanel isRunning={false} onRun={mockRun} onReset={mockReset} stepCount={42} />);
+    
+    const stepCountElement = screen.getByTestId('simulation-panel').querySelector('[data-step-count]');
+    expect(stepCountElement).toBeInTheDocument();
+    expect(stepCountElement?.textContent).toBe('42');
+  });
+
+  it('step count shows 0 when not provided', () => {
+    const mockRun = vi.fn();
+    const mockReset = vi.fn();
+    
+    render(<SimulationPanel isRunning={false} onRun={mockRun} onReset={mockReset} />);
+    
+    const stepCountElement = screen.getByTestId('simulation-panel').querySelector('[data-step-count]');
+    expect(stepCountElement).toBeInTheDocument();
+    expect(stepCountElement?.textContent).toBe('0');
   });
 });

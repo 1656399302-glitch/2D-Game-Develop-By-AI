@@ -196,7 +196,7 @@ export interface CircuitConnection {
 /**
  * Simulation running state
  */
-export type SimulationStatus = 'idle' | 'running' | 'paused' | 'stopped';
+export type SimulationStatus = 'idle' | 'running' | 'paused' | 'completed';
 
 /**
  * Complete circuit simulation state

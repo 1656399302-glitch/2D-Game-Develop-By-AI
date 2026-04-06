@@ -218,7 +218,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
     set((prevState) => ({
       nodeSignals: result.finalSignals,
       stepCount: prevState.stepCount + 1,
-      status: 'completed',
+      status: 'stopped',
       isDirty: false,
     }));
   },
