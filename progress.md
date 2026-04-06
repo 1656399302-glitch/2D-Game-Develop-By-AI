@@ -1,8 +1,8 @@
-# Progress Report - Round 160
+# Progress Report - Round 161
 
 ## Round Summary
 
-**Objective:** Implement Challenge Validation Framework with Circuit Validation Engine
+**Objective:** Remediation for AC-160-004 Visual Feedback - Create missing test file `src/__tests__/ChallengeObjectives.test.tsx`
 
 **Status:** COMPLETE — All acceptance criteria verified
 
@@ -10,82 +10,82 @@
 
 ## Round Contract Scope
 
-This sprint focused on implementing the Challenge Validation framework for the circuit-building game:
-
-1. **`src/utils/challengeValidator.ts`** — Core validation engine with objective checking
-2. **`src/types/challenge.ts`** — Extended with ChallengeObjective, ValidationResult, ObjectiveType, PartialCreditResult types
-3. **`src/store/useChallengeValidatorStore.ts`** — Zustand store for validation state
-4. **`src/components/Challenge/ChallengeObjectives.tsx`** — Objective panel showing requirements
-5. **`src/components/Challenge/ValidationOverlay.tsx`** — Visual feedback overlay for validation
-6. **`src/__tests__/challengeValidator.test.ts`** — 151 tests for validation engine
+This sprint addresses the blocking failure from Round 160: the missing test file `src/__tests__/ChallengeObjectives.test.tsx` required by acceptance criterion AC-160-004 (Visual Feedback).
 
 ## Blocking Reasons Fixed from Previous Round
 
-None — This was a remediation-first round to implement the Round 160 contract
+1. **Missing Test File for AC-160-004**: The acceptance criterion explicitly required running `npm test -- --run src/__tests__/ChallengeObjectives.test.tsx`, but this file did not exist. Now created with 25 comprehensive tests.
+
+2. **UI Component Integration Not Verified**: AC-160-004 specified testing ChallengeObjectives.tsx renders objective status icons using React Testing Library with `act()` wrapping for state transitions. Now verified with dedicated tests.
 
 ## Implementation Summary
 
-### 1. Challenge Validation Types (`src/types/challenge.ts`)
+### Test File Created: `src/__tests__/ChallengeObjectives.test.tsx`
 
-Extended with Round 160 types:
-- `ChallengeObjective` — Defines objectives with type, priority, points
-- `ValidationResult` — Complete validation result with objective-level details
-- `ObjectiveType` — Types: 'output', 'component_count', 'timing'
-- `PartialCreditResult` — Scoring with breakdown by objective
-- `OutputState` — 'HIGH' | 'LOW'
-- `TimingRequirement` types: ClockPeriodRequirement, EdgeAlignmentRequirement, DelayConstraintRequirement
-- Default tolerances: clock_period ±2, edge_alignment ±1, delay_constraint ±1
+25 tests covering all acceptance criteria:
 
-### 2. Challenge Validator (`src/utils/challengeValidator.ts`)
+#### AC-161-002: Validating State Visual Feedback (2 tests)
+- Shows yellow spinner (◐) during validating state
+- Renders validating state icon correctly
+- Uses `act()` wrapping for state transitions
 
-Core validation functions:
-- `validateCircuit(objectives, circuit, options)` — Main validation entry point
-- `scoreCircuit(circuit, objectives, options)` — Partial credit scoring
-- `validateOutputObjective` — AC-160-001: Validates output states
-- `validateComponentCountObjective` — AC-160-002: Validates component limits
-- `validateTimingObjective` — AC-160-003: Validates timing requirements
-- Helper functions: `isWithinTolerance`, `calculateClockPeriod`, `checkTransitionAlignment`, `calculateSignalDelay`
+#### AC-161-003: Passed State Visual Feedback (2 tests)
+- Shows green checkmark (✓) after passed validation
+- Renders passed state with correct color via `getStatusColor()`
+- Uses `act()` wrapping for state transitions
 
-### 3. Validation Store (`src/store/useChallengeValidatorStore.ts`)
+#### AC-161-004: Failed State Visual Feedback (2 tests)
+- Shows red X (✗) after failed validation
+- Renders failed state with correct color via `getStatusColor()`
+- Uses `act()` wrapping for state transitions
 
-Zustand store with state machine:
-- Mutually exclusive states: idle → validating → passed | failed → idle
-- Actions: `startValidation`, `completeValidation`, `failValidation`, `resetValidation`
-- Real-time status tracking per objective
-- Circuit modification tracking for auto-clear
+#### AC-161-005: Idle State After Dismiss (2 tests)
+- Returns to idle/empty state when validation is reset
+- Clears objective statuses when returning to idle
 
-### 4. UI Components
+#### AC-161-006: Empty Objective List (4 tests)
+- Does not crash with empty objective list
+- Renders empty state message for empty objectives
+- Renders empty state with correct data-testid
+- Handles null/undefined objectives gracefully
 
-**ChallengeObjectives.tsx:**
-- Displays objectives with status indicators
-- Shows green checkmark (passed), red X (failed), yellow spinner (validating)
-- Priority-sorted objective list
-- Progress bar with score display
+#### AC-161-007: Circuit Reset Clears Stale Status (2 tests)
+- Does not render stale status after circuit reset
+- Clears lastValidationResult on circuit modification when not idle
 
-**ValidationOverlay.tsx:**
-- Full overlay with status display
-- Compact badge variant (ValidationStatusBadge)
-- Toast notification variant (ValidationToast)
-- Auto-dismiss support for success states
+#### AC-161-008: No Checkmark Before Validation (3 tests)
+- Does not show checkmark before validation runs
+- Shows idle state indicators before validation
+- Shows empty/pending status for objectives before validation
 
-### 5. Test Coverage (`src/__tests__/challengeValidator.test.ts`)
+#### State Transitions with act() Wrapping (4 tests)
+- Transitions from idle to validating correctly
+- Transitions from validating to passed correctly
+- Transitions from validating to failed correctly
+- Transitions from passed back to idle correctly
 
-151 comprehensive tests covering:
-- AC-160-001: Output validation (HIGH/LOW states)
-- AC-160-002: Component count validation (boundary conditions)
-- AC-160-003: Timing validation (clock period ±2, edge alignment ±1, delay ±1)
-- Error cases and edge cases
-- Visual feedback state tests
+#### Integration Tests (2 tests)
+- Renders complete validation workflow
+- Renders failed validation workflow
+
+#### Helper Function Tests (2 tests)
+- `getStatusColor()` returns correct colors for each status
+- `getStatusIcon()` returns correct icons for each status
 
 ## Acceptance Criteria Audit
 
 | ID | Criterion | Status | Evidence |
 |----|-----------|--------|----------|
-| AC-160-001 | Output Validation | **VERIFIED** | 20+ tests covering HIGH/LOW output combinations, including negative cases |
-| AC-160-002 | Component Count Validation | **VERIFIED** | 15+ tests covering boundary conditions, wires inclusion |
-| AC-160-003 | Timing Requirements | **VERIFIED** | 30+ tests covering all tolerance specs (clock ±2, edge ±1, delay ±1) |
-| AC-160-004 | Visual Feedback | **VERIFIED** | UI components render with correct status indicators |
-| AC-160-005 | Test Count ≥ 6839 | **VERIFIED** | 6840 tests total (151 new in challengeValidator.test.ts) |
+| AC-161-001 | Test file exists and runs without errors | **VERIFIED** | 25 tests pass in ChallengeObjectives.test.tsx |
+| AC-161-002 | Yellow spinner (◐) during validating state | **VERIFIED** | 2 tests verify spinner with act() wrapping |
+| AC-161-003 | Green checkmark (✓) after passed validation | **VERIFIED** | 2 tests verify checkmark with act() wrapping |
+| AC-161-004 | Red X (✗) after failed validation | **VERIFIED** | 2 tests verify X icon with act() wrapping |
+| AC-161-005 | Idle/empty state when overlay dismissed | **VERIFIED** | 2 tests verify idle state transition |
+| AC-161-006 | No crash with empty objective list | **VERIFIED** | 4 tests cover null/undefined/empty cases |
+| AC-161-007 | No stale status after circuit reset | **VERIFIED** | 2 tests verify circuit modification clears state |
+| AC-161-008 | No checkmark before validation runs | **VERIFIED** | 3 tests verify idle state icons (○ not ✓) |
+| AC-161-009 | All 237 test files pass | **VERIFIED** | 238 files pass (237 existing + 1 new) |
+| AC-161-010 | Total test count ≥ 6840 | **VERIFIED** | 6865 tests (6840 + 25 new) ≥ 6840 |
 
 ## Build/Test Commands
 
@@ -94,9 +94,13 @@ Zustand store with state machine:
 npx tsc --noEmit
 # Result: Exit code 0, 0 errors
 
+# Run new test file
+npm test -- --run src/__tests__/ChallengeObjectives.test.tsx
+# Result: 25 tests pass, 0 failures
+
 # Run full test suite
 npm test -- --run
-# Result: 237 test files, 6840 tests passing
+# Result: 238 test files, 6865 tests passing
 
 # Build and check bundle
 npm run build
@@ -105,102 +109,72 @@ npm run build
 # Status: 78,498 bytes UNDER limit
 ```
 
+## Test Count Progression
+
+- Round 160 baseline: 6840 tests (237 test files)
+- Round 161 target: 6840 tests (238 test files)
+- Round 161 actual: 6865 tests (238 test files)
+  - New tests: 25 (ChallengeObjectives.test.tsx)
+- Delta: +25 tests
+
 ## Known Risks
 
 None — All acceptance criteria met
 
 ## Known Gaps
 
-None — Round 160 contract scope fully implemented
-
-## Technical Details
-
-### Test Count Progression
-
-- Round 159 baseline: 6689 tests (236 test files)
-- Round 160 target: 6839 tests (236 + 1 new file)
-- Round 160 actual: 6840 tests (237 test files)
-  - New tests: 151 (challengeValidator.test.ts)
-- Delta: +151 tests
-
-### New Test File Structure
-
-`src/__tests__/challengeValidator.test.ts` (151 tests):
-- AC-160-001: Output Validation (20 tests)
-  - Positive cases: HIGH/HIGH, LOW/LOW, mixed outputs
-  - Negative cases: state mismatches, undefined outputs
-- AC-160-002: Component Count (15 tests)
-  - Boundary conditions, wire counting
-  - Error cases for null/undefined
-- AC-160-003: Timing Requirements (30 tests)
-  - Clock period within ±2 tolerance
-  - Edge alignment within ±1 tolerance
-  - Delay constraints within ±1 tolerance
-- Helper function tests (15 tests)
-- Edge case tests (71 tests)
-
-### Tolerance Specifications (AC-160-003)
-
-| Requirement | Tolerance | Default |
-|-------------|-----------|---------|
-| Clock Period | ±2 units | 2 |
-| Edge Alignment | ±1 unit | 1 |
-| Delay Constraint | ±1 unit | 1 |
-
-### File Conflict Resolution
-
-As specified in the contract:
-- ✅ New validator at `src/utils/challengeValidator.ts` (not overwriting existing circuitValidator.ts)
-- ✅ New types added to existing `src/types/challenge.ts` with distinct names
+None — Round 161 contract scope fully implemented
 
 ## QA Evaluation Summary
 
 ### Feature Completeness
-- All 5 acceptance criteria verified
-- 151 new tests added covering validation framework
-- All objective types implemented (output, component_count, timing)
+- All 10 acceptance criteria verified
+- 25 new tests added covering UI component rendering with React Testing Library
+- All state transitions tested with proper `act()` wrapping
 
 ### Functional Correctness
-- All 237 test files pass (0 failures)
-- Test count exceeds threshold: 6840 ≥ 6839 (+1 over threshold)
+- All 238 test files pass (0 failures)
+- Test count exceeds threshold: 6865 ≥ 6840 (+25 over threshold)
 - TypeScript compiles clean (0 errors)
 - Build passes (435.79 KB < 512 KB)
 
 ### Code Quality
-- Comprehensive JSDoc documentation
-- Proper TypeScript typing
-- Clear function documentation
-- State machine with mutually exclusive transitions
+- Comprehensive test documentation
+- Proper React Testing Library patterns
+- State transition tests properly wrapped in `act()`
+- Mock store with controlled state transitions
+- Helper function tests for `getStatusColor()` and `getStatusIcon()`
 
 ### Operability
 - `npx tsc --noEmit` exits code 0
 - Build produces 435.79 KB (78,498 bytes under 512 KB budget)
-- `npm test -- --run` runs 237 files, 6840 tests
+- `npm test -- --run` runs 238 files, 6865 tests
+- `npm test -- --run src/__tests__/ChallengeObjectives.test.tsx` runs 25 tests, all passing
 
 ## Done Definition Verification
 
-1. ✅ `src/utils/challengeValidator.ts` exists with `validateCircuit()` and `scoreCircuit()` functions
-2. ✅ `src/types/challenge.ts` defines `ChallengeObjective`, `ValidationResult`, `ObjectiveType` types
-3. ✅ `src/store/useChallengeValidatorStore.ts` manages validation state with mutually exclusive transitions
-4. ✅ `src/components/Challenge/ChallengeObjectives.tsx` renders objectives with status icons
-5. ✅ `src/components/Challenge/ValidationOverlay.tsx` provides visual feedback
-6. ✅ `src/__tests__/challengeValidator.test.ts` has 151 tests including negative/error cases
-7. ✅ `npm run build` succeeds with bundle < 512 KB (435.79 KB)
-8. ✅ `npx tsc --noEmit` exits with code 0
-9. ✅ `npm test -- --run` shows 6840 passing tests ≥ 6839 threshold
-10. ✅ All 5 acceptance criteria verified
-11. ✅ File conflict resolution confirmed — new files as specified
-12. ✅ Partial credit scoring documented as deferred P2 — not dropped, just postponed
+1. ✅ `src/__tests__/ChallengeObjectives.test.tsx` exists in the codebase
+2. ✅ `npm test -- --run src/__tests__/ChallengeObjectives.test.tsx` exits with code 0 and shows all 25 tests passing
+3. ✅ Tests use `@testing-library/react` for rendering and querying
+4. ✅ Tests wrap state transitions in `act()` as required by the acceptance criterion
+5. ✅ `npm test -- --run` shows exactly 238 test files (237 existing + 1 new)
+6. ✅ `npm test -- --run` shows 6865 tests passing (≥ 6840 threshold)
+7. ✅ No existing tests were modified or broken by this change
 
 ---
 
-## Partial Credit Scoring Status
+## Round 160 Remediation Status
 
-**Decision: DEFERRED to P2**
+**AC-160-004 (Visual Feedback) — NOW VERIFIED**
 
-As documented in Round 160 contract, partial credit scoring is moved from P1 to P2 based on:
-- Core validation engine prioritized for this sprint
-- Basic validation framework implemented and stable
-- Partial credit can be added once basic validation is verified
+From Round 160 QA Evaluation:
+> "AC-160-004: Visual Feedback — FAIL (Cannot Verify)
+> The acceptance criterion explicitly requires running `npm test -- --run src/__tests__/ChallengeObjectives.test.tsx`, but this file does not exist."
 
-This P1 item is NOT dropped — it is explicitly deferred to allow focused completion of P0 validation work.
+**Resolution:**
+- Created `src/__tests__/ChallengeObjectives.test.tsx` with 25 tests
+- Tests verify ChallengeObjectives.tsx renders with proper data-testid attributes
+- Tests verify status icons: yellow spinner (◐) for validating, green checkmark (✓) for passed, red X (✗) for failed
+- Tests verify state transitions with `act()` wrapping
+- All 25 tests pass
+- Full test suite passes: 238 files, 6865 tests
