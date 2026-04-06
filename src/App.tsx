@@ -120,6 +120,16 @@ const LazyCreateSubCircuitModal = lazy(() => import('./components/SubCircuit/Cre
   }>
 })));
 
+// Round 182: Lazy-loaded RecipePanel for bundle optimization
+const LazyRecipePanel = lazy(() => import('./components/Recipes/RecipePanel').then((module) => ({
+  default: module.RecipePanel as unknown as React.ComponentType<{
+    recipes: any[];
+    isUnlockedMap: Record<string, boolean>;
+    unlockedAtMap: Record<string, number | undefined>;
+    onClose?: () => void;
+  }>
+})));
+
 type ViewMode = 'editor' | 'codex';
 
 // Round 147: CSS animations moved to external file src/styles/circuit-animations.css
@@ -242,6 +252,9 @@ function AppContent() {
   const [showRandomGenerator, setShowRandomGenerator] = useState(false);
   
   const [showRecipeBook, setShowRecipeBook] = useState(false);
+  // Round 182: RecipePanel state
+  const [showRecipes, setShowRecipes] = useState(false);
+  
   // Template system state - Round 67
   const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
@@ -320,6 +333,9 @@ function AppContent() {
   useEffect(() => {
     checkTutorialUnlockRef.current = useRecipeStore.getState().checkTutorialUnlock;
   }, []);
+  
+  // Round 182: Get recipe data from store for RecipePanel
+  const recipeStoreState = useRecipeStore.getState();
   
   // Round 175/177: Circuit Challenge Panel visibility from store
   const isCircuitChallengePanelOpen = useCircuitChallengeStore((state) => state.isPanelOpen);
@@ -741,13 +757,24 @@ function AppContent() {
               
               <ExchangeButton onClick={() => setShowExchange(true)} />
               
+              {/* Round 182: RecipePanel navigation button */}
+              <button
+                onClick={() => setShowRecipes(true)}
+                className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a855f7] hover:text-white border border-[#1e2a42] hover:border-[#a855f7]/30 transition-colors flex items-center gap-2"
+                aria-label="打开配方面板"
+                data-testid="nav-recipes"
+              >
+                <span>📋</span>
+                <span>配方</span>
+              </button>
+              
               <button
                 onClick={() => setShowRecipeBrowser(true)}
                 className="px-3 py-2 rounded-lg text-sm bg-[#121826] text-[#a855f7] hover:text-white border border-[#1e2a42] hover:border-[#a855f7]/30 transition-colors flex items-center gap-2"
                 aria-label="打开配方图鉴"
               >
                 <span>📜</span>
-                <span>配方</span>
+                <span>浏览</span>
               </button>
               
               <button
@@ -925,6 +952,22 @@ function AppContent() {
         {showRecipeBook && (
           <Suspense fallback={<LazyLoadingFallback height="80vh" variant="modal" />}>
             <LazyRecipeBook onClose={() => setShowRecipeBook(false)} />
+          </Suspense>
+        )}
+        
+        {/* Round 182: RecipePanel - sidebar panel with filtering and statistics */}
+        {showRecipes && (
+          <Suspense fallback={<LazyLoadingFallback height="100%" variant="panel" />}>
+            <LazyRecipePanel
+              recipes={recipeStoreState.getUnlockedRecipes().concat(recipeStoreState.getLockedRecipes())}
+              isUnlockedMap={Object.fromEntries(
+                recipeStoreState.unlockedRecipes.map(r => [r.recipeId, true])
+              )}
+              unlockedAtMap={Object.fromEntries(
+                recipeStoreState.unlockedRecipes.map(r => [r.recipeId, r.unlockedAt])
+              )}
+              onClose={() => setShowRecipes(false)}
+            />
           </Suspense>
         )}
         
