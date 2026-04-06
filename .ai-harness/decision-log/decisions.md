@@ -1419,3 +1419,9 @@
 ## Round 175 Contract
 - Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
 
+## Round 175 Release Gate
+- Rationale: Round failed release gates and must continue as a remediation round.
+
+## Round 176 Contract
+- Rationale: Sprint contract negotiated before implementation. Coding is gated behind a reviewed contract.
+

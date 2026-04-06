@@ -8,6 +8,7 @@ import { useCircuitCanvasStore } from '../../store/useCircuitCanvasStore';
 import { CollectionStatsPanel } from '../Stats/CollectionStatsPanel';
 import { CircuitSignalVisualizer } from '../Circuit/CircuitSignalVisualizer';
 import { BackupButton } from '../Backup/BackupButton';
+import { CircuitChallengeToolbarButton } from '../Circuit/CircuitChallengePanel';
 import { 
   autoArrange, 
   autoArrangeCircular, 
@@ -582,6 +583,10 @@ export function Toolbar({
                   <span aria-hidden="true">📊</span>
                   <span>波形图</span>
                 </button>
+
+                {/* Round 176: Circuit Challenge Toolbar Button */}
+                <div className="w-px h-4 bg-[#1e2a42] mx-1" aria-hidden="true" />
+                <CircuitChallengeToolbarButton />
               </div>
             )}
           </div>
