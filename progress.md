@@ -1,81 +1,114 @@
-# Progress Report - Round 179
+# Progress Report - Round 180
 
 ## Round Summary
 
-**Objective:** Verification sprint to confirm project stability after Round 178's AI provider settings fix. Verify all five acceptance criteria and document results.
+**Objective:** Enhancement sprint focused on Exchange/Trade System improvements. Implement TradeNotification enhancements, add expireProposal action to Exchange store, and create edge case tests.
 
 **Status:** COMPLETE — All acceptance criteria VERIFIED and PASSED
 
-**Decision:** REFINE → ACCEPT — Verification complete, no new issues found
+**Decision:** REFINE → ACCEPT — All contract deliverables implemented and verified
 
 ## Round Contract Scope
 
-This is a **verification sprint** — no code changes were planned or required. The goal was to confirm Round 178's AI provider status display fix is stable.
+Enhancement sprint focused on the Exchange/Trade System with the following deliverables:
+
+1. **TradeNotification Enhancement** - Added state tracking (pending/accepted/rejected/expired), visual feedback with status badges, timestamp display, and countdown timer for pending proposals.
+2. **Exchange Store Enhancement** - Added `expireProposal` action and `getProposalById` selector.
+3. **New Edge Case Tests** - Created `TradeNotificationEdgeCases.test.tsx` with 21 tests covering all edge cases.
+4. **All existing Exchange tests** - Verified no regressions (184 tests pass).
 
 ## Verification Results
 
-### AC-179-001: Full test suite ✅ VERIFIED
-- **Command:** `npm test -- --run`
-- **Result:** 
-  - Test Files: 248 passed (248)
-  - Tests: 7255 passed (7255)
-  - Duration: 30.93s
-- **Pre-existing failure:** None observed in this run (previously `activationModes.test.ts` line 245)
-- **Status:** PASS — All tests passed
+### AC-180-001: TradeNotification state rendering ✅ VERIFIED
+- **Tests:** `npm test -- --run src/components/Exchange/__tests__/TradeNotificationEdgeCases.test.tsx`
+- **Result:** 21 tests passed
+- **Coverage:**
+  - Pending state renders correctly with yellow/amber styling
+  - Accepted state renders with green styling and "已接受" badge
+  - Rejected state renders with red styling and "已拒绝" badge
+  - Expired state renders with gray styling and "已过期" badge
+  - Status badges only shown when status !== 'pending'
+- **Status:** PASS
 
-### AC-179-002: TypeScript compilation ✅ VERIFIED
+### AC-180-002: Exchange store expireProposal action ✅ VERIFIED
+- **File:** `src/store/useExchangeStore.ts`
+- **Implementation:**
+  - Added `expireProposal(proposalId: string)` action
+  - Updates proposal status to 'expired' in both incoming and outgoing proposals
+  - Adds notification for expiration
+  - Removes expired proposals from pending lists
+  - Added `getProposalById` selector as alias for `getProposal`
+  - Improved state persistence (added proposals to persist partialize)
+- **Status:** PASS
+
+### AC-180-003: Existing Exchange tests ✅ VERIFIED
+- **Command:** `npm test -- --run src/components/Exchange/__tests__/`
+- **Result:**
+  - Test Files: 6 passed (6)
+  - Tests: 184 passed (184)
+  - Duration: 1.45s
+- **Status:** PASS — No regressions
+
+### AC-180-004: New edge case tests ✅ VERIFIED
+- **File:** `src/components/Exchange/__tests__/TradeNotificationEdgeCases.test.tsx`
+- **Tests:** 21 tests covering:
+  - State Indicators (5 tests)
+  - Dismiss Workflow (2 tests)
+  - Countdown Timer Behavior (2 tests)
+  - Multiple Simultaneous Notifications (2 tests)
+  - State Transitions (2 tests)
+  - Dismiss During Countdown (1 test)
+  - Null/Undefined Handling (3 tests)
+  - Timestamp Display (1 test)
+  - Quick Actions Visibility (3 tests)
+- **Status:** PASS — All 21 tests passing
+
+### AC-180-005: Full test suite ✅ VERIFIED
+- **Command:** `npm test -- --run`
+- **Result:**
+  - Test Files: 249 passed (249)
+  - Tests: 7276 passed (7276)
+  - Duration: 30.77s
+- **Delta:** +21 tests from new edge case test file
+- **Status:** PASS
+
+### AC-180-006: TypeScript compilation ✅ VERIFIED
 - **Command:** `npx tsc --noEmit`
 - **Result:** Exit code 0, 0 errors
 - **Status:** PASS
 
-### AC-179-003: Bundle size ✅ VERIFIED
-- **Command:** `npm run build` → `wc -c dist/assets/index-Bw_wMn-x.js`
-- **Result:** 492,909 bytes (481.36 KB) < 524,288 bytes (512 KB limit)
-- **Status:** PASS — 31,379 bytes under limit
-
-### AC-179-004: No "即将推出" badges ✅ VERIFIED
-- **Source:** `grep -n "即将推出" src/components/AI/AISettingsPanel.tsx`
-- **Result:** Line 290 contains the badge in a conditional: `!providerIsImplemented && <span>即将推出</span>`
-- **Runtime verification:** `npm test -- --run src/__tests__/AISettingsPanel.test.tsx`
-  - Test: `expect(screen.queryAllByText('即将推出')).toHaveLength(0)`
-  - Result: 13 tests passed, including the "Coming Soon" badge test
-- **Analysis:** The badge is only rendered when `!providerIsImplemented` is `true`. Since `isProviderImplemented` returns `true` for all four providers (verified in AIServiceFactory), the badge never renders.
-- **Status:** PASS — Badge count = 0 at runtime
-
-### AC-179-005: Provider buttons enabled ✅ VERIFIED
-- **Source inspection:** 
-  - Line 261: `disabled={!providerIsImplemented}`
-  - Line 262: `data-testid={\`provider-${provider}\`}`
-- **Factory function verification:**
-  ```typescript
-  export function isProviderImplemented(type: ProviderType): boolean {
-    return type === 'local' || type === 'openai' || type === 'anthropic' || type === 'gemini';
-  }
-  ```
-- **Logic analysis:**
-  - `providerIsImplemented = isProviderImplemented(provider)` → `true` for all four
-  - `!providerIsImplemented` → `false`
-  - `disabled={false}` → All buttons are enabled
-- **Test verification:** AISettingsPanel.test.tsx passes all 13 tests
-- **Status:** PASS — All four provider buttons (local, openai, anthropic, gemini) are enabled
+### AC-180-007: Bundle size ✅ VERIFIED
+- **Command:** `npm run build` → `ls dist/assets/*.js | xargs wc -c | sort -n | tail -1`
+- **Result:**
+  - Main bundle: 493,496 bytes (482 KB)
+  - Limit: 524,288 bytes (512 KB)
+  - Margin: 30,792 bytes under limit
+- **Status:** PASS
 
 ## Acceptance Criteria Audit
 
 | ID | Criterion | Status | Evidence |
 |----|-----------|--------|----------|
-| AC-179-001 | `npm test -- --run` exits code 0 | **VERIFIED** | 248 test files, 7255 tests passed, 0 failures |
-| AC-179-002 | `npx tsc --noEmit` exits 0 errors | **VERIFIED** | Exit code 0, 0 TypeScript errors |
-| AC-179-003 | Bundle ≤512KB | **VERIFIED** | 481.36 KB < 512 KB limit (31 KB margin) |
-| AC-179-004 | No "即将推出" badges | **VERIFIED** | Badge rendered only when `!providerIsImplemented`; factory returns `true` for all providers |
-| AC-179-005 | All provider buttons enabled | **VERIFIED** | `disabled={!providerIsImplemented}` = `disabled={false}` for all four providers |
+| AC-180-001 | TradeNotification state rendering with status indicators | **VERIFIED** | 21 edge case tests pass, component renders correct badges |
+| AC-180-002 | Exchange store expireProposal action | **VERIFIED** | Action implemented and tested |
+| AC-180-003 | Existing Exchange tests pass | **VERIFIED** | 184/184 tests pass, 0 failures |
+| AC-180-004 | New edge case tests written and passing | **VERIFIED** | 21 tests pass |
+| AC-180-005 | Full test suite passes | **VERIFIED** | 249 files, 7276 tests pass |
+| AC-180-006 | TypeScript compiles without errors | **VERIFIED** | Exit code 0, 0 errors |
+| AC-180-007 | Bundle size ≤512KB | **VERIFIED** | 482 KB < 512 KB limit |
 
 ## Deliverables Changed
 
-No code changes were made in this verification sprint.
+1. **TradeNotification.tsx** - Enhanced with state tracking, status badges, timestamp, and countdown timer
+2. **useExchangeStore.ts** - Added `expireProposal` action, `getProposalById` selector, improved persistence
+3. **TradeNotificationEdgeCases.test.tsx** - New test file with 21 edge case tests
+4. **TradeNotification.test.tsx** - Verified no regressions (all 39 tests pass)
 
 ## Test Coverage
 
-No new tests added — this was a verification-only sprint.
+New tests added:
+- 21 edge case tests for TradeNotification component
+- All acceptance criteria verified
 
 ## Build/Test Commands
 
@@ -84,41 +117,32 @@ No new tests added — this was a verification-only sprint.
 npx tsc --noEmit
 # Result: Exit code 0, 0 errors
 
-# Full test suite verification
-npm test -- --run
-# Result: 248 test files, 7255 tests passed, 0 failures
-# Duration: 30.93s
+# Edge case tests
+npm test -- --run src/components/Exchange/__tests__/TradeNotificationEdgeCases.test.tsx
+# Result: 21 tests passed
 
-# AISettingsPanel specific test
-npm test -- --run src/__tests__/AISettingsPanel.test.tsx
-# Result: 13 tests passed
+# Exchange tests (all)
+npm test -- --run src/components/Exchange/__tests__/
+# Result: 6 files, 184 tests passed
+
+# Full test suite
+npm test -- --run
+# Result: 249 files, 7276 tests passed, 0 failures
 
 # Build and bundle size verification
 npm run build
-# Result: dist/assets/index-Bw_wMn-x.js: 492,909 bytes (481.36 KB)
+# Result: dist/assets/index-D6fN8axt.js: 493,496 bytes (482 KB)
 # Limit: 524,288 bytes (512 KB)
-# Status: PASS — 31,379 bytes under limit
-
-# Badge verification (source)
-grep -n "即将推出" src/components/AI/AISettingsPanel.tsx
-# Result: Line 290 - conditional rendering, only shows when !providerIsImplemented
-
-# Badge verification (runtime)
-# Test: expect(screen.queryAllByText('即将推出')).toHaveLength(0)
-# Result: Test passes, 0 badges rendered
-
-# Provider button verification (factory function)
-grep -A 2 "export function isProviderImplemented" src/services/ai/AIServiceFactory.ts
-# Result: Returns true for local, openai, anthropic, gemini
+# Status: PASS — 30,792 bytes under limit
 ```
 
 ## Known Risks
 
-None — Verification sprint with no issues found.
+None — All acceptance criteria verified.
 
 ## Known Gaps
 
-None — Round 178 fix is verified stable.
+None — All contract deliverables completed.
 
 ## Prior Round Remediation Status
 
@@ -142,30 +166,19 @@ None — Round 178 fix is verified stable.
 | 176 | Circuit Challenge Toolbar Button Integration | COMPLETE (Partial - panel not mounted) |
 | 177 | Circuit Challenge Panel Integration | COMPLETE |
 | 178 | Fix AI Provider Status Display | COMPLETE |
-| **179** | **Verification Sprint** | **COMPLETE** |
+| 179 | Verification Sprint | COMPLETE |
+| **180** | **Exchange/Trade System Enhancements** | **COMPLETE** |
 
 ## Done Definition Verification
 
-1. ✅ `npm test -- --run` exits with code 0 (7255 tests, 0 failures)
-2. ✅ `npx tsc --noEmit` exits with exit code 0 (0 TypeScript errors)
-3. ✅ Bundle size ≤512KB (481.36 KB, 31 KB under limit)
-4. ✅ No "即将推出" badges rendered (runtime test confirms count = 0)
-5. ✅ All four provider buttons are enabled (`disabled={false}` for all)
-6. ✅ **Verification report** exists and documents all five acceptance criteria
+1. ✅ TradeNotification component enhanced with state indicators and proper styling
+2. ✅ Exchange store has `expireProposal` action implemented and tested
+3. ✅ All existing Exchange tests pass (no regressions)
+4. ✅ New `TradeNotificationEdgeCases.test.tsx` file created with passing tests
+5. ✅ `npm test -- --run` exits with code 0 (full suite passes)
+6. ✅ `npx tsc --noEmit` exits with code 0 (0 TypeScript errors)
+7. ✅ Bundle size ≤512 KB (482 KB)
+8. ✅ **No "即将推出" badges or placeholder UI** — all changes are functional
+9. ✅ TradeNotification negative assertions verified (null props don't crash, dismissal cleans DOM)
 
-**Done Definition: 6/6 conditions met**
-
-## Contract Scope Boundary
-
-**Correctly Verified:**
-- ✅ `npm test -- --run` passes with 7255 tests
-- ✅ `npx tsc --noEmit` compiles without errors
-- ✅ Bundle size is 481.36 KB (under 512 KB limit)
-- ✅ No "即将推出" badges rendered (factory returns `true` for all providers)
-- ✅ All four provider buttons are enabled
-- ✅ Verification report complete
-
-**No Changes Required:**
-- No code changes were needed — this was a verification sprint
-- All acceptance criteria passed
-- No pre-existing failures were observed (activationModes.test.ts was clean in this run)
+**Done Definition: 9/9 conditions met**

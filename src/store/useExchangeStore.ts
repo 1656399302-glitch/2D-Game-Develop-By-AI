@@ -63,7 +63,9 @@ interface ExchangeStore {
   createProposal: (proposerMachineId: string, targetMachine: CommunityMachine) => TradeProposal | null;
   acceptProposal: (proposalId: string) => boolean;
   rejectProposal: (proposalId: string) => void;
+  expireProposal: (proposalId: string) => void;
   getProposal: (proposalId: string) => TradeProposal | undefined;
+  getProposalById: (proposalId: string) => TradeProposal | undefined;
   getMyPendingProposals: () => TradeProposal[];
   getIncomingPendingProposals: () => TradeProposal[];
 
@@ -235,12 +237,50 @@ export const useExchangeStore = create<ExchangeStore>()(
         }
       },
 
-      // Get a specific proposal
+      // Expire a trade proposal (marks as expired and removes from pending lists)
+      expireProposal: (proposalId: string) => {
+        const proposal = get().incomingProposals.find((p) => p.id === proposalId);
+        
+        // Update proposal status to expired (if it exists and is pending)
+        set((state) => ({
+          incomingProposals: state.incomingProposals.map((p) =>
+            p.id === proposalId && p.status === 'pending'
+              ? { ...p, status: 'expired' as const, respondedAt: Date.now() }
+              : p
+          ),
+        }));
+
+        // Also update outgoing proposals if applicable
+        set((state) => ({
+          outgoingProposals: state.outgoingProposals.map((p) =>
+            p.id === proposalId && p.status === 'pending'
+              ? { ...p, status: 'expired' as const, respondedAt: Date.now() }
+              : p
+          ),
+        }));
+
+        // Add notification for expiration
+        if (proposal) {
+          get().addNotification({
+            proposalId,
+            message: `${proposal.targetMachine.attributes.name} 的交易请求已过期`,
+            type: 'rejected',
+            read: false,
+          });
+        }
+      },
+
+      // Get a specific proposal (searches both incoming and outgoing)
       getProposal: (proposalId: string) => {
         return (
           get().incomingProposals.find((p) => p.id === proposalId) ||
           get().outgoingProposals.find((p) => p.id === proposalId)
         );
+      },
+
+      // Get a specific proposal by ID (alias for getProposal for clarity)
+      getProposalById: (proposalId: string) => {
+        return get().getProposal(proposalId);
       },
 
       // Get user's pending outgoing proposals
@@ -402,6 +442,8 @@ export const useExchangeStore = create<ExchangeStore>()(
         listings: state.listings,
         tradeHistory: state.tradeHistory,
         notifications: state.notifications,
+        incomingProposals: state.incomingProposals,
+        outgoingProposals: state.outgoingProposals,
       }),
       // Skip automatic hydration to prevent cascading state updates
       skipHydration: true,
