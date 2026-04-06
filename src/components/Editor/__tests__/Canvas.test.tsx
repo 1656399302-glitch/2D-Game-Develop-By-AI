@@ -4,12 +4,25 @@
  * Comprehensive test coverage for Canvas component.
  * Tests cover: module rendering, pan/zoom, selection, grid, connection points,
  * touch handling, performance with large module counts.
+ * 
+ * Round 164 Fix: All render() calls and state-mutating operations wrapped in act()
+ * for proper React 18 async rendering handling. Added flushUpdates() helper with
+ * proper fake timer handling.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
+
+// Helper to flush React 18 concurrent updates after act()
+// Works with vi.useFakeTimers() by advancing timers
+const flushUpdates = () => {
+  return act(async () => {
+    // Advance any pending timers
+    vi.advanceTimersByTime(0);
+  });
+};
 
 // Complete GSAP mock with all used functions
 vi.mock('gsap', () => {
@@ -200,47 +213,58 @@ describe('Canvas', () => {
     cleanup();
   });
 
+  // Helper function for rendering with proper React 18 async handling
+  const renderCanvas = async () => {
+    let result: ReturnType<typeof render>;
+    await act(async () => {
+      result = render(<Canvas />);
+      // Advance timers to flush any pending effects
+      vi.advanceTimersByTime(0);
+    });
+    return result!;
+  };
+
   // =========================================================================
   // Render Tests
   // =========================================================================
   describe('Render', () => {
-    it('should render Canvas with SVG viewport', () => {
-      render(<Canvas />);
+    it('should render Canvas with SVG viewport', async () => {
+      await renderCanvas();
       
       const svg = screen.getByRole('application');
       expect(svg).toBeInTheDocument();
       expect(svg.tagName).toBe('DIV');
     });
 
-    it('should render SVG element inside canvas container', () => {
-      render(<Canvas />);
+    it('should render SVG element inside canvas container', async () => {
+      await renderCanvas();
       
       const svgElements = document.querySelectorAll('svg');
       expect(svgElements.length).toBeGreaterThan(0);
     });
 
-    it('should render grid pattern when gridEnabled is true', () => {
-      render(<Canvas />);
+    it('should render grid pattern when gridEnabled is true', async () => {
+      await renderCanvas();
       
       const patterns = document.querySelectorAll('pattern');
       expect(patterns.length).toBeGreaterThan(0);
     });
 
-    it('should render empty state message when no modules', () => {
-      render(<Canvas />);
+    it('should render empty state message when no modules', async () => {
+      await renderCanvas();
       
       expect(screen.getByText('开始构建你的魔法机器')).toBeInTheDocument();
     });
 
-    it('should render viewport info indicator', () => {
-      render(<Canvas />);
+    it('should render viewport info indicator', async () => {
+      await renderCanvas();
       
       expect(screen.getByTestId('viewport-info')).toBeInTheDocument();
       expect(screen.getByTestId('viewport-info')).toContainHTML('100%');
     });
 
-    it('should render layers panel toggle button', () => {
-      render(<Canvas />);
+    it('should render layers panel toggle button', async () => {
+      await renderCanvas();
       
       expect(screen.getByTestId('toggle-layers-panel')).toBeInTheDocument();
     });
@@ -250,7 +274,7 @@ describe('Canvas', () => {
   // Module Rendering Tests
   // =========================================================================
   describe('Module Rendering', () => {
-    it('should not render empty state when modules exist', () => {
+    it('should not render empty state when modules exist', async () => {
       mockUseMachineStore.mockImplementation((selector?: (state: any) => unknown) => {
         const state = {
           modules: mockModules,
@@ -280,7 +304,7 @@ describe('Canvas', () => {
         return state;
       });
 
-      render(<Canvas />);
+      await renderCanvas();
       
       expect(screen.queryByText('开始构建你的魔法机器')).not.toBeInTheDocument();
     });
@@ -315,10 +339,15 @@ describe('Canvas', () => {
         return state;
       });
 
-      expect(() => render(<Canvas />)).not.toThrow();
+      let result: ReturnType<typeof render>;
+      act(() => {
+        result = render(<Canvas />);
+        vi.advanceTimersByTime(0);
+      });
+      expect(result).toBeDefined();
     });
 
-    it('should render module count in viewport info when modules exist', () => {
+    it('should render module count in viewport info when modules exist', async () => {
       mockUseMachineStore.mockImplementation((selector?: (state: any) => unknown) => {
         const state = {
           modules: mockModules,
@@ -348,7 +377,7 @@ describe('Canvas', () => {
         return state;
       });
 
-      render(<Canvas />);
+      await renderCanvas();
       
       // When modules exist, viewport info should show module count
       const viewportInfo = screen.getByTestId('viewport-info');
@@ -360,14 +389,14 @@ describe('Canvas', () => {
   // Grid Tests
   // =========================================================================
   describe('Grid', () => {
-    it('should show grid indicator in viewport info when gridEnabled', () => {
-      render(<Canvas />);
+    it('should show grid indicator in viewport info when gridEnabled', async () => {
+      await renderCanvas();
       
       // Viewport info should show grid icon when enabled
       expect(screen.getByTestId('viewport-info')).toContainHTML('📐');
     });
 
-    it('should not show grid icon in viewport info when grid disabled', () => {
+    it('should not show grid icon in viewport info when grid disabled', async () => {
       mockUseMachineStore.mockImplementation((selector?: (state: any) => unknown) => {
         const state = {
           modules: [],
@@ -397,7 +426,7 @@ describe('Canvas', () => {
         return state;
       });
 
-      render(<Canvas />);
+      await renderCanvas();
       
       // Grid icon should not be present
       expect(screen.getByTestId('viewport-info')).not.toContainHTML('📐');
@@ -408,7 +437,7 @@ describe('Canvas', () => {
   // Selection Tests
   // =========================================================================
   describe('Selection', () => {
-    it('should show multi-select indicator when multiple modules selected and modules exist', () => {
+    it('should show multi-select indicator when multiple modules selected and modules exist', async () => {
       mockUseMachineStore.mockImplementation((selector?: (state: any) => unknown) => {
         const state = {
           modules: mockModules,
@@ -449,7 +478,7 @@ describe('Canvas', () => {
         return state;
       });
 
-      render(<Canvas />);
+      await renderCanvas();
       
       // Multi-select indicator should be visible - the exact text includes count
       const container = document.querySelector('[class*="bottom-4"][class*="right-4"]');
@@ -461,7 +490,7 @@ describe('Canvas', () => {
   // Machine State Tests
   // =========================================================================
   describe('Machine State', () => {
-    it('should show activation zoom indicator when zooming', () => {
+    it('should show activation zoom indicator when zooming', async () => {
       mockUseMachineStore.mockImplementation((selector?: (state: any) => unknown) => {
         const state = {
           modules: mockModules,
@@ -497,13 +526,13 @@ describe('Canvas', () => {
         return state;
       });
 
-      render(<Canvas />);
+      await renderCanvas();
       
       expect(screen.getByText('聚焦机器...')).toBeInTheDocument();
     });
 
-    it('should not show activation zoom indicator when not zooming', () => {
-      render(<Canvas />);
+    it('should not show activation zoom indicator when not zooming', async () => {
+      await renderCanvas();
       
       expect(screen.queryByText('聚焦机器...')).not.toBeInTheDocument();
     });
@@ -513,13 +542,16 @@ describe('Canvas', () => {
   // Layers Panel Tests
   // =========================================================================
   describe('Layers Panel', () => {
-    it('should toggle layers panel visibility on button click', () => {
-      render(<Canvas />);
+    it('should toggle layers panel visibility on button click', async () => {
+      await renderCanvas();
       
       const toggleButton = screen.getByTestId('toggle-layers-panel');
       
-      // Click to open
-      fireEvent.click(toggleButton);
+      // Click to open - wrapped in act() for React 18 state updates
+      await act(async () => {
+        fireEvent.click(toggleButton);
+        vi.advanceTimersByTime(0);
+      });
       
       expect(screen.getByTestId('toggle-layers-panel')).toHaveClass('bg-[#3b82f6]');
     });
@@ -576,7 +608,7 @@ describe('Canvas', () => {
 
       const startTime = performance.now();
       
-      render(<Canvas />);
+      await renderCanvas();
       
       const endTime = performance.now();
       const renderTime = endTime - startTime;
@@ -615,7 +647,12 @@ describe('Canvas', () => {
         return state;
       });
 
-      expect(() => render(<Canvas />)).not.toThrow();
+      let result: ReturnType<typeof render>;
+      act(() => {
+        result = render(<Canvas />);
+        vi.advanceTimersByTime(0);
+      });
+      expect(result).toBeDefined();
     });
   });
 
@@ -623,7 +660,7 @@ describe('Canvas', () => {
   // Viewport Info Tests
   // =========================================================================
   describe('Viewport Info', () => {
-    it('should display zoom percentage in viewport info', () => {
+    it('should display zoom percentage in viewport info', async () => {
       mockUseMachineStore.mockImplementation((selector?: (state: any) => unknown) => {
         const state = {
           modules: [],
@@ -653,19 +690,19 @@ describe('Canvas', () => {
         return state;
       });
 
-      render(<Canvas />);
+      await renderCanvas();
       
       expect(screen.getByTestId('viewport-info')).toContainHTML('150%');
     });
 
-    it('should show grid icon when grid is enabled', () => {
-      render(<Canvas />);
+    it('should show grid icon when grid is enabled', async () => {
+      await renderCanvas();
       
       expect(screen.getByTestId('viewport-info')).toContainHTML('📐');
     });
 
-    it('should render viewport info without error', () => {
-      render(<Canvas />);
+    it('should render viewport info without error', async () => {
+      await renderCanvas();
       
       // The viewport info should render without error
       expect(screen.getByTestId('viewport-info')).toBeInTheDocument();

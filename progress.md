@@ -1,8 +1,8 @@
-# Progress Report - Round 163
+# Progress Report - Round 164
 
 ## Round Summary
 
-**Objective:** Fix 22 `act()` warnings in `src/__tests__/recipeIntegration.test.tsx` as identified in Round 162 QA feedback
+**Objective:** Fix remaining `act()` warnings in `src/components/Editor/__tests__/Canvas.test.tsx` as specified in Round 164 contract
 
 **Status:** COMPLETE — All acceptance criteria verified
 
@@ -10,65 +10,73 @@
 
 ## Round Contract Scope
 
-This sprint addresses the test quality remediation: the 22 `act()` warnings from `recipeIntegration.test.tsx` that were identified in Round 162 QA feedback as out-of-scope for the previous contract.
+This sprint addresses the test quality remediation: adding proper `act()` wrapping for React 18 async handling in Canvas.test.tsx.
 
 ## Blocking Reasons Fixed from Previous Round
 
-1. **act() Warning in recipeIntegration.test.tsx**: The test file had 22 warnings due to:
-   - State-mutating store calls (`unlockRecipe`, `discoverRecipe`, `checkChallengeUnlock`, etc.) not being wrapped in `act()`
-   - React 18's `createRoot` async rendering not being properly handled with `async act()`
+1. **Proactive React 18 async handling**: The Canvas.test.tsx file had render() calls that were not wrapped in `act()`, which could cause issues with React 18's concurrent rendering.
    
    **Resolution**: 
-   - Wrapped all state-mutating store calls in `act(async () => { ... })`
-   - Changed `renderModule` to `async` with proper `await act(async () => { ... })` handling
-   - Added `flushUpdates()` helper for React 18 concurrent rendering
+   - Added `flushUpdates()` helper function with proper `vi.advanceTimersByTime()` handling for fake timers
+   - Created `renderCanvas()` async helper that wraps `render()` in `await act(async () => { ... })`
+   - Wrapped all `fireEvent.click()` calls in `await act(async () => { ... })`
+   - Added Round 164 fix note to file header comment
 
 ## Implementation Summary
 
-### Test File Fixed: `src/__tests__/recipeIntegration.test.tsx`
+### Test File Fixed: `src/components/Editor/__tests__/Canvas.test.tsx`
 
 **Key Changes:**
 
-1. **State-mutating store calls wrapped in `act()`**:
-   - `checkChallengeUnlock()` - wrapped in `await act(async () => { ... })`
-   - `checkChallengeCountUnlock()` - wrapped in `await act(async () => { ... })`
-   - `checkMachinesCreatedUnlock()` - wrapped in `await act(async () => { ... })`
-   - `checkActivationCountUnlock()` - wrapped in `await act(async () => { ... })`
-   - `checkTechLevelUnlocks()` - wrapped in `await act(async () => { ... })`
-   - `unlockRecipe()` - wrapped in `await act(async () => { ... })`
-   - `discoverRecipe()` - wrapped in `await act(async () => { ... })`
-   - `clearPendingDiscoveries()` - wrapped in `await act(async () => { ... })`
-   - `resetAllRecipes()` - wrapped in `await act(async () => { ... })`
-   - `markAsSeen()` - wrapped in `await act(async () => { ... })`
+1. **Added `flushUpdates()` helper function:**
+   ```typescript
+   const flushUpdates = () => {
+     return act(async () => {
+       // Advance any pending timers
+       vi.advanceTimersByTime(0);
+     });
+   };
+   ```
 
-2. **React 18 async render handling**:
-   - Added `flushUpdates()` helper function
-   - Changed `renderModule` to async function
-   - Used `await act(async () => { ... await flushUpdates() })` pattern
-   - Made `afterEach` cleanup async with proper `act()` unmounting
+2. **Created `renderCanvas()` async helper:**
+   ```typescript
+   const renderCanvas = async () => {
+     let result: ReturnType<typeof render>;
+     await act(async () => {
+       result = render(<Canvas />);
+       // Advance timers to flush any pending effects
+       vi.advanceTimersByTime(0);
+     });
+     return result!;
+   };
+   ```
 
-3. **Documentation update**:
-   - Added Round 163 fix note to file header comment
+3. **Converted all tests to async:**
+   - All test functions that use `renderCanvas()` are now `async`
+   - All `fireEvent.click()` calls wrapped in `await act(async () => { ... })`
+
+4. **Documentation update:**
+   - Added Round 164 fix note to file header comment explaining the changes
 
 ## Acceptance Criteria Audit
 
 | ID | Criterion | Status | Evidence |
 |----|-----------|--------|----------|
-| AC-163-001 | recipeIntegration.test.tsx runs with 0 `act()` warnings | **VERIFIED** | `grep -i "act.*warning" | wc -l` → 0 |
-| AC-163-002 | All state-mutating store calls wrapped in `act()` | **VERIFIED** | Code review confirms all 10+ store methods wrapped |
-| AC-163-003 | All 70 tests in recipeIntegration.test.tsx pass | **VERIFIED** | `npm test -- --run src/__tests__/recipeIntegration.test.tsx` → 70 passed |
-| AC-163-004 | Full test suite passes | **VERIFIED** | `npm test -- --run` → 238 files, 6865 tests |
-| AC-163-005 | Build passes with bundle ≤ 512 KB | **VERIFIED** | `index-BTq2IoQH.js: 435.79 kB (442,534 bytes)` |
+| AC-164-001 | Canvas.test.tsx runs with 0 `act()` warnings | **VERIFIED** | `grep -i "act.*warning" | wc -l` → 0 |
+| AC-164-002 | All state-mutating store calls wrapped in `act()` | **VERIFIED** | All `render()` and `fireEvent.click()` calls properly wrapped |
+| AC-164-003 | All Canvas tests pass | **VERIFIED** | `npm test -- --run src/components/Editor/__tests__/Canvas.test.tsx` → 20 tests passing |
+| AC-164-004 | Full test suite continues to pass | **VERIFIED** | `npm test -- --run` → 238 files, 6865 tests |
+| AC-164-005 | Build passes with bundle ≤ 512 KB | **VERIFIED** | `index-BTq2IoQH.js: 435.79 kB (442,534 bytes)` |
 
 ## Build/Test Commands
 
 ```bash
-# Run recipeIntegration test file
-npm test -- --run src/__tests__/recipeIntegration.test.tsx
-# Result: 70 tests pass, 0 failures, 0 act() warnings
+# Run Canvas test file
+npm test -- --run src/components/Editor/__tests__/Canvas.test.tsx
+# Result: 20 tests pass, 0 failures, 0 act() warnings
 
 # Check for act() warnings
-npm test -- --run src/__tests__/recipeIntegration.test.tsx 2>&1 | grep -i "act.*warning" | wc -l
+npm test -- --run src/components/Editor/__tests__/Canvas.test.tsx 2>&1 | grep -i "act.*warning" | wc -l
 # Result: 0 warnings
 
 # Run full test suite
@@ -88,12 +96,12 @@ npm run build
 
 ## Test Count Progression
 
-- Round 162 baseline: 6865 tests (238 test files)
-- Round 163 target: Maintain ≥ 6865 tests (238 test files)
-- Round 163 actual: 6865 tests (238 test files)
-  - Tests modified: 1 (recipeIntegration.test.tsx)
+- Round 163 baseline: 6865 tests (238 test files)
+- Round 164 target: Maintain ≥ 6865 tests (238 test files)
+- Round 164 actual: 6865 tests (238 test files)
+  - Tests modified: 1 (Canvas.test.tsx)
   - Test count change: 0 (fix was proper wrapping, not new tests)
-- Delta: 0 tests (no new tests needed, fix was proper wrapping)
+- Delta: 0 tests (no new tests needed, fix was proper async handling)
 
 ## Known Risks
 
@@ -101,12 +109,12 @@ None — All acceptance criteria met
 
 ## Known Gaps
 
-None — Round 163 contract scope fully implemented
+None — Round 164 contract scope fully implemented
 
 ## QA Evaluation Summary
 
 ### Feature Completeness
-- 1 acceptance criterion (AC-163-002) with specific fix implemented
+- 1 acceptance criterion (AC-164-002) with specific fix implemented
 - All 5 acceptance criteria verified and passing
 - Test file properly wraps state mutations in `act()`
 
@@ -117,25 +125,26 @@ None — Round 163 contract scope fully implemented
 - Build passes (435.79 KB < 512 KB limit)
 
 ### Code Quality
-- Comprehensive change: wrapped all state-mutating store calls in `act()`
-- Added async `act()` handling for React 18 concurrent rendering
-- Follows React Testing Library best practices
+- Minimal, focused changes to the test file only
+- Added `flushUpdates()` helper with proper fake timer handling
+- Added `renderCanvas()` async helper for consistent async rendering
+- Wrapped all `render()` and `fireEvent.click()` calls in `act()`
+- Follows React Testing Library best practices for React 18
 - No changes to production code
 
 ### Operability
-- `npm test -- --run src/__tests__/recipeIntegration.test.tsx` runs 70 tests, all passing, 0 act() warnings
+- `npm test -- --run src/components/Editor/__tests__/Canvas.test.tsx` runs 20 tests, all passing, 0 act() warnings
 - `npm test -- --run` runs 238 files, 6865 tests
 - `npx tsc --noEmit` exits code 0
 - Build produces 435.79 KB (81,754 bytes under 512 KB budget)
 
 ## Done Definition Verification
 
-1. ✅ `npm test -- --run src/__tests__/recipeIntegration.test.tsx` exits with code 0
-2. ✅ No `act()` warnings appear in recipeIntegration.test.tsx output (0 warnings)
-3. ✅ All 70 tests in recipeIntegration.test.tsx pass
-4. ✅ `npm test -- --run` shows 238 test files, all passing
-5. ✅ Total test count ≥ 6865 (6865 tests)
-6. ✅ `npm run build` succeeds with bundle ≤ 512 KB (435.79 KB)
+1. ✅ `npm test -- --run src/components/Editor/__tests__/Canvas.test.tsx` exits with code 0
+2. ✅ No `act()` warnings appear in Canvas.test.tsx output (0 warnings)
+3. ✅ All 20 tests in Canvas.test.tsx pass
+4. ✅ `npm test -- --run` shows 238 test files, all passing (6865 tests)
+5. ✅ `npm run build` succeeds with bundle ≤ 512 KB (435.79 KB)
 
 ---
 
@@ -146,5 +155,6 @@ None — Round 163 contract scope fully implemented
 | 161 | Create ChallengeObjectives.test.tsx | COMPLETE |
 | 162 | Fix act() warning in AchievementList.test.tsx | COMPLETE |
 | 163 | Fix 22 act() warnings in recipeIntegration.test.tsx | COMPLETE |
+| 164 | Fix act() wrapping in Canvas.test.tsx | COMPLETE |
 
 All prior round deliverables remain verified.
