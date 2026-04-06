@@ -1378,16 +1378,23 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
     }
   }, [isDrawingCircuitWire, finishCircuitWireDrawing, cancelCircuitWireDrawing, startCircuitWireDrawing]);
   
-  // Round 123: Keyboard handler for circuit node deletion
+  // Round 123: Keyboard handler for circuit node deletion and wire drawing
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't interfere with text inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      
+      // Round 173: Escape cancels wire drawing
+      if (e.key === 'Escape' && isDrawingCircuitWire) {
+        e.preventDefault();
+        cancelCircuitWireDrawing();
+        return;
+      }
+      
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Don't interfere with text inputs
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-          return;
-        }
-        
         // Delete selected circuit node
         if (selectedCircuitNodeId) {
           e.preventDefault();
@@ -1405,7 +1412,7 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedCircuitNodeId, selectedCircuitWireId, removeCircuitNode, removeCircuitWire]);
+  }, [isDrawingCircuitWire, selectedCircuitNodeId, selectedCircuitWireId, removeCircuitNode, removeCircuitWire, cancelCircuitWireDrawing]);
   
   // Round 123: Get port position for circuit wire connections
   const getCircuitPortPosition = useCallback((nodeId: string, portIndex: number, isOutput: boolean): { x: number; y: number } | null => {
@@ -1439,10 +1446,11 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
   }, [circuitNodes]);
   
   // Round 123: Get circuit wire start point from wireStart state
-  const getCircuitWireStartPoint = useCallback((): { x: number; y: number } | null => {
+  // Memoize the start point to avoid recalculating during render
+  const circuitWireStartPoint = useMemo(() => {
     if (!circuitWireStart) return null;
     return getCircuitPortPosition(circuitWireStart.nodeId, circuitWireStart.portIndex, true);
-  }, [circuitWireStart, getCircuitPortPosition]);
+  }, [circuitWireStart, getCircuitPortPosition, circuitNodes]);
   
   // Grid pattern
   const gridSize = 20;
@@ -1643,12 +1651,13 @@ export function Canvas({ onModuleValidationClick }: CanvasProps = {}) {
               );
             })}
             
-            {/* Circuit Wire Preview */}
-            {isDrawingCircuitWire && circuitWirePreviewEnd && getCircuitWireStartPoint() && (
+            {/* Circuit Wire Preview - Round 173: Wire drawing visualization */}
+            {isDrawingCircuitWire && circuitWirePreviewEnd && circuitWireStartPoint && (
               <WirePreview
-                startPoint={getCircuitWireStartPoint()!}
+                startPoint={circuitWireStartPoint}
                 endPoint={circuitWirePreviewEnd}
                 isValid={true}
+                data-testid="wire-preview"
               />
             )}
           </g>

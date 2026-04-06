@@ -1112,14 +1112,15 @@ describe('useCircuitCanvasStore', () => {
       expect(wire).toBeDefined();
     });
 
-    it('should not create duplicate wires for self-loop', () => {
+    it('should reject self-loop wire connections', () => {
       const node = useCircuitCanvasStore.getState().addCircuitNode('input', 100, 100);
       
-      useCircuitCanvasStore.getState().addCircuitWire(node.id, node.id, 0);
-      useCircuitCanvasStore.getState().addCircuitWire(node.id, node.id, 0);
+      // Self-loop should be rejected
+      const wire = useCircuitCanvasStore.getState().addCircuitWire(node.id, node.id, 0);
       
       const { wires } = useCircuitCanvasStore.getState();
-      expect(wires).toHaveLength(1);
+      expect(wires).toHaveLength(0);
+      expect(wire).toBe(null);
     });
 
     it('should handle removing node that is source of multiple wires', () => {

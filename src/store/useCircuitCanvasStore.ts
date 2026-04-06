@@ -528,6 +528,12 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
         return state;
       }
       
+      // Round 173: Reject self-connections
+      if (sourceNodeId === targetNodeId) {
+        console.warn('Cannot create wire from a node to itself');
+        return state;
+      }
+      
       // Round 144: Check layer isolation
       if (sourceNode.layerId && targetNode.layerId && sourceNode.layerId !== targetNode.layerId) {
         // Cannot create wire between different layers
