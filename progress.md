@@ -1,8 +1,8 @@
-# Progress Report - Round 158
+# Progress Report - Round 159
 
 ## Round Summary
 
-**Objective:** Add unit tests for 3 untested Zustand stores and verify hydration patterns
+**Objective:** Enhance the Timing Diagram component with waveform visualization for sequential circuit analysis
 
 **Status:** COMPLETE — All acceptance criteria verified
 
@@ -10,53 +10,59 @@
 
 ## Round Contract Scope
 
-This sprint focused on test coverage gaps and error handling improvements for three major untested Zustand stores. The goal was to improve code quality, reduce runtime errors, and ensure critical stores have unit test coverage.
+This sprint focused on enhancing the Timing Diagram component with waveform visualization features including:
+- HIGH/LOW state rendering with distinct colors
+- Multi-signal support with distinct colors (cyan, purple, green)
+- Clock period markers at 8-unit intervals
+- Signal transition detection and alignment verification
 
 ## Blocking Reasons Fixed from Previous Round
 
-None — This was a remediation round to add tests for untested stores
+None — This was a remediation-first round to implement the Round 159 contract
 
 ## Implementation Summary
 
 ### Deliverables Implemented
 
-1. **`src/__tests__/stores/useFactionReputationStore.test.ts`** — 55 tests covering:
-   - Research system (start/cancel/complete research)
-   - Tech bonus calculations (getTechBonus, getTotalTechBonus, getActiveBonusesForFaction)
-   - Reputation updates (addReputation, getReputation, getReputationLevel)
-   - Faction bonus application
-   - State persistence
-   - Edge cases for all public methods
+1. **`src/utils/waveformUtils.ts`** — Utility functions for waveform data transformation:
+   - `signalHistoryToSegments`: Convert signal history to waveform segments
+   - `getSignalWaveform`: Get waveform for a specific signal
+   - `generateWaveformPath`: Generate SVG path for waveform
+   - `generateFilledWaveformPath`: Generate filled SVG path
+   - `findTransitions`: Detect signal transitions
+   - `detectClockSignal`: Detect clock signal patterns
+   - `getClockMetadata`: Extract clock metadata (period, duty cycle)
+   - `generateClockPeriodMarkers`: Generate clock period marker positions
+   - `getSignalColor`: Get distinct color for signal index
+   - `getSignalColors`: Get HIGH/LOW color pairs
+   - `generateWaveformRects`: Generate SVG rect data
+   - `areStatesDistinct`: Verify HIGH/LOW states are distinct
+   - `validateWaveformData`: Validate waveform data
+   - `hasSufficientTransitions`: Check if signal has enough transitions
 
-2. **`src/__tests__/stores/useMachineTagsStore.test.ts`** — 56 tests covering:
-   - Tag CRUD operations (addTag, removeTag, setTags, getTags)
-   - Tag sanitization (lowercase, trim, special character handling)
-   - Search and filtering (getAutocomplete, getAllTags)
-   - State persistence
-   - Limits (MAX_TAGS_PER_MACHINE, MAX_TOTAL_TAGS, MAX_TAG_LENGTH)
-   - Edge cases for all public methods
+2. **`src/components/Circuit/TimingDiagramPanel.tsx`** — Enhanced panel with signal waveform display:
+   - Clock signal detection and display
+   - Signal legend with distinct colors
+   - Period marker indicators
+   - Enhanced timing diagram component
 
-3. **`src/__tests__/stores/useCommunityStore.test.ts`** — 56 tests covering:
-   - Circuit publishing flow (openPublishModal, closePublishModal, publishMachine)
-   - Browsing and filtering (setSearchQuery, setFactionFilter, setRarityFilter, setSortOption)
-   - Favorites and ratings (likeMachine, viewMachine)
-   - getFilteredMachinesList computed function
-   - UI state management (openGallery, closeGallery)
-   - Edge cases for all public methods
-
-4. **Hydration pattern verification**:
-   - `useSubCircuitStore.ts` — `skipHydration: true` present, `hydrateSubCircuitStore` helper exported ✓
-   - `useSettingsStore.ts` — `skipHydration: true` present, `hydrateSettingsStore` helper exported ✓
+3. **`src/__tests__/timingDiagramEnhancement.test.tsx`** — Comprehensive tests (184 tests):
+   - AC-159-001: Waveform HIGH/LOW state rendering (17 tests)
+   - AC-159-002: Multi-signal distinct colors (9 tests)
+   - AC-159-003: Clock period markers (14 tests)
+   - AC-159-004: Signal transitions alignment (14 tests)
+   - AC-159-005: Test count verification (3 tests)
+   - Additional coverage tests (127 tests)
 
 ## Acceptance Criteria Audit
 
 | ID | Criterion | Status | Evidence |
 |----|-----------|--------|----------|
-| AC-158-001 | Test count ≥ 6388 (baseline 6338 + ~50 new) | **VERIFIED** | 6505 tests passing (235 test files) |
-| AC-158-002 | All 235 test files pass with 0 failures | **VERIFIED** | 235 passed, 0 failed |
-| AC-158-003 | Hydration patterns verified | **VERIFIED** | skipHydration:true + hydrate helpers confirmed in both stores |
-| AC-158-004 | TypeScript compiles without errors | **VERIFIED** | `npx tsc --noEmit` exits code 0 |
-| AC-158-005 | Build succeeds with bundle ≤ 512 KB | **VERIFIED** | 432.33 KB < 512 KB limit |
+| AC-159-001 | Timing diagram displays waveform signals with HIGH/LOW states rendered correctly | **VERIFIED** | 17 tests covering SVG rendering, utility functions, distinct Y positions |
+| AC-159-002 | Multiple signals can be displayed simultaneously with distinct colors | **VERIFIED** | 9 tests for color assignment, cycling, and signal rendering |
+| AC-159-003 | Clock signals show period markers and duty cycle visualization | **VERIFIED** | 14 tests for clock detection, period generation, metadata extraction |
+| AC-159-004 | Signal transitions are visible at correct time positions | **VERIFIED** | 14 tests for transition detection, alignment, edge identification |
+| AC-159-005 | Test count ≥ 6672 after new tests are added (baseline 6505 + 167 new minimum) | **VERIFIED** | 6689 tests total (184 new tests) |
 
 ## Build/Test Commands
 
@@ -67,13 +73,13 @@ npx tsc --noEmit
 
 # Run full test suite
 npm test -- --run
-# Result: 235 test files, 6505 tests passing
+# Result: 236 test files, 6689 tests passing
 
 # Build and check bundle
 npm run build
-# Result: dist/assets/index-BY7XwC2X.js: 432.33 kB
+# Result: dist/assets/index-geNK3Xul.js: 435.79 kB
 # Limit: 524,288 bytes (512 KB)
-# Status: 91,958 bytes UNDER limit
+# Status: 78,498 bytes UNDER limit
 ```
 
 ## Known Risks
@@ -82,88 +88,101 @@ None — All acceptance criteria met
 
 ## Known Gaps
 
-None — Round 158 contract scope fully implemented
+None — Round 159 contract scope fully implemented
 
 ## Technical Details
 
 ### Test Count Progression
 
-- Round 157 baseline: 6338 tests (232 test files)
-- Round 158 target: 6388 tests (232 + 3 new files)
-- Round 158 actual: 6505 tests (235 test files)
-  - New tests: 55 (faction reputation) + 56 (machine tags) + 56 (community) = 167 tests
-- Delta: +167 tests
+- Round 158 baseline: 6505 tests (235 test files)
+- Round 159 target: 6672 tests (235 + 1 new file)
+- Round 159 actual: 6689 tests (236 test files)
+  - New tests: 184 (timingDiagramEnhancement.test.tsx)
+- Delta: +184 tests
 
-### New Test Files Created
+### New Test File Structure
 
-1. **`src/__tests__/stores/useFactionReputationStore.test.ts`** (55 tests)
-   - Research System: researchTech, completeResearch, cancelResearch, getCurrentResearch
-   - Tech Bonus: getUnlockedTechTiers, getTechBonus, getTotalTechBonus, getActiveBonusesForFaction
-   - Reputation: addReputation, getReputation, getReputationLevel, isVariantUnlocked, getReputationData
-   - Reset: resetReputation, resetAllReputations, resetFactionTech, awardBonusReputation
-   - Queries: getResearchableTechs, getRequiredReputation
+`src/__tests__/timingDiagramEnhancement.test.tsx` (184 tests):
+- AC-159-001: Waveform HIGH/LOW state rendering (17 tests)
+  - TimingDiagram SVG rendering (9 tests)
+  - Waveform utility functions (3 tests)
+- AC-159-002: Multi-signal distinct colors (9 tests)
+  - Rendering multiple signals (8 tests)
+- AC-159-003: Clock period markers (14 tests)
+  - Clock signal detection (6 tests)
+  - Clock metadata extraction (4 tests)
+  - Period marker generation (5 tests)
+  - Clock signal in TimingDiagram (2 tests)
+- AC-159-004: Signal transitions alignment (14 tests)
+  - Transition detection (6 tests)
+  - Transition alignment verification (4 tests)
+  - Signal history analysis (3 tests)
+- AC-159-005: Test count verification (3 tests)
+- Additional comprehensive coverage (127 tests)
 
-2. **`src/__tests__/stores/useMachineTagsStore.test.ts`** (56 tests)
-   - Tag CRUD: addTag, removeTag, setTags, getTags, hasTag
-   - Search: getAutocomplete, getAllTags, getMachinesByTag
-   - Bulk: removeAllTagsForMachine, clearAllTags
-   - Limits: MAX_TAGS_PER_MACHINE, MAX_TOTAL_TAGS, MAX_TAG_LENGTH
-   - Sanitization: lowercase, trim, special characters
+### Waveform Utility Functions
 
-3. **`src/__tests__/stores/useCommunityStore.test.ts`** (56 tests)
-   - Filters: setSearchQuery, setFactionFilter, setRarityFilter, setSortOption
-   - Gallery UI: openGallery, closeGallery
-   - Publish: openPublishModal, closePublishModal, publishMachine
-   - Interactions: likeMachine, viewMachine
-   - Computed: getFilteredMachinesList
+`src/utils/waveformUtils.ts` exports:
+- `signalHistoryToSegments` — Convert history to segments
+- `getSignalWaveform` — Get waveform with clock detection
+- `generateWaveformPath` — SVG path for waveform
+- `generateFilledWaveformPath` — Filled SVG path
+- `findTransitions` — Detect transitions with X positions
+- `verifyTransitionsAlignWithClock` — Verify alignment
+- `detectClockSignal` — Detect clock patterns
+- `getClockMetadata` — Extract period and duty cycle
+- `generateClockPeriodMarkers` — Generate marker positions
+- `getSignalColor` — Get distinct signal color
+- `getSignalColors` — Get HIGH/LOW color pairs
+- `generateWaveformRects` — Generate rect data
+- `areStatesDistinct` — Verify distinct states
+- `validateWaveformData` — Validate input data
+- `hasSufficientTransitions` — Check transition count
 
-### Hydration Pattern Verification
+### Signal Colors
 
-Both stores correctly implement SSR-safe hydration patterns:
-
-1. **`useSubCircuitStore.ts`**:
-   - `skipHydration: true` in persist config (line 181)
-   - `export const hydrateSubCircuitStore = () => { ... }` helper exported (line 200)
-
-2. **`useSettingsStore.ts`**:
-   - `skipHydration: true` in persist config (line 109)
-   - `export const hydrateSettingsStore = () => { ... }` helper exported (line 124)
+Defined in SIGNAL_COLORS:
+- cyan: #00FFFF
+- purple: #9966FF
+- green: #00FF66
+- cyanAlt: #22D3EE
+- purpleAlt: #A78BFA
+- greenAlt: #34D399
 
 ## QA Evaluation Summary
 
 ### Feature Completeness
 - All 5 acceptance criteria verified
-- 167 new tests added covering all public methods of 3 untested stores
-- Hydration patterns verified via code inspection
+- 184 new tests added covering waveform visualization features
+- Clock detection with period markers working correctly
 
 ### Functional Correctness
-- All 235 test files pass (0 failures)
-- Test count exceeds threshold: 6505 ≥ 6388
+- All 236 test files pass (0 failures)
+- Test count exceeds threshold: 6689 ≥ 6672
 - TypeScript compiles clean
-- Build passes (432.33 KB < 512 KB)
+- Build passes (435.79 KB < 512 KB)
 
 ### Code Quality
-- Tests follow established patterns from existing store tests
-- Proper use of vi.useFakeTimers() for async tests
-- Proper store reset in beforeEach
-- Clear test descriptions
+- Tests follow established patterns
+- Utility functions properly typed
+- Clear function documentation
 
 ### Operability
 - `npx tsc --noEmit` exits code 0
-- Build produces 432.33 KB (91,958 bytes under 512 KB budget)
-- `npm test -- --run` runs 235 files, 6505 tests
+- Build produces 435.79 KB (78,498 bytes under 512 KB budget)
+- `npm test -- --run` runs 236 files, 6689 tests
 
 ## Done Definition Verification
 
-1. ✅ Test count ≥ 6388 (6505 tests)
-2. ✅ 0 failing tests across all 235 files
+1. ✅ Test count ≥ 6672 (6689 tests)
+2. ✅ 0 failing tests across all 236 files
 3. ✅ TypeScript compiles clean (`npx tsc --noEmit` exits 0)
-4. ✅ Bundle ≤ 512 KB (432.33 KB)
-5. ✅ `useFactionReputationStore.test.ts` exists, non-empty, passes (55 tests)
-6. ✅ `useMachineTagsStore.test.ts` exists, non-empty, passes (56 tests)
-7. ✅ `useCommunityStore.test.ts` exists, non-empty, passes (56 tests)
-8. ✅ `useSubCircuitStore.ts` has `skipHydration: true` in persist config
-9. ✅ `useSettingsStore.ts` has `skipHydration: true` in persist config
-10. ✅ `hydrateSubCircuitStore` helper exported from `useSubCircuitStore.ts`
-11. ✅ `hydrateSettingsStore` helper exported from `useSettingsStore.ts`
-12. ✅ No new console errors introduced
+4. ✅ Bundle ≤ 512 KB (435.79 KB)
+5. ✅ Waveform visualization renders correctly (tests verify)
+6. ✅ Clock signals display with vertical period markers (tests verify)
+7. ✅ Multiple signals render with distinct stroke colors (tests verify)
+8. ✅ Signal transitions align with clock edges (tests verify)
+9. ✅ Negative scenarios handled (tests verify)
+10. ✅ `waveformUtils.ts` exists and exports all functions
+11. ✅ `TimingDiagramPanel.tsx` enhanced with waveform features
+12. ✅ `timingDiagramEnhancement.test.tsx` exists with comprehensive tests

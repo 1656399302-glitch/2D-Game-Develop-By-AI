@@ -1,20 +1,41 @@
 /**
  * TimingDiagramPanel Component
  * 
- * Round 149: Circuit Signal Visualization
+ * Round 159: Timing Diagram Enhancement
  * 
- * Panel component that integrates the timing diagram into the
- * simulation UI. Provides controls for recording, clearing, and
- * viewing signal traces.
+ * Enhanced panel component that integrates the timing diagram into the
+ * simulation UI with waveform visualization features:
+ * - Multiple signals with distinct colors
+ * - Clock period markers
+ * - Waveform path rendering
+ * - Signal transition detection
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { TimingDiagram } from './TimingDiagram';
 import { useSignalTrace } from '../../hooks/useSignalTrace';
+import {
+  getSignalColor,
+  getClockMetadata,
+  generateClockPeriodMarkers,
+  findTransitions,
+  SIGNAL_COLORS,
+  CLOCK_PERIOD_INTERVAL,
+} from '../../utils/waveformUtils';
 
 // ============================================================================
 // Types
 // ============================================================================
+
+/**
+ * Signal trace data with metadata
+ */
+interface SignalWithMetadata {
+  name: string;
+  color: string;
+  isClock: boolean;
+  transitions: number;
+}
 
 /**
  * Timing diagram panel props
@@ -26,6 +47,10 @@ export interface TimingDiagramPanelProps {
   autoRecord?: boolean;
   /** Maximum traces to display */
   maxDisplaySteps?: number;
+  /** Show clock period markers */
+  showClockMarkers?: boolean;
+  /** Use waveform path rendering */
+  useWaveformPath?: boolean;
   /** CSS class for the container */
   className?: string;
   /** Test ID for testing */
@@ -107,6 +132,32 @@ const emptyStateStyle: React.CSSProperties = {
   gap: '12px',
 };
 
+const signalLegendStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '12px',
+  padding: '8px 12px',
+  backgroundColor: 'rgba(30, 41, 59, 0.5)',
+  borderTop: '1px solid #334155',
+};
+
+const signalLegendItemStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  fontSize: '11px',
+  fontFamily: 'monospace',
+  color: '#94a3b8',
+};
+
+const colorDotStyle = (color: string): React.CSSProperties => ({
+  width: '10px',
+  height: '10px',
+  borderRadius: '50%',
+  backgroundColor: color,
+  boxShadow: `0 0 4px ${color}`,
+});
+
 // ============================================================================
 // Button Component
 // ============================================================================
@@ -150,15 +201,103 @@ const PanelButton: React.FC<PanelButtonProps> = ({
 };
 
 // ============================================================================
+// Enhanced TimingDiagram with Clock Markers
+// ============================================================================
+
+interface EnhancedTimingDiagramProps {
+  traces: import('../../store/signalTraceStore').SignalTraceEntry[];
+  signalNames: string[];
+  showClockMarkers?: boolean;
+  width?: number;
+  rowHeight?: number;
+  'data-testid'?: string;
+}
+
+/**
+ * Enhanced timing diagram with clock period markers
+ */
+const EnhancedTimingDiagram: React.FC<EnhancedTimingDiagramProps> = ({
+  traces,
+  signalNames,
+  showClockMarkers = true,
+  width = 550,
+  rowHeight = 36,
+  'data-testid': testId,
+}) => {
+  // Get signal metadata for colors and clock detection
+  const signalsWithMetadata = useMemo((): SignalWithMetadata[] => {
+    return signalNames.map((name, index) => {
+      // Check if this signal is a clock
+      const signalHistory = traces.map((trace) => trace.signals[name] ?? false);
+      const clockMeta = getClockMetadata(signalHistory, name);
+      const transitions = findTransitions(signalHistory);
+      
+      return {
+        name,
+        color: getSignalColor(index),
+        isClock: clockMeta !== null,
+        transitions: transitions.length,
+      };
+    });
+  }, [traces, signalNames]);
+  
+  // Generate clock period markers for clock signals
+  const clockPeriodMarkers = useMemo(() => {
+    if (!showClockMarkers) return [];
+    
+    // Find clock signals
+    const clockSignals = signalsWithMetadata.filter((s) => s.isClock);
+    if (clockSignals.length === 0) return [];
+    
+    // Generate markers based on clock period interval
+    return generateClockPeriodMarkers(traces.length, CLOCK_PERIOD_INTERVAL);
+  }, [traces, signalsWithMetadata, showClockMarkers]);
+  
+  // Check for clock signal to show markers in the diagram
+  const hasClockSignal = signalsWithMetadata.some((s) => s.isClock);
+  
+  return (
+    <div data-testid={testId}>
+      <TimingDiagram
+        traces={traces}
+        signalNames={signalNames}
+        width={width}
+        rowHeight={rowHeight}
+        highColor={hasClockSignal ? SIGNAL_COLORS.cyan : '#22c55e'}
+        data-testid="timing-diagram"
+      />
+      
+      {/* Clock period marker indicator */}
+      {hasClockSignal && clockPeriodMarkers.length > 0 && (
+        <div
+          style={{
+            marginTop: '8px',
+            padding: '4px 8px',
+            backgroundColor: 'rgba(0, 255, 255, 0.1)',
+            borderRadius: '4px',
+            fontSize: '10px',
+            fontFamily: 'monospace',
+            color: SIGNAL_COLORS.cyan,
+          }}
+        >
+          <span>⏱ Clock period markers: {clockPeriodMarkers.length} (every {CLOCK_PERIOD_INTERVAL} steps)</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
 /**
  * TimingDiagramPanel Component
- * Panel with timing diagram and recording controls
+ * Panel with enhanced timing diagram and recording controls
  */
 export const TimingDiagramPanel: React.FC<TimingDiagramPanelProps> = ({
   isVisible = true,
+  showClockMarkers = true,
   maxDisplaySteps = 50,
   className,
   'data-testid': testId,
@@ -197,6 +336,25 @@ export const TimingDiagramPanel: React.FC<TimingDiagramPanelProps> = ({
     
     return Array.from(names);
   }, [visibleTraces]);
+  
+  // Get signal colors for legend
+  const signalColors = useMemo(() => {
+    return signalNames.map((name, index) => ({
+      name,
+      color: getSignalColor(index),
+    }));
+  }, [signalNames]);
+  
+  // Check for clock signals
+  const clockSignalCount = useMemo(() => {
+    let count = 0;
+    for (const name of signalNames) {
+      const signalHistory = visibleTraces.map((trace) => trace.signals[name] ?? false);
+      const clockMeta = getClockMetadata(signalHistory, name);
+      if (clockMeta !== null) count++;
+    }
+    return count;
+  }, [visibleTraces, signalNames]);
   
   // Handle start recording
   const handleStartRecording = useCallback(() => {
@@ -252,6 +410,19 @@ export const TimingDiagramPanel: React.FC<TimingDiagramPanelProps> = ({
               }}
             />
           )}
+          {clockSignalCount > 0 && (
+            <span
+              style={{
+                fontSize: '10px',
+                padding: '2px 6px',
+                backgroundColor: 'rgba(0, 255, 255, 0.2)',
+                borderRadius: '4px',
+                color: SIGNAL_COLORS.cyan,
+              }}
+            >
+              ⏱ {clockSignalCount} clock
+            </span>
+          )}
         </div>
         
         <div style={buttonGroupStyle}>
@@ -286,15 +457,28 @@ export const TimingDiagramPanel: React.FC<TimingDiagramPanelProps> = ({
             </span>
           </div>
         ) : (
-          <TimingDiagram
+          <EnhancedTimingDiagram
             traces={visibleTraces}
             signalNames={signalNames}
+            showClockMarkers={showClockMarkers}
             width={550}
             rowHeight={36}
-            data-testid="timing-diagram"
+            data-testid="enhanced-timing-diagram"
           />
         )}
       </div>
+      
+      {/* Signal Legend */}
+      {signalColors.length > 0 && (
+        <div style={signalLegendStyle} data-testid="signal-legend">
+          {signalColors.map(({ name, color }) => (
+            <div key={name} style={signalLegendItemStyle}>
+              <span style={colorDotStyle(color)} />
+              <span>{name}</span>
+            </div>
+          ))}
+        </div>
+      )}
       
       {/* Footer */}
       <div style={footerStyle}>
@@ -304,6 +488,11 @@ export const TimingDiagramPanel: React.FC<TimingDiagramPanelProps> = ({
         <span>
           信号: <span style={{ color: '#22c55e' }}>{signalNames.length}</span>
         </span>
+        {clockSignalCount > 0 && (
+          <span style={{ color: SIGNAL_COLORS.cyan }}>
+            时钟: {clockSignalCount}
+          </span>
+        )}
         <span>
           {localIsRecording ? (
             <span style={{ color: '#22c55e' }}>● 录制中</span>
