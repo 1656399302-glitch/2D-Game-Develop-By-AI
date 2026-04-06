@@ -105,6 +105,12 @@ interface CircuitCanvasStore extends CanvasCircuitState {
   runCircuitSimulation: () => void;
   resetCircuitSimulation: () => void;
   
+  // Simulation controls (Round 174)
+  simulationStatus: 'idle' | 'running' | 'paused' | 'stopped';
+  runSimulation: () => void;
+  pauseSimulation: () => void;
+  stopSimulation: () => void;
+  
   // Clear
   clearCircuitCanvas: () => void;
   
@@ -341,6 +347,7 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
   wirePreviewEnd: null,
   cycleAffectedNodeIds: [],
   isSimulating: false,
+  simulationStatus: 'idle' as const,
   simulationStepCount: 0,
   // Round 144: Junction and Layer support
   junctions: [],
@@ -807,11 +814,43 @@ export const useCircuitCanvasStore = create<CircuitCanvasStore>((set, _get) => (
       }),
       cycleAffectedNodeIds: result.cycleDetected ? result.skippedNodes : [],
       isSimulating: false,
+      simulationStatus: 'idle' as const,
       simulationStepCount: prevState.simulationStepCount + 1,
     }));
   },
   
   // Reset circuit simulation
+  
+  
+  // Round 174: Simulation control methods
+  runSimulation: () => {
+    const state = _get();
+    state.runCircuitSimulation();
+    set({ simulationStatus: 'running' });
+  },
+  
+  pauseSimulation: () => {
+    set({ simulationStatus: 'paused' });
+  },
+  
+  stopSimulation: () => {
+    // Reset all signals to LOW
+    resetComponentStates();
+    useSignalTraceStore.getState().clearTraces();
+    set((state: CircuitCanvasStore) => ({
+      nodes: state.nodes.map((n: PlacedCircuitNode) => {
+        if (n.type === 'input') {
+          return { ...n, state: false, signal: false } as PlacedInputNode;
+        }
+        return { ...n, signal: false, output: false, inputSignal: false };
+      }),
+      wires: state.wires.map((w: CircuitWire) => ({ ...w, signal: false })),
+      cycleAffectedNodeIds: [],
+      simulationStatus: 'stopped' as const,
+      isSimulating: false,
+    }));
+  },
+  
   resetCircuitSimulation: () => {
     // Reset component states
     resetComponentStates();
